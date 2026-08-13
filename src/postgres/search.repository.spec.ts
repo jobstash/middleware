@@ -169,6 +169,7 @@ describe("SearchRepository", () => {
         placeId: "geonames:2950159",
         canonicalName: "Berlin",
         canonicalSlug: "berlin",
+        kind: "city",
         candidateCount: "1",
       },
     ]);
@@ -180,6 +181,7 @@ describe("SearchRepository", () => {
       placeId: "geonames:2950159",
       canonicalName: "Berlin",
       canonicalSlug: "berlin",
+      kind: "city",
     });
 
     const [sql, parameters] = query.mock.calls[0];

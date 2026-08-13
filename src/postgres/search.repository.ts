@@ -24,6 +24,13 @@ export type ResolvedPlacePillar = {
   placeId: string;
   canonicalName: string;
   canonicalSlug: string;
+  kind:
+    | "city"
+    | "administrative_area"
+    | "world_region"
+    | "business_region"
+    | "country"
+    | "continent";
 };
 
 type PillarJobPayload = Record<string, unknown>;
@@ -631,6 +638,7 @@ export class SearchRepository {
       placeId: string;
       canonicalName: string;
       canonicalSlug: string;
+      kind: ResolvedPlacePillar["kind"];
       candidateCount: string;
     }>(
       `
@@ -639,6 +647,7 @@ export class SearchRepository {
             place.place_id AS "placeId",
             place.canonical_name AS "canonicalName",
             slugify_text(place.canonical_name) AS "canonicalSlug",
+            place.kind,
             (
               place.normalized_name = $1
               OR (
@@ -716,6 +725,7 @@ export class SearchRepository {
             "placeId",
             "canonicalName",
             "canonicalSlug",
+            kind,
             count(*) OVER ()::text AS "candidateCount"
         FROM prominence_ranked
         WHERE population = highest_population
@@ -730,6 +740,7 @@ export class SearchRepository {
       placeId: rows[0].placeId,
       canonicalName: rows[0].canonicalName,
       canonicalSlug: rows[0].canonicalSlug,
+      kind: rows[0].kind,
     };
   }
 

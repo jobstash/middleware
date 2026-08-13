@@ -68,6 +68,8 @@ import {
   JobMarketChangeMetric,
   JobMarketCompensation,
   JobMarketCompensationBand,
+  JobMarketEvidenceLevel,
+  JobMarketFilter,
   JobMarketMomentum,
   JobMarketOverviewData,
   JobMarketPoint,
@@ -222,6 +224,10 @@ export class SearchService {
       }
       const history = rows.map(row => this.marketPoint(row));
       const current = history[history.length - 1];
+      const pillarFilter = await this.marketPillarFilter(
+        rows[0].kind,
+        canonicalSlug,
+      );
       return {
         success: true,
         message: "Retrieved pillar market data",
@@ -231,6 +237,7 @@ export class SearchService {
             kind: rows[0].kind,
             slug: rows[0].slug,
             label: this.marketLabel(rows[0].kind, rows[0].label),
+            filter: pillarFilter,
           },
           current,
           momentum: this.marketMomentum(history),
@@ -1692,24 +1699,96 @@ export class SearchService {
     return establishedLabels[normalized] ?? normalized;
   }
 
+  private marketEvidenceLevel(
+    dimensionKind: string,
+    sampleCount: number,
+    employerCount: number,
+    maxEmployerShare: number | null = null,
+    observedMonthCount: number | null = null,
+  ): JobMarketEvidenceLevel {
+    if (dimensionKind === "organizations") {
+      if (sampleCount >= 10) return "strong";
+      return sampleCount >= 3 ? "limited" : "insufficient";
+    }
+    if (sampleCount < 3 || employerCount < 2) return "insufficient";
+    const strong =
+      sampleCount >= 20 &&
+      employerCount >= 10 &&
+      (maxEmployerShare === null || maxEmployerShare <= 0.2) &&
+      (observedMonthCount === null || observedMonthCount >= 3);
+    return strong ? "strong" : "limited";
+  }
+
+  private async marketPillarFilter(
+    kind: string,
+    slug: string,
+  ): Promise<JobMarketFilter | null> {
+    const mappings: Record<string, JobMarketFilter["paramKey"]> = {
+      tags: "tags",
+      classifications: "classifications",
+      commitments: "commitments",
+      locationTypes: "workModes",
+      organizations: "organizations",
+      investors: "investors",
+      fundingRounds: "fundingRounds",
+      fundingStages: "fundingStages",
+      timezones: "timezones",
+    };
+    const prefix = slug.indexOf("-");
+    const value = prefix >= 0 ? slug.slice(prefix + 1) : slug;
+    if (kind === "seniority") {
+      const seniority = {
+        intern: "1",
+        junior: "2",
+        senior: "3",
+        lead: "4",
+        head: "5",
+      }[value];
+      return seniority ? { paramKey: "seniority", value: seniority } : null;
+    }
+    if (kind === "locations") {
+      const place = await this.searchRepository.resolvePlacePillar(value);
+      if (!place) return null;
+      const paramKey: JobMarketFilter["paramKey"] =
+        place.kind === "city"
+          ? "cities"
+          : place.kind === "country"
+            ? "countries"
+            : place.kind === "continent"
+              ? "continents"
+              : "regions";
+      return { paramKey, value: place.canonicalSlug };
+    }
+    const paramKey = mappings[kind];
+    return paramKey ? { paramKey, value } : null;
+  }
+
   private marketPoint(row: JobMarketMetricRow): JobMarketPoint {
     const sampleCount = Number(row.salarySampleCount);
-    const reliable = sampleCount >= 10;
+    const employerCount = Number(row.salaryEmployerCount ?? 0);
+    const evidenceLevel = this.marketEvidenceLevel(
+      row.kind,
+      sampleCount,
+      employerCount,
+    );
+    const publishable = evidenceLevel !== "insufficient";
+    const reliable = evidenceLevel === "strong";
     const salary: JobMarketSalary = {
-      medianMonthlyUsd: reliable
+      medianMonthlyUsd: publishable
         ? this.roundMarketNumber(row.salaryMedianMonthlyUsd)
         : null,
-      meanMonthlyUsd: reliable
+      meanMonthlyUsd: publishable
         ? this.roundMarketNumber(row.salaryMeanMonthlyUsd)
         : null,
-      p25MonthlyUsd: reliable
+      p25MonthlyUsd: publishable
         ? this.roundMarketNumber(row.salaryP25MonthlyUsd)
         : null,
-      p75MonthlyUsd: reliable
+      p75MonthlyUsd: publishable
         ? this.roundMarketNumber(row.salaryP75MonthlyUsd)
         : null,
       sampleCount,
       coverage: Math.round(Number(row.salaryCoverage) * 10_000) / 10_000,
+      evidenceLevel,
       reliable,
     };
     return {
@@ -1992,27 +2071,35 @@ export class SearchService {
     const employerCount = Number(row.employerCount ?? 0);
     const maxEmployerShare = this.asNumber(row.maxEmployerShare);
     const observedMonthCount = this.asNumber(row.observedMonthCount);
-    const reliable =
-      sampleCount >= 20 &&
-      employerCount >= 10 &&
-      (maxEmployerShare === null || maxEmployerShare <= 0.2) &&
-      (observedMonthCount === null || observedMonthCount >= 3);
+    const evidenceLevel = this.marketEvidenceLevel(
+      row.dimensionKind,
+      sampleCount,
+      employerCount,
+      maxEmployerShare,
+      observedMonthCount,
+    );
+    const publishable = evidenceLevel !== "insufficient";
+    const reliable = evidenceLevel === "strong";
     return {
       segment: row.segment,
       regionSlug: row.regionSlug,
       regionLabel: row.regionLabel,
       regionType: row.regionType,
       countryCode: row.countryCode,
-      medianMonthlyUsd: reliable
+      filter:
+        row.filterKey && row.filterValue
+          ? { paramKey: row.filterKey, value: row.filterValue }
+          : null,
+      medianMonthlyUsd: publishable
         ? this.roundMarketNumber(row.salaryMedianMonthlyUsd)
         : null,
-      p25MonthlyUsd: reliable
+      p25MonthlyUsd: publishable
         ? this.roundMarketNumber(row.salaryP25MonthlyUsd)
         : null,
-      p75MonthlyUsd: reliable
+      p75MonthlyUsd: publishable
         ? this.roundMarketNumber(row.salaryP75MonthlyUsd)
         : null,
-      adjustedPremiumPercent: reliable
+      adjustedPremiumPercent: publishable
         ? this.roundMarketNumber(row.adjustedPremiumPercent)
         : null,
       sampleCount,
@@ -2025,6 +2112,7 @@ export class SearchService {
       activeOnsiteJobs: Number(row.regionalActiveOnsiteJobs ?? 0),
       activeHybridJobs: Number(row.regionalActiveHybridJobs ?? 0),
       activeRemoteJobs: Number(row.regionalActiveRemoteJobs ?? 0),
+      evidenceLevel,
       reliable,
     };
   }

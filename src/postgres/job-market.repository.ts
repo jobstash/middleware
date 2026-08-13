@@ -14,6 +14,7 @@ export interface JobMarketMetricRow extends Record<string, unknown> {
   salaryP25MonthlyUsd: string | null;
   salaryP75MonthlyUsd: string | null;
   salarySampleCount: string;
+  salaryEmployerCount: string;
   salaryCoverage: string;
   source: "reconstructed" | "snapshot";
   sampledAt: string;
@@ -30,9 +31,18 @@ export interface JobMarketGeographyRow extends Record<string, unknown> {
   rangeKey: "90" | "365" | "max";
   dimensionKind: string;
   dimensionSlug: string;
+  regionKey: string;
   regionSlug: string;
   regionLabel: string;
-  regionType: "remote" | "aggregate" | "continent" | "country";
+  regionType:
+    | "remote"
+    | "aggregate"
+    | "continent"
+    | "country"
+    | "region"
+    | "city";
+  filterKey: "cities" | "regions" | "countries" | "continents" | null;
+  filterValue: string | null;
   countryCode: string | null;
   segment: "remote" | "local";
   salaryMedianMonthlyUsd: string | null;
@@ -151,6 +161,8 @@ export class JobMarketRepository {
           metric.salary_p75_monthly_usd::text AS "salaryP75MonthlyUsd",
           COALESCE(metric.salary_sample_count, 0)::text
             AS "salarySampleCount",
+          COALESCE(metric.salary_employer_count, 0)::text
+            AS "salaryEmployerCount",
           COALESCE(metric.salary_coverage, 0)::text AS "salaryCoverage",
           COALESCE(metric.source, dates.source) AS source,
           COALESCE(metric.sampled_at, dates.sampled_at) AS "sampledAt"
@@ -225,8 +237,9 @@ export class JobMarketRepository {
         metric.salary_mean_monthly_usd::text AS "salaryMeanMonthlyUsd",
         metric.salary_p25_monthly_usd::text AS "salaryP25MonthlyUsd",
         metric.salary_p75_monthly_usd::text AS "salaryP75MonthlyUsd",
-        metric.salary_sample_count::text AS "salarySampleCount",
-        metric.salary_coverage::text AS "salaryCoverage",
+          metric.salary_sample_count::text AS "salarySampleCount",
+          metric.salary_employer_count::text AS "salaryEmployerCount",
+          metric.salary_coverage::text AS "salaryCoverage",
         metric.source, metric.sampled_at AS "sampledAt",
         COALESCE(windows.current_window_jobs, 0)::text
           AS "currentWindowJobs",
@@ -261,9 +274,12 @@ export class JobMarketRepository {
           metric.range_key AS "rangeKey",
           metric.dimension_kind AS "dimensionKind",
           metric.dimension_slug AS "dimensionSlug",
+          metric.region_key AS "regionKey",
           metric.region_slug AS "regionSlug",
           metric.region_label AS "regionLabel",
           metric.region_type AS "regionType",
+          metric.filter_key AS "filterKey",
+          metric.filter_value AS "filterValue",
           metric.country_code AS "countryCode",
           metric.segment,
           metric.salary_median_monthly_usd::text
@@ -652,9 +668,12 @@ export class JobMarketRepository {
           geography.range_key AS "rangeKey",
           geography.dimension_kind AS "dimensionKind",
           geography.dimension_slug AS "dimensionSlug",
+          geography.region_key AS "regionKey",
           geography.region_slug AS "regionSlug",
           geography.region_label AS "regionLabel",
           geography.region_type AS "regionType",
+          geography.filter_key AS "filterKey",
+          geography.filter_value AS "filterValue",
           geography.country_code AS "countryCode",
           geography.segment, pillar.label,
           geography.salary_median_monthly_usd::text

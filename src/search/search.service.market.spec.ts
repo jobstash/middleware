@@ -20,7 +20,8 @@ const metric = (
   salaryMeanMonthlyUsd: "10500",
   salaryP25MonthlyUsd: "8000",
   salaryP75MonthlyUsd: "12500",
-  salarySampleCount: "12",
+  salarySampleCount: "20",
+  salaryEmployerCount: "10",
   salaryCoverage: "0.1",
   source: "snapshot" as const,
   sampledAt: "2026-08-12T00:15:00.000Z",
@@ -40,9 +41,12 @@ const geography = (
   rangeKey: "max" as const,
   dimensionKind: "market",
   dimensionSlug: "market",
+  regionKey: "synthetic:local",
   regionSlug: "local",
   regionLabel: "All local markets",
   regionType: "aggregate",
+  filterKey: null,
+  filterValue: null,
   countryCode: null,
   segment: "local" as const,
   salaryMedianMonthlyUsd: "9000",
@@ -117,11 +121,13 @@ describe("SearchService job-market intelligence", () => {
     expect(getPillarHistory).toHaveBeenCalledWith("cl-backend", 90);
   });
 
-  it("suppresses salaries below ten samples", async () => {
+  it("publishes limited broad evidence from three jobs and two employers", async () => {
     const service = createService({
       getPillarHistory: jest
         .fn()
-        .mockResolvedValue([metric({ salarySampleCount: "9" })]),
+        .mockResolvedValue([
+          metric({ salarySampleCount: "3", salaryEmployerCount: "2" }),
+        ]),
     });
     const result = await service.getPillarMarket("cl-backend");
     expect(result).toMatchObject({
@@ -129,7 +135,57 @@ describe("SearchService job-market intelligence", () => {
         current: {
           salary: {
             reliable: false,
-            sampleCount: 9,
+            evidenceLevel: "limited",
+            sampleCount: 3,
+            medianMonthlyUsd: 10000,
+          },
+        },
+      },
+    });
+  });
+
+  it("publishes a company benchmark without employer diversity", async () => {
+    const service = createService({
+      getPillarHistory: jest.fn().mockResolvedValue([
+        metric({
+          kind: "organizations",
+          slug: "o-uniswap",
+          label: "Uniswap",
+          salarySampleCount: "3",
+          salaryEmployerCount: "1",
+        }),
+      ]),
+    });
+    const result = await service.getPillarMarket("o-uniswap");
+    expect(result).toMatchObject({
+      data: {
+        pillar: {
+          filter: { paramKey: "organizations", value: "uniswap" },
+        },
+        current: {
+          salary: {
+            evidenceLevel: "limited",
+            medianMonthlyUsd: 10000,
+          },
+        },
+      },
+    });
+  });
+
+  it("withholds a broad cohort dominated by one employer", async () => {
+    const service = createService({
+      getPillarHistory: jest
+        .fn()
+        .mockResolvedValue([
+          metric({ salarySampleCount: "8", salaryEmployerCount: "1" }),
+        ]),
+    });
+    const result = await service.getPillarMarket("cl-backend");
+    expect(result).toMatchObject({
+      data: {
+        current: {
+          salary: {
+            evidenceLevel: "insufficient",
             medianMonthlyUsd: null,
           },
         },
@@ -181,7 +237,7 @@ describe("SearchService job-market intelligence", () => {
     });
   });
 
-  it("serves canonical classification labels and withholds sparse geography", async () => {
+  it("serves canonical labels and marks smaller geography as limited", async () => {
     const service = createService({
       getOverview: jest.fn().mockResolvedValue([
         metric({
@@ -206,6 +262,9 @@ describe("SearchService job-market intelligence", () => {
           regionSlug: "europe",
           regionLabel: "Europe",
           regionType: "continent",
+          regionKey: "continent:europe",
+          filterKey: "continents",
+          filterValue: "europe",
           salarySampleCount: "9",
           employerCount: "8",
         }),
@@ -215,6 +274,9 @@ describe("SearchService job-market intelligence", () => {
           regionSlug: "germany",
           regionLabel: "Germany",
           regionType: "country",
+          regionKey: "geonames:2921044",
+          filterKey: "countries",
+          filterValue: "germany",
           countryCode: "DEU",
           salarySampleCount: "20",
           employerCount: "10",
@@ -241,7 +303,9 @@ describe("SearchService job-market intelligence", () => {
             regionSlug: "europe",
             regionType: "continent",
             reliable: false,
-            medianMonthlyUsd: null,
+            evidenceLevel: "limited",
+            medianMonthlyUsd: 9000,
+            filter: { paramKey: "continents", value: "europe" },
             sampleCount: 9,
             employerCount: 8,
             activeJobs: 42,

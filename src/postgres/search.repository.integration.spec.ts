@@ -180,28 +180,33 @@ describePostgres("SearchRepository PostgreSQL integration", () => {
       placeId: "test:berlin-city",
       canonicalName: "Berlin",
       canonicalSlug: "berlin",
+      kind: "city",
     });
     await expect(repository.resolvePlacePillar("apac")).resolves.toEqual({
       placeId: "test:apac-region",
       canonicalName: "APAC",
       canonicalSlug: "apac",
+      kind: "business_region",
     });
     await expect(repository.resolvePlacePillar("africa")).resolves.toEqual({
       placeId: "test:africa",
       canonicalName: "Africa",
       canonicalSlug: "africa",
+      kind: "continent",
     });
     await expect(repository.resolvePlacePillar("netherlands")).resolves.toEqual(
       {
         placeId: "test:netherlands",
         canonicalName: "The Netherlands",
         canonicalSlug: "the-netherlands",
+        kind: "country",
       },
     );
     await expect(repository.resolvePlacePillar("amsterdam")).resolves.toEqual({
       placeId: "test:amsterdam-nl",
       canonicalName: "Amsterdam",
       canonicalSlug: "amsterdam",
+      kind: "city",
     });
     await expect(
       repository.resolvePlacePillar("springfield"),

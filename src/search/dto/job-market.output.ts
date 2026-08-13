@@ -5,6 +5,27 @@ export type JobMarketDirection =
   | "new"
   | "insufficient";
 
+export type JobMarketEvidenceLevel = "insufficient" | "limited" | "strong";
+
+export interface JobMarketFilter {
+  paramKey:
+    | "tags"
+    | "classifications"
+    | "commitments"
+    | "workModes"
+    | "organizations"
+    | "seniority"
+    | "investors"
+    | "fundingRounds"
+    | "fundingStages"
+    | "cities"
+    | "regions"
+    | "countries"
+    | "continents"
+    | "timezones";
+  value: string;
+}
+
 export interface JobMarketSalary {
   medianMonthlyUsd: number | null;
   meanMonthlyUsd: number | null;
@@ -12,6 +33,7 @@ export interface JobMarketSalary {
   p75MonthlyUsd: number | null;
   sampleCount: number;
   coverage: number;
+  evidenceLevel: JobMarketEvidenceLevel;
   reliable: boolean;
 }
 
@@ -71,7 +93,14 @@ export interface JobMarketCompensation {
   segment: JobMarketSegment;
   regionSlug: string;
   regionLabel: string;
-  regionType: "remote" | "aggregate" | "continent" | "country";
+  regionType:
+    | "remote"
+    | "aggregate"
+    | "continent"
+    | "country"
+    | "region"
+    | "city";
+  filter: JobMarketFilter | null;
   countryCode: string | null;
   medianMonthlyUsd: number | null;
   p25MonthlyUsd: number | null;
@@ -87,6 +116,7 @@ export interface JobMarketCompensation {
   activeOnsiteJobs: number;
   activeHybridJobs: number;
   activeRemoteJobs: number;
+  evidenceLevel: JobMarketEvidenceLevel;
   reliable: boolean;
 }
 
@@ -116,7 +146,12 @@ export interface JobMarketSkillSignal {
 
 export interface PillarMarketData {
   asOf: string;
-  pillar: { kind: string; slug: string; label: string };
+  pillar: {
+    kind: string;
+    slug: string;
+    label: string;
+    filter: JobMarketFilter | null;
+  };
   current: JobMarketPoint;
   momentum: JobMarketMomentum;
   history: JobMarketPoint[];
