@@ -230,6 +230,38 @@ describe("SearchService job-market intelligence", () => {
     });
   });
 
+  it("falls back to the whole market for an unknown classification", async () => {
+    const getGeography = jest.fn().mockResolvedValue([
+      geography({
+        dimensionKind: "market",
+        dimensionSlug: "market",
+        regionSlug: "remote",
+        regionLabel: "Remote",
+      }),
+    ]);
+    const service = createService({
+      getOverview: jest.fn().mockResolvedValue([
+        metric({
+          kind: "market",
+          slug: "market",
+          label: "Crypto Job Market",
+        }),
+        metric({ slug: "cl-engineering", label: "Engineering" }),
+      ]),
+      getGeography,
+    });
+
+    const result = await service.getMarketState("max", "not-a-class");
+
+    expect(result).toMatchObject({
+      data: {
+        selectedClassification: "market",
+        geography: [{ regionSlug: "remote" }],
+      },
+    });
+    expect(getGeography).toHaveBeenCalledWith("market", "max");
+  });
+
   it("ranks statistically rising skills and preserves their evidence", async () => {
     const service = createService({
       getOverview: jest.fn().mockResolvedValue([

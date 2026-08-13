@@ -298,17 +298,24 @@ export class SearchService {
         : classification === "market"
           ? "market"
           : `cl-${slugify(classification)}`;
-      const [overview, geographyRows] = await Promise.all([
-        this.getMarketOverview(),
-        this.jobMarketRepository.getGeography(
-          canonicalClassification,
-          rangeKey,
-        ),
-      ]);
+      const overview = await this.getMarketOverview();
       if (!overview.success || !("data" in overview) || !overview.data) {
         return { success: true, message: "Job market not ready", data: null };
       }
       const overviewData = overview.data;
+      const validClassifications = new Set([
+        "market",
+        ...overviewData.classifications.map(ticker => ticker.slug),
+      ]);
+      const selectedClassification = validClassifications.has(
+        canonicalClassification,
+      )
+        ? canonicalClassification
+        : "market";
+      const geographyRows = await this.jobMarketRepository.getGeography(
+        selectedClassification,
+        rangeKey,
+      );
       return {
         success: true,
         message: "Retrieved job market state",
@@ -316,7 +323,7 @@ export class SearchService {
           ...overviewData,
           completeThrough: overviewData.asOf,
           methodologyVersion: "market-state-v2",
-          selectedClassification: canonicalClassification,
+          selectedClassification,
           range: rangeKey,
           geography: geographyRows.map(row => this.marketCompensation(row)),
         },
