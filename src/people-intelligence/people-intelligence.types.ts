@@ -104,6 +104,98 @@ export type DeveloperReport = {
   }>;
 };
 
+export type DeveloperReportV2Point = PeopleOverview["points"][number] & {
+  oneDayPeople: number;
+  regularPeople: number;
+  sustainedPeople: number;
+  singleChainPeople: number;
+  multiChainPeople: number;
+  unmappedChainPeople: number;
+  newcomerPeople: number;
+  emergingPeople: number;
+  establishedPeople: number;
+};
+
+export type DeveloperReportGrowth = {
+  oneYear: number | null;
+  twoYear: number | null;
+  threeYear: number | null;
+};
+
+export type DeveloperReportV2 = {
+  available: boolean;
+  asOf: string | null;
+  completeThrough: string | null;
+  methodologyVersion: "developer-report-v2";
+  scope: {
+    type: "cohort" | "chain";
+    key: string;
+    label: string;
+    slug: string | null;
+    logoUrl: string | null;
+    overlapping: boolean;
+  };
+  scopes: {
+    cohorts: Array<{
+      cohort: DeveloperCohort;
+      label: string;
+      activePeople: number;
+      activeMaintainers: number;
+      activeOrganizations: number;
+    }>;
+    chains: Array<{
+      chainId: string;
+      chainSlug: string;
+      chainName: string;
+      logoUrl: string | null;
+      activePeople: number;
+      activeMaintainers: number;
+      activeLeads: number;
+      establishedPeople: number;
+      activeOrganizations: number;
+      repositoryCount: number;
+      growth: DeveloperReportGrowth;
+    }>;
+  };
+  coverage: {
+    githubOrganizations: number;
+    chainMappedGithubOrganizations: number;
+    chainMappedPercent: number;
+    note: string;
+  };
+  population: DeveloperReport["population"];
+  current: DeveloperReportV2Point | null;
+  history: DeveloperReportV2Point[];
+  totals: { repositoryCount: number; commitCount: number };
+  repositoryHistory: Array<{ period: string; newRepositories: number }>;
+  breakdown: Array<{
+    key: "internalPeople" | "maintainers" | "leads" | "established";
+    label: string;
+    current: number;
+    growth: DeveloperReportGrowth;
+  }>;
+  organizations: Array<{
+    organizationKey: string;
+    organizationId: string | null;
+    organizationName: string;
+    organizationSlug: string;
+    cohort: DeveloperCohort;
+    logoUrl: string | null;
+    activePeople: number;
+    activeMaintainers: number;
+    activeLeads: number;
+    establishedPeople: number;
+    growth: DeveloperReportGrowth;
+    joins12m: number;
+    exits12m: number;
+    netTeamChange12m: number;
+    commitCount12m: number;
+    mergeCount12m: number;
+    series: Array<{ period: string; activePeople: number }>;
+  }>;
+  movements: DeveloperReport["movements"];
+};
+
 export type PeopleActivityMap = {
   available: boolean;
   asOf: string | null;

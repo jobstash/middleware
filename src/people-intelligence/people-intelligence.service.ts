@@ -6,6 +6,7 @@ import { firstValueFrom } from "rxjs";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import {
   DeveloperReport,
+  DeveloperReportV2,
   DeveloperCohort,
   PeopleActivityMap,
   PeopleAtlasFrame,
@@ -97,6 +98,55 @@ export class PeopleIntelligenceService {
         movements: [],
       },
     );
+  }
+
+  developerReportV2(query: Query = {}): Promise<DeveloperReportV2> {
+    const chain =
+      typeof query.chain === "string" &&
+      /^[a-z0-9][a-z0-9-]{0,119}$/.test(query.chain)
+        ? query.chain
+        : undefined;
+    const cohort = developerCohort(query.cohort);
+    const scorerQuery = chain
+      ? {
+          chain,
+          ...(query.cohort === undefined ? {} : { cohort }),
+        }
+      : { cohort };
+    return this.get("developer-report-v2", scorerQuery, {
+      available: false,
+      asOf: null,
+      completeThrough: null,
+      methodologyVersion: "developer-report-v2",
+      scope: {
+        type: chain ? "chain" : "cohort",
+        key: chain ?? cohort,
+        label: chain ?? cohort,
+        slug: chain ?? null,
+        logoUrl: null,
+        overlapping: Boolean(chain),
+      },
+      scopes: { cohorts: [], chains: [] },
+      coverage: {
+        githubOrganizations: 0,
+        chainMappedGithubOrganizations: 0,
+        chainMappedPercent: 0,
+        note: "Chain cohorts overlap. Global and sector totals count each internal person once.",
+      },
+      population: {
+        label: "Verified internal contributors",
+        definition:
+          "Canonical internal people only; maintainers are internal people who merge pull requests and active leads have recent merge authority.",
+        excludes: ["external contributors", "bots", "banned organizations"],
+      },
+      current: null,
+      history: [],
+      totals: { repositoryCount: 0, commitCount: 0 },
+      repositoryHistory: [],
+      breakdown: [],
+      organizations: [],
+      movements: [],
+    });
   }
 
   activityMap(query: Query): Promise<PeopleActivityMap> {

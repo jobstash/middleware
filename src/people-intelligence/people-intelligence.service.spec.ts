@@ -83,6 +83,72 @@ describe("PeopleIntelligenceService", () => {
     });
   });
 
+  it("proxies a chain-scoped v2 developer report without adding a cohort", async () => {
+    const response = {
+      available: true,
+      asOf: "2026-07-01T00:00:00.000Z",
+      completeThrough: "2026-07-01",
+      methodologyVersion: "developer-report-v2" as const,
+      scope: {
+        type: "chain" as const,
+        key: "ethereum",
+        label: "Ethereum",
+        slug: "ethereum",
+        logoUrl: null,
+        overlapping: true,
+      },
+      scopes: { cohorts: [], chains: [] },
+      coverage: {
+        githubOrganizations: 100,
+        chainMappedGithubOrganizations: 75,
+        chainMappedPercent: 75,
+        note: "Chain cohorts overlap.",
+      },
+      population: {
+        label: "Verified internal contributors",
+        definition: "Canonical internal employees",
+        excludes: ["external contributors", "bots", "banned organizations"],
+      },
+      current: null,
+      history: [],
+      totals: { repositoryCount: 0, commitCount: 0 },
+      repositoryHistory: [],
+      breakdown: [],
+      organizations: [],
+      movements: [],
+    };
+    const get = jest.fn().mockReturnValue(of({ data: response }));
+    const service = new PeopleIntelligenceService({
+      get,
+    } as unknown as HttpService);
+
+    await expect(
+      service.developerReportV2({ chain: "ethereum" }),
+    ).resolves.toEqual(response);
+    expect(get).toHaveBeenCalledWith("/scorer/people/developer-report-v2", {
+      params: { chain: "ethereum" },
+    });
+  });
+
+  it("returns a complete v2 fallback while scorer materializations refresh", async () => {
+    const get = jest
+      .fn()
+      .mockReturnValue(throwError(() => new AxiosError("unavailable")));
+    const service = new PeopleIntelligenceService({
+      get,
+    } as unknown as HttpService);
+
+    await expect(
+      service.developerReportV2({ cohort: "ai" }),
+    ).resolves.toMatchObject({
+      available: false,
+      methodologyVersion: "developer-report-v2",
+      scope: { type: "cohort", key: "ai" },
+      totals: { repositoryCount: 0, commitCount: 0 },
+      repositoryHistory: [],
+    });
+  });
+
   it("returns the movement-flow contract while scorer is unavailable", async () => {
     const get = jest
       .fn()

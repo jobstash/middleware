@@ -11,6 +11,7 @@ import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.
 import { PeopleIntelligenceService } from "./people-intelligence.service";
 import {
   DeveloperReport,
+  DeveloperReportV2,
   PeopleActivityMap,
   PeopleAtlasFrame,
   PeopleDirectoryPage,
@@ -37,6 +38,15 @@ export class PeopleIntelligenceController {
   })
   developerReport(@Query() query: PublicQuery): Promise<DeveloperReport> {
     return this.people.developerReport(query);
+  }
+
+  @Get("developer-report-v2")
+  @ApiOkResponse({
+    description:
+      "Complete-period internal developer report by sector or overlapping chain",
+  })
+  developerReportV2(@Query() query: PublicQuery): Promise<DeveloperReportV2> {
+    return this.people.developerReportV2(query);
   }
 
   @Get("activity-map")
