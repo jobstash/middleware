@@ -19,6 +19,9 @@ import { SitemapJob } from "../dto/pillar-page.output";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 import {
   JobMarketOverviewData,
+  JobMarketSkillDetailData,
+  JobMarketSkillListData,
+  JobMarketStateData,
   PillarMarketData,
 } from "../dto/job-market.output";
 
@@ -35,6 +38,44 @@ export class SearchV2Controller {
   > {
     this.logger.log("/v2/search/market/overview");
     return this.searchService.getMarketOverview();
+  }
+
+  @Get("market/state")
+  @UseGuards(PBACGuard)
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  getMarketState(
+    @Query("range") range = "max",
+    @Query("classification") classification = "market",
+  ): Promise<ResponseWithOptionalData<JobMarketStateData>> {
+    this.logger.log(
+      `/v2/search/market/state?range=${range}&classification=${classification}`,
+    );
+    return this.searchService.getMarketState(range, classification);
+  }
+
+  @Get("market/skills")
+  @UseGuards(PBACGuard)
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  getMarketSkills(
+    @Query("mode") mode = "remote",
+    @Query("sort") sort = "breakout",
+    @Query("q") query = "",
+  ): Promise<ResponseWithOptionalData<JobMarketSkillListData>> {
+    this.logger.log(
+      `/v2/search/market/skills?mode=${mode}&sort=${sort}&q=${query}`,
+    );
+    return this.searchService.getMarketSkills(mode, sort, query);
+  }
+
+  @Get("market/skills/:slug")
+  @UseGuards(PBACGuard)
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  getMarketSkillDetail(
+    @Param("slug") slug: string,
+    @Query("range") range = "max",
+  ): Promise<ResponseWithOptionalData<JobMarketSkillDetailData>> {
+    this.logger.log(`/v2/search/market/skills/${slug}?range=${range}`);
+    return this.searchService.getMarketSkillDetail(slug, range);
   }
 
   @Get("market/pillars/:slug")

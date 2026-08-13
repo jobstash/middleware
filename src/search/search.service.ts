@@ -3,6 +3,7 @@ import * as Sentry from "@sentry/node";
 import { go } from "fuzzysort";
 import { endOfDay, startOfDay, subDays } from "date-fns";
 import { capitalize, lowerCase } from "lodash";
+import { toHeaderCase } from "js-convert-case";
 import {
   ResolvedPlacePillar,
   SearchRepository,
@@ -56,13 +57,23 @@ import { SkillSuggestionsData } from "./dto/skill-suggestions.output";
 import { TeamIntelligenceService } from "src/team-intelligence/team-intelligence.service";
 import {
   JobMarketMetricRow,
+  JobMarketGeographyRow,
   JobMarketRepository,
+  JobMarketSkillRow,
+  JobMarketSkillWeeklyRow,
 } from "src/postgres/job-market.repository";
 import {
+  JobMarketCompensation,
   JobMarketMomentum,
   JobMarketOverviewData,
   JobMarketPoint,
   JobMarketSalary,
+  JobMarketSkillDetailData,
+  JobMarketSkillListData,
+  JobMarketSkillSignal,
+  JobMarketSkillSummary,
+  JobMarketSkillWeeklyPoint,
+  JobMarketStateData,
   JobMarketTicker,
   PillarMarketData,
 } from "./dto/job-market.output";
@@ -188,10 +199,16 @@ export class SearchService {
     try {
       const canonicalSlug = this.marketApiSlug(slug);
       const days = this.marketRangeDays(range);
-      const rows = await this.jobMarketRepository.getPillarHistory(
-        canonicalSlug,
-        days,
-      );
+      const [rows, compensationRows, signalRows] = await Promise.all([
+        this.jobMarketRepository.getPillarHistory(canonicalSlug, days),
+        this.jobMarketRepository.getGeography(
+          canonicalSlug,
+          this.marketRangeKey(range),
+        ),
+        canonicalSlug.startsWith("t-")
+          ? this.jobMarketRepository.getLatestSkillSignals(canonicalSlug)
+          : Promise.resolve([]),
+      ]);
       if (rows.length === 0) {
         return {
           success: true,
@@ -209,11 +226,15 @@ export class SearchService {
           pillar: {
             kind: rows[0].kind,
             slug: rows[0].slug,
-            label: rows[0].label,
+            label: this.marketLabel(rows[0].kind, rows[0].label),
           },
           current,
           momentum: this.marketMomentum(history),
           history,
+          compensation: compensationRows.map(row =>
+            this.marketCompensation(row),
+          ),
+          skillSignals: signalRows.map(row => this.marketSkillSignal(row)),
         },
       };
     } catch (error) {
@@ -227,7 +248,8 @@ export class SearchService {
   > {
     try {
       const rows = await this.jobMarketRepository.getOverview();
-      const tickers = rows.map(row => this.marketTicker(row));
+      const marketRow = rows.find(row => row.slug === "market");
+      const tickers = rows.map(row => this.marketTicker(row, marketRow));
       const market = tickers.find(ticker => ticker.slug === "market");
       if (!market) {
         return { success: true, message: "Job market not ready", data: null };
@@ -236,7 +258,7 @@ export class SearchService {
         ticker => ticker.kind === "classifications",
       );
       const movers = classifications.filter(ticker => ticker.eligibleMover);
-      const moveScore = (ticker: JobMarketTicker) =>
+      const moveScore = (ticker: JobMarketTicker): number =>
         ticker.momentum.direction === "new"
           ? 1_000 + ticker.momentum.currentJobs
           : (ticker.momentum.percentChange ?? 0);
@@ -262,6 +284,152 @@ export class SearchService {
     } catch (error) {
       this.captureDatabaseError("getMarketOverview", error);
       return { success: false, message: "Error retrieving job market" };
+    }
+  }
+
+  async getMarketState(
+    range = "max",
+    classification = "market",
+  ): Promise<ResponseWithOptionalData<JobMarketStateData>> {
+    try {
+      const rangeKey = this.marketRangeKey(range);
+      const canonicalClassification = classification.startsWith("cl-")
+        ? classification
+        : classification === "market"
+          ? "market"
+          : `cl-${slugify(classification)}`;
+      const [overview, geographyRows] = await Promise.all([
+        this.getMarketOverview(),
+        this.jobMarketRepository.getGeography(
+          canonicalClassification,
+          rangeKey,
+        ),
+      ]);
+      if (!overview.success || !("data" in overview) || !overview.data) {
+        return { success: true, message: "Job market not ready", data: null };
+      }
+      const overviewData = overview.data;
+      return {
+        success: true,
+        message: "Retrieved job market state",
+        data: {
+          ...overviewData,
+          completeThrough: overviewData.asOf,
+          methodologyVersion: "market-state-v2",
+          selectedClassification: canonicalClassification,
+          range: rangeKey,
+          geography: geographyRows.map(row => this.marketCompensation(row)),
+        },
+      };
+    } catch (error) {
+      this.captureDatabaseError("getMarketState", error);
+      return { success: false, message: "Error retrieving market state" };
+    }
+  }
+
+  async getMarketSkills(
+    segmentInput = "remote",
+    sortInput = "breakout",
+    query = "",
+  ): Promise<ResponseWithOptionalData<JobMarketSkillListData>> {
+    try {
+      const segment = segmentInput === "local" ? "local" : "remote";
+      const allowedSorts = new Set([
+        "breakout",
+        "repricing",
+        "salary",
+        "demand",
+        "cooling",
+      ]);
+      const sort = allowedSorts.has(sortInput) ? sortInput : "breakout";
+      const [rows, overviewRows] = await Promise.all([
+        this.jobMarketRepository.getSkillSummaries(segment, query.trim()),
+        this.jobMarketRepository.getOverview(),
+      ]);
+      const marketRow = overviewRows.find(row => row.slug === "market");
+      const skills = rows.map(row => this.marketSkillSummary(row, marketRow));
+      const score = (skill: JobMarketSkillSummary): number => {
+        const repricing = skill.signal?.adjustedChangePercent ?? -Infinity;
+        const demand = skill.momentum.marketRelativeScore ?? -Infinity;
+        const salary = skill.current.medianMonthlyUsd ?? -Infinity;
+        if (sort === "salary") return salary;
+        if (sort === "repricing") return repricing;
+        if (sort === "demand") return demand;
+        if (sort === "cooling") return -demand;
+        return (
+          (skill.strongBreakout ? 1_000_000 : 0) + repricing * 100 + demand
+        );
+      };
+      const sorted = skills
+        .filter(skill =>
+          sort === "cooling"
+            ? (skill.momentum.marketRelativeScore ?? 0) < -5
+            : sort === "repricing"
+              ? skill.signal?.status === "rising"
+              : true,
+        )
+        .sort((left, right) => score(right) - score(left))
+        .slice(0, 250);
+      const asOf = rows[0]?.asOfDate ?? marketRow?.sampleDate;
+      if (!asOf) {
+        return { success: true, message: "Skill market not ready", data: null };
+      }
+      return {
+        success: true,
+        message: "Retrieved skill market",
+        data: {
+          asOf,
+          completeThrough: asOf,
+          methodologyVersion: "market-state-v2",
+          segment,
+          sort: sort as JobMarketSkillListData["sort"],
+          query: query.trim(),
+          skills: sorted,
+        },
+      };
+    } catch (error) {
+      this.captureDatabaseError("getMarketSkills", error);
+      return { success: false, message: "Error retrieving skill market" };
+    }
+  }
+
+  async getMarketSkillDetail(
+    slug: string,
+    range = "max",
+  ): Promise<ResponseWithOptionalData<JobMarketSkillDetailData>> {
+    try {
+      const canonicalSlug = slug.startsWith("t-") ? slug : `t-${slugify(slug)}`;
+      const days = this.marketRangeDays(range);
+      const [historyRows, geographyRows, signalRows] = await Promise.all([
+        this.jobMarketRepository.getSkillWeeklyHistory(canonicalSlug, days),
+        this.jobMarketRepository.getGeography(
+          canonicalSlug,
+          this.marketRangeKey(range),
+        ),
+        this.jobMarketRepository.getLatestSkillSignals(canonicalSlug),
+      ]);
+      const first = historyRows[0];
+      const asOf =
+        geographyRows[0]?.asOfDate ?? signalRows[0]?.signalAsOf ?? null;
+      if (!first || !asOf) {
+        return { success: true, message: "Skill market not found", data: null };
+      }
+      return {
+        success: true,
+        message: "Retrieved skill market detail",
+        data: {
+          asOf,
+          completeThrough: asOf,
+          methodologyVersion: "market-state-v2",
+          skill: { slug: first.slug, label: first.label },
+          signals: signalRows.map(row => this.marketSkillSignal(row)),
+          compensation: geographyRows.map(row => this.marketCompensation(row)),
+          history: historyRows.map(row => this.marketSkillWeeklyPoint(row)),
+        },
+      };
+    } catch (error) {
+      this.captureDatabaseError("getMarketSkillDetail", error);
+      return { success: false, message: "Error retrieving skill detail" };
     }
   }
 
@@ -1445,6 +1613,27 @@ export class SearchService {
     return [30, 90, 365].includes(days) ? days : 365;
   }
 
+  private marketRangeKey(range: string): "90" | "365" | "max" {
+    return range === "90" || range === "365" ? range : "max";
+  }
+
+  private marketLabel(kind: string, label: string): string {
+    if (
+      !new Set(["classifications", "commitments", "locationTypes"]).has(kind)
+    ) {
+      return label;
+    }
+    const normalized = toHeaderCase(label);
+    const establishedLabels: Record<string, string> = {
+      Ai: "AI",
+      Bizdev: "Business Development",
+      Devops: "DevOps",
+      Devrel: "Developer Relations",
+      Fullstack: "Full Stack",
+    };
+    return establishedLabels[normalized] ?? normalized;
+  }
+
   private marketPoint(row: JobMarketMetricRow): JobMarketPoint {
     const sampleCount = Number(row.salarySampleCount);
     const reliable = sampleCount >= 10;
@@ -1476,21 +1665,39 @@ export class SearchService {
     };
   }
 
-  private marketTicker(row: JobMarketMetricRow): JobMarketTicker {
+  private marketTicker(
+    row: JobMarketMetricRow,
+    marketRow?: JobMarketMetricRow,
+  ): JobMarketTicker {
     const current = this.marketPoint(row);
     const currentJobs = Number(row.currentWindowJobs ?? 0);
     const previousJobs = Number(row.previousWindowJobs ?? 0);
-    const momentum = this.marketMomentumFromWindows(currentJobs, previousJobs);
+    const demand = this.marketDemand(row);
+    const marketDemand = marketRow ? this.marketDemand(marketRow) : null;
+    const marketRelativeScore =
+      demand.score === null || marketDemand?.score === null
+        ? null
+        : row.slug === "market"
+          ? demand.score
+          : demand.score - marketDemand.score;
+    const momentum = this.marketMomentumFromWindows(
+      currentJobs,
+      previousJobs,
+      marketRelativeScore,
+      demand.activeJobsChange,
+      demand.hiringCompaniesChange,
+    );
     return {
       kind: row.kind,
       slug: row.slug,
-      label: row.label,
+      label: this.marketLabel(row.kind, row.label),
       current,
       momentum,
       eligibleMover:
         row.kind === "classifications" &&
         current.activeJobs >= 20 &&
-        currentJobs + previousJobs >= 10 &&
+        current.hiringCompanies >= 5 &&
+        marketRelativeScore !== null &&
         momentum.direction !== "insufficient" &&
         momentum.direction !== "flat",
     };
@@ -1509,6 +1716,9 @@ export class SearchService {
   private marketMomentumFromWindows(
     currentJobs: number,
     previousJobs: number,
+    marketRelativeScore: number | null = null,
+    activeJobsChange: number | null = null,
+    hiringCompaniesChange: number | null = null,
   ): JobMarketMomentum {
     const absoluteChange = currentJobs - previousJobs;
     if (currentJobs + previousJobs < 5) {
@@ -1519,9 +1729,12 @@ export class SearchService {
         absoluteChange,
         percentChange: null,
         direction: "insufficient",
+        marketRelativeScore,
+        activeJobsChange,
+        hiringCompaniesChange,
       };
     }
-    if (previousJobs === 0 && currentJobs > 0) {
+    if (marketRelativeScore === null && previousJobs === 0 && currentJobs > 0) {
       return {
         periodDays: 7,
         currentJobs,
@@ -1529,9 +1742,13 @@ export class SearchService {
         absoluteChange,
         percentChange: null,
         direction: "new",
+        marketRelativeScore,
+        activeJobsChange,
+        hiringCompaniesChange,
       };
     }
     const percentChange =
+      marketRelativeScore ??
       Math.round((absoluteChange / Math.max(previousJobs, 1)) * 1_000) / 10;
     return {
       periodDays: 7,
@@ -1540,7 +1757,180 @@ export class SearchService {
       absoluteChange,
       percentChange,
       direction:
-        absoluteChange > 0 ? "up" : absoluteChange < 0 ? "down" : "flat",
+        percentChange >= 5 ? "up" : percentChange <= -5 ? "down" : "flat",
+      marketRelativeScore,
+      activeJobsChange,
+      hiringCompaniesChange,
+    };
+  }
+
+  private marketDemand(row: {
+    currentActiveJobs?: string | null;
+    baselineActiveJobs?: string | null;
+    currentHiringCompanies?: string | null;
+    baselineHiringCompanies?: string | null;
+  }): {
+    score: number | null;
+    activeJobsChange: number | null;
+    hiringCompaniesChange: number | null;
+  } {
+    const percent = (
+      current?: string | null,
+      baseline?: string | null,
+    ): number | null => {
+      const currentNumber = this.asNumber(current);
+      const baselineNumber = this.asNumber(baseline);
+      if (
+        currentNumber === null ||
+        baselineNumber === null ||
+        baselineNumber <= 0
+      )
+        return null;
+      return (currentNumber / baselineNumber - 1) * 100;
+    };
+    const activeJobsChange = percent(
+      row.currentActiveJobs,
+      row.baselineActiveJobs,
+    );
+    const hiringCompaniesChange = percent(
+      row.currentHiringCompanies,
+      row.baselineHiringCompanies,
+    );
+    const score =
+      activeJobsChange === null || hiringCompaniesChange === null
+        ? null
+        : Math.round(
+            (activeJobsChange * 0.6 + hiringCompaniesChange * 0.4) * 10,
+          ) / 10;
+    return {
+      score,
+      activeJobsChange:
+        activeJobsChange === null
+          ? null
+          : Math.round(activeJobsChange * 10) / 10,
+      hiringCompaniesChange:
+        hiringCompaniesChange === null
+          ? null
+          : Math.round(hiringCompaniesChange * 10) / 10,
+    };
+  }
+
+  private marketCompensation(
+    row: JobMarketGeographyRow,
+  ): JobMarketCompensation {
+    const sampleCount = Number(row.salarySampleCount ?? 0);
+    const employerCount = Number(row.employerCount ?? 0);
+    const reliable = sampleCount >= 10 && employerCount >= 5;
+    return {
+      segment: row.segment,
+      regionSlug: row.regionSlug,
+      regionLabel: row.regionLabel,
+      medianMonthlyUsd: reliable
+        ? this.roundMarketNumber(row.salaryMedianMonthlyUsd)
+        : null,
+      p25MonthlyUsd: reliable
+        ? this.roundMarketNumber(row.salaryP25MonthlyUsd)
+        : null,
+      p75MonthlyUsd: reliable
+        ? this.roundMarketNumber(row.salaryP75MonthlyUsd)
+        : null,
+      adjustedPremiumPercent: reliable
+        ? this.roundMarketNumber(row.adjustedPremiumPercent)
+        : null,
+      sampleCount,
+      employerCount,
+      onsiteCount: Number(row.onsiteCount ?? 0),
+      hybridCount: Number(row.hybridCount ?? 0),
+      remoteCount: Number(row.remoteCount ?? 0),
+      reliable,
+    };
+  }
+
+  private marketSkillSignal(row: JobMarketSkillRow): JobMarketSkillSignal {
+    return {
+      asOf: row.signalAsOf ?? row.asOfDate,
+      segment: row.segment,
+      status: row.signalStatus ?? "insufficient",
+      currentMedianMonthlyUsd: this.roundMarketNumber(
+        row.currentMedianMonthlyUsd,
+      ),
+      baselineMedianMonthlyUsd: this.roundMarketNumber(
+        row.baselineMedianMonthlyUsd,
+      ),
+      rawChangePercent: this.roundMarketNumber(row.rawChangePercent),
+      adjustedChangePercent: this.roundMarketNumber(row.adjustedChangePercent),
+      confidenceLowPercent: this.roundMarketNumber(row.confidenceLowPercent),
+      confidenceHighPercent: this.roundMarketNumber(row.confidenceHighPercent),
+      qValue: this.roundMarketNumber(row.qValue),
+      recentJobCount: Number(row.recentJobCount ?? 0),
+      baselineJobCount: Number(row.baselineJobCount ?? 0),
+      recentEmployerCount: Number(row.recentEmployerCount ?? 0),
+      baselineEmployerCount: Number(row.baselineEmployerCount ?? 0),
+      signalSince: row.signalSince,
+    };
+  }
+
+  private marketSkillSummary(
+    row: JobMarketSkillRow,
+    marketRow?: JobMarketMetricRow,
+  ): JobMarketSkillSummary {
+    const demand = this.marketDemand(row);
+    const marketDemand = marketRow ? this.marketDemand(marketRow) : null;
+    const relative =
+      demand.score === null || marketDemand?.score === null
+        ? null
+        : Math.round((demand.score - marketDemand.score) * 10) / 10;
+    const momentum = this.marketMomentumFromWindows(
+      Number(row.currentWindowJobs ?? 0),
+      Number(row.previousWindowJobs ?? 0),
+      relative,
+      demand.activeJobsChange,
+      demand.hiringCompaniesChange,
+    );
+    const signal = row.signalAsOf ? this.marketSkillSignal(row) : null;
+    return {
+      slug: row.dimensionSlug,
+      label: row.label,
+      segment: row.segment,
+      current: this.marketCompensation(row),
+      signal,
+      momentum,
+      activeJobs: Number(row.activeJobs ?? 0),
+      hiringCompanies: Number(row.hiringCompanies ?? 0),
+      strongBreakout:
+        signal?.status === "rising" && (relative ?? -Infinity) >= 5,
+    };
+  }
+
+  private marketSkillWeeklyPoint(
+    row: JobMarketSkillWeeklyRow,
+  ): JobMarketSkillWeeklyPoint {
+    const sampleCount = Number(row.salarySampleCount);
+    const employerCount = Number(row.employerCount);
+    const reliable = sampleCount >= 10 && employerCount >= 5;
+    return {
+      weekStart: row.weekStart,
+      segment: row.segment,
+      regionSlug: row.regionSlug,
+      regionLabel: row.regionLabel,
+      medianMonthlyUsd: reliable
+        ? this.roundMarketNumber(row.salaryMedianMonthlyUsd)
+        : null,
+      p25MonthlyUsd: reliable
+        ? this.roundMarketNumber(row.salaryP25MonthlyUsd)
+        : null,
+      p75MonthlyUsd: reliable
+        ? this.roundMarketNumber(row.salaryP75MonthlyUsd)
+        : null,
+      adjustedPremiumPercent: reliable
+        ? this.roundMarketNumber(row.adjustedPremiumPercent)
+        : null,
+      sampleCount,
+      employerCount,
+      onsiteCount: Number(row.onsiteCount),
+      hybridCount: Number(row.hybridCount),
+      remoteCount: Number(row.remoteCount),
+      reliable,
     };
   }
 
