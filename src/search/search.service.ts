@@ -56,6 +56,7 @@ import { SkillSuggestionsInput } from "./dto/skill-suggestions.input";
 import { SkillSuggestionsData } from "./dto/skill-suggestions.output";
 import { TeamIntelligenceService } from "src/team-intelligence/team-intelligence.service";
 import {
+  JobMarketCompensationBandRow,
   JobMarketMetricRow,
   JobMarketGeographyRow,
   JobMarketRepository,
@@ -63,7 +64,10 @@ import {
   JobMarketSkillWeeklyRow,
 } from "src/postgres/job-market.repository";
 import {
+  JobMarketActivity,
+  JobMarketChangeMetric,
   JobMarketCompensation,
+  JobMarketCompensationBand,
   JobMarketMomentum,
   JobMarketOverviewData,
   JobMarketPoint,
@@ -259,9 +263,7 @@ export class SearchService {
       );
       const movers = classifications.filter(ticker => ticker.eligibleMover);
       const moveScore = (ticker: JobMarketTicker): number =>
-        ticker.momentum.direction === "new"
-          ? 1_000 + ticker.momentum.currentJobs
-          : (ticker.momentum.percentChange ?? 0);
+        ticker.activity.marketComparison.openInventoryPercentagePoints ?? 0;
       return {
         success: true,
         message: "Retrieved job market overview",
@@ -312,20 +314,34 @@ export class SearchService {
       )
         ? canonicalClassification
         : "market";
-      const geographyRows = await this.jobMarketRepository.getGeography(
-        selectedClassification,
-        rangeKey,
-      );
+      const [geographyRows, compensationBandRows] = await Promise.all([
+        this.jobMarketRepository.getGeography(selectedClassification, rangeKey),
+        this.jobMarketRepository.getClassificationCompensationBands(
+          selectedClassification,
+          rangeKey,
+        ),
+      ]);
+      const selectedTicker =
+        selectedClassification === "market"
+          ? overviewData.market
+          : overviewData.classifications.find(
+              ticker => ticker.slug === selectedClassification,
+            );
       return {
         success: true,
         message: "Retrieved job market state",
         data: {
           ...overviewData,
           completeThrough: overviewData.asOf,
-          methodologyVersion: "market-state-v2",
+          methodologyVersion: "market-state-v3",
           selectedClassification,
+          selectedClassificationLabel:
+            selectedTicker?.label ?? overviewData.market.label,
           range: rangeKey,
           geography: geographyRows.map(row => this.marketCompensation(row)),
+          compensationBands: compensationBandRows.map(row =>
+            this.marketCompensationBand(row),
+          ),
         },
       };
     } catch (error) {
@@ -338,6 +354,7 @@ export class SearchService {
     segmentInput = "remote",
     sortInput = "breakout",
     query = "",
+    classificationInput = "market",
   ): Promise<ResponseWithOptionalData<JobMarketSkillListData>> {
     try {
       const segment = segmentInput === "local" ? "local" : "remote";
@@ -349,12 +366,38 @@ export class SearchService {
         "cooling",
       ]);
       const sort = allowedSorts.has(sortInput) ? sortInput : "breakout";
-      const [rows, overviewRows] = await Promise.all([
-        this.jobMarketRepository.getSkillSummaries(segment, query.trim()),
-        this.jobMarketRepository.getOverview(),
-      ]);
+      const canonicalClassification = classificationInput.startsWith("cl-")
+        ? classificationInput
+        : classificationInput === "market"
+          ? "market"
+          : `cl-${slugify(classificationInput)}`;
+      const overviewRows = await this.jobMarketRepository.getOverview();
       const marketRow = overviewRows.find(row => row.slug === "market");
-      const skills = rows.map(row => this.marketSkillSummary(row, marketRow));
+      const classificationRow = overviewRows.find(
+        row => row.slug === canonicalClassification,
+      );
+      const classification =
+        canonicalClassification === "market" || classificationRow
+          ? canonicalClassification
+          : "market";
+      const rows =
+        classification === "market"
+          ? await this.jobMarketRepository.getSkillSummaries(
+              segment,
+              query.trim(),
+            )
+          : await this.jobMarketRepository.getClassificationSkillSummaries(
+              classification,
+              segment,
+              query.trim(),
+            );
+      const skills = rows.map(row =>
+        this.marketSkillSummary(
+          row,
+          marketRow,
+          Number(classificationRow?.activeJobs ?? marketRow?.activeJobs ?? 0),
+        ),
+      );
       const score = (skill: JobMarketSkillSummary): number => {
         const repricing = skill.signal?.adjustedChangePercent ?? -Infinity;
         const demand = skill.momentum.marketRelativeScore ?? -Infinity;
@@ -363,9 +406,9 @@ export class SearchService {
         if (sort === "repricing") return repricing;
         if (sort === "demand") return demand;
         if (sort === "cooling") return -demand;
-        return (
-          (skill.strongBreakout ? 1_000_000 : 0) + repricing * 100 + demand
-        );
+        return Number.isFinite(repricing) || Number.isFinite(demand)
+          ? (skill.strongBreakout ? 1_000_000 : 0) + repricing * 100 + demand
+          : skill.activeJobs * 10 + skill.hiringCompanies;
       };
       const sorted = skills
         .filter(skill =>
@@ -387,7 +430,15 @@ export class SearchService {
         data: {
           asOf,
           completeThrough: asOf,
-          methodologyVersion: "market-state-v2",
+          methodologyVersion: "market-state-v3",
+          classification,
+          classificationLabel:
+            classification === "market"
+              ? "All roles"
+              : this.marketLabel(
+                  classificationRow?.kind ?? "classifications",
+                  classificationRow?.label ?? classification,
+                ),
           segment,
           sort: sort as JobMarketSkillListData["sort"],
           query: query.trim(),
@@ -1682,11 +1733,14 @@ export class SearchService {
     const demand = this.marketDemand(row);
     const marketDemand = marketRow ? this.marketDemand(marketRow) : null;
     const marketRelativeScore =
-      demand.score === null || marketDemand?.score === null
+      demand.activeJobsChange === null ||
+      marketDemand?.activeJobsChange === null
         ? null
         : row.slug === "market"
-          ? demand.score
-          : demand.score - marketDemand.score;
+          ? 0
+          : Math.round(
+              (demand.activeJobsChange - marketDemand.activeJobsChange) * 10,
+            ) / 10;
     const momentum = this.marketMomentumFromWindows(
       currentJobs,
       previousJobs,
@@ -1700,13 +1754,13 @@ export class SearchService {
       label: this.marketLabel(row.kind, row.label),
       current,
       momentum,
+      activity: this.marketActivity(row, marketRow),
       eligibleMover:
         row.kind === "classifications" &&
         current.activeJobs >= 20 &&
         current.hiringCompanies >= 5 &&
         marketRelativeScore !== null &&
-        momentum.direction !== "insufficient" &&
-        momentum.direction !== "flat",
+        Math.abs(marketRelativeScore) >= 5,
     };
   }
 
@@ -1755,7 +1809,6 @@ export class SearchService {
       };
     }
     const percentChange =
-      marketRelativeScore ??
       Math.round((absoluteChange / Math.max(previousJobs, 1)) * 1_000) / 10;
     return {
       periodDays: 7,
@@ -1777,7 +1830,6 @@ export class SearchService {
     currentHiringCompanies?: string | null;
     baselineHiringCompanies?: string | null;
   }): {
-    score: number | null;
     activeJobsChange: number | null;
     hiringCompaniesChange: number | null;
   } {
@@ -1803,14 +1855,7 @@ export class SearchService {
       row.currentHiringCompanies,
       row.baselineHiringCompanies,
     );
-    const score =
-      activeJobsChange === null || hiringCompaniesChange === null
-        ? null
-        : Math.round(
-            (activeJobsChange * 0.6 + hiringCompaniesChange * 0.4) * 10,
-          ) / 10;
     return {
-      score,
       activeJobsChange:
         activeJobsChange === null
           ? null
@@ -1822,12 +1867,136 @@ export class SearchService {
     };
   }
 
+  private marketChange(
+    current: number | null,
+    baseline: number | null,
+    minimumTotal = 1,
+  ): JobMarketChangeMetric {
+    const safeCurrent = current ?? 0;
+    const safeBaseline = baseline ?? 0;
+    const absoluteChange = safeCurrent - safeBaseline;
+    if (
+      current === null ||
+      baseline === null ||
+      safeCurrent + safeBaseline < minimumTotal
+    ) {
+      return {
+        current: safeCurrent,
+        baseline: safeBaseline,
+        absoluteChange,
+        percentChange: null,
+        direction: "insufficient",
+      };
+    }
+    if (safeBaseline === 0 && safeCurrent > 0) {
+      return {
+        current: safeCurrent,
+        baseline: safeBaseline,
+        absoluteChange,
+        percentChange: null,
+        direction: "new",
+      };
+    }
+    const percentChange =
+      Math.round((absoluteChange / Math.max(safeBaseline, 1)) * 1_000) / 10;
+    return {
+      current: safeCurrent,
+      baseline: safeBaseline,
+      absoluteChange,
+      percentChange,
+      direction:
+        percentChange >= 5 ? "up" : percentChange <= -5 ? "down" : "flat",
+    };
+  }
+
+  private marketActivity(
+    row: JobMarketMetricRow,
+    marketRow?: JobMarketMetricRow,
+  ): JobMarketActivity {
+    const newPostings = this.marketChange(
+      Number(row.currentWindowJobs ?? 0),
+      Number(row.previousWindowJobs ?? 0),
+      5,
+    );
+    const openInventory = this.marketChange(
+      this.asNumber(row.currentActiveJobs),
+      this.asNumber(row.baselineActiveJobs),
+    );
+    const hiringEmployers = this.marketChange(
+      this.asNumber(row.currentHiringCompanies),
+      this.asNumber(row.baselineHiringCompanies),
+    );
+    const marketNew = marketRow
+      ? this.marketChange(
+          Number(marketRow.currentWindowJobs ?? 0),
+          Number(marketRow.previousWindowJobs ?? 0),
+          5,
+        )
+      : null;
+    const marketOpen = marketRow
+      ? this.marketChange(
+          this.asNumber(marketRow.currentActiveJobs),
+          this.asNumber(marketRow.baselineActiveJobs),
+        )
+      : null;
+    const marketEmployers = marketRow
+      ? this.marketChange(
+          this.asNumber(marketRow.currentHiringCompanies),
+          this.asNumber(marketRow.baselineHiringCompanies),
+        )
+      : null;
+    const difference = (
+      selected: number | null,
+      market: number | null | undefined,
+    ): number | null =>
+      selected === null || market === null || market === undefined
+        ? null
+        : Math.round((selected - market) * 10) / 10;
+    return {
+      newPostings: {
+        ...newPostings,
+        currentWindowDays: 7,
+        baselineWindowDays: 7,
+      },
+      openInventory: {
+        ...openInventory,
+        currentWindowDays: 7,
+        baselineWindowDays: 28,
+      },
+      hiringEmployers: {
+        ...hiringEmployers,
+        currentWindowDays: 7,
+        baselineWindowDays: 28,
+      },
+      marketComparison: {
+        newPostingsPercentagePoints: difference(
+          newPostings.percentChange,
+          marketNew?.percentChange,
+        ),
+        openInventoryPercentagePoints: difference(
+          openInventory.percentChange,
+          marketOpen?.percentChange,
+        ),
+        hiringEmployersPercentagePoints: difference(
+          hiringEmployers.percentChange,
+          marketEmployers?.percentChange,
+        ),
+      },
+    };
+  }
+
   private marketCompensation(
     row: JobMarketGeographyRow,
   ): JobMarketCompensation {
     const sampleCount = Number(row.salarySampleCount ?? 0);
     const employerCount = Number(row.employerCount ?? 0);
-    const reliable = sampleCount >= 10 && employerCount >= 5;
+    const maxEmployerShare = this.asNumber(row.maxEmployerShare);
+    const observedMonthCount = this.asNumber(row.observedMonthCount);
+    const reliable =
+      sampleCount >= 20 &&
+      employerCount >= 10 &&
+      (maxEmployerShare === null || maxEmployerShare <= 0.2) &&
+      (observedMonthCount === null || observedMonthCount >= 3);
     return {
       segment: row.segment,
       regionSlug: row.regionSlug,
@@ -1860,6 +2029,38 @@ export class SearchService {
     };
   }
 
+  private marketCompensationBand(
+    row: JobMarketCompensationBandRow,
+  ): JobMarketCompensationBand {
+    const sampleCount = Number(row.salarySampleCount ?? 0);
+    const employerCount = Number(row.employerCount ?? 0);
+    const maxEmployerShare = this.asNumber(row.maxEmployerShare);
+    const observedMonthCount = Number(row.observedMonthCount ?? 0);
+    const reliable =
+      sampleCount >= 20 &&
+      employerCount >= 10 &&
+      maxEmployerShare !== null &&
+      maxEmployerShare <= 0.2 &&
+      observedMonthCount >= 3;
+    return {
+      segment: row.segment,
+      senioritySlug: row.senioritySlug,
+      seniorityLabel: row.seniorityLabel,
+      medianMonthlyUsd: reliable
+        ? this.roundMarketNumber(row.salaryMedianMonthlyUsd)
+        : null,
+      p25MonthlyUsd: reliable
+        ? this.roundMarketNumber(row.salaryP25MonthlyUsd)
+        : null,
+      p75MonthlyUsd: reliable
+        ? this.roundMarketNumber(row.salaryP75MonthlyUsd)
+        : null,
+      sampleCount,
+      employerCount,
+      reliable,
+    };
+  }
+
   private marketSkillSignal(row: JobMarketSkillRow): JobMarketSkillSignal {
     return {
       asOf: row.signalAsOf ?? row.asOfDate,
@@ -1887,13 +2088,17 @@ export class SearchService {
   private marketSkillSummary(
     row: JobMarketSkillRow,
     marketRow?: JobMarketMetricRow,
+    classificationActiveJobs = 0,
   ): JobMarketSkillSummary {
     const demand = this.marketDemand(row);
     const marketDemand = marketRow ? this.marketDemand(marketRow) : null;
     const relative =
-      demand.score === null || marketDemand?.score === null
+      demand.activeJobsChange === null ||
+      marketDemand?.activeJobsChange === null
         ? null
-        : Math.round((demand.score - marketDemand.score) * 10) / 10;
+        : Math.round(
+            (demand.activeJobsChange - marketDemand.activeJobsChange) * 10,
+          ) / 10;
     const momentum = this.marketMomentumFromWindows(
       Number(row.currentWindowJobs ?? 0),
       Number(row.previousWindowJobs ?? 0),
@@ -1911,6 +2116,13 @@ export class SearchService {
       momentum,
       activeJobs: Number(row.activeJobs ?? 0),
       hiringCompanies: Number(row.hiringCompanies ?? 0),
+      openJobShare:
+        this.asNumber(row.openJobShare) ??
+        (classificationActiveJobs > 0
+          ? Math.round(
+              (Number(row.activeJobs ?? 0) / classificationActiveJobs) * 1_000,
+            ) / 10
+          : 0),
       strongBreakout:
         signal?.status === "rising" && (relative ?? -Infinity) >= 5,
     };
@@ -1921,7 +2133,7 @@ export class SearchService {
   ): JobMarketSkillWeeklyPoint {
     const sampleCount = Number(row.salarySampleCount);
     const employerCount = Number(row.employerCount);
-    const reliable = sampleCount >= 10 && employerCount >= 5;
+    const reliable = sampleCount >= 20 && employerCount >= 10;
     return {
       weekStart: row.weekStart,
       segment: row.segment,

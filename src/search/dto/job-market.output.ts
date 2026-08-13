@@ -37,6 +37,34 @@ export interface JobMarketMomentum {
   hiringCompaniesChange: number | null;
 }
 
+export interface JobMarketChangeMetric {
+  current: number;
+  baseline: number;
+  absoluteChange: number;
+  percentChange: number | null;
+  direction: JobMarketDirection;
+}
+
+export interface JobMarketActivity {
+  newPostings: JobMarketChangeMetric & {
+    currentWindowDays: 7;
+    baselineWindowDays: 7;
+  };
+  openInventory: JobMarketChangeMetric & {
+    currentWindowDays: 7;
+    baselineWindowDays: 28;
+  };
+  hiringEmployers: JobMarketChangeMetric & {
+    currentWindowDays: 7;
+    baselineWindowDays: 28;
+  };
+  marketComparison: {
+    openInventoryPercentagePoints: number | null;
+    hiringEmployersPercentagePoints: number | null;
+    newPostingsPercentagePoints: number | null;
+  };
+}
+
 export type JobMarketSegment = "remote" | "local";
 
 export interface JobMarketCompensation {
@@ -102,6 +130,7 @@ export interface JobMarketTicker {
   label: string;
   current: JobMarketPoint;
   momentum: JobMarketMomentum;
+  activity: JobMarketActivity;
   eligibleMover: boolean;
 }
 
@@ -117,10 +146,24 @@ export interface JobMarketOverviewData {
 
 export interface JobMarketStateData extends JobMarketOverviewData {
   completeThrough: string;
-  methodologyVersion: "market-state-v2";
+  methodologyVersion: "market-state-v3";
   selectedClassification: string;
+  selectedClassificationLabel: string;
   range: "90" | "365" | "max";
   geography: JobMarketCompensation[];
+  compensationBands: JobMarketCompensationBand[];
+}
+
+export interface JobMarketCompensationBand {
+  segment: JobMarketSegment;
+  senioritySlug: string;
+  seniorityLabel: string;
+  medianMonthlyUsd: number | null;
+  p25MonthlyUsd: number | null;
+  p75MonthlyUsd: number | null;
+  sampleCount: number;
+  employerCount: number;
+  reliable: boolean;
 }
 
 export interface JobMarketSkillSummary {
@@ -132,13 +175,16 @@ export interface JobMarketSkillSummary {
   momentum: JobMarketMomentum;
   activeJobs: number;
   hiringCompanies: number;
+  openJobShare: number;
   strongBreakout: boolean;
 }
 
 export interface JobMarketSkillListData {
   asOf: string;
   completeThrough: string;
-  methodologyVersion: "market-state-v2";
+  methodologyVersion: "market-state-v3";
+  classification: string;
+  classificationLabel: string;
   segment: JobMarketSegment;
   sort: "breakout" | "repricing" | "salary" | "demand" | "cooling";
   query: string;

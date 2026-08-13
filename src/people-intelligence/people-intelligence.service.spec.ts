@@ -43,6 +43,42 @@ describe("PeopleIntelligenceService", () => {
     });
   });
 
+  it("proxies the complete-period developer report", async () => {
+    const response = {
+      available: true,
+      asOf: "2026-07-01T00:00:00.000Z",
+      completeThrough: "2026-07-01",
+      methodologyVersion: "developer-report-v1" as const,
+      population: {
+        label: "Verified internal contributors",
+        definition: "Canonical internal employees",
+        excludes: ["external contributors"],
+      },
+      current: null,
+      history: [],
+      retention: [],
+      maintainerLeverage: {
+        period: null,
+        maintainerCount: 0,
+        mergedPrCount: 0,
+        medianAuthorsSupported: null,
+        p25AuthorsSupported: null,
+        p75AuthorsSupported: null,
+      },
+      organizations: [],
+      movements: [],
+    };
+    const get = jest.fn().mockReturnValue(of({ data: response }));
+    const service = new PeopleIntelligenceService({
+      get,
+    } as unknown as HttpService);
+
+    await expect(service.developerReport()).resolves.toEqual(response);
+    expect(get).toHaveBeenCalledWith("/scorer/people/developer-report", {
+      params: {},
+    });
+  });
+
   it("returns the movement-flow contract while scorer is unavailable", async () => {
     const get = jest
       .fn()

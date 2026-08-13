@@ -31,6 +31,69 @@ export type PeopleOverview = {
   }>;
 };
 
+export type DeveloperReportPoint = PeopleOverview["points"][number] & {
+  oneDayPeople: number;
+  regularPeople: number;
+  sustainedPeople: number;
+  newPeople: number;
+  establishedPeople: number;
+  longTenuredPeople: number;
+};
+
+export type DeveloperReport = {
+  available: boolean;
+  asOf: string | null;
+  completeThrough: string | null;
+  methodologyVersion: "developer-report-v1";
+  population: {
+    label: string;
+    definition: string;
+    excludes: string[];
+  };
+  current: DeveloperReportPoint | null;
+  history: DeveloperReportPoint[];
+  retention: Array<{
+    cohortMonth: string;
+    cohortSize: number;
+    retainedMonth3: number;
+    retainedMonth6: number;
+    retainedMonth12: number;
+  }>;
+  maintainerLeverage: {
+    period: string | null;
+    maintainerCount: number;
+    mergedPrCount: number;
+    medianAuthorsSupported: number | null;
+    p25AuthorsSupported: number | null;
+    p75AuthorsSupported: number | null;
+  };
+  organizations: Array<{
+    organizationKey: string;
+    organizationId: string | null;
+    organizationName: string;
+    organizationSlug: string;
+    logoUrl: string | null;
+    activePeople: number;
+    activeMaintainers: number;
+    activeLeads: number;
+    activePeopleChange12m: number;
+    joins12m: number;
+    exits12m: number;
+    netTeamChange12m: number;
+    commitCount12m: number;
+    mergeCount12m: number;
+    series: Array<{ period: string; activePeople: number }>;
+  }>;
+  movements: Array<{
+    sourceOrganizationKey: string;
+    sourceOrganizationName: string;
+    destinationOrganizationKey: string;
+    destinationOrganizationName: string;
+    people: number;
+    maintainerMovements: number;
+  }>;
+};
+
 export type PeopleActivityMap = {
   available: boolean;
   asOf: string | null;

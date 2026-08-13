@@ -10,6 +10,7 @@ import { ApiOkResponse } from "@nestjs/swagger";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 import { PeopleIntelligenceService } from "./people-intelligence.service";
 import {
+  DeveloperReport,
   PeopleActivityMap,
   PeopleAtlasFrame,
   PeopleDirectoryPage,
@@ -28,6 +29,14 @@ export class PeopleIntelligenceController {
   @ApiOkResponse({ description: "Ecosystem-wide People activity series" })
   overview(@Query() query: PublicQuery): Promise<PeopleOverview> {
     return this.people.overview(query);
+  }
+
+  @Get("developer-report")
+  @ApiOkResponse({
+    description: "Complete-period internal developer ecosystem report",
+  })
+  developerReport(): Promise<DeveloperReport> {
+    return this.people.developerReport();
   }
 
   @Get("activity-map")

@@ -60,11 +60,17 @@ export class SearchV2Controller {
     @Query("mode") mode = "remote",
     @Query("sort") sort = "breakout",
     @Query("q") query = "",
+    @Query("classification") classification = "market",
   ): Promise<ResponseWithOptionalData<JobMarketSkillListData>> {
     this.logger.log(
-      `/v2/search/market/skills?mode=${mode}&sort=${sort}&q=${query}`,
+      `/v2/search/market/skills?mode=${mode}&sort=${sort}&q=${query}&classification=${classification}`,
     );
-    return this.searchService.getMarketSkills(mode, sort, query);
+    return this.searchService.getMarketSkills(
+      mode,
+      sort,
+      query,
+      classification,
+    );
   }
 
   @Get("market/skills/:slug")

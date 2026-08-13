@@ -49,6 +49,8 @@ export interface JobMarketGeographyRow extends Record<string, unknown> {
   regionalActiveOnsiteJobs?: string;
   regionalActiveHybridJobs?: string;
   regionalActiveRemoteJobs?: string;
+  maxEmployerShare?: string | null;
+  observedMonthCount?: string | null;
 }
 
 export interface JobMarketSkillRow extends JobMarketGeographyRow {
@@ -75,6 +77,20 @@ export interface JobMarketSkillRow extends JobMarketGeographyRow {
   recentEmployerCount: string | null;
   baselineEmployerCount: string | null;
   signalSince: string | null;
+  openJobShare?: string;
+}
+
+export interface JobMarketCompensationBandRow extends Record<string, unknown> {
+  segment: "remote" | "local";
+  senioritySlug: string;
+  seniorityLabel: string;
+  salaryMedianMonthlyUsd: string | null;
+  salaryP25MonthlyUsd: string | null;
+  salaryP75MonthlyUsd: string | null;
+  salarySampleCount: string;
+  employerCount: string;
+  maxEmployerShare: string | null;
+  observedMonthCount: string;
 }
 
 export interface JobMarketSkillWeeklyRow extends Record<string, unknown> {
@@ -281,6 +297,300 @@ export class JobMarketRepository {
           metric.region_label
       `,
       [dimensionSlug, range],
+    );
+  }
+
+  getClassificationCompensationBands(
+    classificationSlug: string,
+    range: "90" | "365" | "max",
+  ): Promise<JobMarketCompensationBandRow[]> {
+    return this.postgres.query<JobMarketCompensationBandRow>(
+      `
+        WITH latest AS (
+          SELECT max(observed_date) AS observed_date
+          FROM job_market_salary_observations
+        ), filtered AS MATERIALIZED (
+          SELECT observation.*,
+            CASE COALESCE(observation.seniority, '')
+              WHEN '1' THEN 's-intern'
+              WHEN '2' THEN 's-junior'
+              WHEN '3' THEN 's-senior'
+              WHEN '4' THEN 's-lead'
+              WHEN '5' THEN 's-head'
+              ELSE 's-' || slugify_text(observation.seniority)
+            END AS seniority_slug,
+            CASE COALESCE(observation.seniority, '')
+              WHEN '1' THEN 'Intern'
+              WHEN '2' THEN 'Junior'
+              WHEN '3' THEN 'Senior'
+              WHEN '4' THEN 'Lead'
+              WHEN '5' THEN 'Head'
+              ELSE initcap(replace(observation.seniority, '_', ' '))
+            END AS seniority_label
+          FROM job_market_salary_observations observation
+          CROSS JOIN latest
+          WHERE observation.continent_slug = 'all'
+            AND observation.seniority IS NOT NULL
+            AND observation.seniority <> ''
+            AND ($1 = 'market' OR observation.classification_slug = $1)
+            AND (
+              $2 = 'max'
+              OR observation.observed_date >= latest.observed_date
+                - CASE $2 WHEN '90' THEN 89 ELSE 364 END
+            )
+        ), employer_counts AS (
+          SELECT segment, seniority_slug, organization_id, count(*) AS jobs
+          FROM filtered
+          WHERE organization_id IS NOT NULL
+          GROUP BY segment, seniority_slug, organization_id
+        ), concentration AS (
+          SELECT segment, seniority_slug,
+            max(jobs)::numeric / nullif(sum(jobs), 0) AS max_employer_share
+          FROM employer_counts
+          GROUP BY segment, seniority_slug
+        )
+        SELECT filtered.segment AS segment,
+          filtered.seniority_slug AS "senioritySlug",
+          min(filtered.seniority_label) AS "seniorityLabel",
+          percentile_cont(0.5) WITHIN GROUP (
+            ORDER BY filtered.salary_monthly_usd
+          )::text AS "salaryMedianMonthlyUsd",
+          percentile_cont(0.25) WITHIN GROUP (
+            ORDER BY filtered.salary_monthly_usd
+          )::text AS "salaryP25MonthlyUsd",
+          percentile_cont(0.75) WITHIN GROUP (
+            ORDER BY filtered.salary_monthly_usd
+          )::text AS "salaryP75MonthlyUsd",
+          count(DISTINCT filtered.job_node_id)::text AS "salarySampleCount",
+          count(DISTINCT filtered.organization_id)
+            FILTER (WHERE filtered.organization_id IS NOT NULL)::text
+            AS "employerCount",
+          concentration.max_employer_share::text AS "maxEmployerShare",
+          count(DISTINCT date_trunc('month', filtered.observed_date))::text
+            AS "observedMonthCount"
+        FROM filtered
+        LEFT JOIN concentration USING (segment, seniority_slug)
+        GROUP BY filtered.segment, filtered.seniority_slug,
+          concentration.max_employer_share
+        ORDER BY CASE filtered.seniority_slug
+          WHEN 's-intern' THEN 1 WHEN 's-junior' THEN 2
+          WHEN 's-senior' THEN 3 WHEN 's-lead' THEN 4
+          WHEN 's-head' THEN 5 ELSE 6 END, filtered.segment
+      `,
+      [classificationSlug, range],
+    );
+  }
+
+  getClassificationSkillSummaries(
+    classificationSlug: string,
+    segment: "remote" | "local",
+    query: string,
+  ): Promise<JobMarketSkillRow[]> {
+    const remote = segment === "remote";
+    return this.postgres.query<JobMarketSkillRow>(
+      `
+        WITH latest AS (
+          SELECT max(sample_date) AS as_of_date
+          FROM job_market_daily_metrics
+        ), eligible_jobs AS MATERIALIZED (
+          SELECT document.job_node_id, document.organization_id,
+            COALESCE(
+              CASE
+                WHEN jsonb_boolean_value(
+                  document.payload, 'publishedTimestampIsVerified'
+                ) THEN document.published_at::date
+                ELSE NULL
+              END,
+              to_timestamp(jsonb_numeric_value(
+                document.payload, 'firstSeenTimestamp'
+              )::double precision / 1000)::date,
+              document.published_at::date
+            ) AS observed_date,
+            (
+              'remote' = ANY(COALESCE(document.location_types, ARRAY[]::text[]))
+              OR EXISTS (
+                SELECT 1 FROM jsonb_array_elements(
+                  COALESCE(document.payload -> 'availability', '[]'::jsonb)
+                ) item WHERE item ->> 'workMode' = 'remote'
+              )
+            ) AS has_remote,
+            (
+              'onsite' = ANY(COALESCE(document.location_types, ARRAY[]::text[]))
+              OR EXISTS (
+                SELECT 1 FROM jsonb_array_elements(
+                  COALESCE(document.payload -> 'availability', '[]'::jsonb)
+                ) item WHERE item ->> 'workMode' = 'onsite'
+              )
+            ) AS has_onsite,
+            (
+              'hybrid' = ANY(COALESCE(document.location_types, ARRAY[]::text[]))
+              OR EXISTS (
+                SELECT 1 FROM jsonb_array_elements(
+                  COALESCE(document.payload -> 'availability', '[]'::jsonb)
+                ) item WHERE item ->> 'workMode' = 'hybrid'
+              )
+            ) AS has_hybrid
+          FROM job_search_documents document
+          INNER JOIN job_market_job_pillars classification
+            ON classification.job_node_id = document.job_node_id
+           AND classification.kind = 'classifications'
+           AND classification.slug = $1
+          WHERE document.online
+            AND NOT document.blocked
+            AND document.legacy_list_eligible
+            AND cardinality(document.tags) > 0
+            AND (document.organization_id IS NOT NULL
+              OR document.project_id IS NOT NULL)
+            AND NOT (document.access = 'public'
+              AND document.organization_has_expert_jobs)
+            AND NOT EXISTS (
+              SELECT 1 FROM graph_nodes organization
+              WHERE organization.label = 'Organization'
+                AND organization.properties ->> 'orgId' = document.organization_id
+                AND entity_property_is_banned(organization.properties)
+            )
+        ), segment_jobs AS MATERIALIZED (
+          SELECT * FROM eligible_jobs
+          WHERE CASE WHEN $2::boolean THEN has_remote
+            ELSE has_onsite OR has_hybrid END
+        ), classification_total AS (
+          SELECT count(DISTINCT job_node_id)::numeric AS jobs
+          FROM segment_jobs
+        ), open_stats AS MATERIALIZED (
+          SELECT tag.slug, min(tag.label) AS label,
+            count(DISTINCT job.job_node_id)::int AS active_jobs,
+            count(DISTINCT job.organization_id)
+              FILTER (WHERE job.organization_id IS NOT NULL)::int
+              AS hiring_companies,
+            count(DISTINCT job.job_node_id) FILTER (
+              WHERE job.observed_date > latest.as_of_date - 7
+            )::int AS current_window_jobs,
+            count(DISTINCT job.job_node_id) FILTER (
+              WHERE job.observed_date > latest.as_of_date - 14
+                AND job.observed_date <= latest.as_of_date - 7
+            )::int AS previous_window_jobs,
+            count(DISTINCT job.job_node_id) FILTER (WHERE job.has_onsite)::int
+              AS active_onsite_jobs,
+            count(DISTINCT job.job_node_id) FILTER (WHERE job.has_hybrid)::int
+              AS active_hybrid_jobs,
+            count(DISTINCT job.job_node_id) FILTER (WHERE job.has_remote)::int
+              AS active_remote_jobs
+          FROM segment_jobs job
+          CROSS JOIN latest
+          INNER JOIN job_market_job_pillars tag
+            ON tag.job_node_id = job.job_node_id AND tag.kind = 'tags'
+          GROUP BY tag.slug
+        ), salary_base AS MATERIALIZED (
+          SELECT observation.*, pillar.slug, pillar.label
+          FROM job_market_salary_observations observation
+          INNER JOIN job_market_salary_observation_pillars mapping
+            ON mapping.job_node_id = observation.job_node_id
+           AND mapping.segment = observation.segment
+           AND mapping.continent_slug = observation.continent_slug
+          INNER JOIN job_market_pillars pillar
+            ON pillar.id = mapping.pillar_id AND pillar.kind = 'tags'
+          WHERE observation.classification_slug = $1
+            AND observation.segment = $3
+            AND observation.continent_slug = 'all'
+        ), employer_counts AS (
+          SELECT slug, organization_id, count(*) AS jobs
+          FROM salary_base
+          WHERE organization_id IS NOT NULL
+          GROUP BY slug, organization_id
+        ), salary_stats AS (
+          SELECT salary.slug, min(salary.label) AS label,
+            percentile_cont(0.5) WITHIN GROUP (
+              ORDER BY salary.salary_monthly_usd
+            ) AS median_salary,
+            percentile_cont(0.25) WITHIN GROUP (
+              ORDER BY salary.salary_monthly_usd
+            ) AS p25_salary,
+            percentile_cont(0.75) WITHIN GROUP (
+              ORDER BY salary.salary_monthly_usd
+            ) AS p75_salary,
+            100 * (exp(percentile_cont(0.5) WITHIN GROUP (
+              ORDER BY salary.adjusted_log_premium
+            )) - 1) AS adjusted_premium,
+            count(DISTINCT salary.job_node_id)::int AS salary_jobs,
+            count(DISTINCT salary.organization_id)
+              FILTER (WHERE salary.organization_id IS NOT NULL)::int
+              AS salary_employers,
+            count(DISTINCT date_trunc('month', salary.observed_date))::int
+              AS observed_months,
+            count(DISTINCT salary.job_node_id) FILTER (WHERE salary.onsite)::int
+              AS onsite_count,
+            count(DISTINCT salary.job_node_id) FILTER (WHERE salary.hybrid)::int
+              AS hybrid_count,
+            count(DISTINCT salary.job_node_id) FILTER (WHERE salary.remote)::int
+              AS remote_count
+          FROM salary_base salary
+          GROUP BY salary.slug
+        ), concentration AS (
+          SELECT slug, max(jobs)::numeric / nullif(sum(jobs), 0)
+            AS max_employer_share
+          FROM employer_counts
+          GROUP BY slug
+        )
+        SELECT latest.as_of_date::text AS "asOfDate",
+          '90' AS "rangeKey", 'tags' AS "dimensionKind",
+          open.slug AS "dimensionSlug", open.label,
+          $3 AS segment,
+          CASE WHEN $2::boolean THEN 'remote' ELSE 'local' END AS "regionSlug",
+          CASE WHEN $2::boolean THEN 'Remote' ELSE 'All local markets' END
+            AS "regionLabel",
+          CASE WHEN $2::boolean THEN 'remote' ELSE 'aggregate' END
+            AS "regionType",
+          NULL::text AS "countryCode",
+          salary.median_salary::text AS "salaryMedianMonthlyUsd",
+          salary.p25_salary::text AS "salaryP25MonthlyUsd",
+          salary.p75_salary::text AS "salaryP75MonthlyUsd",
+          salary.adjusted_premium::text AS "adjustedPremiumPercent",
+          COALESCE(salary.salary_jobs, 0)::text AS "salarySampleCount",
+          COALESCE(salary.salary_employers, 0)::text AS "employerCount",
+          COALESCE(salary.onsite_count, 0)::text AS "onsiteCount",
+          COALESCE(salary.hybrid_count, 0)::text AS "hybridCount",
+          COALESCE(salary.remote_count, 0)::text AS "remoteCount",
+          open.active_jobs::text AS "regionalActiveJobs",
+          open.hiring_companies::text AS "regionalHiringCompanies",
+          open.active_onsite_jobs::text AS "regionalActiveOnsiteJobs",
+          open.active_hybrid_jobs::text AS "regionalActiveHybridJobs",
+          open.active_remote_jobs::text AS "regionalActiveRemoteJobs",
+          concentration.max_employer_share::text AS "maxEmployerShare",
+          COALESCE(salary.observed_months, 0)::text AS "observedMonthCount",
+          open.active_jobs::text AS "activeJobs",
+          open.hiring_companies::text AS "hiringCompanies",
+          open.current_window_jobs::text AS "currentWindowJobs",
+          open.previous_window_jobs::text AS "previousWindowJobs",
+          NULL::text AS "currentActiveJobs",
+          NULL::text AS "baselineActiveJobs",
+          NULL::text AS "currentHiringCompanies",
+          NULL::text AS "baselineHiringCompanies",
+          round(100 * open.active_jobs / nullif(total.jobs, 0), 1)::text
+            AS "openJobShare",
+          NULL::text AS "signalAsOf", NULL::text AS "signalStatus",
+          NULL::text AS "currentMedianMonthlyUsd",
+          NULL::text AS "baselineMedianMonthlyUsd",
+          NULL::text AS "rawChangePercent",
+          NULL::text AS "adjustedChangePercent",
+          NULL::text AS "confidenceLowPercent",
+          NULL::text AS "confidenceHighPercent", NULL::text AS "qValue",
+          NULL::text AS "recentJobCount", NULL::text AS "baselineJobCount",
+          NULL::text AS "recentEmployerCount",
+          NULL::text AS "baselineEmployerCount", NULL::text AS "signalSince"
+        FROM open_stats open
+        CROSS JOIN latest
+        CROSS JOIN classification_total total
+        LEFT JOIN salary_stats salary USING (slug)
+        LEFT JOIN concentration USING (slug)
+        WHERE open.active_jobs >= 10
+          AND open.hiring_companies >= 5
+          AND open.slug <> replace($1, 'cl-', 't-')
+          AND ($4 = '' OR open.label ILIKE '%' || $4 || '%'
+            OR open.slug ILIKE '%' || slugify_text($4) || '%')
+        ORDER BY open.active_jobs DESC, open.hiring_companies DESC, open.label
+        LIMIT 500
+      `,
+      [classificationSlug, remote, segment, query],
     );
   }
 

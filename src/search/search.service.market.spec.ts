@@ -71,6 +71,7 @@ describe("SearchService job-market intelligence", () => {
       {} as never,
       {
         getGeography: jest.fn().mockResolvedValue([]),
+        getClassificationCompensationBands: jest.fn().mockResolvedValue([]),
         getLatestSkillSignals: jest.fn().mockResolvedValue([]),
         ...repository,
       } as JobMarketRepository,
@@ -215,8 +216,8 @@ describe("SearchService job-market intelligence", () => {
           regionLabel: "Germany",
           regionType: "country",
           countryCode: "DEU",
-          salarySampleCount: "12",
-          employerCount: "6",
+          salarySampleCount: "20",
+          employerCount: "10",
         }),
       ]),
     });
@@ -361,6 +362,88 @@ describe("SearchService job-market intelligence", () => {
               qValue: 0.01,
               recentEmployerCount: 20,
             },
+          },
+        ],
+      },
+    });
+  });
+
+  it("returns only skills observed on open jobs in a selected classification", async () => {
+    const getSkillSummaries = jest.fn();
+    const getClassificationSkillSummaries = jest.fn().mockResolvedValue([
+      {
+        ...geography({
+          dimensionKind: "tags",
+          dimensionSlug: "t-negotiation",
+          regionSlug: "remote",
+          regionLabel: "Remote",
+          segment: "remote",
+          remoteCount: "47",
+        }),
+        label: "negotiation",
+        activeJobs: "47",
+        hiringCompanies: "33",
+        openJobShare: "28.7",
+        currentWindowJobs: "10",
+        previousWindowJobs: "8",
+        currentActiveJobs: null,
+        baselineActiveJobs: null,
+        currentHiringCompanies: null,
+        baselineHiringCompanies: null,
+        signalAsOf: null,
+        signalStatus: null,
+        currentMedianMonthlyUsd: null,
+        baselineMedianMonthlyUsd: null,
+        rawChangePercent: null,
+        adjustedChangePercent: null,
+        confidenceLowPercent: null,
+        confidenceHighPercent: null,
+        qValue: null,
+        recentJobCount: null,
+        baselineJobCount: null,
+        recentEmployerCount: null,
+        baselineEmployerCount: null,
+        signalSince: null,
+      },
+    ]);
+    const service = createService({
+      getOverview: jest.fn().mockResolvedValue([
+        metric({
+          kind: "market",
+          slug: "market",
+          label: "Crypto Job Market",
+        }),
+        metric({ slug: "cl-sales", label: "SALES", activeJobs: "164" }),
+      ]),
+      getSkillSummaries,
+      getClassificationSkillSummaries,
+    });
+
+    const result = await service.getMarketSkills(
+      "remote",
+      "breakout",
+      "",
+      "cl-sales",
+    );
+
+    expect(getClassificationSkillSummaries).toHaveBeenCalledWith(
+      "cl-sales",
+      "remote",
+      "",
+    );
+    expect(getSkillSummaries).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      data: {
+        methodologyVersion: "market-state-v3",
+        classification: "cl-sales",
+        classificationLabel: "Sales",
+        skills: [
+          {
+            slug: "t-negotiation",
+            activeJobs: 47,
+            hiringCompanies: 33,
+            openJobShare: 28.7,
+            signal: null,
           },
         ],
       },

@@ -5,6 +5,7 @@ import { AxiosError } from "axios";
 import { firstValueFrom } from "rxjs";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import {
+  DeveloperReport,
   PeopleActivityMap,
   PeopleAtlasFrame,
   PeopleDirectoryPage,
@@ -55,6 +56,38 @@ export class PeopleIntelligenceService {
           : "month",
       points: [],
     });
+  }
+
+  developerReport(): Promise<DeveloperReport> {
+    return this.get(
+      "developer-report",
+      {},
+      {
+        available: false,
+        asOf: null,
+        completeThrough: null,
+        methodologyVersion: "developer-report-v1",
+        population: {
+          label: "Verified internal contributors",
+          definition:
+            "People with repeated recorded write authority at an organization; maintainers are internal contributors who merge pull requests.",
+          excludes: ["external contributors", "bots", "banned organizations"],
+        },
+        current: null,
+        history: [],
+        retention: [],
+        maintainerLeverage: {
+          period: null,
+          maintainerCount: 0,
+          mergedPrCount: 0,
+          medianAuthorsSupported: null,
+          p25AuthorsSupported: null,
+          p75AuthorsSupported: null,
+        },
+        organizations: [],
+        movements: [],
+      },
+    );
   }
 
   activityMap(query: Query): Promise<PeopleActivityMap> {
