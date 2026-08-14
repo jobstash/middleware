@@ -150,7 +150,10 @@ export class PeopleIntelligenceService {
       },
       summary: {
         rawIndexedCommitRecords: 0,
+        commitsWritten: 0,
         creditedOriginalCommits: 0,
+        inheritedForkCommits: 0,
+        inheritedUnattributedCopyCommits: 0,
         allContributors: 0,
         activeDevelopers: 0,
         internalDevelopers: 0,
@@ -161,6 +164,8 @@ export class PeopleIntelligenceService {
         activeRepositories: 0,
         newDevelopers: 0,
         newRepositories: 0,
+        newForkRepositories: 0,
+        newUnattributedCopyRepositories: 0,
         internalDeveloperShare: 0,
       },
       scope: {

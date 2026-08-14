@@ -43,7 +43,10 @@ export type DeveloperReportPoint = {
   activeOrganizations: number;
   activeRepositories: number;
   rawIndexedCommitRecords: number;
+  commitsWritten: number;
   creditedOriginalCommits: number;
+  inheritedForkCommits: number;
+  inheritedUnattributedCopyCommits: number;
   fullTimeDevelopers: number;
   partTimeDevelopers: number;
   oneTimeDevelopers: number;
@@ -52,6 +55,8 @@ export type DeveloperReportPoint = {
   establishedDevelopers: number;
   newDevelopers: number;
   newRepositories: number;
+  newForkRepositories: number;
+  newUnattributedCopyRepositories: number;
   internalDeveloperShare: number;
 };
 
@@ -86,7 +91,10 @@ export type DeveloperReport = {
   };
   summary: {
     rawIndexedCommitRecords: number;
+    commitsWritten: number;
     creditedOriginalCommits: number;
+    inheritedForkCommits: number;
+    inheritedUnattributedCopyCommits: number;
     allContributors: number;
     activeDevelopers: number;
     internalDevelopers: number;
@@ -97,6 +105,8 @@ export type DeveloperReport = {
     activeRepositories: number;
     newDevelopers: number;
     newRepositories: number;
+    newForkRepositories: number;
+    newUnattributedCopyRepositories: number;
     internalDeveloperShare: number;
   };
   scope: {
