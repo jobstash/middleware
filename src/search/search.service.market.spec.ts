@@ -2,6 +2,7 @@ import {
   JobMarketGeographyRow,
   JobMarketMetricRow,
   JobMarketRepository,
+  JobMarketSkillWeeklyRow,
 } from "src/postgres/job-market.repository";
 import { SearchRepository } from "src/postgres/search.repository";
 import { SearchService } from "./search.service";
@@ -63,6 +64,27 @@ const geography = (
   regionalActiveOnsiteJobs: "30",
   regionalActiveHybridJobs: "12",
   regionalActiveRemoteJobs: "0",
+  ...overrides,
+});
+
+const weekly = (
+  overrides: Partial<JobMarketSkillWeeklyRow> = {},
+): JobMarketSkillWeeklyRow => ({
+  weekStart: "2026-08-10",
+  slug: "t-typescript",
+  label: "TypeScript",
+  segment: "remote",
+  regionSlug: "all",
+  regionLabel: "Remote",
+  salaryMedianMonthlyUsd: "10750",
+  salaryP25MonthlyUsd: "9412.5",
+  salaryP75MonthlyUsd: "14314.58",
+  adjustedPremiumPercent: "2.77",
+  salarySampleCount: "3",
+  employerCount: "2",
+  onsiteCount: "0",
+  hybridCount: "0",
+  remoteCount: "3",
   ...overrides,
 });
 
@@ -168,6 +190,41 @@ describe("SearchService job-market intelligence", () => {
             medianMonthlyUsd: 10000,
           },
         },
+      },
+    });
+  });
+
+  it("returns sparse weekly estimates while retaining their reliability flag", async () => {
+    const service = createService({
+      getSkillWeeklyHistory: jest.fn().mockResolvedValue([weekly()]),
+      getGeography: jest.fn().mockResolvedValue([
+        geography({
+          dimensionKind: "tags",
+          dimensionSlug: "t-typescript",
+          regionSlug: "remote",
+          regionLabel: "Remote",
+          segment: "remote",
+          salarySampleCount: "3",
+          employerCount: "2",
+        }),
+      ]),
+    });
+
+    const result = await service.getMarketSkillDetail("t-typescript");
+
+    expect(result).toMatchObject({
+      data: {
+        history: [
+          {
+            medianMonthlyUsd: 10750,
+            p25MonthlyUsd: 9412.5,
+            p75MonthlyUsd: 14314.58,
+            adjustedPremiumPercent: 2.77,
+            sampleCount: 3,
+            employerCount: 2,
+            reliable: false,
+          },
+        ],
       },
     });
   });

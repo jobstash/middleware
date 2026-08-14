@@ -2227,18 +2227,12 @@ export class SearchService {
       segment: row.segment,
       regionSlug: row.regionSlug,
       regionLabel: row.regionLabel,
-      medianMonthlyUsd: reliable
-        ? this.roundMarketNumber(row.salaryMedianMonthlyUsd)
-        : null,
-      p25MonthlyUsd: reliable
-        ? this.roundMarketNumber(row.salaryP25MonthlyUsd)
-        : null,
-      p75MonthlyUsd: reliable
-        ? this.roundMarketNumber(row.salaryP75MonthlyUsd)
-        : null,
-      adjustedPremiumPercent: reliable
-        ? this.roundMarketNumber(row.adjustedPremiumPercent)
-        : null,
+      medianMonthlyUsd: this.roundMarketNumber(row.salaryMedianMonthlyUsd),
+      p25MonthlyUsd: this.roundMarketNumber(row.salaryP25MonthlyUsd),
+      p75MonthlyUsd: this.roundMarketNumber(row.salaryP75MonthlyUsd),
+      adjustedPremiumPercent: this.roundMarketNumber(
+        row.adjustedPremiumPercent,
+      ),
       sampleCount,
       employerCount,
       onsiteCount: Number(row.onsiteCount),
