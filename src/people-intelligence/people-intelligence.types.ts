@@ -1,6 +1,7 @@
 export type PeopleBucket = "month" | "quarter" | "year";
 export type DeveloperCohort = "crypto" | "fintech" | "ai" | "banking" | "tech";
-export type DeveloperReportV2Cohort = "all" | DeveloperCohort;
+export type DeveloperReportCohort = "all" | DeveloperCohort;
+export type DeveloperReportRange = "all" | "3y" | "1y";
 export type PeopleMetric =
   | "activePeople"
   | "affiliatedPeople"
@@ -33,7 +34,7 @@ export type PeopleOverview = {
   }>;
 };
 
-export type DeveloperReportPoint = PeopleOverview["points"][number] & {
+export type LegacyDeveloperReportPoint = PeopleOverview["points"][number] & {
   oneDayPeople: number;
   regularPeople: number;
   sustainedPeople: number;
@@ -42,11 +43,11 @@ export type DeveloperReportPoint = PeopleOverview["points"][number] & {
   longTenuredPeople: number;
 };
 
-export type DeveloperReport = {
+export type LegacyDeveloperReport = {
   available: boolean;
   asOf: string | null;
   completeThrough: string | null;
-  methodologyVersion: "developer-report-v1";
+  methodologyVersion: "developer-report";
   selectedCohort: DeveloperCohort;
   cohorts: Array<{
     cohort: DeveloperCohort;
@@ -60,8 +61,8 @@ export type DeveloperReport = {
     definition: string;
     excludes: string[];
   };
-  current: DeveloperReportPoint | null;
-  history: DeveloperReportPoint[];
+  current: LegacyDeveloperReportPoint | null;
+  history: LegacyDeveloperReportPoint[];
   retention: Array<{
     cohortMonth: string;
     cohortSize: number;
@@ -105,7 +106,8 @@ export type DeveloperReport = {
   }>;
 };
 
-export type DeveloperReportV2Point = PeopleOverview["points"][number] & {
+export type DeveloperReportPoint = PeopleOverview["points"][number] & {
+  activeContributors: number;
   oneDayPeople: number;
   regularPeople: number;
   sustainedPeople: number;
@@ -115,12 +117,6 @@ export type DeveloperReportV2Point = PeopleOverview["points"][number] & {
   newcomerPeople: number;
   emergingPeople: number;
   establishedPeople: number;
-};
-
-export type DeveloperReportGrowth = {
-  oneYear: number | null;
-  twoYear: number | null;
-  threeYear: number | null;
 };
 
 export type DeveloperReportCorpus = {
@@ -138,11 +134,28 @@ export type DeveloperReportCorpus = {
   currentActiveLeads: number;
 };
 
-export type DeveloperReportV2 = {
+export type DeveloperReport = {
   available: boolean;
   asOf: string | null;
   completeThrough: string | null;
-  methodologyVersion: "developer-report-v2";
+  methodologyVersion: "developer-report";
+  range: {
+    key: DeveloperReportRange;
+    label: string;
+    from: string;
+    to: string;
+  };
+  summary: {
+    contributors: number;
+    internalPeople: number;
+    maintainers: number;
+    activeLeads: number;
+    organizations: number;
+    repositoryCount: number;
+    indexedCommitRecords: number;
+    internalCommitRecords: number;
+    mergeRecords: number;
+  };
   scope: {
     type: "cohort" | "chain";
     key: string;
@@ -153,8 +166,9 @@ export type DeveloperReportV2 = {
   };
   scopes: {
     cohorts: Array<{
-      cohort: DeveloperReportV2Cohort;
+      cohort: DeveloperReportCohort;
       label: string;
+      contributors: number;
       activePeople: number;
       activeMaintainers: number;
       activeOrganizations: number;
@@ -164,13 +178,12 @@ export type DeveloperReportV2 = {
       chainSlug: string;
       chainName: string;
       logoUrl: string | null;
+      contributors: number;
       activePeople: number;
       activeMaintainers: number;
       activeLeads: number;
-      establishedPeople: number;
       activeOrganizations: number;
       repositoryCount: number;
-      growth: DeveloperReportGrowth;
     }>;
   };
   coverage: {
@@ -179,18 +192,11 @@ export type DeveloperReportV2 = {
     chainMappedPercent: number;
     note: string;
   };
-  population: DeveloperReport["population"];
+  population: LegacyDeveloperReport["population"];
   corpus: DeveloperReportCorpus;
-  current: DeveloperReportV2Point | null;
-  history: DeveloperReportV2Point[];
-  totals: { repositoryCount: number; commitCount: number };
+  current: DeveloperReportPoint | null;
+  history: DeveloperReportPoint[];
   repositoryHistory: Array<{ period: string; newRepositories: number }>;
-  breakdown: Array<{
-    key: "internalPeople" | "maintainers" | "leads" | "established";
-    label: string;
-    current: number;
-    growth: DeveloperReportGrowth;
-  }>;
   organizations: Array<{
     organizationKey: string;
     organizationId: string | null;
@@ -201,19 +207,23 @@ export type DeveloperReportV2 = {
     layoutX: number | null;
     layoutY: number | null;
     communityId: number | null;
-    activePeople: number;
-    activeMaintainers: number;
-    activeLeads: number;
-    establishedPeople: number;
-    growth: DeveloperReportGrowth;
-    joins12m: number;
-    exits12m: number;
-    netTeamChange12m: number;
-    commitCount12m: number;
-    mergeCount12m: number;
-    series: Array<{ period: string; activePeople: number }>;
+    contributors: number;
+    internalPeople: number;
+    maintainers: number;
+    leads: number;
+    joins: number;
+    exits: number;
+    commitCount: number;
+    mergeCount: number;
+    series: Array<{
+      period: string;
+      activeContributors: number;
+      activePeople: number;
+      activeMaintainers: number;
+      activeLeads: number;
+    }>;
   }>;
-  movements: DeveloperReport["movements"];
+  movements: LegacyDeveloperReport["movements"];
 };
 
 export type PeopleActivityMap = {

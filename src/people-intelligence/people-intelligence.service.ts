@@ -6,9 +6,7 @@ import { firstValueFrom } from "rxjs";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import {
   DeveloperReport,
-  DeveloperReportV2,
-  DeveloperCohort,
-  DeveloperReportV2Cohort,
+  DeveloperReportCohort,
   PeopleActivityMap,
   PeopleAtlasFrame,
   PeopleDirectoryPage,
@@ -43,14 +41,14 @@ const positiveInteger = (
     : fallback;
 };
 
-const developerCohort = (value: unknown): DeveloperCohort =>
-  ["crypto", "fintech", "ai", "banking", "tech"].includes(String(value))
-    ? (String(value) as DeveloperCohort)
-    : "crypto";
-
-const developerReportV2Cohort = (value: unknown): DeveloperReportV2Cohort =>
+const developerReportCohort = (value: unknown): DeveloperReportCohort =>
   ["all", "crypto", "fintech", "ai", "banking", "tech"].includes(String(value))
-    ? (String(value) as DeveloperReportV2Cohort)
+    ? (String(value) as DeveloperReportCohort)
+    : "all";
+
+const developerReportRange = (value: unknown): "all" | "3y" | "1y" =>
+  ["all", "3y", "1y"].includes(String(value))
+    ? (String(value) as "all" | "3y" | "1y")
     : "all";
 
 @Injectable()
@@ -72,58 +70,47 @@ export class PeopleIntelligenceService {
   }
 
   developerReport(query: Query = {}): Promise<DeveloperReport> {
-    const cohort = developerCohort(query.cohort);
-    return this.get(
-      "developer-report",
-      { cohort },
-      {
-        available: false,
-        asOf: null,
-        completeThrough: null,
-        methodologyVersion: "developer-report-v1",
-        selectedCohort: cohort,
-        cohorts: [],
-        population: {
-          label: "Verified internal contributors",
-          definition:
-            "People with repeated recorded write authority at an organization; maintainers are internal contributors who merge pull requests.",
-          excludes: ["external contributors", "bots", "banned organizations"],
-        },
-        current: null,
-        history: [],
-        retention: [],
-        maintainerLeverage: {
-          period: null,
-          maintainerCount: 0,
-          mergedPrCount: 0,
-          medianAuthorsSupported: null,
-          p25AuthorsSupported: null,
-          p75AuthorsSupported: null,
-        },
-        organizations: [],
-        movements: [],
-      },
-    );
-  }
-
-  developerReportV2(query: Query = {}): Promise<DeveloperReportV2> {
     const chain =
       typeof query.chain === "string" &&
       /^[a-z0-9][a-z0-9-]{0,119}$/.test(query.chain)
         ? query.chain
         : undefined;
-    const cohort = developerReportV2Cohort(query.cohort);
+    const cohort = developerReportCohort(query.cohort);
+    const range = developerReportRange(query.range);
     const scorerQuery = chain
       ? {
           chain,
+          range,
           ...(query.cohort === undefined ? {} : { cohort }),
         }
-      : { cohort };
-    return this.get("developer-report-v2", scorerQuery, {
+      : { cohort, range };
+    return this.get("developer-report", scorerQuery, {
       available: false,
       asOf: null,
       completeThrough: null,
-      methodologyVersion: "developer-report-v2",
+      methodologyVersion: "developer-report",
+      range: {
+        key: range,
+        label:
+          range === "all"
+            ? "Since inception"
+            : range === "3y"
+              ? "Last 3 years"
+              : "Last year",
+        from: "",
+        to: "",
+      },
+      summary: {
+        contributors: 0,
+        internalPeople: 0,
+        maintainers: 0,
+        activeLeads: 0,
+        organizations: 0,
+        repositoryCount: 0,
+        indexedCommitRecords: 0,
+        internalCommitRecords: 0,
+        mergeRecords: 0,
+      },
       scope: {
         type: chain ? "chain" : "cohort",
         key: chain ?? cohort,
@@ -140,9 +127,9 @@ export class PeopleIntelligenceService {
         note: "Chain cohorts overlap. Global and sector totals count each internal person once.",
       },
       population: {
-        label: "Verified internal contributors",
+        label: "All contributors and verified internal subsets",
         definition:
-          "Canonical internal people only; maintainers are internal people who merge pull requests and active leads have recent merge authority.",
+          "The broad layer counts human commit authors. The verified internal subset keeps the canonical employee calculation; maintainers are internal people who merge pull requests and active leads have recent merge authority.",
         excludes: ["external contributors", "bots", "banned organizations"],
       },
       corpus: {
@@ -161,9 +148,7 @@ export class PeopleIntelligenceService {
       },
       current: null,
       history: [],
-      totals: { repositoryCount: 0, commitCount: 0 },
       repositoryHistory: [],
-      breakdown: [],
       organizations: [],
       movements: [],
     });

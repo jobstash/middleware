@@ -43,14 +43,12 @@ describe("PeopleIntelligenceService", () => {
     });
   });
 
-  it("proxies the complete-period developer report", async () => {
+  it("proxies the canonical developer report with an all-history default", async () => {
     const response = {
       available: true,
       asOf: "2026-07-01T00:00:00.000Z",
       completeThrough: "2026-07-01",
-      methodologyVersion: "developer-report-v1" as const,
-      selectedCohort: "fintech" as const,
-      cohorts: [],
+      methodologyVersion: "developer-report" as const,
       population: {
         label: "Verified internal contributors",
         definition: "Canonical internal employees",
@@ -58,14 +56,11 @@ describe("PeopleIntelligenceService", () => {
       },
       current: null,
       history: [],
-      retention: [],
-      maintainerLeverage: {
-        period: null,
-        maintainerCount: 0,
-        mergedPrCount: 0,
-        medianAuthorsSupported: null,
-        p25AuthorsSupported: null,
-        p75AuthorsSupported: null,
+      range: {
+        key: "all" as const,
+        label: "Since inception",
+        from: "2008-01-01",
+        to: "2026-07-01",
       },
       organizations: [],
       movements: [],
@@ -79,16 +74,16 @@ describe("PeopleIntelligenceService", () => {
       service.developerReport({ cohort: "fintech" }),
     ).resolves.toEqual(response);
     expect(get).toHaveBeenCalledWith("/scorer/people/developer-report", {
-      params: { cohort: "fintech" },
+      params: { cohort: "fintech", range: "all" },
     });
   });
 
-  it("proxies a chain-scoped v2 developer report without adding a cohort", async () => {
+  it("proxies a chain-scoped report without adding a cohort", async () => {
     const response = {
       available: true,
       asOf: "2026-07-01T00:00:00.000Z",
       completeThrough: "2026-07-01",
-      methodologyVersion: "developer-report-v2" as const,
+      methodologyVersion: "developer-report" as const,
       scope: {
         type: "chain" as const,
         key: "ethereum",
@@ -111,9 +106,7 @@ describe("PeopleIntelligenceService", () => {
       },
       current: null,
       history: [],
-      totals: { repositoryCount: 0, commitCount: 0 },
       repositoryHistory: [],
-      breakdown: [],
       organizations: [],
       movements: [],
     };
@@ -123,19 +116,19 @@ describe("PeopleIntelligenceService", () => {
     } as unknown as HttpService);
 
     await expect(
-      service.developerReportV2({ chain: "ethereum" }),
+      service.developerReport({ chain: "ethereum" }),
     ).resolves.toEqual(response);
-    expect(get).toHaveBeenCalledWith("/scorer/people/developer-report-v2", {
-      params: { chain: "ethereum" },
+    expect(get).toHaveBeenCalledWith("/scorer/people/developer-report", {
+      params: { chain: "ethereum", range: "all" },
     });
   });
 
-  it("defaults the v2 report to the complete all-sector corpus", async () => {
+  it("defaults the report to the complete all-sector corpus", async () => {
     const response = {
       available: true,
       asOf: "2026-07-01T00:00:00.000Z",
       completeThrough: "2026-07-01",
-      methodologyVersion: "developer-report-v2" as const,
+      methodologyVersion: "developer-report" as const,
       scope: {
         type: "cohort" as const,
         key: "all",
@@ -158,9 +151,7 @@ describe("PeopleIntelligenceService", () => {
       },
       current: null,
       history: [],
-      totals: { repositoryCount: 0, commitCount: 0 },
       repositoryHistory: [],
-      breakdown: [],
       organizations: [],
       movements: [],
     };
@@ -169,13 +160,13 @@ describe("PeopleIntelligenceService", () => {
       get,
     } as unknown as HttpService);
 
-    await expect(service.developerReportV2()).resolves.toEqual(response);
-    expect(get).toHaveBeenCalledWith("/scorer/people/developer-report-v2", {
-      params: { cohort: "all" },
+    await expect(service.developerReport()).resolves.toEqual(response);
+    expect(get).toHaveBeenCalledWith("/scorer/people/developer-report", {
+      params: { cohort: "all", range: "all" },
     });
   });
 
-  it("returns a complete v2 fallback while scorer materializations refresh", async () => {
+  it("returns a complete fallback while scorer materializations refresh", async () => {
     const get = jest
       .fn()
       .mockReturnValue(throwError(() => new AxiosError("unavailable")));
@@ -184,17 +175,17 @@ describe("PeopleIntelligenceService", () => {
     } as unknown as HttpService);
 
     await expect(
-      service.developerReportV2({ cohort: "ai" }),
+      service.developerReport({ cohort: "ai" }),
     ).resolves.toMatchObject({
       available: false,
-      methodologyVersion: "developer-report-v2",
+      methodologyVersion: "developer-report",
+      range: { key: "all", label: "Since inception" },
       scope: { type: "cohort", key: "ai" },
       corpus: {
         indexedCommitRecords: 0,
         historicalInternalPeople: 0,
         currentInternalPeople: 0,
       },
-      totals: { repositoryCount: 0, commitCount: 0 },
       repositoryHistory: [],
     });
   });
