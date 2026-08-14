@@ -8,6 +8,7 @@ import {
   DeveloperReport,
   DeveloperReportV2,
   DeveloperCohort,
+  DeveloperReportV2Cohort,
   PeopleActivityMap,
   PeopleAtlasFrame,
   PeopleDirectoryPage,
@@ -46,6 +47,11 @@ const developerCohort = (value: unknown): DeveloperCohort =>
   ["crypto", "fintech", "ai", "banking", "tech"].includes(String(value))
     ? (String(value) as DeveloperCohort)
     : "crypto";
+
+const developerReportV2Cohort = (value: unknown): DeveloperReportV2Cohort =>
+  ["all", "crypto", "fintech", "ai", "banking", "tech"].includes(String(value))
+    ? (String(value) as DeveloperReportV2Cohort)
+    : "all";
 
 @Injectable()
 export class PeopleIntelligenceService {
@@ -106,7 +112,7 @@ export class PeopleIntelligenceService {
       /^[a-z0-9][a-z0-9-]{0,119}$/.test(query.chain)
         ? query.chain
         : undefined;
-    const cohort = developerCohort(query.cohort);
+    const cohort = developerReportV2Cohort(query.cohort);
     const scorerQuery = chain
       ? {
           chain,

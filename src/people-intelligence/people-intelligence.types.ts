@@ -1,5 +1,6 @@
 export type PeopleBucket = "month" | "quarter" | "year";
 export type DeveloperCohort = "crypto" | "fintech" | "ai" | "banking" | "tech";
+export type DeveloperReportV2Cohort = "all" | DeveloperCohort;
 export type PeopleMetric =
   | "activePeople"
   | "affiliatedPeople"
@@ -137,7 +138,7 @@ export type DeveloperReportV2 = {
   };
   scopes: {
     cohorts: Array<{
-      cohort: DeveloperCohort;
+      cohort: DeveloperReportV2Cohort;
       label: string;
       activePeople: number;
       activeMaintainers: number;
@@ -181,6 +182,9 @@ export type DeveloperReportV2 = {
     organizationSlug: string;
     cohort: DeveloperCohort;
     logoUrl: string | null;
+    layoutX: number | null;
+    layoutY: number | null;
+    communityId: number | null;
     activePeople: number;
     activeMaintainers: number;
     activeLeads: number;

@@ -130,6 +130,51 @@ describe("PeopleIntelligenceService", () => {
     });
   });
 
+  it("defaults the v2 report to the complete all-sector corpus", async () => {
+    const response = {
+      available: true,
+      asOf: "2026-07-01T00:00:00.000Z",
+      completeThrough: "2026-07-01",
+      methodologyVersion: "developer-report-v2" as const,
+      scope: {
+        type: "cohort" as const,
+        key: "all",
+        label: "All sectors",
+        slug: null,
+        logoUrl: null,
+        overlapping: false,
+      },
+      scopes: { cohorts: [], chains: [] },
+      coverage: {
+        githubOrganizations: 0,
+        chainMappedGithubOrganizations: 0,
+        chainMappedPercent: 0,
+        note: "",
+      },
+      population: {
+        label: "Verified internal contributors",
+        definition: "Canonical internal employees",
+        excludes: ["external contributors", "bots", "banned organizations"],
+      },
+      current: null,
+      history: [],
+      totals: { repositoryCount: 0, commitCount: 0 },
+      repositoryHistory: [],
+      breakdown: [],
+      organizations: [],
+      movements: [],
+    };
+    const get = jest.fn().mockReturnValue(of({ data: response }));
+    const service = new PeopleIntelligenceService({
+      get,
+    } as unknown as HttpService);
+
+    await expect(service.developerReportV2()).resolves.toEqual(response);
+    expect(get).toHaveBeenCalledWith("/scorer/people/developer-report-v2", {
+      params: { cohort: "all" },
+    });
+  });
+
   it("returns a complete v2 fallback while scorer materializations refresh", async () => {
     const get = jest
       .fn()
