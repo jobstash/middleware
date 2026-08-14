@@ -623,6 +623,21 @@ export class JobMarketRepository {
         ), latest_market AS (
           SELECT max(sample_date) AS sample_date
           FROM job_market_daily_metrics
+        ), eligible_geography AS MATERIALIZED (
+          SELECT geography.*, pillar.id AS pillar_id, pillar.label
+          FROM job_market_geography_metrics geography
+          JOIN latest_geo ON latest_geo.as_of_date = geography.as_of_date
+          JOIN job_market_pillars pillar
+            ON pillar.slug = geography.dimension_slug
+           AND pillar.kind = 'tags'
+          WHERE geography.dimension_kind = 'tags'
+            AND geography.range_key = '90'
+            AND geography.segment = $1
+            AND geography.region_slug = $2
+            AND geography.salary_sample_count >= 5
+            AND geography.employer_count >= 3
+            AND ($3 = '' OR pillar.label ILIKE '%' || $3 || '%'
+              OR pillar.slug ILIKE '%' || slugify_text($3) || '%')
         ), demand AS (
           SELECT metric.pillar_id,
             COALESCE(sum(metric.new_jobs) FILTER (
@@ -655,6 +670,8 @@ export class JobMarketRepository {
                 AND metric.sample_date <= latest.sample_date - 7
             ) AS baseline_hiring_companies
           FROM job_market_daily_metrics metric
+          INNER JOIN eligible_geography geography
+            ON geography.pillar_id = metric.pillar_id
           CROSS JOIN latest_market latest
           WHERE metric.sample_date > latest.sample_date - 35
           GROUP BY metric.pillar_id
@@ -675,7 +692,7 @@ export class JobMarketRepository {
           geography.filter_key AS "filterKey",
           geography.filter_value AS "filterValue",
           geography.country_code AS "countryCode",
-          geography.segment, pillar.label,
+          geography.segment, geography.label,
           geography.salary_median_monthly_usd::text
             AS "salaryMedianMonthlyUsd",
           geography.salary_p25_monthly_usd::text AS "salaryP25MonthlyUsd",
@@ -724,29 +741,17 @@ export class JobMarketRepository {
           signal.recent_employer_count::text AS "recentEmployerCount",
           signal.baseline_employer_count::text AS "baselineEmployerCount",
           signal.signal_since::text AS "signalSince"
-        FROM job_market_geography_metrics geography
-        JOIN latest_geo ON latest_geo.as_of_date = geography.as_of_date
-        JOIN job_market_pillars pillar
-          ON pillar.slug = geography.dimension_slug
-         AND pillar.kind = 'tags'
+        FROM eligible_geography geography
         LEFT JOIN job_market_daily_metrics current_metric
-          ON current_metric.pillar_id = pillar.id
+          ON current_metric.pillar_id = geography.pillar_id
          AND current_metric.sample_date = (
            SELECT sample_date FROM latest_market
          )
-        LEFT JOIN demand ON demand.pillar_id = pillar.id
+        LEFT JOIN demand ON demand.pillar_id = geography.pillar_id
         LEFT JOIN latest_signal signal
-          ON signal.pillar_id = pillar.id
+          ON signal.pillar_id = geography.pillar_id
          AND signal.segment = geography.segment
-        WHERE geography.dimension_kind = 'tags'
-          AND geography.range_key = '90'
-          AND geography.segment = $1
-          AND geography.region_slug = $2
-          AND geography.salary_sample_count >= 5
-          AND geography.employer_count >= 3
-          AND ($3 = '' OR pillar.label ILIKE '%' || $3 || '%'
-            OR pillar.slug ILIKE '%' || slugify_text($3) || '%')
-        ORDER BY geography.salary_sample_count DESC, pillar.label
+        ORDER BY geography.salary_sample_count DESC, geography.label
         LIMIT 2000
       `,
       [segment, region, query],

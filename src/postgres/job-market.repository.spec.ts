@@ -52,4 +52,17 @@ describe("JobMarketRepository", () => {
     expect(sql).toContain("observedMonthCount");
     expect(parameters).toEqual(["cl-sales", "max"]);
   });
+
+  it("limits demand percentiles to salary-eligible skills", async () => {
+    const query = jest.fn().mockResolvedValue([]);
+    const repository = new JobMarketRepository({ query } as never);
+
+    await repository.getSkillSummaries("remote", "");
+
+    const [sql, parameters] = query.mock.calls[0];
+    expect(sql).toContain("eligible_geography AS MATERIALIZED");
+    expect(sql).toContain("INNER JOIN eligible_geography geography");
+    expect(sql).toContain("geography.pillar_id = metric.pillar_id");
+    expect(parameters).toEqual(["remote", "remote", ""]);
+  });
 });

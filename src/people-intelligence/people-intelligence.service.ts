@@ -3,6 +3,7 @@ import { Injectable } from "@nestjs/common";
 import * as Sentry from "@sentry/node";
 import { AxiosError } from "axios";
 import { firstValueFrom } from "rxjs";
+import { slugify } from "src/shared/helpers";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import {
   DeveloperReport,
@@ -50,6 +51,48 @@ const developerReportRange = (value: unknown): DeveloperReportRange =>
   ["3m", "6m", "1y", "3y", "max"].includes(String(value))
     ? (String(value) as DeveloperReportRange)
     : "max";
+
+const canonicalScopeSummaries = <
+  T extends DeveloperReport["scopes"]["chains"][number],
+>(
+  scopes: T[],
+): T[] => {
+  const canonical = new Map<
+    string,
+    { scope: T; sourceWasCanonical: boolean }
+  >();
+
+  for (const scope of scopes) {
+    const canonicalSlug = slugify(scope.slug);
+    if (!canonicalSlug) continue;
+    const sourceWasCanonical = scope.slug === canonicalSlug;
+    const existing = canonical.get(canonicalSlug);
+    if (existing?.sourceWasCanonical && !sourceWasCanonical) continue;
+    canonical.set(canonicalSlug, {
+      scope: { ...scope, slug: canonicalSlug },
+      sourceWasCanonical,
+    });
+  }
+
+  return [...canonical.values()].map(({ scope }) => scope);
+};
+
+const canonicalDeveloperReport = (report: DeveloperReport): DeveloperReport => {
+  const chain = report.scope.chain ? slugify(report.scope.chain) : null;
+  const chains = canonicalScopeSummaries(report.scopes.chains);
+
+  return {
+    ...report,
+    scope: { ...report.scope, chain },
+    scopes: { ...report.scopes, chains },
+    top: {
+      ...report.top,
+      chains: chain
+        ? chains.filter(scope => scope.slug === chain).slice(0, 10)
+        : chains.slice(0, 10),
+    },
+  };
+};
 
 @Injectable()
 export class PeopleIntelligenceService {
@@ -152,7 +195,7 @@ export class PeopleIntelligenceService {
       history: [],
       top: { verticals: [], chains: [], organizations: [] },
       organizations: [],
-    });
+    }).then(canonicalDeveloperReport);
   }
 
   activityMap(query: Query): Promise<PeopleActivityMap> {

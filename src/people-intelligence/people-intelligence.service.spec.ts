@@ -151,6 +151,46 @@ describe("PeopleIntelligenceService", () => {
     });
   });
 
+  it("uses slugify for chain aliases and prefers canonical duplicates", async () => {
+    const response = reportResponse();
+    const chain = (
+      slug: string,
+      activeDevelopers: number,
+    ): DeveloperReport["scopes"]["chains"][number] => ({
+      slug,
+      label: slug,
+      logoUrl: null,
+      allContributors: activeDevelopers,
+      activeDevelopers,
+      internalDevelopers: 0,
+      activeMaintainers: 0,
+      activeLeads: 0,
+      activeOrganizations: 1,
+      activeRepositories: 1,
+    });
+    response.scopes.chains = [
+      chain("opbnb", 315),
+      chain("op_bnb", 203),
+      chain("re.al", 78),
+      chain("real", 78),
+    ];
+    response.top.chains = response.scopes.chains;
+    const get = jest.fn().mockReturnValue(of({ data: response }));
+    const service = new PeopleIntelligenceService({ get } as never);
+
+    const report = await service.developerReport();
+
+    expect(report.scopes.chains.map(scope => scope.slug)).toEqual([
+      "opbnb",
+      "real",
+    ]);
+    expect(report.scopes.chains[0].activeDevelopers).toBe(315);
+    expect(report.top.chains.map(scope => scope.slug)).toEqual([
+      "opbnb",
+      "real",
+    ]);
+  });
+
   it("defaults the report to the complete all-sector corpus", async () => {
     const response = reportResponse();
     const get = jest.fn().mockReturnValue(of({ data: response }));
