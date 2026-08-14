@@ -55,7 +55,22 @@ const reportResponse = (
     verticalsAreExclusive: true as const,
     chainsOverlap: Boolean(scope.chain),
   },
-  scopes: { verticals: [], chains: [] },
+  scopes: {
+    overall: {
+      slug: "overall",
+      label: "Overall",
+      logoUrl: null,
+      allContributors: 0,
+      activeDevelopers: 0,
+      internalDevelopers: 0,
+      activeMaintainers: 0,
+      activeLeads: 0,
+      activeOrganizations: 0,
+      activeRepositories: 0,
+    },
+    verticals: [],
+    chains: [],
+  },
   coverage: {
     organizationsTotal: 0,
     categorizedOrganizations: 0,

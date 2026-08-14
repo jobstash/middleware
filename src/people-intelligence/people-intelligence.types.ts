@@ -121,6 +121,7 @@ export type DeveloperReport = {
     chainsOverlap: boolean;
   };
   scopes: {
+    overall: DeveloperReportScopeSummary;
     verticals: DeveloperVerticalSummary[];
     chains: DeveloperReportScopeSummary[];
   };
