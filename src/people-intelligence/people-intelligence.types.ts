@@ -90,6 +90,8 @@ export type DeveloperReport = {
     to: string;
   };
   summary: {
+    allTimeIngestedCommitRows: number;
+    reportCommitRecords: number;
     rawIndexedCommitRecords: number;
     commitsWritten: number;
     creditedOriginalCommits: number;

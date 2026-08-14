@@ -28,6 +28,8 @@ const reportResponse = (
     to: "2026-07-01",
   },
   summary: {
+    allTimeIngestedCommitRows: 0,
+    reportCommitRecords: 0,
     rawIndexedCommitRecords: 0,
     commitsWritten: 0,
     creditedOriginalCommits: 0,

@@ -149,6 +149,8 @@ export class PeopleIntelligenceService {
         to: "",
       },
       summary: {
+        allTimeIngestedCommitRows: 0,
+        reportCommitRecords: 0,
         rawIndexedCommitRecords: 0,
         commitsWritten: 0,
         creditedOriginalCommits: 0,
