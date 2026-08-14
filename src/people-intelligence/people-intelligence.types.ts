@@ -1,7 +1,5 @@
 export type PeopleBucket = "month" | "quarter" | "year";
-export type DeveloperCohort = "crypto" | "fintech" | "ai" | "banking" | "tech";
-export type DeveloperReportCohort = "all" | DeveloperCohort;
-export type DeveloperReportRange = "all" | "3y" | "1y";
+export type DeveloperReportRange = "3m" | "6m" | "1y" | "3y" | "max";
 export type PeopleMetric =
   | "activePeople"
   | "affiliatedPeople"
@@ -34,111 +32,52 @@ export type PeopleOverview = {
   }>;
 };
 
-export type LegacyDeveloperReportPoint = PeopleOverview["points"][number] & {
-  oneDayPeople: number;
-  regularPeople: number;
-  sustainedPeople: number;
-  newPeople: number;
-  establishedPeople: number;
-  longTenuredPeople: number;
+export type DeveloperReportPoint = {
+  period: string;
+  allContributors: number;
+  activeDevelopers: number;
+  internalDevelopers: number;
+  canonicalInternalPeople: number;
+  activeMaintainers: number;
+  activeLeads: number;
+  activeOrganizations: number;
+  activeRepositories: number;
+  rawIndexedCommitRecords: number;
+  creditedOriginalCommits: number;
+  fullTimeDevelopers: number;
+  partTimeDevelopers: number;
+  oneTimeDevelopers: number;
+  newcomerDevelopers: number;
+  emergingDevelopers: number;
+  establishedDevelopers: number;
+  newDevelopers: number;
+  newRepositories: number;
+  internalDeveloperShare: number;
 };
 
-export type LegacyDeveloperReport = {
-  available: boolean;
-  asOf: string | null;
-  completeThrough: string | null;
-  methodologyVersion: "developer-report";
-  selectedCohort: DeveloperCohort;
-  cohorts: Array<{
-    cohort: DeveloperCohort;
-    label: string;
-    activePeople: number;
-    activeMaintainers: number;
-    activeOrganizations: number;
-  }>;
-  population: {
-    label: string;
-    definition: string;
-    excludes: string[];
-  };
-  current: LegacyDeveloperReportPoint | null;
-  history: LegacyDeveloperReportPoint[];
-  retention: Array<{
-    cohortMonth: string;
-    cohortSize: number;
-    retainedMonth3: number;
-    retainedMonth6: number;
-    retainedMonth12: number;
-  }>;
-  maintainerLeverage: {
-    period: string | null;
-    maintainerCount: number;
-    mergedPrCount: number;
-    medianAuthorsSupported: number | null;
-    p25AuthorsSupported: number | null;
-    p75AuthorsSupported: number | null;
-  };
-  organizations: Array<{
-    organizationKey: string;
-    organizationId: string | null;
-    organizationName: string;
-    organizationSlug: string;
-    cohort: DeveloperCohort;
-    logoUrl: string | null;
-    activePeople: number;
-    activeMaintainers: number;
-    activeLeads: number;
-    activePeopleChange12m: number;
-    joins12m: number;
-    exits12m: number;
-    netTeamChange12m: number;
-    commitCount12m: number;
-    mergeCount12m: number;
-    series: Array<{ period: string; activePeople: number }>;
-  }>;
-  movements: Array<{
-    sourceOrganizationKey: string;
-    sourceOrganizationName: string;
-    destinationOrganizationKey: string;
-    destinationOrganizationName: string;
-    people: number;
-    maintainerMovements: number;
-  }>;
+export type DeveloperReportScopeSummary = {
+  slug: string;
+  label: string;
+  logoUrl: string | null;
+  allContributors: number;
+  activeDevelopers: number;
+  internalDevelopers: number;
+  activeMaintainers: number;
+  activeLeads: number;
+  activeOrganizations: number;
+  activeRepositories: number;
 };
 
-export type DeveloperReportPoint = PeopleOverview["points"][number] & {
-  activeContributors: number;
-  oneDayPeople: number;
-  regularPeople: number;
-  sustainedPeople: number;
-  singleChainPeople: number;
-  multiChainPeople: number;
-  unmappedChainPeople: number;
-  newcomerPeople: number;
-  emergingPeople: number;
-  establishedPeople: number;
-};
-
-export type DeveloperReportCorpus = {
-  indexedCommitRecords: number;
-  distinctCommitShas: number;
-  githubLinkedAuthors: number;
-  indexedRepositories: number;
-  indexedGithubOrganizations: number;
-  historicalInternalPeople: number;
-  currentInternalPeople: number;
-  verifiedInternalCommitRecords: number;
-  verifiedInternalMergeRecords: number;
-  historicalMaintainers: number;
-  currentMaintainers: number;
-  currentActiveLeads: number;
+export type DeveloperVerticalSummary = DeveloperReportScopeSummary & {
+  exclusive: true;
+  history: DeveloperReportPoint[];
 };
 
 export type DeveloperReport = {
   available: boolean;
   asOf: string | null;
   completeThrough: string | null;
-  methodologyVersion: "developer-report";
+  methodologyVersion: "developer-report-v2";
   range: {
     key: DeveloperReportRange;
     label: string;
@@ -146,84 +85,86 @@ export type DeveloperReport = {
     to: string;
   };
   summary: {
-    contributors: number;
-    internalPeople: number;
+    rawIndexedCommitRecords: number;
+    creditedOriginalCommits: number;
+    allContributors: number;
+    activeDevelopers: number;
+    internalDevelopers: number;
+    canonicalInternalPeople: number;
     maintainers: number;
     activeLeads: number;
     organizations: number;
-    repositoryCount: number;
-    indexedCommitRecords: number;
-    internalCommitRecords: number;
-    mergeRecords: number;
+    activeRepositories: number;
+    newDevelopers: number;
+    newRepositories: number;
+    internalDeveloperShare: number;
   };
   scope: {
-    type: "cohort" | "chain";
-    key: string;
+    type: "overall" | "vertical" | "chain" | "vertical_chain";
     label: string;
-    slug: string | null;
+    vertical: string | null;
+    chain: string | null;
     logoUrl: string | null;
-    overlapping: boolean;
+    verticalsAreExclusive: true;
+    chainsOverlap: boolean;
   };
   scopes: {
-    cohorts: Array<{
-      cohort: DeveloperReportCohort;
-      label: string;
-      contributors: number;
-      activePeople: number;
-      activeMaintainers: number;
-      activeOrganizations: number;
-    }>;
-    chains: Array<{
-      chainId: string;
-      chainSlug: string;
-      chainName: string;
-      logoUrl: string | null;
-      contributors: number;
-      activePeople: number;
-      activeMaintainers: number;
-      activeLeads: number;
-      activeOrganizations: number;
-      repositoryCount: number;
-    }>;
+    verticals: DeveloperVerticalSummary[];
+    chains: DeveloperReportScopeSummary[];
   };
   coverage: {
-    githubOrganizations: number;
-    chainMappedGithubOrganizations: number;
-    chainMappedPercent: number;
+    organizationsTotal: number;
+    categorizedOrganizations: number;
+    unclassifiedOrganizations: number;
+    organizationPercent: number;
+    developersTotal: number;
+    categorizedDevelopers: number;
+    unclassifiedDevelopers: number;
+    developerPercent: number;
     note: string;
   };
-  population: LegacyDeveloperReport["population"];
-  corpus: DeveloperReportCorpus;
+  population: {
+    label: string;
+    definition: string;
+    excludes: string[];
+  };
   current: DeveloperReportPoint | null;
   history: DeveloperReportPoint[];
-  repositoryHistory: Array<{ period: string; newRepositories: number }>;
+  top: {
+    verticals: DeveloperReportScopeSummary[];
+    chains: DeveloperReportScopeSummary[];
+    organizations: Array<{
+      organizationKey: string;
+      organizationName: string;
+      activeDevelopers: number;
+    }>;
+  };
   organizations: Array<{
     organizationKey: string;
     organizationId: string | null;
     organizationName: string;
     organizationSlug: string;
-    cohort: DeveloperCohort;
+    vertical: string;
     logoUrl: string | null;
     layoutX: number | null;
     layoutY: number | null;
     communityId: number | null;
-    contributors: number;
-    internalPeople: number;
+    allContributors: number;
+    activeDevelopers: number;
+    internalDevelopers: number;
+    canonicalInternalPeople: number;
     maintainers: number;
     leads: number;
-    joins: number;
-    exits: number;
-    commitCount: number;
-    mergeCount: number;
+    creditedOriginalCommits: number;
+    activeRepositories: number;
     series: Array<{
       period: string;
-      activeContributors: number;
-      activePeople: number;
+      activeDevelopers: number;
+      internalDevelopers: number;
       activeMaintainers: number;
       activeLeads: number;
     }>;
   }>;
-  movements: LegacyDeveloperReport["movements"];
 };
 
 export type PeopleActivityMap = {

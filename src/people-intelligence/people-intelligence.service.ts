@@ -6,7 +6,7 @@ import { firstValueFrom } from "rxjs";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import {
   DeveloperReport,
-  DeveloperReportCohort,
+  DeveloperReportRange,
   PeopleActivityMap,
   PeopleAtlasFrame,
   PeopleDirectoryPage,
@@ -41,15 +41,15 @@ const positiveInteger = (
     : fallback;
 };
 
-const developerReportCohort = (value: unknown): DeveloperReportCohort =>
-  ["all", "crypto", "fintech", "ai", "banking", "tech"].includes(String(value))
-    ? (String(value) as DeveloperReportCohort)
-    : "all";
+const reportSlug = (value: unknown): string | undefined =>
+  typeof value === "string" && /^[a-z0-9][a-z0-9_-]{0,119}$/.test(value)
+    ? value
+    : undefined;
 
-const developerReportRange = (value: unknown): "all" | "3y" | "1y" =>
-  ["all", "3y", "1y"].includes(String(value))
-    ? (String(value) as "all" | "3y" | "1y")
-    : "all";
+const developerReportRange = (value: unknown): DeveloperReportRange =>
+  ["3m", "6m", "1y", "3y", "max"].includes(String(value))
+    ? (String(value) as DeveloperReportRange)
+    : "max";
 
 @Injectable()
 export class PeopleIntelligenceService {
@@ -70,87 +70,88 @@ export class PeopleIntelligenceService {
   }
 
   developerReport(query: Query = {}): Promise<DeveloperReport> {
-    const chain =
-      typeof query.chain === "string" &&
-      /^[a-z0-9][a-z0-9-]{0,119}$/.test(query.chain)
-        ? query.chain
-        : undefined;
-    const cohort = developerReportCohort(query.cohort);
+    const vertical = reportSlug(query.vertical);
+    const chain = reportSlug(query.chain);
     const range = developerReportRange(query.range);
-    const scorerQuery = chain
-      ? {
-          chain,
-          range,
-          ...(query.cohort === undefined ? {} : { cohort }),
-        }
-      : { cohort, range };
+    const scorerQuery = {
+      range,
+      ...(vertical ? { vertical } : {}),
+      ...(chain ? { chain } : {}),
+    };
+    const scopeType = vertical
+      ? chain
+        ? "vertical_chain"
+        : "vertical"
+      : chain
+        ? "chain"
+        : "overall";
     return this.get("developer-report", scorerQuery, {
       available: false,
       asOf: null,
       completeThrough: null,
-      methodologyVersion: "developer-report",
+      methodologyVersion: "developer-report-v2",
       range: {
         key: range,
         label:
-          range === "all"
+          range === "max"
             ? "Since inception"
             : range === "3y"
               ? "Last 3 years"
-              : "Last year",
+              : range === "1y"
+                ? "Last year"
+                : range === "6m"
+                  ? "Last 6 months"
+                  : "Last 3 months",
         from: "",
         to: "",
       },
       summary: {
-        contributors: 0,
-        internalPeople: 0,
+        rawIndexedCommitRecords: 0,
+        creditedOriginalCommits: 0,
+        allContributors: 0,
+        activeDevelopers: 0,
+        internalDevelopers: 0,
+        canonicalInternalPeople: 0,
         maintainers: 0,
         activeLeads: 0,
         organizations: 0,
-        repositoryCount: 0,
-        indexedCommitRecords: 0,
-        internalCommitRecords: 0,
-        mergeRecords: 0,
+        activeRepositories: 0,
+        newDevelopers: 0,
+        newRepositories: 0,
+        internalDeveloperShare: 0,
       },
       scope: {
-        type: chain ? "chain" : "cohort",
-        key: chain ?? cohort,
-        label: chain ?? cohort,
-        slug: chain ?? null,
+        type: scopeType,
+        label:
+          [vertical, chain].filter(Boolean).join(" · ") || "All developers",
+        vertical: vertical ?? null,
+        chain: chain ?? null,
         logoUrl: null,
-        overlapping: Boolean(chain),
+        verticalsAreExclusive: true,
+        chainsOverlap: Boolean(chain),
       },
-      scopes: { cohorts: [], chains: [] },
+      scopes: { verticals: [], chains: [] },
       coverage: {
-        githubOrganizations: 0,
-        chainMappedGithubOrganizations: 0,
-        chainMappedPercent: 0,
-        note: "Chain cohorts overlap. Global and sector totals count each internal person once.",
+        organizationsTotal: 0,
+        categorizedOrganizations: 0,
+        unclassifiedOrganizations: 0,
+        organizationPercent: 0,
+        developersTotal: 0,
+        categorizedDevelopers: 0,
+        unclassifiedDevelopers: 0,
+        developerPercent: 0,
+        note: "Vertical totals are exclusive under the current scalar taxonomy; chain totals overlap.",
       },
       population: {
-        label: "All contributors and verified internal subsets",
+        label: "Original-work developers and verified internal intersections",
         definition:
-          "The broad layer counts human commit authors. The verified internal subset keeps the canonical employee calculation; maintainers are internal people who merge pull requests and active leads have recent merge authority.",
-        excludes: ["external contributors", "bots", "banned organizations"],
-      },
-      corpus: {
-        indexedCommitRecords: 0,
-        distinctCommitShas: 0,
-        githubLinkedAuthors: 0,
-        indexedRepositories: 0,
-        indexedGithubOrganizations: 0,
-        historicalInternalPeople: 0,
-        currentInternalPeople: 0,
-        verifiedInternalCommitRecords: 0,
-        verifiedInternalMergeRecords: 0,
-        historicalMaintainers: 0,
-        currentMaintainers: 0,
-        currentActiveLeads: 0,
+          "Active developers are canonical numeric GitHub authors of provenance-approved original commits. Internal roles retain the canonical classifiers and are nested intersections.",
+        excludes: ["bots", "banned organizations", "copied history"],
       },
       current: null,
       history: [],
-      repositoryHistory: [],
+      top: { verticals: [], chains: [], organizations: [] },
       organizations: [],
-      movements: [],
     });
   }
 

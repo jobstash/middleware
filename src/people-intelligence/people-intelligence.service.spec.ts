@@ -2,6 +2,74 @@ import { HttpService } from "@nestjs/axios";
 import { AxiosError } from "axios";
 import { of, throwError } from "rxjs";
 import { PeopleIntelligenceService } from "./people-intelligence.service";
+import type { DeveloperReport } from "./people-intelligence.types";
+
+const reportResponse = (
+  scope: {
+    type: "overall" | "vertical" | "chain" | "vertical_chain";
+    vertical: string | null;
+    chain: string | null;
+    label: string;
+  } = {
+    type: "overall",
+    vertical: null,
+    chain: null,
+    label: "All developers",
+  },
+): DeveloperReport => ({
+  available: true,
+  asOf: "2026-07-01T00:00:00.000Z",
+  completeThrough: "2026-07-01",
+  methodologyVersion: "developer-report-v2" as const,
+  range: {
+    key: "max" as const,
+    label: "Since inception",
+    from: "2008-01-01",
+    to: "2026-07-01",
+  },
+  summary: {
+    rawIndexedCommitRecords: 0,
+    creditedOriginalCommits: 0,
+    allContributors: 0,
+    activeDevelopers: 0,
+    internalDevelopers: 0,
+    canonicalInternalPeople: 0,
+    maintainers: 0,
+    activeLeads: 0,
+    organizations: 0,
+    activeRepositories: 0,
+    newDevelopers: 0,
+    newRepositories: 0,
+    internalDeveloperShare: 0,
+  },
+  scope: {
+    ...scope,
+    logoUrl: null,
+    verticalsAreExclusive: true as const,
+    chainsOverlap: Boolean(scope.chain),
+  },
+  scopes: { verticals: [], chains: [] },
+  coverage: {
+    organizationsTotal: 0,
+    categorizedOrganizations: 0,
+    unclassifiedOrganizations: 0,
+    organizationPercent: 0,
+    developersTotal: 0,
+    categorizedDevelopers: 0,
+    unclassifiedDevelopers: 0,
+    developerPercent: 0,
+    note: "Verticals are exclusive.",
+  },
+  population: {
+    label: "Original-work developers",
+    definition: "Canonical numeric GitHub authors",
+    excludes: ["bots", "banned presentation organizations"],
+  },
+  current: null,
+  history: [],
+  top: { verticals: [], chains: [], organizations: [] },
+  organizations: [],
+});
 
 describe("PeopleIntelligenceService", () => {
   it("forwards public activity-map parameters to scorer", async () => {
@@ -44,117 +112,47 @@ describe("PeopleIntelligenceService", () => {
   });
 
   it("proxies the canonical developer report with an all-history default", async () => {
-    const response = {
-      available: true,
-      asOf: "2026-07-01T00:00:00.000Z",
-      completeThrough: "2026-07-01",
-      methodologyVersion: "developer-report" as const,
-      population: {
-        label: "Verified internal contributors",
-        definition: "Canonical internal employees",
-        excludes: ["external contributors"],
-      },
-      current: null,
-      history: [],
-      range: {
-        key: "all" as const,
-        label: "Since inception",
-        from: "2008-01-01",
-        to: "2026-07-01",
-      },
-      organizations: [],
-      movements: [],
-    };
+    const response = reportResponse({
+      type: "vertical",
+      vertical: "fintech",
+      chain: null,
+      label: "Fintech",
+    });
     const get = jest.fn().mockReturnValue(of({ data: response }));
     const service = new PeopleIntelligenceService({
       get,
     } as unknown as HttpService);
 
     await expect(
-      service.developerReport({ cohort: "fintech" }),
+      service.developerReport({ vertical: "fintech" }),
     ).resolves.toEqual(response);
     expect(get).toHaveBeenCalledWith("/scorer/people/developer-report", {
-      params: { cohort: "fintech", range: "all" },
+      params: { vertical: "fintech", range: "max" },
     });
   });
 
-  it("proxies a chain-scoped report without adding a cohort", async () => {
-    const response = {
-      available: true,
-      asOf: "2026-07-01T00:00:00.000Z",
-      completeThrough: "2026-07-01",
-      methodologyVersion: "developer-report" as const,
-      scope: {
-        type: "chain" as const,
-        key: "ethereum",
-        label: "Ethereum",
-        slug: "ethereum",
-        logoUrl: null,
-        overlapping: true,
-      },
-      scopes: { cohorts: [], chains: [] },
-      coverage: {
-        githubOrganizations: 100,
-        chainMappedGithubOrganizations: 75,
-        chainMappedPercent: 75,
-        note: "Chain cohorts overlap.",
-      },
-      population: {
-        label: "Verified internal contributors",
-        definition: "Canonical internal employees",
-        excludes: ["external contributors", "bots", "banned organizations"],
-      },
-      current: null,
-      history: [],
-      repositoryHistory: [],
-      organizations: [],
-      movements: [],
-    };
+  it("proxies combined vertical and chain scopes", async () => {
+    const response = reportResponse({
+      type: "vertical_chain",
+      vertical: "crypto",
+      chain: "ethereum",
+      label: "Crypto · Ethereum",
+    });
     const get = jest.fn().mockReturnValue(of({ data: response }));
     const service = new PeopleIntelligenceService({
       get,
     } as unknown as HttpService);
 
     await expect(
-      service.developerReport({ chain: "ethereum" }),
+      service.developerReport({ vertical: "crypto", chain: "ethereum" }),
     ).resolves.toEqual(response);
     expect(get).toHaveBeenCalledWith("/scorer/people/developer-report", {
-      params: { chain: "ethereum", range: "all" },
+      params: { vertical: "crypto", chain: "ethereum", range: "max" },
     });
   });
 
   it("defaults the report to the complete all-sector corpus", async () => {
-    const response = {
-      available: true,
-      asOf: "2026-07-01T00:00:00.000Z",
-      completeThrough: "2026-07-01",
-      methodologyVersion: "developer-report" as const,
-      scope: {
-        type: "cohort" as const,
-        key: "all",
-        label: "All sectors",
-        slug: null,
-        logoUrl: null,
-        overlapping: false,
-      },
-      scopes: { cohorts: [], chains: [] },
-      coverage: {
-        githubOrganizations: 0,
-        chainMappedGithubOrganizations: 0,
-        chainMappedPercent: 0,
-        note: "",
-      },
-      population: {
-        label: "Verified internal contributors",
-        definition: "Canonical internal employees",
-        excludes: ["external contributors", "bots", "banned organizations"],
-      },
-      current: null,
-      history: [],
-      repositoryHistory: [],
-      organizations: [],
-      movements: [],
-    };
+    const response = reportResponse();
     const get = jest.fn().mockReturnValue(of({ data: response }));
     const service = new PeopleIntelligenceService({
       get,
@@ -162,7 +160,7 @@ describe("PeopleIntelligenceService", () => {
 
     await expect(service.developerReport()).resolves.toEqual(response);
     expect(get).toHaveBeenCalledWith("/scorer/people/developer-report", {
-      params: { cohort: "all", range: "all" },
+      params: { range: "max" },
     });
   });
 
@@ -175,18 +173,17 @@ describe("PeopleIntelligenceService", () => {
     } as unknown as HttpService);
 
     await expect(
-      service.developerReport({ cohort: "ai" }),
+      service.developerReport({ vertical: "ai" }),
     ).resolves.toMatchObject({
       available: false,
-      methodologyVersion: "developer-report",
-      range: { key: "all", label: "Since inception" },
-      scope: { type: "cohort", key: "ai" },
-      corpus: {
-        indexedCommitRecords: 0,
-        historicalInternalPeople: 0,
-        currentInternalPeople: 0,
+      methodologyVersion: "developer-report-v2",
+      range: { key: "max", label: "Since inception" },
+      scope: { type: "vertical", vertical: "ai" },
+      summary: {
+        rawIndexedCommitRecords: 0,
+        creditedOriginalCommits: 0,
+        activeDevelopers: 0,
       },
-      repositoryHistory: [],
     });
   });
 
