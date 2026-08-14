@@ -370,6 +370,7 @@ export class SearchDocumentRepository {
             NULLIF(organization.location, '') AS location,
             NULLIF(organization.payload ->> 'logoUrl', '') AS logo_url,
             NULLIF(organization.payload ->> 'summary', '') AS summary,
+            NULLIF(node.properties ->> 'vertical', '') AS vertical,
             COALESCE(cardinality(organization.project_ids), 0)::int AS project_count,
             entity_property_is_banned(node.properties) AS banned,
             search.query_key
@@ -419,6 +420,7 @@ export class SearchDocumentRepository {
             NULLIF(banned.properties ->> 'location', '') AS location,
             NULLIF(banned.properties ->> 'logoUrl', '') AS logo_url,
             NULLIF(banned.properties ->> 'summary', '') AS summary,
+            NULLIF(banned.properties ->> 'vertical', '') AS vertical,
             (
               SELECT count(*)::int
               FROM graph_relationships ownership
@@ -515,6 +517,7 @@ export class SearchDocumentRepository {
                 'location', page.location,
                 'logoUrl', page.logo_url,
                 'summary', page.summary,
+                'vertical', page.vertical,
                 'projectCount', page.project_count,
                 'banned', page.banned
               ))
@@ -1579,7 +1582,20 @@ export class SearchDocumentRepository {
             'manualReviewUpdatedTimestamp', jsonb_numeric_value(
               node.properties,
               'manualReviewUpdatedTimestamp'
-            )
+            ),
+            'vertical', node.properties -> 'vertical',
+            'verticalFirstAppliedTimestamp', jsonb_numeric_value(
+              node.properties,
+              'verticalFirstAppliedTimestamp'
+            ),
+            'verticalAppliedTimestamp', jsonb_numeric_value(
+              node.properties,
+              'verticalAppliedTimestamp'
+            ),
+            'verticalClassificationSource', node.properties -> 'verticalClassificationSource',
+            'verticalClassificationProvider', node.properties -> 'verticalClassificationProvider',
+            'verticalClassificationModel', node.properties -> 'verticalClassificationModel',
+            'verticalClassificationReason', node.properties -> 'verticalClassificationReason'
           ) AS payload
         FROM organization_search_documents organization
         JOIN graph_nodes node ON node.id = organization.organization_node_id
@@ -1712,6 +1728,13 @@ export class SearchDocumentRepository {
             'altName', organization.graph_properties -> 'altName',
             'createdTimestamp', organization.graph_properties -> 'createdTimestamp',
             'updatedTimestamp', organization.graph_properties -> 'updatedTimestamp',
+            'vertical', organization.graph_properties -> 'vertical',
+            'verticalFirstAppliedTimestamp', organization.graph_properties -> 'verticalFirstAppliedTimestamp',
+            'verticalAppliedTimestamp', organization.graph_properties -> 'verticalAppliedTimestamp',
+            'verticalClassificationSource', organization.graph_properties -> 'verticalClassificationSource',
+            'verticalClassificationProvider', organization.graph_properties -> 'verticalClassificationProvider',
+            'verticalClassificationModel', organization.graph_properties -> 'verticalClassificationModel',
+            'verticalClassificationReason', organization.graph_properties -> 'verticalClassificationReason',
             'websites', '[]'::jsonb,
             'aliases', '[]'::jsonb,
             'twitters', '[]'::jsonb,
@@ -1746,6 +1769,13 @@ export class SearchDocumentRepository {
           'altName', organization.payload -> 'altName',
           'createdTimestamp', organization.payload -> 'createdTimestamp',
           'updatedTimestamp', organization.payload -> 'updatedTimestamp',
+          'vertical', node.properties -> 'vertical',
+          'verticalFirstAppliedTimestamp', node.properties -> 'verticalFirstAppliedTimestamp',
+          'verticalAppliedTimestamp', node.properties -> 'verticalAppliedTimestamp',
+          'verticalClassificationSource', node.properties -> 'verticalClassificationSource',
+          'verticalClassificationProvider', node.properties -> 'verticalClassificationProvider',
+          'verticalClassificationModel', node.properties -> 'verticalClassificationModel',
+          'verticalClassificationReason', node.properties -> 'verticalClassificationReason',
           'websites', links.websites,
           'aliases', links.aliases,
           'twitters', links.twitters,

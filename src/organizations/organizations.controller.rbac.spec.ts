@@ -11,6 +11,7 @@ type OrganizationsControllerFixture = {
     getOrgById: jest.Mock;
     getAdminDirectory: jest.Mock;
     getAllForAdminGrid: jest.Mock;
+    updateVerticalClassification: jest.Mock;
     update: jest.Mock;
   };
   userService: {
@@ -30,6 +31,7 @@ describe("OrganizationsController RBAC", () => {
       getOrgById: jest.fn(),
       getAdminDirectory: jest.fn(),
       getAllForAdminGrid: jest.fn(),
+      updateVerticalClassification: jest.fn(),
       update: jest.fn(),
     };
     const configService = {
@@ -170,5 +172,30 @@ describe("OrganizationsController RBAC", () => {
       data: { orgId: "12256", name: "Updated org" },
     });
     expect(userService.isOrgOwner).not.toHaveBeenCalled();
+  });
+
+  it("forwards guarded classification updates for admins", async () => {
+    const { controller, organizationsService } = buildController();
+    organizationsService.updateVerticalClassification.mockResolvedValue({
+      success: true,
+      message: "Organization classification updated successfully",
+      data: { vertical: "fintech" },
+    });
+    const input = {
+      expectedVertical: "crypto",
+      vertical: "fintech" as const,
+      reason: "The current core product is financial infrastructure.",
+      evidence: [],
+    };
+
+    await expect(
+      controller.updateOrganizationClassification("12256", input),
+    ).resolves.toMatchObject({
+      success: true,
+      data: { vertical: "fintech" },
+    });
+    expect(
+      organizationsService.updateVerticalClassification,
+    ).toHaveBeenCalledWith("12256", input);
   });
 });

@@ -6,6 +6,7 @@ export type AdminOrganizationDirectoryItem = {
   location?: string;
   logoUrl?: string;
   summary?: string;
+  vertical?: string;
   projectCount: number;
   banned: boolean;
 };

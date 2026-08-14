@@ -109,6 +109,7 @@ describe("SearchDocumentRepository", () => {
     expect(sql).not.toContain("ORDER BY lower(name)");
     expect(sql).toContain("LIMIT $2 OFFSET $3");
     expect(sql).toContain("entity_property_is_banned(node.properties)");
+    expect(sql).toContain("'vertical', page.vertical");
     expect(sql).toContain("UNION ALL");
     expect(sql).toContain("FROM graph_nodes banned");
     expect(sql).toContain("banned.label = 'Organization'");
@@ -148,6 +149,8 @@ describe("SearchDocumentRepository", () => {
       "jsonb_typeof(organization.payload -> 'projects') = 'array'",
     );
     expect(sql).toContain("'needsManualReview'");
+    expect(sql).toContain("'vertical', node.properties -> 'vertical'");
+    expect(sql).toContain("'verticalClassificationReason'");
     expect(sql).toContain(
       "'banned', entity_property_is_banned(node.properties)",
     );

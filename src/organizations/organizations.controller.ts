@@ -84,6 +84,7 @@ import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.
 import { SetOrganizationBannedInput } from "./dto/set-organization-banned.input";
 import { ResolveEntityReviewInput } from "src/shared/dto/resolve-entity-review.input";
 import { OrganizationTeamDetail } from "src/team-intelligence/team-intelligence.types";
+import { UpdateOrganizationClassificationInput } from "./dto/update-organization-classification.input";
 
 @Controller("organizations")
 @ApiExtraModels(ShortOrg, TinyOrg, Organization)
@@ -877,6 +878,22 @@ export class OrganizationsController {
         message: `An unexpected error occured`,
       };
     }
+  }
+
+  @Post("/classification/:id")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
+  @ApiOkResponse({
+    description: "Guardedly updates an organization's reporting classification",
+  })
+  async updateOrganizationClassification(
+    @Param("id") id: string,
+    @Body() body: UpdateOrganizationClassificationInput,
+  ): Promise<ResponseWithOptionalData<Record<string, unknown>>> {
+    this.logger.log(
+      `POST /organizations/classification/${id} ${JSON.stringify(body)}`,
+    );
+    return this.organizationsService.updateVerticalClassification(id, body);
   }
 
   @Delete("/delete/:id")

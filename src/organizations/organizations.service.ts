@@ -1,4 +1,10 @@
-import { Injectable } from "@nestjs/common";
+import {
+  BadGatewayException,
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import {
   ShortOrg,
@@ -66,6 +72,7 @@ import {
   OrganizationTeamDetail,
   OrganizationTeamSummary,
 } from "src/team-intelligence/team-intelligence.types";
+import { UpdateOrganizationClassificationInput } from "./dto/update-organization-classification.input";
 
 @Injectable()
 export class OrganizationsService {
@@ -1151,6 +1158,68 @@ export class OrganizationsService {
       throw new Error("Organization " + id + " not found");
     }
     return new OrganizationEntity(updated.properties);
+  }
+
+  async updateVerticalClassification(
+    id: string,
+    input: UpdateOrganizationClassificationInput,
+  ): Promise<ResponseWithOptionalData<Record<string, unknown>>> {
+    const url = this.configService
+      .get<string>("ETL_DOMAIN")
+      ?.replace(/\/$/, "");
+    if (!url) {
+      throw new BadGatewayException({
+        success: false,
+        message: "ETL domain is not configured",
+      });
+    }
+
+    const authToken = await this.auth0Service.getETLToken();
+    try {
+      const response = await axios.post(
+        `${url}/vertical-classifications/manual`,
+        {
+          entityId: id,
+          expectedVertical: input.expectedVertical,
+          vertical: input.vertical,
+          reason: input.reason,
+          evidence: input.evidence ?? [],
+        },
+        {
+          headers: {
+            Authorization: authToken ? `Bearer ${authToken}` : undefined,
+          },
+          timeout: 30_000,
+        },
+      );
+
+      return {
+        success: true,
+        message: "Organization classification updated successfully",
+        data: response.data as Record<string, unknown>,
+      };
+    } catch (error) {
+      const response = axios.isAxiosError(error) ? error.response : undefined;
+      const responseData = response?.data as
+        | { message?: string | string[] }
+        | undefined;
+      const rawMessage = responseData?.message;
+      const message = Array.isArray(rawMessage)
+        ? rawMessage.join(", ")
+        : rawMessage || "Unable to update organization classification";
+
+      if (response?.status === 409) {
+        throw new ConflictException({ success: false, message });
+      }
+      if (response?.status === 404) {
+        throw new NotFoundException({ success: false, message });
+      }
+      if (response?.status === 400) {
+        throw new BadRequestException({ success: false, message });
+      }
+
+      throw new BadGatewayException({ success: false, message });
+    }
   }
 
   async delete(id: string, actor?: string): Promise<ResponseWithNoData> {

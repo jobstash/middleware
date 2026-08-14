@@ -46,6 +46,13 @@ export class Organization {
     growingTeam: t.union([t.boolean, t.null, t.undefined]),
     shrinkingTeam: t.union([t.boolean, t.null, t.undefined]),
     earlyTeamShrinkage: t.union([t.boolean, t.null, t.undefined]),
+    vertical: t.union([t.string, t.null, t.undefined]),
+    verticalFirstAppliedTimestamp: t.union([t.number, t.null, t.undefined]),
+    verticalAppliedTimestamp: t.union([t.number, t.null, t.undefined]),
+    verticalClassificationSource: t.union([t.string, t.null, t.undefined]),
+    verticalClassificationProvider: t.union([t.string, t.null, t.undefined]),
+    verticalClassificationModel: t.union([t.string, t.null, t.undefined]),
+    verticalClassificationReason: t.union([t.string, t.null, t.undefined]),
   });
 
   @ApiProperty()
@@ -123,6 +130,27 @@ export class Organization {
   @ApiPropertyOptional()
   earlyTeamShrinkage?: boolean | null;
 
+  @ApiPropertyOptional()
+  vertical?: string | null;
+
+  @ApiPropertyOptional()
+  verticalFirstAppliedTimestamp?: number | null;
+
+  @ApiPropertyOptional()
+  verticalAppliedTimestamp?: number | null;
+
+  @ApiPropertyOptional()
+  verticalClassificationSource?: string | null;
+
+  @ApiPropertyOptional()
+  verticalClassificationProvider?: string | null;
+
+  @ApiPropertyOptional()
+  verticalClassificationModel?: string | null;
+
+  @ApiPropertyOptional()
+  verticalClassificationReason?: string | null;
+
   constructor(raw: Organization) {
     const {
       id,
@@ -150,6 +178,13 @@ export class Organization {
       growingTeam,
       shrinkingTeam,
       earlyTeamShrinkage,
+      vertical,
+      verticalFirstAppliedTimestamp,
+      verticalAppliedTimestamp,
+      verticalClassificationSource,
+      verticalClassificationProvider,
+      verticalClassificationModel,
+      verticalClassificationReason,
     } = raw;
 
     const result = Organization.OrganizationType.decode(raw);
@@ -179,6 +214,14 @@ export class Organization {
     this.growingTeam = growingTeam ?? null;
     this.shrinkingTeam = shrinkingTeam ?? null;
     this.earlyTeamShrinkage = earlyTeamShrinkage ?? null;
+    this.vertical = vertical ?? null;
+    this.verticalFirstAppliedTimestamp = verticalFirstAppliedTimestamp ?? null;
+    this.verticalAppliedTimestamp = verticalAppliedTimestamp ?? null;
+    this.verticalClassificationSource = verticalClassificationSource ?? null;
+    this.verticalClassificationProvider =
+      verticalClassificationProvider ?? null;
+    this.verticalClassificationModel = verticalClassificationModel ?? null;
+    this.verticalClassificationReason = verticalClassificationReason ?? null;
 
     if (isLeft(result)) {
       report(result).forEach(x => {
