@@ -189,6 +189,11 @@ describe("PeopleIntelligenceService", () => {
       available: false,
       methodologyVersion: "developer-report-v2",
       scope: { type: "cohort", key: "ai" },
+      corpus: {
+        indexedCommitRecords: 0,
+        historicalInternalPeople: 0,
+        currentInternalPeople: 0,
+      },
       totals: { repositoryCount: 0, commitCount: 0 },
       repositoryHistory: [],
     });

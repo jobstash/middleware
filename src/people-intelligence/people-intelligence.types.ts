@@ -123,6 +123,21 @@ export type DeveloperReportGrowth = {
   threeYear: number | null;
 };
 
+export type DeveloperReportCorpus = {
+  indexedCommitRecords: number;
+  distinctCommitShas: number;
+  githubLinkedAuthors: number;
+  indexedRepositories: number;
+  indexedGithubOrganizations: number;
+  historicalInternalPeople: number;
+  currentInternalPeople: number;
+  verifiedInternalCommitRecords: number;
+  verifiedInternalMergeRecords: number;
+  historicalMaintainers: number;
+  currentMaintainers: number;
+  currentActiveLeads: number;
+};
+
 export type DeveloperReportV2 = {
   available: boolean;
   asOf: string | null;
@@ -165,6 +180,7 @@ export type DeveloperReportV2 = {
     note: string;
   };
   population: DeveloperReport["population"];
+  corpus: DeveloperReportCorpus;
   current: DeveloperReportV2Point | null;
   history: DeveloperReportV2Point[];
   totals: { repositoryCount: number; commitCount: number };
