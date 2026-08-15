@@ -33,6 +33,7 @@ const reportResponse = (
     rawIndexedCommitRecords: 0,
     commitsWritten: 0,
     creditedOriginalCommits: 0,
+    mergedPullRequests: 0,
     inheritedForkCommits: 0,
     inheritedUnattributedCopyCommits: 0,
     allContributors: 0,

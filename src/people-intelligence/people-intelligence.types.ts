@@ -45,6 +45,7 @@ export type DeveloperReportPoint = {
   rawIndexedCommitRecords: number;
   commitsWritten: number;
   creditedOriginalCommits: number;
+  mergedPullRequests: number;
   inheritedForkCommits: number;
   inheritedUnattributedCopyCommits: number;
   fullTimeDevelopers: number;
@@ -95,6 +96,7 @@ export type DeveloperReport = {
     rawIndexedCommitRecords: number;
     commitsWritten: number;
     creditedOriginalCommits: number;
+    mergedPullRequests: number;
     inheritedForkCommits: number;
     inheritedUnattributedCopyCommits: number;
     allContributors: number;
