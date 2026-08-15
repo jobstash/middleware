@@ -121,6 +121,31 @@ export interface JobMarketSkillWeeklyRow extends Record<string, unknown> {
   remoteCount: string;
 }
 
+export interface JobMarketTopPayingTag {
+  slug: string;
+  label: string;
+}
+
+export interface JobMarketTopPayingRow extends Record<string, unknown> {
+  asOfDate: string;
+  salaryJobCount: string;
+  topDecileThresholdMonthlyUsd: string;
+  topDecileJobCount: string;
+  jobNodeId: string;
+  shortUuid: string;
+  title: string;
+  organizationName: string | null;
+  organizationLogoUrl: string | null;
+  classificationSlug: string;
+  classificationLabel: string;
+  seniority: string | null;
+  location: string | null;
+  locationTypes: string[];
+  publishedAt: string | null;
+  salaryMonthlyUsd: string;
+  tags: JobMarketTopPayingTag[];
+}
+
 @Injectable()
 export class JobMarketRepository {
   constructor(private readonly postgres: PostgresService) {}
@@ -394,6 +419,171 @@ export class JobMarketRepository {
           WHEN 's-head' THEN 5 ELSE 6 END, filtered.segment
       `,
       [classificationSlug, range],
+    );
+  }
+
+  getTopPayingJobs(
+    classificationSlug: string,
+    segment: "remote" | "local",
+    regionKey: string | null,
+    filterKey: JobMarketGeographyRow["filterKey"],
+    filterValue: string | null,
+  ): Promise<JobMarketTopPayingRow[]> {
+    return this.postgres.query<JobMarketTopPayingRow>(
+      `
+        WITH latest AS (
+          SELECT max(sample_date) AS as_of_date
+          FROM job_market_daily_metrics
+        ), eligible AS MATERIALIZED (
+          SELECT observation.job_node_id, observation.salary_monthly_usd,
+            observation.classification_slug, observation.seniority,
+            document.short_uuid, document.title, document.location,
+            document.location_types, document.published_at,
+            COALESCE(
+              organization.name,
+              document.payload #>> '{organization,name}',
+              document.payload #>> '{project,name}'
+            ) AS organization_name,
+            COALESCE(
+              organization.payload ->> 'logoUrl',
+              document.payload #>> '{organization,logoUrl}',
+              document.payload #>> '{project,logoUrl}'
+            ) AS organization_logo_url,
+            COALESCE(classification.label, observation.classification_slug)
+              AS classification_label,
+            COALESCE((
+              SELECT jsonb_agg(
+                jsonb_build_object('slug', tag.slug, 'label', tag.label)
+                ORDER BY tag.label
+              )
+              FROM (
+                SELECT DISTINCT membership.slug, membership.label
+                FROM job_market_job_pillars membership
+                WHERE membership.job_node_id = observation.job_node_id
+                  AND membership.kind = 'tags'
+              ) tag
+            ), '[]'::jsonb) AS tags
+          FROM job_market_salary_observations observation
+          INNER JOIN job_search_documents document
+            ON document.job_node_id = observation.job_node_id
+          LEFT JOIN organization_search_documents organization
+            ON organization.organization_id = document.organization_id
+          LEFT JOIN LATERAL (
+            SELECT min(membership.label) AS label
+            FROM job_market_job_pillars membership
+            WHERE membership.job_node_id = observation.job_node_id
+              AND membership.kind = 'classifications'
+              AND membership.slug = observation.classification_slug
+          ) classification ON true
+          WHERE observation.segment = $2
+            AND observation.continent_slug = 'all'
+            AND ($1 = 'market'
+              OR observation.classification_slug = $1)
+            AND document.online
+            AND NOT document.blocked
+            AND document.legacy_list_eligible
+            AND cardinality(document.tags) > 0
+            AND document.short_uuid IS NOT NULL
+            AND (document.organization_id IS NOT NULL
+              OR document.project_id IS NOT NULL)
+            AND NOT (document.access = 'public'
+              AND document.organization_has_expert_jobs)
+            AND NOT EXISTS (
+              SELECT 1 FROM graph_nodes banned_organization
+              WHERE banned_organization.label = 'Organization'
+                AND banned_organization.properties ->> 'orgId' =
+                  document.organization_id
+                AND entity_property_is_banned(
+                  banned_organization.properties
+                )
+            )
+            AND (
+              $3::text IS NULL
+              OR EXISTS (
+                SELECT 1
+                FROM jsonb_array_elements(
+                  COALESCE(document.payload -> 'availability', '[]'::jsonb)
+                ) item
+                JOIN place_reference place
+                  ON place.place_id = regexp_replace(
+                    COALESCE(item ->> 'placeId', ''), '^place:', ''
+                  )
+                JOIN place_reference target
+                  ON target.place_id = place.place_id
+                  OR target.place_id = ANY(place.ancestor_place_ids)
+                WHERE COALESCE(item ->> 'workMode', 'local') IN (
+                  'local', 'onsite', 'hybrid'
+                )
+                  AND target.place_id = regexp_replace($3, '^place:', '')
+              )
+              OR (
+                NOT EXISTS (
+                  SELECT 1
+                  FROM jsonb_array_elements(
+                    COALESCE(
+                      document.payload -> 'availability',
+                      '[]'::jsonb
+                    )
+                  ) item
+                  JOIN place_reference place
+                    ON place.place_id = regexp_replace(
+                      COALESCE(item ->> 'placeId', ''), '^place:', ''
+                    )
+                  WHERE COALESCE(item ->> 'workMode', 'local') IN (
+                    'local', 'onsite', 'hybrid'
+                  )
+                )
+                AND (
+                  document.availability_keys && ARRAY[$5]::text[]
+                  OR EXISTS (
+                    SELECT 1
+                    FROM jsonb_each_text(
+                      COALESCE(document.filter_labels -> $4, '{}'::jsonb)
+                    ) geography(internal_key, public_label)
+                    WHERE geography.internal_key = $5
+                       OR slugify_text(geography.public_label) = $5
+                  )
+                )
+              )
+            )
+        ), statistics AS (
+          SELECT count(*)::int AS salary_job_count,
+            percentile_cont(0.9) WITHIN GROUP (
+              ORDER BY salary_monthly_usd
+            ) AS top_decile_threshold
+          FROM eligible
+        ), top_decile AS MATERIALIZED (
+          SELECT eligible.*
+          FROM eligible
+          CROSS JOIN statistics
+          WHERE eligible.salary_monthly_usd >=
+            statistics.top_decile_threshold
+        )
+        SELECT latest.as_of_date::text AS "asOfDate",
+          statistics.salary_job_count::text AS "salaryJobCount",
+          statistics.top_decile_threshold::text
+            AS "topDecileThresholdMonthlyUsd",
+          (count(*) OVER ())::text AS "topDecileJobCount",
+          top_decile.job_node_id::text AS "jobNodeId",
+          top_decile.short_uuid AS "shortUuid",
+          top_decile.title,
+          top_decile.organization_name AS "organizationName",
+          top_decile.organization_logo_url AS "organizationLogoUrl",
+          top_decile.classification_slug AS "classificationSlug",
+          top_decile.classification_label AS "classificationLabel",
+          top_decile.seniority,
+          top_decile.location,
+          top_decile.location_types AS "locationTypes",
+          top_decile.published_at::text AS "publishedAt",
+          top_decile.salary_monthly_usd::text AS "salaryMonthlyUsd",
+          top_decile.tags
+        FROM top_decile
+        CROSS JOIN statistics
+        CROSS JOIN latest
+        ORDER BY top_decile.salary_monthly_usd DESC,
+          top_decile.job_node_id
+      `,
+      [classificationSlug, segment, regionKey, filterKey, filterValue],
     );
   }
 

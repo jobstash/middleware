@@ -22,6 +22,7 @@ import {
   JobMarketSkillDetailData,
   JobMarketSkillListData,
   JobMarketStateData,
+  JobMarketTopPayingData,
   PillarMarketData,
 } from "../dto/job-market.output";
 
@@ -51,6 +52,26 @@ export class SearchV2Controller {
       `/v2/search/market/state?range=${range}&classification=${classification}`,
     );
     return this.searchService.getMarketState(range, classification);
+  }
+
+  @Get("market/top-paying")
+  @UseGuards(PBACGuard)
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  getMarketTopPaying(
+    @Query("mode") mode = "remote",
+    @Query("classification") classification = "market",
+    @Query("regionType") regionType = "",
+    @Query("region") region = "",
+  ): Promise<ResponseWithOptionalData<JobMarketTopPayingData>> {
+    this.logger.log(
+      `/v2/search/market/top-paying?mode=${mode}&classification=${classification}&regionType=${regionType}&region=${region}`,
+    );
+    return this.searchService.getMarketTopPaying(
+      mode,
+      classification,
+      regionType,
+      region,
+    );
   }
 
   @Get("market/skills")

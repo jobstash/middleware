@@ -65,4 +65,34 @@ describe("JobMarketRepository", () => {
     expect(sql).toContain("geography.pillar_id = metric.pillar_id");
     expect(parameters).toEqual(["remote", "remote", ""]);
   });
+
+  it("ranks the normalized top salary decile inside a live geography", async () => {
+    const query = jest.fn().mockResolvedValue([]);
+    const repository = new JobMarketRepository({ query } as never);
+
+    await repository.getTopPayingJobs(
+      "cl-backend",
+      "local",
+      "geonames:2759794",
+      "cities",
+      "amsterdam",
+    );
+
+    const [sql, parameters] = query.mock.calls[0];
+    expect(sql).toContain("observation.salary_monthly_usd");
+    expect(sql).toContain("percentile_cont(0.9)");
+    expect(sql).toContain("document.online");
+    expect(sql).toContain("NOT document.blocked");
+    expect(sql).toContain("target.place_id = regexp_replace($3");
+    expect(sql).toContain("document.filter_labels -> $4");
+    expect(sql).toContain("item ->> 'workMode'");
+    expect(sql).toContain("entity_property_is_banned");
+    expect(parameters).toEqual([
+      "cl-backend",
+      "local",
+      "geonames:2759794",
+      "cities",
+      "amsterdam",
+    ]);
+  });
 });

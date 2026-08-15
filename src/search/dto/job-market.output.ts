@@ -201,6 +201,65 @@ export interface JobMarketCompensationBand {
   reliable: boolean;
 }
 
+export interface JobMarketTopPayingBreakdown {
+  slug: string;
+  label: string;
+  jobCount: number;
+  sharePercent: number;
+  medianMonthlyUsd: number;
+}
+
+export interface JobMarketTopPayingJob {
+  id: string;
+  shortUuid: string;
+  title: string;
+  href: string;
+  organizationName: string | null;
+  organizationLogoUrl: string | null;
+  classificationSlug: string;
+  classificationLabel: string;
+  senioritySlug: string | null;
+  seniorityLabel: string | null;
+  location: string | null;
+  workModes: string[];
+  publishedAt: string | null;
+  salaryMonthlyUsd: number;
+  tags: Array<{ slug: string; label: string }>;
+}
+
+export interface JobMarketTopPayingData {
+  asOf: string;
+  methodologyVersion: "market-top-pay-v1";
+  scope: {
+    classification: string;
+    classificationLabel: string;
+    segment: JobMarketSegment;
+    regionSlug: string;
+    regionLabel: string;
+    regionType: JobMarketCompensation["regionType"];
+    filter: JobMarketFilter | null;
+  };
+  availableRegions: Array<{
+    regionSlug: string;
+    regionLabel: string;
+    regionType: Exclude<JobMarketCompensation["regionType"], "remote">;
+    activeJobs: number;
+    salarySampleCount: number;
+  }>;
+  openJobsInScope: number;
+  salaryJobCount: number;
+  salaryCoveragePercent: number;
+  topDecileThresholdMonthlyUsd: number | null;
+  topDecileJobCount: number;
+  medianTopDecileMonthlyUsd: number | null;
+  breakdowns: {
+    classifications: JobMarketTopPayingBreakdown[];
+    seniorities: JobMarketTopPayingBreakdown[];
+    tags: JobMarketTopPayingBreakdown[];
+  };
+  jobs: JobMarketTopPayingJob[];
+}
+
 export interface JobMarketSkillSummary {
   slug: string;
   label: string;

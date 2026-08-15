@@ -3,6 +3,7 @@ import {
   JobMarketMetricRow,
   JobMarketRepository,
   JobMarketSkillWeeklyRow,
+  JobMarketTopPayingRow,
 } from "src/postgres/job-market.repository";
 import { SearchRepository } from "src/postgres/search.repository";
 import { SearchService } from "./search.service";
@@ -85,6 +86,32 @@ const weekly = (
   onsiteCount: "0",
   hybridCount: "0",
   remoteCount: "3",
+  ...overrides,
+});
+
+const topPaying = (
+  overrides: Partial<JobMarketTopPayingRow> = {},
+): JobMarketTopPayingRow => ({
+  asOfDate: "2026-08-12",
+  salaryJobCount: "20",
+  topDecileThresholdMonthlyUsd: "15000",
+  topDecileJobCount: "2",
+  jobNodeId: "101",
+  shortUuid: "abc123",
+  title: "Staff Engineer",
+  organizationName: "Acme",
+  organizationLogoUrl: null,
+  classificationSlug: "cl-backend",
+  classificationLabel: "BACKEND",
+  seniority: "4",
+  location: "Amsterdam",
+  locationTypes: ["hybrid"],
+  publishedAt: "2026-08-11T00:00:00.000Z",
+  salaryMonthlyUsd: "20000",
+  tags: [
+    { slug: "t-typescript", label: "TypeScript" },
+    { slug: "t-rust", label: "Rust" },
+  ],
   ...overrides,
 });
 
@@ -410,6 +437,108 @@ describe("SearchService job-market intelligence", () => {
       },
     });
     expect(getGeography).toHaveBeenCalledWith("market", "max");
+  });
+
+  it("describes and links the top salary decile for a selected city", async () => {
+    const getTopPayingJobs = jest.fn().mockResolvedValue([
+      topPaying(),
+      topPaying({
+        jobNodeId: "102",
+        shortUuid: "def456",
+        title: "Lead Backend Engineer",
+        salaryMonthlyUsd: "18000",
+        tags: [{ slug: "t-typescript", label: "TypeScript" }],
+      }),
+    ]);
+    const service = createService({
+      getOverview: jest.fn().mockResolvedValue([
+        metric({
+          kind: "market",
+          slug: "market",
+          label: "Crypto Job Market",
+        }),
+        metric({ slug: "cl-backend", label: "BACKEND" }),
+      ]),
+      getGeography: jest.fn().mockResolvedValue([
+        geography({
+          dimensionKind: "classifications",
+          dimensionSlug: "cl-backend",
+          regionSlug: "local",
+          regionLabel: "All local markets",
+          regionType: "aggregate",
+          filterKey: null,
+          filterValue: null,
+        }),
+        geography({
+          dimensionKind: "classifications",
+          dimensionSlug: "cl-backend",
+          regionSlug: "amsterdam",
+          regionLabel: "Amsterdam",
+          regionType: "city",
+          regionKey: "geonames:2759794",
+          filterKey: "cities",
+          filterValue: "amsterdam",
+          regionalActiveJobs: "42",
+        }),
+      ]),
+      getTopPayingJobs,
+    });
+
+    const result = await service.getMarketTopPaying(
+      "local",
+      "backend",
+      "city",
+      "amsterdam",
+    );
+
+    expect(getTopPayingJobs).toHaveBeenCalledWith(
+      "cl-backend",
+      "local",
+      "geonames:2759794",
+      "cities",
+      "amsterdam",
+    );
+    expect(result).toMatchObject({
+      data: {
+        methodologyVersion: "market-top-pay-v1",
+        scope: {
+          classification: "cl-backend",
+          classificationLabel: "Backend",
+          segment: "local",
+          regionSlug: "amsterdam",
+          regionLabel: "Amsterdam",
+          regionType: "city",
+        },
+        openJobsInScope: 42,
+        salaryJobCount: 20,
+        salaryCoveragePercent: 47.6,
+        topDecileThresholdMonthlyUsd: 15000,
+        topDecileJobCount: 2,
+        medianTopDecileMonthlyUsd: 19000,
+        breakdowns: {
+          classifications: [
+            { slug: "cl-backend", label: "Backend", jobCount: 2 },
+          ],
+          seniorities: [{ slug: "s-lead", label: "Lead", jobCount: 2 }],
+          tags: [
+            { slug: "t-typescript", label: "TypeScript", jobCount: 2 },
+            { slug: "t-rust", label: "Rust", jobCount: 1 },
+          ],
+        },
+      },
+    });
+    expect(result).toEqual(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          jobs: expect.arrayContaining([
+            expect.objectContaining({
+              href: "/staff-engineer-acme/abc123",
+              salaryMonthlyUsd: 20000,
+            }),
+          ]),
+        }),
+      }),
+    );
   });
 
   it("ranks statistically rising skills and preserves their evidence", async () => {
