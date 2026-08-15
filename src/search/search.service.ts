@@ -589,6 +589,14 @@ export class SearchService {
             const salary = this.roundMarketNumber(row.salaryMonthlyUsd);
             if (salary === null) return [];
             const level = seniority(row.seniority);
+            const workModes = new Set(
+              this.asStringArray(row.locationTypes).map(mode =>
+                mode.toLowerCase(),
+              ),
+            );
+            if (row.onsite) workModes.add("onsite");
+            if (row.hybrid) workModes.add("hybrid");
+            if (row.remote) workModes.add("remote");
             const organizationSuffix = row.organizationName
               ? `-${row.organizationName}`
               : "";
@@ -608,9 +616,7 @@ export class SearchService {
                 senioritySlug: level?.slug ?? null,
                 seniorityLabel: level?.label ?? null,
                 location: row.location,
-                workModes: this.asStringArray(row.locationTypes).map(mode =>
-                  mode.toLowerCase(),
-                ),
+                workModes: [...workModes],
                 publishedAt: row.publishedAt,
                 salaryMonthlyUsd: salary,
                 tags: Array.isArray(row.tags) ? row.tags.slice(0, 8) : [],

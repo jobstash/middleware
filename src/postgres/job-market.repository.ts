@@ -141,6 +141,9 @@ export interface JobMarketTopPayingRow extends Record<string, unknown> {
   seniority: string | null;
   location: string | null;
   locationTypes: string[];
+  onsite: boolean;
+  hybrid: boolean;
+  remote: boolean;
   publishedAt: string | null;
   salaryMonthlyUsd: string;
   tags: JobMarketTopPayingTag[];
@@ -437,6 +440,7 @@ export class JobMarketRepository {
         ), eligible AS MATERIALIZED (
           SELECT observation.job_node_id, observation.salary_monthly_usd,
             observation.classification_slug, observation.seniority,
+            observation.onsite, observation.hybrid, observation.remote,
             document.short_uuid, document.title, document.location,
             document.location_types, document.published_at,
             COALESCE(
@@ -574,6 +578,7 @@ export class JobMarketRepository {
           top_decile.seniority,
           top_decile.location,
           top_decile.location_types AS "locationTypes",
+          top_decile.onsite, top_decile.hybrid, top_decile.remote,
           top_decile.published_at::text AS "publishedAt",
           top_decile.salary_monthly_usd::text AS "salaryMonthlyUsd",
           top_decile.tags

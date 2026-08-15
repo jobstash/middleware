@@ -106,6 +106,9 @@ const topPaying = (
   seniority: "4",
   location: "Amsterdam",
   locationTypes: ["hybrid"],
+  onsite: false,
+  hybrid: true,
+  remote: false,
   publishedAt: "2026-08-11T00:00:00.000Z",
   salaryMonthlyUsd: "20000",
   tags: [
