@@ -1205,6 +1205,9 @@ export class SearchRepository {
         WHERE online
           AND NOT blocked
           AND cardinality(tags) > 0
+          -- A sitemap entry without a shortUUID can never produce a valid
+          -- job URL; skip it instead of emitting an unusable record.
+          AND short_uuid IS NOT NULL
         ORDER BY published_timestamp DESC NULLS LAST, job_node_id
       `,
     );
