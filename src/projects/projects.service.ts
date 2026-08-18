@@ -898,12 +898,48 @@ export class ProjectsService {
   }
 
   async delete(id: string, actor?: string): Promise<ResponseWithNoData> {
-    return this.setBanned(
-      id,
-      true,
-      "permanently banned through the legacy delete endpoint",
-      actor,
-    );
+    try {
+      await this.graph.deleteNodeWithOwnedDescendants({
+        rootLabel: "Project",
+        rootWhere: { id },
+        relationshipTypes: [
+          "HAS_AUDIT",
+          "HAS_HACK",
+          "HAS_DISCORD",
+          "HAS_DOCSITE",
+          "HAS_GITHUB",
+          "HAS_TELEGRAM",
+          "HAS_TWITTER",
+          "HAS_WEBSITE",
+          "HAS_RAW_WEBSITE",
+          "HAS_RAW_WEBSITE_METADATA",
+          "HAS_JOBSITE",
+        ],
+        ownedLabels: [
+          "Audit",
+          "Hack",
+          "Discord",
+          "DocSite",
+          "GithubOrganization",
+          "Github",
+          "Telegram",
+          "Twitter",
+          "Website",
+          "RawWebsite",
+          "RawWebsiteMetadata",
+          "Jobsite",
+          "DetectedJobsite",
+        ],
+      });
+      return {
+        success: true,
+        message: "Project deleted successfully",
+      };
+    } catch (err) {
+      Sentry.captureException(err);
+      this.logger.error("ProjectsService::delete " + err.message);
+      return { success: false, message: "Failed delete project" };
+    }
   }
 
   async setBanned(
