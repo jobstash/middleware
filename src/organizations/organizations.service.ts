@@ -1493,6 +1493,42 @@ export class OrganizationsService {
     }
   }
 
+  async deactivateOrgJobsites(
+    dto: ActivateOrgJobsiteInput,
+  ): Promise<ResponseWithOptionalData<Jobsite[]>> {
+    try {
+      const jobsites = (
+        await this.graph.relabelRelatedNodes<Jobsite>({
+          sourceLabel: "Organization",
+          sourceWhere: { orgId: dto.orgId },
+          relationshipType: "HAS_JOBSITE",
+          targetLabel: "Jobsite",
+          targetProperty: "id",
+          targetValues: dto.jobsiteIds,
+          newLabel: "DetectedJobsite",
+        })
+      ).map(jobsite => jobsite.properties);
+      return {
+        success: true,
+        message: "Deactivated organization jobsites successfully",
+        data: jobsites,
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "organizations.service",
+        });
+        scope.setExtra("input", dto);
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `OrganizationsService::deactivateOrgJobsites ${err.message}`,
+      );
+      return { success: false, message: "Failed to deactivate org jobsites" };
+    }
+  }
+
   async updateOrgProjects(
     orgId: string,
     projectIds: string[],

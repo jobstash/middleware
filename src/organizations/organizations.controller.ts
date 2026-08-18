@@ -1135,6 +1135,48 @@ export class OrganizationsController {
     return this.organizationsService.activateOrgJobsites(body);
   }
 
+  @Post("/jobsites/deactivate")
+  @UseGuards(PBACGuard)
+  @Permissions(
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER],
+    [CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER],
+  )
+  @ApiOkResponse({
+    description: "Deactivates a list of jobsites for an org",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(Organization),
+    }),
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      "Something went wrong deactivating the organization jobsites on the destination service",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async deactivateOrgJobsites(
+    @Session() { address, permissions }: SessionObject,
+    @Body() body: ActivateOrgJobsiteInput,
+  ): Promise<ResponseWithOptionalData<Jobsite[]>> {
+    this.logger.log(
+      `POST /organizations/jobsites/deactivate ${JSON.stringify(
+        body,
+      )} from ${address}`,
+    );
+
+    if (
+      permissions.includes(CheckWalletPermissions.ORG_OWNER) &&
+      !this.hasGlobalOrgAdminAccess(permissions)
+    ) {
+      const authorized = await this.userService.isOrgOwner(address, body.orgId);
+      if (!authorized) {
+        throw new ForbiddenException({
+          success: false,
+          message: "You are not authorized to access this resource",
+        });
+      }
+    }
+    return this.organizationsService.deactivateOrgJobsites(body);
+  }
+
   @Post("/jobsites/create")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
