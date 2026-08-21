@@ -1223,6 +1223,7 @@ export class OrganizationsService {
   }
 
   async delete(id: string, actor?: string): Promise<ResponseWithNoData> {
+    void actor;
     try {
       await this.graph.deleteNodeWithOwnedDescendants({
         rootLabel: "Organization",

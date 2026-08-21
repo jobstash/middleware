@@ -24,6 +24,7 @@ import {
 } from "src/shared/helpers";
 import {
   data,
+  JobPreferences,
   PaginatedData,
   Response,
   ResponseWithNoData,
@@ -128,7 +129,9 @@ export class ProfileController {
   @Get("job-preferences")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER)
-  getJobPreferences(@Session() { address }: SessionObject) {
+  getJobPreferences(
+    @Session() { address }: SessionObject,
+  ): Promise<JobPreferences | null> {
     return this.profileService.getJobPreferences(address);
   }
 
@@ -139,7 +142,7 @@ export class ProfileController {
     @Session() { address }: SessionObject,
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
     body: UpdateJobPreferencesInput,
-  ) {
+  ): Promise<JobPreferences | null> {
     return this.profileService.updateJobPreferences(address, body);
   }
 

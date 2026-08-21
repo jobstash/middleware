@@ -132,7 +132,9 @@ export class TeamIntelligenceService {
     const snapshot = await this.getSnapshot({
       organizationIds: [...new Set(organizationIds.filter(Boolean))],
     });
-    const range = (values: Array<number | null>) => {
+    const range = (
+      values: Array<number | null>,
+    ): { minimum: number | null; maximum: number | null } => {
       const present = values.filter((value): value is number => value !== null);
       return {
         minimum: present.length ? Math.min(...present) : null,

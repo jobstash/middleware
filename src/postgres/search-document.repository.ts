@@ -3144,18 +3144,6 @@ export class SearchDocumentRepository {
   }
 }
 
-const fallbackLabels = (expression: string, source: string): string => `
-  COALESCE(
-    (
-      SELECT array_agg(DISTINCT fallback ORDER BY fallback)
-      FROM ${source} fallback_doc
-      CROSS JOIN LATERAL unnest(${expression}) fallback
-      WHERE fallback IS NOT NULL AND fallback <> ''
-    ),
-    ARRAY[]::text[]
-  )
-`;
-
 const filterLabels = (
   category: string,
   fallbackExpression: string,

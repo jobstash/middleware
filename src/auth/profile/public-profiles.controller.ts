@@ -6,7 +6,9 @@ export class PublicProfilesController {
   constructor(private readonly profiles: ProfileRepository) {}
 
   @Get(":slug")
-  async getProfile(@Param("slug") slug: string) {
+  async getProfile(
+    @Param("slug") slug: string,
+  ): Promise<Record<string, unknown>> {
     const profile = await this.profiles.getPublicEntityProfile(slug);
     if (!profile) {
       throw new NotFoundException({

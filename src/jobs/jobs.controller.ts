@@ -43,6 +43,7 @@ import {
   JobApplicant,
   JobDetailsResult,
   JobFilterConfigs,
+  JobForMe,
   JobListResult,
   JobMatchResult,
   JobpostFolder,
@@ -98,7 +99,7 @@ export class JobsController {
   getJobsForMe(
     @Session() { address }: SessionObject,
     @Query("limit") limit = "100",
-  ) {
+  ): Promise<JobForMe[]> {
     return this.profileService.getJobsForMe(address, Number(limit) || 100);
   }
 

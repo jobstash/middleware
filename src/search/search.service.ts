@@ -62,7 +62,6 @@ import {
   JobMarketRepository,
   JobMarketSkillRow,
   JobMarketSkillWeeklyRow,
-  JobMarketTopPayingRow,
 } from "src/postgres/job-market.repository";
 import {
   JobMarketActivity,
@@ -1134,8 +1133,7 @@ export class SearchService {
                 filter === "collaborationHours"
                   ? (this.formatCollaborationHour(label) ?? label)
                   : label,
-              value:
-                filter === "collaborationHours" ? label : slugify(label),
+              value: filter === "collaborationHours" ? label : slugify(label),
             })),
           }),
         );
@@ -1352,6 +1350,7 @@ export class SearchService {
     ecosystem?: string,
     filters: TeamFilterInput = {},
   ): Promise<FilterConfig[]> {
+    void filters;
     const configs = await this.searchRepository.getPillarConfigs(
       nav,
       ecosystem,

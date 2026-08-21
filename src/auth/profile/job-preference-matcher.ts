@@ -22,7 +22,7 @@ const utcOffsetMinutes = (ianaTimezone: string, at: Date): number | null => {
   }
 };
 
-const includesInsensitive = (values: string[], expected: string) =>
+const includesInsensitive = (values: string[], expected: string): boolean =>
   values.some(value => value.toLowerCase() === expected.toLowerCase());
 
 export interface TeamCollaborationBand {
@@ -30,7 +30,7 @@ export interface TeamCollaborationBand {
   maximumUtcMinute: number;
 }
 
-const utcTime = (minute: number) =>
+const utcTime = (minute: number): string =>
   `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(
     minute % 60,
   ).padStart(2, "0")}`;

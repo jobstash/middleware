@@ -448,12 +448,14 @@ export class JobsService {
       })) as unknown as JobApplicant[];
       const wallets = [
         ...new Set(
-          applicants.flatMap(applicant => applicant.user.linkedAccounts.wallets),
+          applicants.flatMap(
+            applicant => applicant.user.linkedAccounts.wallets,
+          ),
         ),
       ];
       const ecosystemActivations =
         data(
-          await this.scorerService.getEcosystemActivationsForWallets(wallets)
+          await this.scorerService.getEcosystemActivationsForWallets(wallets),
         ) ?? [];
 
       return {

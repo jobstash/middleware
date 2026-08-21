@@ -35,7 +35,9 @@ const queryRows = async <T>(
 export class ProfileRepository {
   constructor(private readonly postgres: PostgresService) {}
 
-  async getJobPreferences(wallet: string) {
+  async getJobPreferences(
+    wallet: string,
+  ): Promise<Record<string, unknown> | null> {
     const [row] = await queryRows<Record<string, unknown>>(
       this.postgres,
       `
@@ -126,7 +128,16 @@ export class ProfileRepository {
     return rows.length === 1;
   }
 
-  async getJobMatchingCandidates(limit = 100) {
+  async getJobMatchingCandidates(limit = 100): Promise<
+    Array<{
+      job: Record<string, unknown>;
+      options: Record<string, unknown>[];
+      teamCollaborationBand: {
+        minimumUtcMinute: number;
+        maximumUtcMinute: number;
+      } | null;
+    }>
+  > {
     return queryRows<{
       job: Record<string, unknown>;
       options: Record<string, unknown>[];
@@ -232,7 +243,9 @@ export class ProfileRepository {
     );
   }
 
-  async getPublicEntityProfile(slug: string) {
+  async getPublicEntityProfile(
+    slug: string,
+  ): Promise<Record<string, unknown> | null> {
     const [row] = await queryRows<Record<string, unknown>>(
       this.postgres,
       `

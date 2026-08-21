@@ -142,9 +142,9 @@ describe("SearchService organization intelligence filters", () => {
   it("keeps collaboration-hour keys stable while exposing plain UTC labels", async () => {
     const service = new SearchService(
       {
-        getPillarConfigs: jest.fn().mockResolvedValue([
-          { collaborationHours: ["utc-08", "utc-17"] },
-        ]),
+        getPillarConfigs: jest
+          .fn()
+          .mockResolvedValue([{ collaborationHours: ["utc-08", "utc-17"] }]),
       } as unknown as SearchRepository,
       {} as never,
       {} as never,
@@ -174,9 +174,9 @@ describe("SearchService organization intelligence filters", () => {
   it("resolves collaboration-hour pillar slugs to plain UTC labels", async () => {
     const service = new SearchService(
       {
-        getPillarConfigs: jest.fn().mockResolvedValue([
-          { collaborationHours: ["utc-08"] },
-        ]),
+        getPillarConfigs: jest
+          .fn()
+          .mockResolvedValue([{ collaborationHours: ["utc-08"] }]),
       } as unknown as SearchRepository,
       {} as never,
       {} as never,

@@ -41,7 +41,11 @@ export class HealthService {
     const isReady = Object.values(dependencies).every(
       dependency => dependency.status === "up",
     );
-    return this.response(isReady ? "ready" : "not_ready", startedAt, dependencies);
+    return this.response(
+      isReady ? "ready" : "not_ready",
+      startedAt,
+      dependencies,
+    );
   }
 
   private async probe(work: () => Promise<unknown>): Promise<DependencyState> {
@@ -69,7 +73,7 @@ export class HealthService {
         connectTimeout: 1_000,
         commandTimeout: 1_000,
         maxRetriesPerRequest: 0,
-        retryStrategy: () => null,
+        retryStrategy: (): null => null,
       });
       try {
         await redis.connect();
