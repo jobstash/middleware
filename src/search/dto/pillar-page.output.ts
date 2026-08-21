@@ -88,6 +88,7 @@ export interface PillarJob {
     minimumUtcOffsetMinutes?: number;
     maximumUtcOffsetMinutes?: number;
   }>;
+  collaborationHours?: string[];
 
   access: "public" | "protected";
   featured: boolean;

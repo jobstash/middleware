@@ -354,8 +354,12 @@ export class SearchRepository {
             'tags', ${labelArray("tags")},
             'locations', ${placeLabelArray()},
             'timezones', ${labelArray("timezones")},
+            'collaborationHours', job_team_collaboration_hour_keys(
+              source.organization_id,
+              source.project_id
+            ),
             'commitments', ${labelArray("commitments")},
-            'locationTypes', ${labelArrayWithFallback("locationTypes", "location_types")},
+            'locationTypes', structured_job_work_location_modes(source.job_node_id),
             'classifications', ${labelArray("classifications")},
             'seniority', CASE
               WHEN source.seniority IS NULL THEN ARRAY[]::text[]
@@ -546,11 +550,22 @@ export class SearchRepository {
           WHERE slugify_text(timezone.label) = ${bind(value)}
         )`);
         break;
+      case "collaborationHours":
+        predicates.push(
+          `job_has_team_collaboration_hour(
+            job.organization_id,
+            job.project_id,
+            ${bind(value)}
+          )`,
+        );
+        break;
       case "commitments":
         predicates.push(hasFacetKey("commitments", value, "job.commitments"));
         break;
       case "locationTypes":
-        predicates.push(hasFacetKey("workModes", value, "job.location_types"));
+        predicates.push(
+          `job_has_work_location_mode(job.job_node_id, ${bind(value)})`,
+        );
         break;
       case "organizations":
         predicates.push(
@@ -608,6 +623,10 @@ export class SearchRepository {
     const rows = await this.postgres.query<{ payload: PillarJobPayload }>(
       `
         SELECT job.detail_payload || jsonb_build_object(
+          'collaborationHours', job_team_collaboration_hour_keys(
+            job.organization_id,
+            job.project_id
+          ),
           'organization', CASE
             WHEN organization.organization_id IS NULL THEN NULL
             ELSE ${organizationSummary("organization")}
@@ -797,6 +816,14 @@ export class SearchRepository {
             COALESCE(filter_labels -> 'timezones', '{}'::jsonb)
           ) entry
           UNION ALL
+          SELECT 'collaborationHours', collaboration_hour,
+            substring(collaboration_hour FROM 5 FOR 2) || ':00 UTC',
+            job_node_id, published_timestamp
+          FROM active
+          CROSS JOIN LATERAL unnest(
+            job_team_collaboration_hour_keys(organization_id, project_id)
+          ) collaboration_hour
+          UNION ALL
           SELECT 'commitments', entry.key, entry.value, job_node_id,
             published_timestamp
           FROM active
@@ -804,12 +831,17 @@ export class SearchRepository {
             COALESCE(filter_labels -> 'commitments', '{}'::jsonb)
           ) entry
           UNION ALL
-          SELECT 'locationTypes', entry.key, entry.value, job_node_id,
+          SELECT 'locationTypes', replace(mode, '_', '-'),
+            CASE mode
+              WHEN 'remote_or_office' THEN 'Remote or office'
+              ELSE initcap(mode)
+            END,
+            job_node_id,
             published_timestamp
           FROM active
-          CROSS JOIN LATERAL jsonb_each_text(
-            COALESCE(filter_labels -> 'locationTypes', '{}'::jsonb)
-          ) entry
+          CROSS JOIN LATERAL unnest(
+            structured_job_work_location_modes(job_node_id)
+          ) mode
           UNION ALL
           SELECT 'classifications', entry.key, entry.value, job_node_id,
             published_timestamp
@@ -914,7 +946,9 @@ export class SearchRepository {
           UNION ALL
           SELECT 'workModes', mode AS label
           FROM recent
-          CROSS JOIN LATERAL unnest(recent.location_types) mode
+          CROSS JOIN LATERAL unnest(
+            structured_job_work_location_modes(recent.job_node_id)
+          ) mode
           UNION ALL
           SELECT 'locations', label
           FROM geographic_candidates
@@ -989,15 +1023,15 @@ export class SearchRepository {
           ), candidates AS (
             SELECT
               recent.job_node_id,
-              slugify_text(mode) AS id,
-              COALESCE(
-                recent.filter_labels -> 'workModes' ->> mode,
-                recent.filter_labels -> 'locationTypes' ->> mode,
-                recent.filter_labels -> 'locations' ->> mode,
-                initcap(replace(replace(mode, '-', ' '), '_', ' '))
-              ) AS label
+              replace(mode, '_', '-') AS id,
+              CASE mode
+                WHEN 'remote_or_office' THEN 'Remote or office'
+                ELSE initcap(mode)
+              END AS label
             FROM recent
-            CROSS JOIN LATERAL unnest(recent.location_types) mode
+            CROSS JOIN LATERAL unnest(
+              structured_job_work_location_modes(recent.job_node_id)
+            ) mode
           ), values AS (
             SELECT id, min(label) AS label,
               count(DISTINCT job_node_id) AS popularity

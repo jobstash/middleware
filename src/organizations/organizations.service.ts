@@ -1366,8 +1366,13 @@ export class OrganizationsService {
       if (jobsite) {
         const url = this.configService.get<string>("ETL_DOMAIN");
         const authToken = await this.auth0Service.getETLToken();
-        const response2 = await axios.get(
-          `${url}/jobposts/jobsite?jobsite=${jobsite.url}`,
+        const response2 = await axios.post(
+          `${url}/imports/runs`,
+          {
+            idempotencyKey: `middleware-jobsite-${randomUUID()}`,
+            scope: "jobsite",
+            jobsiteUrl: jobsite.url,
+          },
           {
             headers: {
               Authorization: authToken ? `Bearer ${authToken}` : undefined,

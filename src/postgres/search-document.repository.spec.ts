@@ -433,6 +433,18 @@ describe("SearchDocumentRepository", () => {
     );
   });
 
+  it("filters by explicitly selected inferred collaboration hours", async () => {
+    await repository.searchJobs({
+      collaborationHours: ["utc-08", "utc-17"],
+    });
+
+    const [sql, parameters] = query.mock.calls[0];
+    expect(sql).toContain("job_team_collaboration_hour_keys(");
+    expect(sql).toContain("organization_id");
+    expect(sql).toContain("project_id");
+    expect(parameters).toContainEqual(["utc-08", "utc-17"]);
+  });
+
   it("preserves legacy false project booleans for organization jobs", async () => {
     await repository.searchJobs({
       audits: false,
@@ -617,6 +629,9 @@ describe("SearchDocumentRepository", () => {
     expect(sql).toContain('AS "continentLabels"');
     expect(sql).toContain("filter_labels -> 'timezones'");
     expect(sql).toContain('AS "timezoneLabels"');
+    expect(sql).toContain("job_team_collaboration_hour_keys(");
+    expect(sql).toContain('AS "collaborationHours"');
+    expect(sql).toContain('AS "collaborationHourLabels"');
     expect(sql).toContain("jsonb_object_agg(label.slug, label.label");
     expect(sql).toContain('AS "minSalaryRange"');
     expect(sql).toContain("salary_currency ILIKE '%USD%'");

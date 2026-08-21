@@ -32,6 +32,8 @@ describe("SearchRepository", () => {
     expect(sql).toContain("entry.key LIKE 'raw:%'");
     expect(sql).toContain("'timezones'");
     expect(sql).toContain("filter_labels -> 'timezones'");
+    expect(sql).toContain("'collaborationHours'");
+    expect(sql).toContain("job_team_collaboration_hour_keys(");
   });
 
   it("searches real geographic facets for location suggestions", async () => {
@@ -91,8 +93,9 @@ describe("SearchRepository", () => {
     ).resolves.toEqual([{ id: "remote", label: "Remote", href: "/lt-remote" }]);
 
     const [sql, parameters] = query.mock.calls[0];
-    expect(sql).toContain("unnest(recent.location_types)");
-    expect(sql).toContain("filter_labels -> 'workModes'");
+    expect(sql).toContain(
+      "structured_job_work_location_modes(recent.job_node_id)",
+    );
     expect(parameters).toEqual(["remote", 1, 2, 0, 10]);
   });
 
@@ -116,7 +119,7 @@ describe("SearchRepository", () => {
     expect(parameters).toEqual(["ber", 1, 2]);
   });
 
-  it("matches work-mode pillars against both projected keys and stable columns", async () => {
+  it("matches work-mode pillars against evidence-backed typed options", async () => {
     const query = jest.fn().mockResolvedValue([]);
     const repository = new SearchRepository({
       query,
@@ -130,11 +133,30 @@ describe("SearchRepository", () => {
     });
 
     const [sql, parameters] = query.mock.calls[0];
-    expect(sql).toContain("(job.location_types) &&");
+    expect(sql).toContain("job_has_work_location_mode(job.job_node_id");
     expect(sql).toContain("job.legacy_list_eligible");
     expect(sql).toContain("cardinality(job.tags) > 0");
     expect(sql).toContain("organization_has_expert_jobs");
     expect(parameters).toEqual([1, 2, "remote", 60]);
+  });
+
+  it("matches collaboration-hour pillars against team-level UTC bands", async () => {
+    const query = jest.fn().mockResolvedValue([]);
+    const repository = new SearchRepository({
+      query,
+    } as unknown as PostgresService);
+
+    await repository.getPillarJobs({
+      pillarType: "collaborationHours",
+      value: "utc-08",
+      startDate: 1,
+      endDate: 2,
+    });
+
+    const [sql, parameters] = query.mock.calls[0];
+    expect(sql).toContain("job_has_team_collaboration_hour(");
+    expect(sql).toContain("'collaborationHours'");
+    expect(parameters).toEqual([1, 2, "utc-08", 60]);
   });
 
   it("keeps compact legacy pillar slugs compatible with canonical facet keys", async () => {

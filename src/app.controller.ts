@@ -24,18 +24,6 @@ export class AppController {
     private readonly configService: ConfigService,
   ) {}
 
-  @Get("health")
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
-  @ApiOkResponse({
-    description: "Returns the health status of the server",
-    schema: {
-      $ref: getSchemaPath(ResponseWithNoData),
-    },
-  })
-  healthCheck(): ResponseWithNoData {
-    return this.appService.healthCheck();
-  }
-
   @Post("waitlist")
   @ApiOkResponse({
     description: "Sends an Ecosystem Vision waitlist request to the admin",

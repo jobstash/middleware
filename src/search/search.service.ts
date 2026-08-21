@@ -1016,7 +1016,14 @@ export class SearchService {
         } as SearchPillarFiltersParams & { pillar: string });
         for (const label of data?.items ?? []) {
           const key = slugify(label);
-          if (wanted.has(key)) labels.set(key, label);
+          if (wanted.has(key)) {
+            labels.set(
+              key,
+              pillar === "collaborationHours"
+                ? (this.formatCollaborationHour(label) ?? label)
+                : label,
+            );
+          }
         }
       }
       return {
@@ -1122,7 +1129,14 @@ export class SearchService {
           new MultiSelectFilter({
             ...visiblePreset,
             paramKey: paramPreset as string,
-            options: labels.map(label => ({ label, value: slugify(label) })),
+            options: labels.map(label => ({
+              label:
+                filter === "collaborationHours"
+                  ? (this.formatCollaborationHour(label) ?? label)
+                  : label,
+              value:
+                filter === "collaborationHours" ? label : slugify(label),
+            })),
           }),
         );
       }
@@ -1492,6 +1506,7 @@ export class SearchService {
       "commitments",
       "locationTypes",
       "timezones",
+      "collaborationHours",
       "organizations",
       "projects",
       "ecosystems",
@@ -1706,6 +1721,14 @@ export class SearchService {
           title: `${displayName} Timezone Web3 Jobs`,
           description: `Find web3 and crypto jobs compatible with ${displayName}. Browse remote roles by timezone availability.`,
         };
+      case "collaborationHours": {
+        const hour = this.formatCollaborationHour(item);
+        if (!hour) return null;
+        return {
+          title: `${hour} Team Collaboration Jobs`,
+          description: `Browse web3 and crypto jobs where recent team activity suggests collaboration around ${hour}. This optional team-level signal is not an employer work requirement.`,
+        };
+      }
       case "booleans":
         return this.getBooleanPillarText(item);
       default:
@@ -1841,6 +1864,15 @@ export class SearchService {
           ),
       },
       {
+        pillarType: "collaborationHours",
+        prefix: "/ct-",
+        extract: (job: PillarJob): ExtractedPillar[] =>
+          (job.collaborationHours ?? []).flatMap(key => {
+            const label = this.formatCollaborationHour(key);
+            return label ? [{ label, key }] : [];
+          }),
+      },
+      {
         pillarType: "investors",
         prefix: "/i-",
         extract: (job: PillarJob): ExtractedPillar[] =>
@@ -1935,6 +1967,13 @@ export class SearchService {
   // Pillar pages are SEO/AEO landing pages: a 90-day window keeps them
   // populated (and thus renderable/indexable) even when a niche sees no
   // postings for a few weeks.
+  private formatCollaborationHour(key: string): string | null {
+    const match = key.match(/^utc-(\d{2})$/);
+    if (!match) return null;
+    const hour = Number(match[1]);
+    return hour >= 0 && hour <= 23 ? `${match[1]}:00 UTC` : null;
+  }
+
   private getPillarDateRange(): { startDate: number; endDate: number } {
     const now = Date.now();
     return {
@@ -2010,6 +2049,7 @@ export class SearchService {
       fundingRounds: "fundingRounds",
       fundingStages: "fundingStages",
       timezones: "timezones",
+      collaborationHours: "collaborationHours",
     };
     const prefix = slug.indexOf("-");
     const value = prefix >= 0 ? slug.slice(prefix + 1) : slug;

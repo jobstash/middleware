@@ -21,6 +21,7 @@ import { Auth0Module } from "src/auth0/auth0.module";
 import { TagsService } from "src/tags/tags.service";
 import { BullModule } from "@nestjs/bull";
 import { StripeModule } from "src/stripe/stripe.module";
+import { PublicProfilesController } from "./public-profiles.controller";
 
 @Module({
   imports: [
@@ -59,7 +60,7 @@ import { StripeModule } from "src/stripe/stripe.module";
     ThrottlerModule.forRoot(),
     StripeModule,
   ],
-  controllers: [ProfileController],
+  controllers: [ProfileController, PublicProfilesController],
   providers: [
     ProfileService,
     JwtService,

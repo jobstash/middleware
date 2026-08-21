@@ -21,10 +21,6 @@ export class AppService {
     private readonly mailService: MailService,
     private readonly investorsService: InvestorsService,
   ) {}
-  healthCheck(): ResponseWithNoData {
-    return { success: true, message: "Server is healthy and up!" };
-  }
-
   async addToWaitlist(
     email: string,
     company: string,

@@ -31,6 +31,9 @@ import {
   UserVerificationStatus,
   UserVerifiedOrg,
   UserWorkHistory,
+  JobForMe,
+  JobPreferences,
+  WorkLocationOption,
   data,
 } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
@@ -46,6 +49,8 @@ import { UpdateUserShowCaseInput } from "./dto/update-user-showcase.input";
 import { UpdateUserSkillsInput } from "./dto/update-user-skills.input";
 import { addDays } from "date-fns";
 import { ConfigService } from "@nestjs/config";
+import { UpdateJobPreferencesInput } from "./dto/update-job-preferences.input";
+import { matchWorkLocationOptions } from "./job-preference-matcher";
 
 @Injectable()
 export class ProfileService {
@@ -58,6 +63,39 @@ export class ProfileService {
     private configService: ConfigService,
     private githubUserService: GithubUserService,
   ) {}
+
+  async getJobPreferences(wallet: string): Promise<JobPreferences | null> {
+    return (await this.profiles.getJobPreferences(
+      wallet,
+    )) as unknown as JobPreferences | null;
+  }
+
+  async updateJobPreferences(
+    wallet: string,
+    preferences: UpdateJobPreferencesInput,
+  ): Promise<JobPreferences | null> {
+    const updated = await this.profiles.updateJobPreferences(
+      wallet,
+      preferences,
+    );
+    return updated ? this.getJobPreferences(wallet) : null;
+  }
+
+  async getJobsForMe(wallet: string, limit = 100): Promise<JobForMe[]> {
+    const preferences = await this.getJobPreferences(wallet);
+    if (!preferences) return [];
+    const candidates = await this.profiles.getJobMatchingCandidates(limit);
+    return candidates.flatMap(candidate => {
+      const match = matchWorkLocationOptions(
+        candidate.job,
+        candidate.options as unknown as WorkLocationOption[],
+        preferences,
+        new Date(),
+        candidate.teamCollaborationBand,
+      );
+      return match ? [match] : [];
+    });
+  }
 
   async getUserProfile(
     wallet: string,
@@ -1030,7 +1068,6 @@ export class ProfileService {
           data(
             await this.scorerService.getEcosystemActivationsForWallets(
               profile?.linkedAccounts?.wallets ?? [],
-              null,
             ),
           ) ?? [];
         const workHistory = await this.getUserWorkHistoryCache(wallet);

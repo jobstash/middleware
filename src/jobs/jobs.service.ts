@@ -446,17 +446,24 @@ export class JobsService {
         organizationId: orgId,
         list,
       })) as unknown as JobApplicant[];
+      const wallets = [
+        ...new Set(
+          applicants.flatMap(applicant => applicant.user.linkedAccounts.wallets),
+        ),
+      ];
       const ecosystemActivations =
-        await this.scorerService.getAllUserEcosystemActivations(orgId);
+        data(
+          await this.scorerService.getEcosystemActivationsForWallets(wallets)
+        ) ?? [];
 
       return {
         success: true,
         message: "Org jobs and applicants retrieved successfully",
         data: applicants.map(applicant => {
-          const wallets = applicant.user.linkedAccounts.wallets;
+          const applicantWallets = applicant.user.linkedAccounts.wallets;
           return new JobApplicantEntity({
             ...applicant,
-            ecosystemActivations: wallets.flatMap(
+            ecosystemActivations: applicantWallets.flatMap(
               wallet =>
                 ecosystemActivations
                   .find(activation => activation.wallet === wallet)

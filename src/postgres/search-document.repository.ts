@@ -921,6 +921,13 @@ export class SearchDocumentRepository {
     addGeographyFacet("countries", params.countries);
     addGeographyFacet("continents", params.continents);
     addGeographyFacet("timezones", params.timezones);
+    const collaborationHours = normalizeList(params.collaborationHours);
+    if (collaborationHours?.length) {
+      where.add(`job_team_collaboration_hour_keys(
+        organization_id,
+        project_id
+      ) && ${where.bind(collaborationHours)}::text[]`);
+    }
     where.addFacetKeyOverlap(
       "fundingStages",
       "ARRAY[slugify_text(current_funding_stage)]",
@@ -1285,7 +1292,7 @@ export class SearchDocumentRepository {
         : [slugify(ecosystem)];
       parameters.push(ecosystems);
       predicates.push(
-        `organization.managed_ecosystems && $${parameters.length}::text[]`,
+        `job.managed_ecosystems && $${parameters.length}::text[]`,
       );
     }
     if (organizationId) {
@@ -1312,6 +1319,10 @@ export class SearchDocumentRepository {
             job.commitments,
             job.location_types,
             job.availability_keys,
+            job_team_collaboration_hour_keys(
+              job.organization_id,
+              job.project_id
+            ) AS collaboration_hours,
             job.seniority,
             job.filter_labels,
             job.project_names AS job_project_names,
@@ -1332,8 +1343,8 @@ export class SearchDocumentRepository {
             organization.ecosystems AS owner_ecosystems,
             organization.filter_labels AS owner_filter_labels
           FROM job_search_documents job
-          JOIN job_search_owners owner ON owner.job_node_id = job.job_node_id
-          JOIN organization_search_documents organization
+          LEFT JOIN job_search_owners owner ON owner.job_node_id = job.job_node_id
+          LEFT JOIN organization_search_documents organization
             ON organization.organization_node_id = owner.organization_node_id
           WHERE ${predicates.join(" AND ")}
         ), scoped_job_documents AS MATERIALIZED (
@@ -1346,6 +1357,7 @@ export class SearchDocumentRepository {
             commitments,
             location_types,
             availability_keys,
+            collaboration_hours,
             seniority,
             filter_labels,
             job_project_names,
@@ -1446,6 +1458,18 @@ export class SearchDocumentRepository {
           ${filterLabelMap("continents", "scoped_job_documents")} AS "continentLabels",
           ${filterKeys("timezones", "ARRAY[]::text[]", "scoped_job_documents", "scoped_job_documents")} AS timezones,
           ${filterLabelMap("timezones", "scoped_job_documents")} AS "timezoneLabels",
+          ${filterKeys("collaborationHours", "collaboration_hours", "scoped_job_documents", "scoped_job_documents")} AS "collaborationHours",
+          COALESCE((
+            SELECT jsonb_object_agg(
+              hour_key,
+              substring(hour_key FROM 5 FOR 2) || ':00 UTC'
+              ORDER BY hour_key
+            )
+            FROM (
+              SELECT DISTINCT unnest(collaboration_hours) AS hour_key
+              FROM scoped_job_documents
+            ) collaboration
+          ), '{}'::jsonb) AS "collaborationHourLabels",
           (SELECT array_remove(array_agg(DISTINCT seniority), NULL)
             FROM scoped_job_documents) AS seniority
       `,

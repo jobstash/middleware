@@ -617,30 +617,12 @@ export class JobMarketRepository {
               )::double precision / 1000)::date,
               document.published_at::date
             ) AS observed_date,
-            (
-              'remote' = ANY(COALESCE(document.location_types, ARRAY[]::text[]))
-              OR EXISTS (
-                SELECT 1 FROM jsonb_array_elements(
-                  COALESCE(document.payload -> 'availability', '[]'::jsonb)
-                ) item WHERE item ->> 'workMode' = 'remote'
-              )
-            ) AS has_remote,
-            (
-              'onsite' = ANY(COALESCE(document.location_types, ARRAY[]::text[]))
-              OR EXISTS (
-                SELECT 1 FROM jsonb_array_elements(
-                  COALESCE(document.payload -> 'availability', '[]'::jsonb)
-                ) item WHERE item ->> 'workMode' = 'onsite'
-              )
-            ) AS has_onsite,
-            (
-              'hybrid' = ANY(COALESCE(document.location_types, ARRAY[]::text[]))
-              OR EXISTS (
-                SELECT 1 FROM jsonb_array_elements(
-                  COALESCE(document.payload -> 'availability', '[]'::jsonb)
-                ) item WHERE item ->> 'workMode' = 'hybrid'
-              )
-            ) AS has_hybrid
+            job_has_work_location_mode(document.job_node_id, 'remote')
+              AS has_remote,
+            job_has_work_location_mode(document.job_node_id, 'onsite')
+              AS has_onsite,
+            job_has_work_location_mode(document.job_node_id, 'hybrid')
+              AS has_hybrid
           FROM job_search_documents document
           INNER JOIN job_market_job_pillars classification
             ON classification.job_node_id = document.job_node_id

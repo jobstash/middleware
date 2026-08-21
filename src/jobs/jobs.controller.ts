@@ -92,6 +92,16 @@ export class JobsController {
     private readonly subscriptionService: SubscriptionsService,
   ) {}
 
+  @Get("for-me")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
+  getJobsForMe(
+    @Session() { address }: SessionObject,
+    @Query("limit") limit = "100",
+  ) {
+    return this.profileService.getJobsForMe(address, Number(limit) || 100);
+  }
+
   @Get("/list")
   @UseGuards(PBACGuard)
   @UseInterceptors(new CacheHeaderInterceptor({ mode: "revalidate-always" }))

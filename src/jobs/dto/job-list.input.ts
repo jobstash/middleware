@@ -279,6 +279,16 @@ export class JobListParams {
   @Transform(toList)
   timezones?: string[] | null = null;
 
+  @ApiPropertyOptional({
+    description:
+      "UTC hour buckets in which the employer team's inferred collaboration band is active",
+    example: "utc-08,utc-09",
+  })
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
+  collaborationHours?: string[] | null = null;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()

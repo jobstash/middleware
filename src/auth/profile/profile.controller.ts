@@ -4,7 +4,9 @@ import {
   Delete,
   Get,
   HttpStatus,
+  NotFoundException,
   Param,
+  Patch,
   Post,
   Query,
   Res,
@@ -56,6 +58,32 @@ import { Permissions, Session } from "src/shared/decorators";
 import { CheckWalletPermissions } from "src/shared/constants";
 import { Throttle } from "@nestjs/throttler";
 import { StripeService } from "src/stripe/stripe.service";
+import { UpdateJobPreferencesInput } from "./dto/update-job-preferences.input";
+import { PrivyService } from "../privy/privy.service";
+
+const SOCIAL_LABELS = [
+  "Website",
+  "Lens",
+  "LinkedIn",
+  "X",
+  "Telegram",
+  "Discord",
+  "Github",
+  "Farcaster",
+];
+
+type ApplyStatusResponse =
+  | { status: "can_apply"; applyUrl: string }
+  | { status: "already_applied"; applyUrl: string }
+  | { status: "ineligible"; missing: string[] };
+
+type ApplyResponse =
+  | { status: "applied" }
+  | { status: "eligible"; applyUrl: string }
+  | { status: "already_applied"; applyUrl: string }
+  | { status: "ineligible"; missing: string[] }
+  | { status: "not_found" }
+  | { status: "error" };
 
 @Controller("profile")
 export class ProfileController {
@@ -69,7 +97,51 @@ export class ProfileController {
     private readonly configService: ConfigService,
     private readonly jobsService: JobsService,
     private readonly stripeService: StripeService,
+    private readonly privyService: PrivyService,
   ) {}
+
+  private async getEligibilityMissing(address: string): Promise<string[]> {
+    const showcase = data(await this.profileService.getUserShowCase(address));
+    const missing: string[] = [];
+    if (!showcase?.some(item => item.label === "CV")) missing.push("resume");
+    const hasEmail = showcase?.some(item => item.label === "Email");
+    const hasSocial = showcase?.some(item =>
+      SOCIAL_LABELS.includes(item.label),
+    );
+    if (!hasEmail || !hasSocial) missing.push("socials");
+
+    const privyId = await this.profileService.getPrivyId(address);
+    if (!privyId) return [...missing, "linked_accounts"];
+    const privyUser = await this.privyService.getUserById(privyId);
+    const externalAccounts = privyUser?.linkedAccounts?.filter(
+      account =>
+        !(
+          account.type === "wallet" &&
+          (account as { walletClientType?: string }).walletClientType ===
+            "privy"
+        ),
+    );
+    if (!externalAccounts?.length) missing.push("linked_accounts");
+    return missing;
+  }
+
+  @Get("job-preferences")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
+  getJobPreferences(@Session() { address }: SessionObject) {
+    return this.profileService.getJobPreferences(address);
+  }
+
+  @Patch("job-preferences")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
+  updateJobPreferences(
+    @Session() { address }: SessionObject,
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    body: UpdateJobPreferencesInput,
+  ) {
+    return this.profileService.updateJobPreferences(address, body);
+  }
 
   @Get("info")
   @UseGuards(PBACGuard)
@@ -516,119 +588,64 @@ export class ProfileController {
   @ApiOkResponse({
     description:
       "Logs the apply interaction on a job for the currently logged in user",
-    schema: responseSchemaWrapper({
-      $ref: getSchemaPath(Response<UserProfile>),
-    }),
   })
   async logApplyInteraction(
     @Res({ passthrough: true }) res: ExpressResponse,
     @Session() { address }: SessionObject,
     @Body("shortUUID") shortUUID: string,
-  ): Promise<ResponseWithOptionalData<string>> {
+  ): Promise<ApplyResponse> {
     this.logger.log(`/profile/jobs/apply`);
-
     try {
       const job = await this.jobsService.getJobDetailsByUuid(
         shortUUID,
         undefined,
         false,
       );
-
-      if (job) {
-        const hasApplied = await this.profileService.verifyApplyInteraction(
-          address,
-          shortUUID,
-        );
-
-        if (hasApplied) {
-          return {
-            success: true,
-            message: "Job has already been applied to by this user",
-          };
-        } else {
-          if (job.access === "protected") {
-            const isCryptoNative = await this.userService.getCryptoNativeStatus(
-              address as string,
-            );
-            if (isCryptoNative) {
-              return {
-                success: true,
-                message: "User is a crypto native",
-                data: job.url,
-              };
-            } else {
-              return {
-                success: false,
-                message: "User is not a crypto native",
-              };
-            }
-          } else {
-            const orgId =
-              await this.userService.findOrgIdByJobShortUUID(shortUUID);
-
-            const orgProfile = data(
-              await this.userService.findOrgOwnerProfileByOrgId(orgId),
-            );
-
-            const jobs = await this.jobsService.getJobsByOrgId(
-              orgId,
-              undefined,
-            );
-
-            const job = jobs.find(x => x.shortUUID === shortUUID);
-
-            if (orgProfile && orgProfile.linkedAccounts?.email) {
-              const ecosystems = await this.rpcService.getEcosystemsForWallet(
-                address as string,
-              );
-              await this.mailService.sendEmail(
-                emailBuilder({
-                  from: this.configService.getOrThrow<string>("EMAIL"),
-                  to: orgProfile.linkedAccounts?.email,
-                  subject: "New Applicant for Your Job Listing on JobStash",
-                  title: "Hi there,",
-                  bodySections: [
-                    text(
-                      "A new applicant has applied to your job listing on JobStash. Please review the details below and follow up accordingly.",
-                    ),
-                    raw(`
-                      Details:
-                      <ul>
-                        <li>Job Title: ${job.title}</li>
-                        <li>Job URL: ${job.url}</li>
-                      </ul>
-                    `),
-                    raw(`
-                        ${
-                          ecosystems.length > 0
-                            ? `This candidate holds activations for the following ecosystems: 
-                              <ul>${ecosystems.map(x => `<li>${x}</li>`).join("")}</ul>`
-                            : ""
-                        }
-                    `),
-                    text(
-                      "If you have any questions or need assistance, please don't hesitate to reach out to us.",
-                    ),
-                  ],
-                  footer: `Thank you for using JobStash,
-                  The JobStash Team
-                  `,
-                }),
-              );
-              this.logger.log(`Email sent`);
-            }
-            return await this.profileService.logApplyInteraction(
-              address,
-              shortUUID,
-            );
-          }
-        }
-      } else {
-        return {
-          success: false,
-          message: "Job not found",
-        };
+      if (!job) return { status: "not_found" };
+      if (
+        await this.profileService.verifyApplyInteraction(address, shortUUID)
+      ) {
+        return { status: "already_applied", applyUrl: job.url };
       }
+      if (job.access === "protected") {
+        const missing = await this.getEligibilityMissing(address);
+        if (missing.length > 0) return { status: "ineligible", missing };
+        await this.profileService.logApplyInteraction(address, shortUUID);
+        return { status: "eligible", applyUrl: job.url };
+      }
+
+      const orgId = await this.userService.findOrgIdByJobShortUUID(shortUUID);
+      const orgProfile = data(
+        await this.userService.findOrgOwnerProfileByOrgId(orgId),
+      );
+      if (orgProfile?.linkedAccounts?.email) {
+        const ecosystems =
+          await this.rpcService.getEcosystemsForWallet(address);
+        await this.mailService.sendEmail(
+          emailBuilder({
+            from: this.configService.getOrThrow<string>("EMAIL"),
+            to: orgProfile.linkedAccounts.email,
+            subject: "New Applicant for Your Job Listing on JobStash",
+            title: "Hi there,",
+            bodySections: [
+              text("A candidate applied to your job listing on JobStash."),
+              raw(
+                `<ul><li>Job Title: ${job.title}</li><li>Job URL: ${job.url}</li></ul>`,
+              ),
+              ecosystems.length
+                ? raw(
+                    `<p>Verified ecosystems:</p><ul>${ecosystems
+                      .map(item => `<li>${item}</li>`)
+                      .join("")}</ul>`,
+                  )
+                : text("No verified ecosystem activations were supplied."),
+            ],
+            footer: "Thank you for using JobStash,\nThe JobStash Team",
+          }),
+        );
+      }
+      await this.profileService.logApplyInteraction(address, shortUUID);
+      return { status: "applied" };
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -640,11 +657,47 @@ export class ProfileController {
       });
       this.logger.log(`/profile/jobs/apply ${JSON.stringify(err)}`);
       res.status(HttpStatus.INTERNAL_SERVER_ERROR);
-      return {
-        success: false,
-        message: "Error processing your application",
-      };
+      return { status: "error" };
     }
+  }
+
+  @Get("jobs/apply/status/:shortUUID")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
+  async getApplyStatus(
+    @Session() { address }: SessionObject,
+    @Param("shortUUID") shortUUID: string,
+  ): Promise<ApplyStatusResponse> {
+    const job = await this.jobsService.getJobDetailsByUuid(
+      shortUUID,
+      undefined,
+      false,
+    );
+    if (!job) throw new NotFoundException("Job not found");
+    if (await this.profileService.verifyApplyInteraction(address, shortUUID)) {
+      return { status: "already_applied", applyUrl: job.url };
+    }
+    if (job.access === "protected") {
+      const missing = await this.getEligibilityMissing(address);
+      if (missing.length > 0) return { status: "ineligible", missing };
+    }
+    return { status: "can_apply", applyUrl: job.url };
+  }
+
+  @Post("jobs/view")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
+  logViewInteraction(
+    @Session() { address }: SessionObject,
+    @Body("shortUUID") shortUUID: string,
+  ): Promise<ResponseWithNoData> {
+    if (!shortUUID || shortUUID.length > 128) {
+      return Promise.resolve({
+        success: false,
+        message: "Invalid job identifier",
+      });
+    }
+    return this.profileService.logViewDetailsInteraction(address, shortUUID);
   }
 
   @Post("jobs/bookmark")

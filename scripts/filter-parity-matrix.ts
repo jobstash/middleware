@@ -192,6 +192,7 @@ const jobParameters = (): MatrixParameter[] => [
   arrayParameter("countries", "germany", "netherlands"),
   arrayParameter("continents", "europe", "asia"),
   arrayParameter("timezones", "europe-berlin", "america-new-york"),
+  arrayParameter("collaborationHours", "utc-08", "utc-17"),
   booleanParameter("growingTeam"),
   booleanParameter("shrinkingTeam"),
   booleanParameter("earlyTeamShrinkage"),
