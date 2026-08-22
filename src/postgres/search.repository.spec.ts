@@ -156,7 +156,31 @@ describe("SearchRepository", () => {
     const [sql, parameters] = query.mock.calls[0];
     expect(sql).toContain("job_has_team_collaboration_hour(");
     expect(sql).toContain("'collaborationHours'");
+    expect(sql).toContain("LEFT JOIN project_search_documents project");
+    expect(sql).toContain("'project', CASE");
+    expect(sql).toContain("project.payload - 'tags' - 'jobs'");
+    expect(sql).toContain(
+      "num_nonnulls(job.organization_id, job.project_id) = 1",
+    );
     expect(parameters).toEqual([1, 2, "utc-08", 60]);
+  });
+
+  it("uses the exact Project employer name at the legacy sitemap boundary", async () => {
+    const query = jest.fn().mockResolvedValue([]);
+    const repository = new SearchRepository({
+      query,
+    } as unknown as PostgresService);
+
+    await repository.getSitemapJobs();
+
+    const [sql] = query.mock.calls[0];
+    expect(sql).toContain(
+      'COALESCE(organization.name, project.name) AS "organizationName"',
+    );
+    expect(sql).toContain("LEFT JOIN project_search_documents project");
+    expect(sql).toContain(
+      "num_nonnulls(job.organization_id, job.project_id) = 1",
+    );
   });
 
   it("keeps compact legacy pillar slugs compatible with canonical facet keys", async () => {

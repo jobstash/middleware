@@ -116,6 +116,14 @@ describe("InvestorsService fund list", () => {
     expect(sql).toContain("https://www.linkedin.com/in/");
     expect(sql).toContain("social_edge.type = 'HAS_TWITTER'");
     expect(sql).toContain("https://x.com/");
+    expect(sql).toContain("LEFT JOIN project_search_documents project");
+    expect(sql).toContain("COALESCE(");
+    expect(sql).toContain("organization.name");
+    expect(sql).toContain("project.name");
+    expect(sql).toContain("$1 = ANY(job.investor_names)");
+    expect(sql).toContain(
+      "num_nonnulls(job.organization_id, job.project_id) = 1",
+    );
     expect(parameters).toEqual(["example-fund"]);
   });
 

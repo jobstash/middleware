@@ -179,6 +179,9 @@ const organizationSummary = (alias: string): string => `
   )
 `;
 
+const projectSummary = (alias: string): string =>
+  `${alias}.payload - 'tags' - 'jobs'`;
+
 @Injectable()
 export class SearchRepository {
   constructor(private readonly postgres: PostgresService) {}
@@ -451,7 +454,7 @@ export class SearchRepository {
       "NOT job.blocked",
       "job.legacy_list_eligible",
       "cardinality(job.tags) > 0",
-      "(job.organization_id IS NOT NULL OR job.project_id IS NOT NULL)",
+      "num_nonnulls(job.organization_id, job.project_id) = 1",
       "NOT (job.access = 'public' AND job.organization_has_expert_jobs)",
       "job.published_timestamp >= $1",
       "job.published_timestamp <= $2",
@@ -628,13 +631,27 @@ export class SearchRepository {
             job.project_id
           ),
           'organization', CASE
-            WHEN organization.organization_id IS NULL THEN NULL
-            ELSE ${organizationSummary("organization")}
+            WHEN job.organization_id IS NOT NULL
+              AND job.project_id IS NULL
+              AND organization.organization_id IS NOT NULL
+              THEN ${organizationSummary("organization")}
+            ELSE NULL
+          END,
+          'project', CASE
+            WHEN job.organization_id IS NULL
+              AND job.project_id IS NOT NULL
+              AND project.project_id IS NOT NULL
+              THEN ${projectSummary("project")}
+            ELSE NULL
           END
         ) AS payload
         FROM job_search_documents job
         LEFT JOIN organization_search_documents organization
           ON organization.organization_id = job.organization_id
+         AND job.project_id IS NULL
+        LEFT JOIN project_search_documents project
+          ON project.project_id = job.project_id
+         AND job.organization_id IS NULL
         WHERE ${predicates.join("\n          AND ")}
         ORDER BY
           job.featured DESC,
@@ -1232,17 +1249,24 @@ export class SearchRepository {
       timestamp: string | null;
     }>(
       `
-        SELECT short_uuid AS "shortUUID", title,
-          organization_name AS "organizationName",
-          published_timestamp::text AS timestamp
-        FROM job_search_documents
-        WHERE online
-          AND NOT blocked
-          AND cardinality(tags) > 0
+        SELECT job.short_uuid AS "shortUUID", job.title,
+          COALESCE(organization.name, project.name) AS "organizationName",
+          job.published_timestamp::text AS timestamp
+        FROM job_search_documents job
+        LEFT JOIN organization_search_documents organization
+          ON organization.organization_id = job.organization_id
+         AND job.project_id IS NULL
+        LEFT JOIN project_search_documents project
+          ON project.project_id = job.project_id
+         AND job.organization_id IS NULL
+        WHERE job.online
+          AND NOT job.blocked
+          AND cardinality(job.tags) > 0
+          AND num_nonnulls(job.organization_id, job.project_id) = 1
           -- A sitemap entry without a shortUUID can never produce a valid
           -- job URL; skip it instead of emitting an unusable record.
-          AND short_uuid IS NOT NULL
-        ORDER BY published_timestamp DESC NULLS LAST, job_node_id
+          AND job.short_uuid IS NOT NULL
+        ORDER BY job.published_timestamp DESC NULLS LAST, job.job_node_id
       `,
     );
     return rows.map(row => ({

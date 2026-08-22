@@ -210,6 +210,45 @@ const normalizeList = (values?: string[] | null): string[] | null =>
 const activeRangeBound = (value?: number | null): boolean =>
   value !== null && value !== undefined && value !== 0;
 
+const jobEmployerPayload = (
+  basePayload: string,
+  jobAlias = "job",
+  organizationAlias = "organization",
+  projectAlias = "project",
+): string => `
+  ${basePayload}
+  || CASE
+    WHEN ${jobAlias}.organization_id IS NOT NULL
+      AND ${jobAlias}.project_id IS NULL
+      AND ${organizationAlias}.payload IS NOT NULL
+      THEN jsonb_build_object(
+        'organization', ${organizationAlias}.payload - 'tags' - 'jobs',
+        'project', NULL
+      )
+    WHEN ${jobAlias}.organization_id IS NULL
+      AND ${jobAlias}.project_id IS NOT NULL
+      AND ${projectAlias}.payload IS NOT NULL
+      THEN jsonb_build_object(
+        'organization', NULL,
+        'project', ${projectAlias}.payload - 'tags' - 'jobs'
+      )
+    ELSE jsonb_build_object('organization', NULL, 'project', NULL)
+  END
+`;
+
+const jobEmployerJoins = (
+  jobAlias = "job",
+  organizationAlias = "organization",
+  projectAlias = "project",
+): string => `
+  LEFT JOIN organization_search_documents ${organizationAlias}
+    ON ${organizationAlias}.organization_id = ${jobAlias}.organization_id
+   AND ${jobAlias}.project_id IS NULL
+  LEFT JOIN project_search_documents ${projectAlias}
+    ON ${projectAlias}.project_id = ${jobAlias}.project_id
+   AND ${jobAlias}.organization_id IS NULL
+`;
+
 const pageValues = (
   page: number | null | undefined,
   limit: number | null | undefined,
@@ -265,21 +304,14 @@ export class SearchDocumentRepository {
 
     const rows = await this.postgres.query<{ payload: JobListResult }>(
       `
-        SELECT CASE
-          WHEN organization.payload IS NULL THEN job.payload
-          ELSE job.payload || jsonb_build_object(
-            'organization', organization.payload - 'tags' - 'jobs',
-            'project', NULL
-          )
-        END AS payload
+        SELECT ${jobEmployerPayload("job.payload")} AS payload
         FROM job_search_documents job
-        LEFT JOIN organization_search_documents organization
-          ON organization.organization_id = job.organization_id
+        ${jobEmployerJoins()}
         WHERE job.online
           AND NOT job.blocked
           AND job.legacy_list_eligible
           AND cardinality(job.tags) > 0
-          AND (job.organization_id IS NOT NULL OR job.project_id IS NOT NULL)
+          AND num_nonnulls(job.organization_id, job.project_id) = 1
           AND NOT (
             job.access = 'public'
             AND job.organization_has_expert_jobs
@@ -298,15 +330,19 @@ export class SearchDocumentRepository {
       SELECT
         job.short_uuid AS "shortUUID",
         job.title,
-        organization.name AS "organizationName",
-        cardinality(organization.project_ids) > 0 AS "hasProjects"
+        COALESCE(organization.name, project.name) AS "organizationName",
+        CASE
+          WHEN job.organization_id IS NOT NULL AND job.project_id IS NULL
+            THEN cardinality(organization.project_ids) > 0
+          ELSE false
+        END AS "hasProjects"
       FROM job_search_documents job
-      JOIN organization_search_documents organization
-        ON organization.organization_id = job.organization_id
+      ${jobEmployerJoins()}
       WHERE job.online
         AND NOT job.blocked
         AND job.legacy_list_eligible
         AND cardinality(job.tags) > 0
+        AND num_nonnulls(job.organization_id, job.project_id) = 1
         AND NOT (
           job.access = 'public'
           AND job.organization_has_expert_jobs
@@ -756,18 +792,17 @@ export class SearchDocumentRepository {
     const rows = await this.postgres.query<{ payload: JobListResult }>(
       `
         SELECT
-          job.payload || jsonb_build_object(
-            'organization', organization.payload - 'tags' - 'jobs',
-            'project', NULL,
+          ${jobEmployerPayload("job.payload")}
+          || jsonb_build_object(
             'online', job.online,
             'blocked', job.blocked
           ) AS payload
         FROM job_search_documents job
-        JOIN organization_search_documents organization
-          ON organization.organization_id = job.organization_id
+        ${jobEmployerJoins()}
         WHERE job.managed_ecosystems && $1::text[]
           AND job.legacy_list_eligible
           AND cardinality(job.tags) > 0
+          AND num_nonnulls(job.organization_id, job.project_id) = 1
         ORDER BY job.published_timestamp DESC NULLS LAST, job.job_node_id
       `,
       [normalized],
@@ -778,22 +813,15 @@ export class SearchDocumentRepository {
   async getAllJobPayloads(): Promise<JobListResult[]> {
     const rows = await this.postgres.query<{ payload: JobListResult }>(`
       SELECT
-        job.payload
-        || CASE
-          WHEN organization.payload IS NULL THEN '{}'::jsonb
-          ELSE jsonb_build_object(
-            'organization', organization.payload - 'tags' - 'jobs',
-            'project', NULL
-          )
-        END
+        ${jobEmployerPayload("job.payload")}
         || jsonb_build_object(
           'isOnline', job.online,
           'isBlocked', job.blocked
         ) AS payload
       FROM job_search_documents job
-      LEFT JOIN organization_search_documents organization
-        ON organization.organization_id = job.organization_id
+      ${jobEmployerJoins()}
       WHERE cardinality(job.tags) > 0
+        AND num_nonnulls(job.organization_id, job.project_id) = 1
       ORDER BY job.published_timestamp DESC NULLS LAST, job.job_node_id
     `);
     return rows.map(row => row.payload);
@@ -833,6 +861,7 @@ export class SearchDocumentRepository {
         LEFT JOIN organization_search_documents organization
           ON organization.organization_id = job.organization_id
         WHERE job.organization_id = $1
+          AND job.project_id IS NULL
           AND cardinality(job.tags) > 0
         ORDER BY job.published_timestamp DESC NULLS LAST, job.job_node_id
       `,
@@ -852,7 +881,7 @@ export class SearchDocumentRepository {
       where.add("NOT blocked");
     }
     where.add("legacy_list_eligible");
-    where.add("(organization_id IS NOT NULL OR project_id IS NOT NULL)");
+    where.add("num_nonnulls(organization_id, project_id) = 1");
     where.add("cardinality(tags) > 0");
     if (params.suppressPublicForExpertOrganizations !== false) {
       where.add("NOT (access = 'public' AND organization_has_expert_jobs)");
@@ -1143,17 +1172,10 @@ export class SearchDocumentRepository {
           FROM unnest($1::bigint[]) WITH ORDINALITY
             AS requested(job_node_id, ordinality)
         )
-        SELECT CASE
-          WHEN organization.payload IS NULL THEN job.payload
-          ELSE job.payload || jsonb_build_object(
-            'organization', organization.payload - 'tags' - 'jobs',
-            'project', NULL
-          )
-        END AS payload
+        SELECT ${jobEmployerPayload("job.payload")} AS payload
         FROM page
         JOIN job_search_documents job ON job.job_node_id = page.job_node_id
-        LEFT JOIN organization_search_documents organization
-          ON organization.organization_id = job.organization_id
+        ${jobEmployerJoins()}
         ORDER BY page.ordinality
       `,
       [page.map(candidate => candidate.job_node_id)],
@@ -1187,22 +1209,14 @@ export class SearchDocumentRepository {
     const rows = await this.postgres.query<{ payload: JobListResult }>(
       `
         SELECT
-          job.payload
-          || CASE
-            WHEN organization.payload IS NULL THEN '{}'::jsonb
-            ELSE jsonb_build_object(
-              'organization', organization.payload - 'tags' - 'jobs',
-              'project', NULL
-            )
-          END AS payload
+          ${jobEmployerPayload("job.payload")} AS payload
         FROM job_search_documents job
-        LEFT JOIN organization_search_documents organization
-          ON organization.organization_id = job.organization_id
+        ${jobEmployerJoins()}
         WHERE job.online
           AND NOT job.blocked
           AND job.legacy_list_eligible
           AND cardinality(job.tags) > 0
-          AND (job.organization_id IS NOT NULL OR job.project_id IS NOT NULL)
+          AND num_nonnulls(job.organization_id, job.project_id) = 1
           AND (
             NOT $1::boolean
             OR NOT (
@@ -1243,14 +1257,7 @@ export class SearchDocumentRepository {
     >(
       `
         SELECT
-          job.payload
-          || CASE
-            WHEN organization.payload IS NULL THEN '{}'::jsonb
-            ELSE jsonb_build_object(
-              'organization', organization.payload - 'tags' - 'jobs',
-              'project', NULL
-            )
-          END
+          ${jobEmployerPayload("job.payload")}
           || jsonb_build_object(
             'online', job.online,
             'publishedTimestampIsVerified', COALESCE(
@@ -1260,12 +1267,11 @@ export class SearchDocumentRepository {
           ) AS payload,
           count(*) OVER () AS total_count
         FROM job_search_documents job
-        LEFT JOIN organization_search_documents organization
-          ON organization.organization_id = job.organization_id
+        ${jobEmployerJoins()}
         WHERE NOT job.blocked
           AND job.legacy_list_eligible
           AND cardinality(job.tags) > 0
-          AND (job.organization_id IS NOT NULL OR job.project_id IS NOT NULL)
+          AND num_nonnulls(job.organization_id, job.project_id) = 1
         ORDER BY job.published_timestamp DESC NULLS LAST, job.job_node_id
         LIMIT $1 OFFSET $2
       `,
@@ -1284,6 +1290,7 @@ export class SearchDocumentRepository {
       "NOT job.blocked",
       "job.legacy_list_eligible",
       "cardinality(job.tags) > 0",
+      "num_nonnulls(job.organization_id, job.project_id) = 1",
       "NOT (job.access = 'public' AND job.organization_has_expert_jobs)",
     ];
     if (ecosystem) {
@@ -1325,6 +1332,7 @@ export class SearchDocumentRepository {
             ) AS collaboration_hours,
             job.seniority,
             job.filter_labels,
+            job.project_id AS job_project_id,
             job.project_names AS job_project_names,
             job.organization_name AS job_organization_name,
             job.investor_names AS job_investor_names,
@@ -1360,6 +1368,7 @@ export class SearchDocumentRepository {
             collaboration_hours,
             seniority,
             filter_labels,
+            job_project_id,
             job_project_names,
             job_organization_name,
             job_investor_names,
@@ -1382,6 +1391,7 @@ export class SearchDocumentRepository {
             owner_ecosystems,
             owner_filter_labels
           FROM scoped_jobs
+          WHERE owner_organization_id IS NOT NULL
           ORDER BY owner_organization_id
         ), eligible_organizations AS MATERIALIZED (
           SELECT scoped.*
@@ -1401,6 +1411,11 @@ export class SearchDocumentRepository {
             SELECT array_agg(DISTINCT slugify_text(owner_organization_id))
             FROM eligible_organizations
           ), ARRAY[]::text[])
+             OR project.project_id IN (
+               SELECT scoped.job_project_id
+               FROM scoped_job_documents scoped
+               WHERE scoped.job_project_id IS NOT NULL
+             )
         )
         SELECT
           COALESCE(
@@ -1505,14 +1520,9 @@ export class SearchDocumentRepository {
     const [row] = await this.postgres.query<{ payload: JobListResult }>(
       `
         SELECT
-          COALESCE(job.detail_payload, '{}'::jsonb) || job.payload
-          || CASE
-            WHEN organization.payload IS NULL THEN '{}'::jsonb
-            ELSE jsonb_build_object(
-              'organization', organization.payload - 'tags' - 'jobs',
-              'project', NULL
-            )
-          END
+          ${jobEmployerPayload(
+            "COALESCE(job.detail_payload, '{}'::jsonb) || job.payload",
+          )}
           || jsonb_build_object(
             'online', job.online,
             'blocked', job.blocked,
@@ -1530,10 +1540,10 @@ export class SearchDocumentRepository {
             )
           ) AS payload
         FROM job_search_documents job
-        LEFT JOIN organization_search_documents organization
-          ON organization.organization_id = job.organization_id
+        ${jobEmployerJoins()}
         WHERE job.short_uuid = $1
           AND cardinality(job.tags) > 0
+          AND num_nonnulls(job.organization_id, job.project_id) = 1
           AND ($2::boolean OR (job.online AND NOT job.blocked))
           AND ($3::text IS NULL OR $3 = ANY(job.managed_ecosystems))
         ORDER BY job.online DESC, job.blocked ASC, job.job_node_id
@@ -3071,7 +3081,7 @@ export class SearchDocumentRepository {
   ): Promise<Record<string, unknown>> {
     const parameters: unknown[] = [];
     const ecosystemSql = ecosystem
-      ? "AND $1 = ANY(organization.managed_ecosystems)"
+      ? "AND $1 = ANY(job.managed_ecosystems)"
       : "";
     if (ecosystem) parameters.push(slugify(ecosystem));
     const [row] = await this.postgres.query<Record<string, unknown>>(
@@ -3079,15 +3089,17 @@ export class SearchDocumentRepository {
         WITH scoped_jobs AS MATERIALIZED (
           SELECT
             job.job_node_id,
+            job.project_id AS job_project_id,
             owner.organization_id AS owner_organization_id,
             organization.name AS owner_organization_name,
             organization.investors AS owner_investor_names,
             organization.filter_labels AS owner_filter_labels
           FROM job_search_documents job
-          JOIN job_search_owners owner ON owner.job_node_id = job.job_node_id
-          JOIN organization_search_documents organization
+          LEFT JOIN job_search_owners owner ON owner.job_node_id = job.job_node_id
+          LEFT JOIN organization_search_documents organization
             ON organization.organization_node_id = owner.organization_node_id
           WHERE job.online
+            AND num_nonnulls(job.organization_id, job.project_id) = 1
           ${ecosystemSql}
         ), scoped_organizations AS MATERIALIZED (
           SELECT DISTINCT ON (owner_organization_id)
@@ -3096,6 +3108,7 @@ export class SearchDocumentRepository {
             owner_investor_names,
             owner_filter_labels
           FROM scoped_jobs
+          WHERE owner_organization_id IS NOT NULL
           ORDER BY owner_organization_id
         ), eligible_organizations AS MATERIALIZED (
           SELECT scoped.*
@@ -3115,6 +3128,11 @@ export class SearchDocumentRepository {
             SELECT array_agg(DISTINCT slugify_text(owner_organization_id))
             FROM scoped_organizations
           ), ARRAY[]::text[])
+             OR project.project_id IN (
+               SELECT job_project_id
+               FROM scoped_jobs
+               WHERE job_project_id IS NOT NULL
+             )
         ), eligible_projects AS MATERIALIZED (
           SELECT project.*
           FROM project_search_documents project
@@ -3122,6 +3140,11 @@ export class SearchDocumentRepository {
             SELECT array_agg(DISTINCT slugify_text(owner_organization_id))
             FROM eligible_organizations
           ), ARRAY[]::text[])
+             OR project.project_id IN (
+               SELECT job_project_id
+               FROM scoped_jobs
+               WHERE job_project_id IS NOT NULL
+             )
         )
         SELECT
           (SELECT min(tvl)::float8 FROM eligible_projects) AS "minTvl",

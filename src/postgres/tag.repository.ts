@@ -271,7 +271,7 @@ export class TagRepository {
         JOIN job_search_documents job ON job.job_node_id = job_tag.source_id
         ${canonicalJoins("tag")}
         WHERE tag.label = 'Tag'
-          AND job.organization_id IS NOT NULL
+          AND num_nonnulls(job.organization_id, job.project_id) = 1
           AND ${unblockedPredicate("tag")}
         ORDER BY COALESCE(preferred.id, paired.id, tag.id), tag.id
       `,
@@ -291,11 +291,7 @@ export class TagRepository {
           CROSS JOIN LATERAL unnest(job.tags) tag_slug
           WHERE job.online
             AND NOT job.blocked
-            AND EXISTS (
-              SELECT 1
-              FROM job_search_owners owner
-              WHERE owner.job_node_id = job.job_node_id
-            )
+            AND num_nonnulls(job.organization_id, job.project_id) = 1
           GROUP BY tag_slug
           HAVING count(DISTINCT job.job_node_id) >= 1
             AND count(DISTINCT job.job_node_id) < $1

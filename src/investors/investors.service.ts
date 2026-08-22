@@ -1034,7 +1034,10 @@ export class InvestorsService {
                   ),
                   'title', job.title,
                   'shortUUID', job.short_uuid,
-                  'organizationName', organization.name,
+                  'organizationName', COALESCE(
+                    organization.name,
+                    project.name
+                  ),
                   'location', job.location,
                   'commitment', job.payload ->> 'commitment',
                   'publishedTimestamp', COALESCE(
@@ -1043,17 +1046,22 @@ export class InvestorsService {
                   )
                 ) AS payload
               FROM job_search_documents job
-              JOIN organization_search_documents organization
+              LEFT JOIN organization_search_documents organization
                 ON organization.organization_id = job.organization_id
+               AND job.project_id IS NULL
+              LEFT JOIN project_search_documents project
+                ON project.project_id = job.project_id
+               AND job.organization_id IS NULL
               WHERE job.online
                 AND NOT job.blocked
                 AND job.legacy_list_eligible
                 AND cardinality(job.tags) > 0
+                AND num_nonnulls(job.organization_id, job.project_id) = 1
                 AND NOT (
                   job.access = 'public'
                   AND job.organization_has_expert_jobs
                 )
-                AND $1 = ANY(organization.investors)
+                AND $1 = ANY(job.investor_names)
             ) job_row
           )
           SELECT jsonb_build_object(

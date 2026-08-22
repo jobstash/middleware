@@ -30,14 +30,53 @@ describe("SearchDocumentRepository", () => {
 
     const [sql, parameters] = query.mock.calls[0];
     expect(sql).toContain('job.short_uuid AS "shortUUID"');
-    expect(sql).toContain('organization.name AS "organizationName"');
+    expect(sql).toContain(
+      'COALESCE(organization.name, project.name) AS "organizationName"',
+    );
     expect(sql).toContain("cardinality(organization.project_ids) > 0");
+    expect(sql).toContain("LEFT JOIN project_search_documents project");
+    expect(sql).toContain(
+      "num_nonnulls(job.organization_id, job.project_id) = 1",
+    );
     expect(sql).toContain("WHERE job.online");
     expect(sql).toContain("job.legacy_list_eligible");
     expect(sql).not.toContain("LIMIT");
     expect(sql).not.toContain("job.payload");
     expect(parameters).toBeUndefined();
   });
+
+  it.each([
+    ["list", (): Promise<unknown> => repository.getJobPayloads()],
+    [
+      "ecosystem",
+      (): Promise<unknown> => repository.getEcosystemJobPayloads(["Ethereum"]),
+    ],
+    ["all", (): Promise<unknown> => repository.getAllJobPayloads()],
+    ["public", (): Promise<unknown> => repository.getPublicJobPayloads(false)],
+    [
+      "archive",
+      (): Promise<unknown> => repository.getArchiveJobPayloads(1, 10),
+    ],
+    ["detail", (): Promise<unknown> => repository.getJobByShortUuid("job-1")],
+  ])(
+    "hydrates the exact Organization-or-Project employer for %s jobs",
+    async (_name, invoke) => {
+      await invoke();
+
+      const [sql] = query.mock.calls[0];
+      expect(sql).toContain(
+        "LEFT JOIN organization_search_documents organization",
+      );
+      expect(sql).toContain("LEFT JOIN project_search_documents project");
+      expect(sql).toContain("job.organization_id IS NOT NULL");
+      expect(sql).toContain("job.project_id IS NOT NULL");
+      expect(sql).toContain("'organization', NULL");
+      expect(sql).toContain("'project', project.payload - 'tags' - 'jobs'");
+      expect(sql).toContain(
+        "num_nonnulls(job.organization_id, job.project_id) = 1",
+      );
+    },
+  );
 
   it("loads complete EV sitemap facets without detail payload hydration", async () => {
     await repository.getEvSitemapOrganizations();
@@ -515,6 +554,12 @@ describe("SearchDocumentRepository", () => {
     expect(query).toHaveBeenCalledTimes(2);
     expect(query.mock.calls[0][0]).toContain("search_values");
     expect(query.mock.calls[0][1] ?? []).not.toContain("protocol engineer");
+    expect(query.mock.calls[1][0]).toContain(
+      "LEFT JOIN project_search_documents project",
+    );
+    expect(query.mock.calls[1][0]).toContain(
+      "'project', project.payload - 'tags' - 'jobs'",
+    );
     expect(query.mock.calls[1][1]).toEqual([["1"]]);
   });
 
@@ -633,6 +678,9 @@ describe("SearchDocumentRepository", () => {
     expect(sql).toContain('AS "collaborationHours"');
     expect(sql).toContain('AS "collaborationHourLabels"');
     expect(sql).toContain("jsonb_object_agg(label.slug, label.label");
+    expect(sql).toContain("job.project_id AS job_project_id");
+    expect(sql).toContain("project.project_id IN (");
+    expect(sql).toContain("FROM scoped_job_documents scoped");
     expect(sql).toContain('AS "minSalaryRange"');
     expect(sql).toContain("salary_currency ILIKE '%USD%'");
     expect(sql).toContain("managed_ecosystems && $1::text[]");
@@ -979,6 +1027,11 @@ describe("SearchDocumentRepository", () => {
     await repository.getProjectFilterValues();
     expect(query.mock.calls[0][0]).toContain("FROM project_search_documents");
     expect(query.mock.calls[0][0]).toContain("eligible_projects");
+    expect(query.mock.calls[0][0]).toContain(
+      "num_nonnulls(job.organization_id, job.project_id) = 1",
+    );
+    expect(query.mock.calls[0][0]).toContain("project.project_id IN (");
+    expect(query.mock.calls[0][0]).toContain("job_project_id IS NOT NULL");
     expect(query.mock.calls[0][0]).toContain("filter_labels -> 'categories'");
   });
 });
