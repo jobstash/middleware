@@ -25,10 +25,10 @@ export class PBACGuard implements CanActivate {
     req.user = session;
 
     const requiredPermissions =
-      this.reflector.get<string[] | string[][]>(
-        "permissions",
+      this.reflector.getAllAndOverride<string[] | string[][]>("permissions", [
         context.getHandler(),
-      ) || [];
+        context.getClass(),
+      ]) || [];
 
     const userPermissions = session?.permissions ?? [];
 

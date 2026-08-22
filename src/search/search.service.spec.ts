@@ -2,6 +2,28 @@ import { SearchRepository } from "src/postgres/search.repository";
 import { SearchService } from "./search.service";
 
 describe("SearchService organization intelligence filters", () => {
+  it("keeps the canonical zero-job FDE pillar available but noindex", async () => {
+    const service = new SearchService(
+      {
+        getPillarJobs: jest.fn().mockResolvedValue([]),
+      } as unknown as SearchRepository,
+      { getSummariesById: jest.fn().mockResolvedValue(new Map()) } as never,
+      {} as never,
+    );
+
+    await expect(
+      service.getPillarPageData("cl-forward-deployed-engineer"),
+    ).resolves.toMatchObject({
+      success: true,
+      data: {
+        title: "Forward Deployed Engineer Jobs - Web3 & Crypto Careers",
+        jobs: [],
+        indexing: "noindex",
+        hasEligibleOpenJobs: false,
+      },
+    });
+  });
+
   it("links current-stage navigation to the working organization filter route", async () => {
     const service = new SearchService(
       {
@@ -53,9 +75,6 @@ describe("SearchService organization intelligence filters", () => {
             steppedDownLeadCount: 0,
             movedLeadCount: 1,
             earlyLeadDepartureCount: 0,
-            growingTeam: true,
-            shrinkingTeam: false,
-            earlyTeamShrinkage: false,
           },
         ],
         [
@@ -68,9 +87,6 @@ describe("SearchService organization intelligence filters", () => {
             steppedDownLeadCount: 1,
             movedLeadCount: 0,
             earlyLeadDepartureCount: 1,
-            growingTeam: false,
-            shrinkingTeam: true,
-            earlyTeamShrinkage: true,
           },
         ],
       ]),

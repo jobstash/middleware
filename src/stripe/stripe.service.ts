@@ -1,4 +1,9 @@
-import { Inject, Injectable } from "@nestjs/common";
+import {
+  ConflictException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+} from "@nestjs/common";
 import Stripe from "stripe";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import {
@@ -31,6 +36,13 @@ import {
 import { ChangeSubscriptionInput } from "src/subscriptions/dto/change-subscription.input";
 import { JOBSTASH_QUOTA } from "src/shared/constants/quota";
 import { ConfigService } from "@nestjs/config";
+import {
+  AGENCY_STRIPE_PLAN,
+  AgencyPlanEvidence,
+  agencyEntitlementForStripeStatus,
+  agencyPlanEvidence,
+} from "src/access-workspaces/agency-billing.contract";
+import { AccessWorkspaceBillingRepository } from "src/postgres/access-workspace-billing.repository";
 
 @Injectable()
 export class StripeService {
@@ -44,7 +56,57 @@ export class StripeService {
     private readonly jobsService: JobsService,
     private readonly subscriptionsService: SubscriptionsService,
     private readonly configService: ConfigService,
+    private readonly agencyBilling: AccessWorkspaceBillingRepository,
   ) {}
+
+  async createAgencyCheckout(
+    workspaceId: string,
+    ownerUserId: string,
+  ): Promise<{ id: string; url: string }> {
+    const workspace = await this.agencyBilling.getForOwner(
+      workspaceId,
+      ownerUserId,
+    );
+    if (!workspace) {
+      throw new ForbiddenException(
+        "Only the AccessWorkspace owner can start Agency billing",
+      );
+    }
+    if (
+      workspace.entitlementEnabled ||
+      (workspace.stripeSubscriptionId && workspace.status === "active")
+    ) {
+      throw new ConflictException(
+        "This AccessWorkspace already has an Agency subscription",
+      );
+    }
+    const prices = await this.stripe.prices.list({
+      active: true,
+      lookup_keys: [AGENCY_STRIPE_PLAN.lookupKey],
+      limit: 2,
+    });
+    if (prices.data.length !== 1) {
+      throw new Error("Exactly one active Agency Stripe price is required");
+    }
+    const plan = agencyPlanEvidence(prices.data[0], 1);
+    const metadata = {
+      action: "agency-subscription",
+      billingContract: "access_workspace_agency_v1",
+      workspaceId: workspace.id,
+    };
+    const session = await this.stripe.checkout.sessions.create({
+      mode: "subscription",
+      client_reference_id: workspace.id,
+      customer: workspace.stripeCustomerId ?? undefined,
+      line_items: [{ price: plan.priceId, quantity: 1 }],
+      metadata,
+      subscription_data: { metadata },
+      success_url: `${this.domain}/access-workspaces/${workspace.id}/billing?checkout=success`,
+      cancel_url: `${this.domain}/access-workspaces/${workspace.id}/billing?checkout=cancelled`,
+    });
+    if (!session.url) throw new Error("Stripe did not return a checkout URL");
+    return { id: session.id, url: session.url };
+  }
 
   async createOrRetrieveCustomer(
     email: string,
@@ -610,6 +672,7 @@ export class StripeService {
 
   async handleCheckoutSessionCompleted(
     session: Stripe.Checkout.Session,
+    stripeEventId = `checkout-session:${session.id}`,
   ): Promise<void> {
     const metadata = (session.metadata || {}) as Record<string, string>;
     const action = metadata.action;
@@ -652,6 +715,38 @@ export class StripeService {
           }
           break;
 
+        case "agency-subscription": {
+          const workspaceId = metadata.workspaceId;
+          if (
+            metadata.billingContract !== "access_workspace_agency_v1" ||
+            !workspaceId ||
+            !session.subscription
+          ) {
+            throw new Error("Agency checkout metadata is incomplete");
+          }
+          const subscription = await this.retrieveAgencySubscription(
+            typeof session.subscription === "string"
+              ? session.subscription
+              : session.subscription.id,
+          );
+          if (
+            subscription.metadata.billingContract !==
+              "access_workspace_agency_v1" ||
+            subscription.metadata.workspaceId !== workspaceId
+          ) {
+            throw new Error(
+              "Agency checkout and subscription metadata do not match",
+            );
+          }
+          await this.applyAgencySubscriptionEvent({
+            eventId: stripeEventId,
+            eventType: "checkout.session.completed",
+            workspaceId,
+            subscription,
+          });
+          break;
+        }
+
         default:
           this.logger.warn(`Unknown checkout session action: ${action}`);
       }
@@ -680,6 +775,19 @@ export class StripeService {
 
     const subscriptionId = invoice.parent.subscription_details
       .subscription as string;
+
+    const agencyWorkspace =
+      await this.agencyBilling.findBySubscription(subscriptionId);
+    if (agencyWorkspace) {
+      const subscription =
+        await this.retrieveAgencySubscription(subscriptionId);
+      await this.applyAgencySubscriptionEvent({
+        eventId: event.id,
+        eventType: event.type,
+        subscription,
+      });
+      return;
+    }
 
     const existing = data(
       await this.subscriptionsService.getSubscriptionInfoByExternalId(
@@ -766,6 +874,22 @@ export class StripeService {
   async handleStripeSubscriptionUpdated(
     evt: Stripe.CustomerSubscriptionUpdatedEvent,
   ): Promise<void> {
+    const agencyWorkspace = await this.agencyBilling.findBySubscription(
+      evt.data.object.id,
+    );
+    const agencyMetadata = evt.data.object.metadata;
+    if (
+      agencyWorkspace ||
+      agencyMetadata.billingContract === "access_workspace_agency_v1"
+    ) {
+      await this.applyAgencySubscriptionEvent({
+        eventId: evt.id,
+        eventType: evt.type,
+        workspaceId: agencyWorkspace?.id ?? agencyMetadata.workspaceId,
+        subscription: evt.data.object,
+      });
+      return;
+    }
     try {
       const sub = evt.data.object as Stripe.Subscription;
       const externalId = sub.id;
@@ -821,6 +945,22 @@ export class StripeService {
   async handleStripeSubscriptionCanceled(
     evt: Stripe.CustomerSubscriptionDeletedEvent,
   ): Promise<void> {
+    const agencyWorkspace = await this.agencyBilling.findBySubscription(
+      evt.data.object.id,
+    );
+    const agencyMetadata = evt.data.object.metadata;
+    if (
+      agencyWorkspace ||
+      agencyMetadata.billingContract === "access_workspace_agency_v1"
+    ) {
+      await this.applyAgencySubscriptionEvent({
+        eventId: evt.id,
+        eventType: evt.type,
+        workspaceId: agencyWorkspace?.id ?? agencyMetadata.workspaceId,
+        subscription: evt.data.object,
+      });
+      return;
+    }
     try {
       this.logger.log(`Handling subscription cancelled - ${evt.id}`);
       await this.subscriptionsService.cancelSubscription(evt.data.object.id);
@@ -829,6 +969,54 @@ export class StripeService {
         `Error handling subscription deletion – ${err.message}`,
       );
     }
+  }
+
+  private retrieveAgencySubscription(id: string): Promise<Stripe.Subscription> {
+    return this.stripe.subscriptions.retrieve(id, {
+      expand: ["items.data.price"],
+    });
+  }
+
+  private agencySubscriptionPlan(
+    subscription: Stripe.Subscription,
+  ): AgencyPlanEvidence {
+    if (subscription.items.data.length !== 1) {
+      throw new Error("Agency subscription must contain exactly one line item");
+    }
+    const item = subscription.items.data[0];
+    return agencyPlanEvidence(item.price, item.quantity, {
+      requireActive: false,
+    });
+  }
+
+  private async applyAgencySubscriptionEvent(input: {
+    eventId: string;
+    eventType: string;
+    workspaceId?: string;
+    subscription: Stripe.Subscription;
+  }): Promise<void> {
+    if (!input.workspaceId) {
+      const mapped = await this.agencyBilling.findBySubscription(
+        input.subscription.id,
+      );
+      input.workspaceId = mapped?.id;
+    }
+    if (!input.workspaceId) {
+      throw new Error("Agency Stripe event has no AccessWorkspace mapping");
+    }
+    const state = agencyEntitlementForStripeStatus(input.subscription.status);
+    const customer = input.subscription.customer;
+    await this.agencyBilling.applyEvent({
+      eventId: input.eventId,
+      eventType: input.eventType,
+      workspaceId: input.workspaceId,
+      stripeCustomerId:
+        typeof customer === "string" ? customer : (customer?.id ?? null),
+      stripeSubscriptionId: input.subscription.id,
+      stripeStatus: input.subscription.status,
+      ...state,
+      planEvidence: this.agencySubscriptionPlan(input.subscription),
+    });
   }
 
   async calculateAmount(

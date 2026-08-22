@@ -50,9 +50,36 @@ export interface PillarOrganization {
   steppedDownLeadCount: number | null;
   movedLeadCount: number | null;
   earlyLeadDepartureCount: number | null;
-  growingTeam: boolean | null;
-  shrinkingTeam: boolean | null;
-  earlyTeamShrinkage: boolean | null;
+}
+
+/**
+ * Direct Project employer for a job. Organization and Project are an exact
+ * XOR in every PillarJob payload.
+ */
+export interface PillarProject {
+  id: string;
+  name: string;
+  normalizedName: string;
+  logo?: string | null;
+  website?: string | null;
+  summary?: string | null;
+  description?: string | null;
+  category?: string | null;
+  github?: string | null;
+  twitter?: string | null;
+  telegram?: string | null;
+  discord?: string | null;
+  docs?: string | null;
+  fundingRounds?: PillarFundingRound[];
+  investors?: PillarInvestor[];
+  teamCoverageStatus?: "current" | "unknown" | null;
+  teamSignalsAsOf?: string | null;
+  currentMaintainerCount?: number | null;
+  activeLeadCount?: number | null;
+  newActiveLeadCount?: number | null;
+  steppedDownLeadCount?: number | null;
+  movedLeadCount?: number | null;
+  earlyLeadDepartureCount?: number | null;
 }
 
 /**
@@ -97,6 +124,7 @@ export interface PillarJob {
   onboardIntoWeb3: boolean;
 
   organization: PillarOrganization | null;
+  project: PillarProject | null;
 }
 
 export interface SuggestedPillar {
@@ -148,15 +176,14 @@ export interface PillarPageOrg {
   steppedDownLeadCount: number | null;
   movedLeadCount: number | null;
   earlyLeadDepartureCount: number | null;
-  growingTeam: boolean | null;
-  shrinkingTeam: boolean | null;
-  earlyTeamShrinkage: boolean | null;
 }
 
 export interface PillarPageData {
   title: string;
   description: string;
   jobs: PillarJob[];
+  indexing: "index" | "noindex";
+  hasEligibleOpenJobs: boolean;
   organization?: PillarPageOrg | null;
   suggestedPillars: SuggestedPillar[];
 }

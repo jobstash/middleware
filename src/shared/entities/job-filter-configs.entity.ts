@@ -50,8 +50,6 @@ export type RawJobFilters = {
   chains?: string[] | null;
   chainLabels?: Record<string, string> | null;
   audits?: string[] | null;
-  locations?: string[] | null;
-  locationLabels?: Record<string, string> | null;
   workModes?: string[] | null;
   workModeLabels?: Record<string, string> | null;
   availability?: string[] | null;
@@ -167,7 +165,6 @@ export class JobFilterConfigsEntity {
       | "ecosystems"
       | "classifications"
       | "commitments"
-      | "locations"
       | "workModes"
       | "availability"
       | "cities"
@@ -187,7 +184,6 @@ export class JobFilterConfigsEntity {
       | "ecosystemLabels"
       | "classificationLabels"
       | "commitmentLabels"
-      | "locationLabels"
       | "workModeLabels"
       | "availabilityLabels"
       | "cityLabels"
@@ -209,7 +205,6 @@ export class JobFilterConfigsEntity {
     const headerLabels = new Set([
       "classifications",
       "commitments",
-      "locations",
       "workModes",
     ]);
     const values = [
@@ -293,7 +288,6 @@ export class JobFilterConfigsEntity {
       commitments: this.getKeyedPresets("commitments", "commitmentLabels"),
       ecosystems: this.getKeyedPresets("ecosystems", "ecosystemLabels"),
       seniority: this.getMultiValuePresetsWithTransform("seniority"),
-      locations: this.getKeyedPresets("locations", "locationLabels"),
       workModes: this.getKeyedPresets("workModes", "workModeLabels"),
       availability: this.getKeyedPresets("availability", "availabilityLabels"),
       cities: this.getKeyedPresets("cities", "cityLabels"),
@@ -313,9 +307,6 @@ export class JobFilterConfigsEntity {
       earlyLeadDepartures: this.getTeamSingleSelectPresets(
         "earlyLeadDepartures",
       ),
-      growingTeam: this.getSingleSelectPresets("growingTeam"),
-      shrinkingTeam: this.getSingleSelectPresets("shrinkingTeam"),
-      earlyTeamShrinkage: this.getSingleSelectPresets("earlyTeamShrinkage"),
       recentlyFunded: this.getSingleSelectPresets("recentlyFunded"),
       token: this.getSingleSelectPresets("token"),
       onboardIntoWeb3: this.getSingleSelectPresets("onboardIntoWeb3"),

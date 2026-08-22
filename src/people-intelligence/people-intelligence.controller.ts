@@ -1,9 +1,10 @@
 import {
   Controller,
   Get,
-  NotFoundException,
+  GoneException,
   Param,
   Query,
+  Res,
   UseInterceptors,
 } from "@nestjs/common";
 import { ApiOkResponse } from "@nestjs/swagger";
@@ -13,10 +14,9 @@ import {
   DeveloperReport,
   PeopleActivityMap,
   PeopleAtlasFrame,
-  PeopleDirectoryPage,
   PeopleOverview,
-  PersonProfile,
 } from "./people-intelligence.types";
+import { Response } from "express";
 
 type PublicQuery = Record<string, string | number | boolean | undefined>;
 
@@ -53,18 +53,32 @@ export class PeopleIntelligenceController {
   }
 
   @Get("directory")
-  @ApiOkResponse({
-    description: "Cursor-paginated canonical employee directory",
-  })
-  directory(@Query() query: PublicQuery): Promise<PeopleDirectoryPage> {
-    return this.people.directory(query);
+  @ApiOkResponse({ description: "Gone: individual directory was removed" })
+  directory(@Res({ passthrough: true }) response: Response): never {
+    return this.identityGone(response);
   }
 
   @Get(":login")
-  @ApiOkResponse({ description: "Person organization and maintainer history" })
-  async profile(@Param("login") login: string): Promise<PersonProfile> {
-    const profile = await this.people.profile(login);
-    if (!profile) throw new NotFoundException("Person not found");
-    return profile;
+  @ApiOkResponse({ description: "Gone: individual profiles were removed" })
+  profile(
+    @Param("login") _login: string,
+    @Res({ passthrough: true }) response: Response,
+  ): never {
+    return this.identityGone(response);
+  }
+
+  private identityGone(response: Response): never {
+    response.setHeader(
+      "Cache-Control",
+      "no-cache, private, no-store, must-revalidate",
+    );
+    response.setHeader("Pragma", "no-cache");
+    response.setHeader("Expires", "0");
+    response.setHeader("X-Robots-Tag", "noindex, nofollow, noarchive");
+    throw new GoneException({
+      statusCode: 410,
+      message: "This individual-developer resource is no longer available",
+      error: "Gone",
+    });
   }
 }

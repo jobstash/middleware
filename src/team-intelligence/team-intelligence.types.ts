@@ -13,12 +13,10 @@ export type OrganizationTeamSummary = {
   steppedDownLeadCount: number | null;
   movedLeadCount: number | null;
   earlyLeadDepartureCount: number | null;
-  newMaintainerCount: number | null;
-  movedMaintainerCount: number | null;
-  earlyMovedMaintainerCount: number | null;
-  growingTeam: boolean | null;
-  shrinkingTeam: boolean | null;
-  earlyTeamShrinkage: boolean | null;
+  latestThreeMonthAverageActiveDevelopers: number | null;
+  priorThreeMonthAverageActiveDevelopers: number | null;
+  developerGrowth: boolean;
+  growthReasons: Array<"developer_growth">;
 };
 
 export type TeamSnapshot = {
@@ -36,9 +34,6 @@ export type TeamSnapshotInput = {
   earlyLeadDepartures?: boolean;
   activeLeadsMin?: number;
   activeLeadsMax?: number;
-  growingTeam?: boolean;
-  shrinkingTeam?: boolean;
-  earlyTeamShrinkage?: boolean;
   currentMaintainersMin?: number;
   currentMaintainersMax?: number;
 };
@@ -52,9 +47,6 @@ export type TeamFilterInput = {
   steppedDownLeads?: boolean | null;
   movedLeads?: boolean | null;
   earlyLeadDepartures?: boolean | null;
-  growingTeam?: boolean | null;
-  shrinkingTeam?: boolean | null;
-  earlyTeamShrinkage?: boolean | null;
 };
 
 export type TeamPage<T> = {
@@ -79,12 +71,6 @@ export type OrganizationTeamDetail = OrganizationTeamSummary & {
     currentMaintainer: boolean;
     activeLead: boolean;
     earlyMaintainer: boolean;
-    firstWriteAt: string;
-    qualifiedAt: string;
-    lastWriteAt: string;
-    writeOperations: number;
-    current: boolean;
-    earlyCohort: boolean;
   }>;
   movements: TeamPage<{
     githubUserId: string;
@@ -95,11 +81,8 @@ export type OrganizationTeamDetail = OrganizationTeamSummary & {
     destinationOrganizationSlug: string;
     sourceLastMergeAt: string;
     destinationFirstMergeAt: string;
-    sourceLastWriteAt: string;
-    destinationFirstWriteAt: string;
     confirmedAt: string;
     earlyMaintainer: boolean;
-    earlyCohort: boolean;
     status: "active" | "observed";
     returnedAt: null;
   }>;
@@ -107,6 +90,7 @@ export type OrganizationTeamDetail = OrganizationTeamSummary & {
 
 export type TeamOrganizationFields = {
   orgId?: string | null;
+  recentlyFunded?: boolean;
   teamCoverageStatus?: TeamCoverageStatus | null;
   teamSignalsAsOf?: string | null;
   currentMaintainerCount?: number | null;
@@ -115,7 +99,8 @@ export type TeamOrganizationFields = {
   steppedDownLeadCount?: number | null;
   movedLeadCount?: number | null;
   earlyLeadDepartureCount?: number | null;
-  growingTeam?: boolean | null;
-  shrinkingTeam?: boolean | null;
-  earlyTeamShrinkage?: boolean | null;
+  latestThreeMonthAverageActiveDevelopers?: number | null;
+  priorThreeMonthAverageActiveDevelopers?: number | null;
+  developerGrowth?: boolean;
+  growingCompanyReasons?: Array<"developer_growth" | "recently_funded">;
 };

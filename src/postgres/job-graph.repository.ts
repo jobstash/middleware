@@ -357,6 +357,9 @@ export class JobGraphRepository {
     targetValues?: string[];
     creator?: string;
     replace?: boolean;
+    requireSingleTarget?: boolean;
+    ownership?: "manual" | "reviewed" | "source" | "inferred";
+    reviewed?: boolean;
   }): Promise<number> {
     if (!options.shortUuids.length) return 0;
     return this.postgres.transaction(async manager => {
@@ -368,11 +371,41 @@ export class JobGraphRepository {
           WHERE label = 'StructuredJobpost'
             AND properties ->> 'shortUUID' = ANY($1::text[])
           ORDER BY id
+          FOR UPDATE
         `,
         [[...new Set(options.shortUuids)]],
       );
       const jobIds = jobs.map(job => job.node_id);
       if (!jobIds.length) return 0;
+
+      // Resolve and lock the complete replacement target before touching the
+      // old relationship. Invalid manual input therefore leaves the old value
+      // intact, rather than deleting it and discovering the target is absent.
+      const targets = await managerQuery<{ node_id: string }>(
+        manager,
+        `
+          SELECT id::text AS node_id
+          FROM graph_nodes
+          WHERE label = $1
+            AND (
+              $2::text IS NULL
+              OR properties ->> $2 = ANY($3::text[])
+            )
+          ORDER BY id
+          FOR SHARE
+        `,
+        [
+          options.targetLabel,
+          options.targetProperty ?? null,
+          options.targetValues ?? [],
+        ],
+      );
+      if (
+        (options.targetValues?.length && targets.length === 0) ||
+        (options.requireSingleTarget && targets.length !== 1)
+      ) {
+        return 0;
+      }
 
       if (options.replace ?? true) {
         await managerQuery(
@@ -386,24 +419,6 @@ export class JobGraphRepository {
         );
       }
 
-      const targets = await managerQuery<{ node_id: string }>(
-        manager,
-        `
-          SELECT id::text AS node_id
-          FROM graph_nodes
-          WHERE label = $1
-            AND (
-              $2::text IS NULL
-              OR properties ->> $2 = ANY($3::text[])
-            )
-          ORDER BY id
-        `,
-        [
-          options.targetLabel,
-          options.targetProperty ?? null,
-          options.targetValues ?? [],
-        ],
-      );
       if (targets.length) {
         await managerQuery(
           manager,
@@ -418,7 +433,11 @@ export class JobGraphRepository {
               '',
               jsonb_strip_nulls(jsonb_build_object(
                 'creator', $4::text,
-                'createdTimestamp', $5::bigint
+                'createdTimestamp', $5::bigint,
+                'ownership', $6::text,
+                'reviewed', $7::boolean,
+                'reviewedBy', CASE WHEN $7::boolean THEN $4::text END,
+                'reviewedAt', CASE WHEN $7::boolean THEN $5::bigint END
               ))
             FROM unnest($1::bigint[]) source_id
             CROSS JOIN unnest($2::bigint[]) target_id
@@ -433,6 +452,8 @@ export class JobGraphRepository {
             options.relationshipType,
             options.creator ?? null,
             Date.now(),
+            options.ownership ?? null,
+            options.reviewed ?? null,
           ],
         );
       }
@@ -525,7 +546,10 @@ export class JobGraphRepository {
           WHERE short_uuid = $1
             AND online
             AND NOT blocked
-            AND organization_id IS NOT NULL
+            AND (
+              (organization_id IS NOT NULL AND project_id IS NULL)
+              OR (organization_id IS NULL AND project_id IS NOT NULL)
+            )
             AND ($2::text IS NULL OR $2 = ANY(managed_ecosystems))
           ORDER BY job_node_id
           LIMIT 1
@@ -533,6 +557,7 @@ export class JobGraphRepository {
           SELECT
             candidate.*,
             organization.payload AS organization_payload,
+            project.payload AS project_payload,
             0.4 * shared.value::numeric / cardinality(source.tags)
               + 0.3 * (
                 1.0 / (
@@ -549,13 +574,26 @@ export class JobGraphRepository {
             ON candidate.job_node_id <> source.job_node_id
            AND candidate.online
            AND NOT candidate.blocked
-           AND candidate.organization_id IS NOT NULL
-           AND candidate.organization_id <> source.organization_id
+           AND (
+             (candidate.organization_id IS NOT NULL AND candidate.project_id IS NULL)
+             OR (candidate.organization_id IS NULL AND candidate.project_id IS NOT NULL)
+           )
+           AND COALESCE(
+             'organization:' || candidate.organization_id,
+             'project:' || candidate.project_id
+           ) <> COALESCE(
+             'organization:' || source.organization_id,
+             'project:' || source.project_id
+           )
            AND candidate.published_timestamp >= $3::bigint - $4::bigint
            AND candidate.tags && source.tags
            AND ($2::text IS NULL OR $2 = ANY(candidate.managed_ecosystems))
-          JOIN organization_search_documents organization
+          LEFT JOIN organization_search_documents organization
             ON organization.organization_id = candidate.organization_id
+           AND candidate.project_id IS NULL
+          LEFT JOIN project_search_documents project
+            ON project.project_id = candidate.project_id
+           AND candidate.organization_id IS NULL
           CROSS JOIN LATERAL (
             SELECT count(DISTINCT tag)::integer AS value
             FROM unnest(candidate.tags) tag
@@ -567,12 +605,24 @@ export class JobGraphRepository {
           'shortUUID', short_uuid,
           'title', title,
           'timestamp', published_timestamp,
-          'organization', jsonb_build_object(
-            'name', organization_payload -> 'name',
-            'logoUrl', organization_payload -> 'logoUrl',
-            'normalizedName', organization_payload -> 'normalizedName',
-            'website', organization_payload -> 'website'
-          )
+          'organization', CASE
+            WHEN organization_payload IS NULL THEN NULL
+            ELSE jsonb_build_object(
+              'name', organization_payload -> 'name',
+              'logoUrl', organization_payload -> 'logoUrl',
+              'normalizedName', organization_payload -> 'normalizedName',
+              'website', organization_payload -> 'website'
+            )
+          END,
+          'project', CASE
+            WHEN project_payload IS NULL THEN NULL
+            ELSE jsonb_build_object(
+              'name', project_payload -> 'name',
+              'logo', project_payload -> 'logo',
+              'normalizedName', project_payload -> 'normalizedName',
+              'website', project_payload -> 'website'
+            )
+          END
         ) AS payload
         FROM scored
         ORDER BY score DESC, published_timestamp DESC, job_node_id
@@ -746,6 +796,10 @@ export class JobGraphRepository {
           ) overlap
           WHERE job.online
             AND NOT job.blocked
+            AND (
+              (job.organization_id IS NOT NULL AND job.project_id IS NULL)
+              OR (job.organization_id IS NULL AND job.project_id IS NOT NULL)
+            )
             AND job.published_timestamp >= $2
             AND job.tags && skill_names.value
         ), filtered AS (
@@ -831,6 +885,10 @@ export class JobGraphRepository {
                 ), '[]'::jsonb)
               )
             END,
+            'project', CASE
+              WHEN project.payload IS NULL THEN NULL
+              ELSE project.payload - 'tags' - 'jobs'
+            END,
             'tags', COALESCE((
               SELECT jsonb_agg(
                 jsonb_build_object(
@@ -850,6 +908,10 @@ export class JobGraphRepository {
         FROM filtered job
         LEFT JOIN organization_search_documents organization
           ON organization.organization_id = job.organization_id
+         AND job.project_id IS NULL
+        LEFT JOIN project_search_documents project
+          ON project.project_id = job.project_id
+         AND job.organization_id IS NULL
         ORDER BY job.published_timestamp DESC, job.overlap_ratio DESC, job.job_node_id
         LIMIT $5 OFFSET $6
       `,

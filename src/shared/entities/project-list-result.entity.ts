@@ -1,4 +1,8 @@
-import { ProjectCompetitorListResult, ProjectListResult } from "../interfaces";
+import {
+  EMPTY_WORK_ARRANGEMENT_V1,
+  ProjectCompetitorListResult,
+  ProjectListResult,
+} from "../interfaces";
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
 import { isAfter, isBefore } from "date-fns";
 
@@ -90,6 +94,8 @@ export class ProjectListResultEntity {
             featured: isStillFeatured,
             onboardIntoWeb3: jobpost?.onboardIntoWeb3 ?? false,
             ethSeasonOfInternships: jobpost?.ethSeasonOfInternships ?? false,
+            workArrangement:
+              jobpost.workArrangement ?? EMPTY_WORK_ARRANGEMENT_V1,
             tags:
               jobpost?.tags.map(tag => ({
                 ...tag,

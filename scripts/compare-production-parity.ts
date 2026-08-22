@@ -214,19 +214,6 @@ const runtimeCases: RuntimeCase[] = [
     path: "/investors/details/slug/paradigm",
     compareSemanticValue: true,
   },
-  { path: "/grants?status=active", collectionIdentity: "id" },
-  {
-    path: "/grants/thankarb-arbitrium",
-    compareSemanticValue: true,
-  },
-  {
-    path: "/grants/arbitrum-stip/grantees?page=1&limit=5",
-    collectionIdentity: "id",
-  },
-  {
-    path: "/grants/arbitrum-stip/grantees/parity-nonexistent",
-    compareSemanticValue: true,
-  },
   { path: "/search?query=engineer" },
   { path: "/search/jobs/suggestions?query=engineer&page=1&limit=5" },
   { path: "/search/tags/suggestions?query=sol&page=1&limit=5" },

@@ -45,9 +45,6 @@ export class ShortOrgEntity {
       steppedDownLeadCount: this.raw.steppedDownLeadCount,
       movedLeadCount: this.raw.movedLeadCount,
       earlyLeadDepartureCount: this.raw.earlyLeadDepartureCount,
-      growingTeam: this.raw.growingTeam,
-      shrinkingTeam: this.raw.shrinkingTeam,
-      earlyTeamShrinkage: this.raw.earlyTeamShrinkage,
     };
   }
 }
@@ -92,9 +89,6 @@ export class ShortOrgWithSummaryEntity {
       steppedDownLeadCount: this.raw.steppedDownLeadCount,
       movedLeadCount: this.raw.movedLeadCount,
       earlyLeadDepartureCount: this.raw.earlyLeadDepartureCount,
-      growingTeam: this.raw.growingTeam,
-      shrinkingTeam: this.raw.shrinkingTeam,
-      earlyTeamShrinkage: this.raw.earlyTeamShrinkage,
     };
   }
 }

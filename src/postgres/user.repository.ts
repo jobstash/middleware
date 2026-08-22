@@ -203,6 +203,92 @@ const richUserPayload = (orgParameter: string): string => `
   )
 `;
 
+/** Signals is intentionally not built by subtracting from the rich profile. */
+const signalCandidatePayload = (): string => `
+  jsonb_build_object(
+    'wallet', user.properties ->> 'wallet',
+    'availableForWork', true,
+    'cryptoNative', COALESCE(
+      jsonb_boolean_value(user.properties, 'cryptoNative'), false
+    ),
+    'cryptoAdjacent', COALESCE(
+      jsonb_boolean_value(user.properties, 'cryptoAdjacent'), false
+    ),
+    'githubAvatar', (
+      SELECT github.properties ->> 'avatarUrl'
+      FROM graph_relationships relationship
+      JOIN graph_nodes github ON github.id = relationship.target_id
+      WHERE relationship.source_id = user.id
+        AND relationship.type = 'HAS_GITHUB_USER'
+        AND github.label = 'GithubUser'
+      ORDER BY github.id
+      LIMIT 1
+    ),
+    'name', NULLIF(user.properties ->> 'name', ''),
+    'location', COALESCE((
+      SELECT jsonb_build_object(
+        'city', NULLIF(location.properties ->> 'city', ''),
+        'country', NULLIF(location.properties ->> 'country', '')
+      )
+      FROM graph_relationships relationship
+      JOIN graph_nodes location ON location.id = relationship.target_id
+      WHERE relationship.source_id = user.id
+        AND relationship.type = 'HAS_LOCATION'
+        AND location.label = 'UserLocation'
+      ORDER BY location.id
+      LIMIT 1
+    ), jsonb_build_object('city', NULL, 'country', NULL)),
+    'skills', COALESCE((
+      SELECT jsonb_agg(
+        tag.properties || jsonb_build_object(
+          'canTeach', COALESCE(
+            jsonb_boolean_value(relationship.properties, 'canTeach'), false
+          )
+        ) ORDER BY tag.properties ->> 'name'
+      )
+      FROM graph_relationships relationship
+      JOIN graph_nodes tag ON tag.id = relationship.target_id
+      WHERE relationship.source_id = user.id
+        AND relationship.type = 'HAS_SKILL'
+        AND tag.label = 'Tag'
+    ), '[]'::jsonb),
+    'showcases', COALESCE((
+      SELECT jsonb_agg(showcase.properties ORDER BY showcase.id)
+      FROM graph_relationships relationship
+      JOIN graph_nodes showcase ON showcase.id = relationship.target_id
+      WHERE relationship.source_id = user.id
+        AND relationship.type = 'HAS_SHOWCASE'
+        AND showcase.label = 'UserShowCase'
+    ), '[]'::jsonb),
+    'workHistory', COALESCE((
+      SELECT jsonb_agg(
+        history.properties || jsonb_build_object(
+          'repositories', COALESCE((
+            SELECT jsonb_agg(repository.properties ORDER BY repository.id)
+            FROM graph_relationships repository_relationship
+            JOIN graph_nodes repository
+              ON repository.id = repository_relationship.target_id
+            WHERE repository_relationship.source_id = history.id
+              AND repository_relationship.type = 'WORKED_ON_REPO'
+              AND repository.label = 'UserWorkHistoryRepo'
+          ), '[]'::jsonb)
+        ) ORDER BY history.id
+      )
+      FROM graph_relationships relationship
+      JOIN graph_nodes history ON history.id = relationship.target_id
+      WHERE relationship.source_id = user.id
+        AND relationship.type = 'HAS_WORK_HISTORY'
+        AND history.label = 'UserWorkHistory'
+    ), '[]'::jsonb)
+  )
+`;
+
+export interface SignalsInterestRow {
+  kind: "classification" | "tag";
+  label: string;
+  interestedCandidates: number;
+}
+
 @Injectable()
 export class UserRepository {
   constructor(private readonly postgres: PostgresService) {}
@@ -1130,10 +1216,64 @@ export class UserRepository {
     return (await this.getRichUsers({ wallet }))[0];
   }
 
-  async getAvailableUsers(
-    orgId?: string | null,
-  ): Promise<Record<string, unknown>[]> {
-    return this.getRichUsers({ orgId: orgId ?? null, availableOnly: true });
+  async getAvailableUsers(): Promise<Record<string, unknown>[]> {
+    const rows = await queryRows<{ profile: Record<string, unknown> }>(
+      this.postgres,
+      `
+        SELECT ${signalCandidatePayload()} AS profile
+        FROM graph_nodes user
+        WHERE user.label = 'User'
+          AND NULLIF(btrim(user.properties ->> 'wallet'), '') IS NOT NULL
+          AND COALESCE(
+            jsonb_boolean_value(user.properties, 'available'), false
+          )
+        ORDER BY user.id
+      `,
+    );
+    return rows.map(row => row.profile);
+  }
+
+  async getAvailableUserAggregateInterests(): Promise<SignalsInterestRow[]> {
+    return queryRows<SignalsInterestRow>(
+      this.postgres,
+      `
+        WITH opted_in_applications AS (
+          SELECT DISTINCT application.source_id AS user_id,
+            application.target_id AS job_id
+          FROM graph_nodes user
+          JOIN graph_relationships application
+            ON application.source_id = user.id
+           AND application.type = 'APPLIED_TO'
+          WHERE user.label = 'User'
+            AND NULLIF(btrim(user.properties ->> 'wallet'), '') IS NOT NULL
+            AND COALESCE(
+              jsonb_boolean_value(user.properties, 'available'), false
+            )
+        ), interests AS (
+          SELECT applications.user_id, 'classification'::text AS kind,
+            entry.value AS label
+          FROM opted_in_applications applications
+          JOIN job_search_documents job ON job.job_node_id = applications.job_id
+          CROSS JOIN LATERAL jsonb_each_text(
+            COALESCE(job.filter_labels -> 'classifications', '{}'::jsonb)
+          ) entry
+          UNION
+          SELECT applications.user_id, 'tag'::text AS kind, entry.value AS label
+          FROM opted_in_applications applications
+          JOIN job_search_documents job ON job.job_node_id = applications.job_id
+          CROSS JOIN LATERAL jsonb_each_text(
+            COALESCE(job.filter_labels -> 'tags', '{}'::jsonb)
+          ) entry
+        )
+        SELECT kind, label,
+          count(DISTINCT user_id)::int AS "interestedCandidates"
+        FROM interests
+        WHERE NULLIF(btrim(label), '') IS NOT NULL
+        GROUP BY kind, label
+        HAVING count(DISTINCT user_id) >= 5
+        ORDER BY kind, "interestedCandidates" DESC, label
+      `,
+    );
   }
 
   async setRecruiterNote(

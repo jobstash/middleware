@@ -113,4 +113,42 @@ describe("admin directory services", () => {
       }),
     ).rejects.toBeInstanceOf(ConflictException);
   });
+
+  it("declares the jobpost source when queueing a durable jobsite import", async () => {
+    jest.spyOn(axios, "post").mockResolvedValue({ status: 202, data: {} });
+    const graph = {
+      findRelatedNodes: jest
+        .fn()
+        .mockResolvedValue([
+          { properties: { id: "jobsite-1", url: "https://jobs.example.com" } },
+        ]),
+    };
+    const service = new OrganizationsService(
+      { get: jest.fn(() => "https://etl.example") } as never,
+      { getETLToken: jest.fn().mockResolvedValue("etl-token") } as never,
+      {} as never,
+      graph as never,
+      {} as never,
+      {} as never,
+    );
+
+    await expect(
+      service.importOrganizationJobsiteById({
+        orgId: "org-1",
+        jobsiteId: "jobsite-1",
+      }),
+    ).resolves.toMatchObject({ success: true });
+    expect(axios.post).toHaveBeenCalledWith(
+      "https://etl.example/imports/runs",
+      {
+        source: "jobposts",
+        idempotencyKey: expect.stringMatching(/^middleware-jobsite-/),
+        scope: "jobsite",
+        jobsiteUrl: "https://jobs.example.com",
+      },
+      expect.objectContaining({
+        headers: { Authorization: "Bearer etl-token" },
+      }),
+    );
+  });
 });

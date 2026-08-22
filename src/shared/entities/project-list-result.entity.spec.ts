@@ -1,7 +1,7 @@
 import { ProjectListResultEntity } from "./project-list-result.entity";
 
 describe("ProjectListResultEntity", () => {
-  it("exposes only the legacy nested job projection", () => {
+  it("exposes the allowlisted nested job projection with WorkArrangementV1", () => {
     const result = new ProjectListResultEntity({
       id: "project-id",
       name: "Project",
@@ -90,6 +90,12 @@ describe("ProjectListResultEntity", () => {
       featured: false,
       onboardIntoWeb3: false,
       ethSeasonOfInternships: false,
+      workArrangement: {
+        classification: "unstated",
+        remoteOptions: [],
+        hybridOptions: [],
+        onsiteOptions: [],
+      },
       tags: [],
     });
   });

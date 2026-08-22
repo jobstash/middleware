@@ -1,4 +1,8 @@
 import { JobGraphRepository } from "./job-graph.repository";
+import {
+  createOwnedJobsiteFixture,
+  createProfileMemberFixture,
+} from "./postgres.integration-fixtures";
 import { PostgresService } from "./postgres.service";
 
 const describePostgres =
@@ -128,6 +132,21 @@ describePostgres("JobGraphRepository PostgreSQL integration", () => {
   });
 
   it("refreshes a changed job projection inside the mutation transaction", async () => {
+    const organization = await createOrganization("org-refresh", "Refresh Org");
+    const jobsite = await createOwnedJobsiteFixture(
+      postgres,
+      organization,
+      "jobsite-refresh",
+      {
+        id: "jobsite-refresh",
+        type: "custom",
+        url: "https://refresh.example/jobs",
+      },
+    );
+    const rawJob = await createNode("Jobpost", "raw-job-refresh", {
+      id: "raw-job-refresh",
+      url: "https://refresh.example/jobs/refresh",
+    });
     const job = await createNode("StructuredJobpost", "job-refresh", {
       id: "job-refresh-id",
       shortUUID: "job-refresh",
@@ -141,6 +160,8 @@ describePostgres("JobGraphRepository PostgreSQL integration", () => {
     const online = await createNode("JobpostOnlineStatus", "online", {
       name: "online",
     });
+    await relate(jobsite, rawJob, "HAS_JOBPOST");
+    await relate(rawJob, job, "HAS_STRUCTURED_JOBPOST");
     await relate(job, online, "HAS_STATUS");
     await postgres.query(
       "SELECT refresh_job_search_document_ids($1::bigint[])",
@@ -174,6 +195,7 @@ describePostgres("JobGraphRepository PostgreSQL integration", () => {
   it("ranks similar and suggested jobs from indexed projection arrays", async () => {
     await createOrganization("org-source", "Source");
     await createOrganization("org-other", "Other");
+    await createProject("project-direct", "Direct Protocol");
     const now = Date.now();
     await createSearchJob("source", {
       organizationId: "org-source",
@@ -186,6 +208,12 @@ describePostgres("JobGraphRepository PostgreSQL integration", () => {
       tags: ["typescript", "postgresql"],
       classifications: ["engineering"],
       publishedTimestamp: now - 1_000,
+    });
+    await createSearchJob("project-candidate", {
+      projectId: "project-direct",
+      tags: ["typescript", "postgresql"],
+      classifications: ["engineering"],
+      publishedTimestamp: now - 2_000,
     });
     const typescript = await createNode("Tag", "tag-typescript", {
       id: "tag-typescript",
@@ -200,8 +228,21 @@ describePostgres("JobGraphRepository PostgreSQL integration", () => {
     await relate(sourceNode, typescript, "HAS_TAG");
 
     await expect(repository.getSimilarJobs("source")).resolves.toEqual([
-      expect.objectContaining({ shortUUID: "candidate" }),
+      expect.objectContaining({ shortUUID: "candidate", project: null }),
+      expect.objectContaining({
+        shortUUID: "project-candidate",
+        organization: null,
+        project: expect.objectContaining({ name: "Direct Protocol" }),
+      }),
     ]);
+    await expect(
+      repository.getSimilarJobs("project-candidate"),
+    ).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ shortUUID: "source", project: null }),
+        expect.objectContaining({ shortUUID: "candidate", project: null }),
+      ]),
+    );
     const suggestions = await repository.getSuggestedJobPayloads({
       skills: ["typescript"],
       minimumOverlapRatio: 0.1,
@@ -209,8 +250,8 @@ describePostgres("JobGraphRepository PostgreSQL integration", () => {
       limit: 10,
       offset: 0,
     });
-    expect(suggestions.total).toBe(2);
-    expect(suggestions.rows).toHaveLength(2);
+    expect(suggestions.total).toBe(3);
+    expect(suggestions.rows).toHaveLength(3);
     expect(Object.keys(suggestions.rows[0]).sort()).toEqual(
       [
         "access",
@@ -227,6 +268,7 @@ describePostgres("JobGraphRepository PostgreSQL integration", () => {
         "offersTokenAllocation",
         "onboardIntoWeb3",
         "organization",
+        "project",
         "paysInCrypto",
         "salary",
         "salaryCurrency",
@@ -240,7 +282,7 @@ describePostgres("JobGraphRepository PostgreSQL integration", () => {
       ].sort(),
     );
     expect(suggestions.rows[0]).not.toHaveProperty("description");
-    expect(suggestions.rows[0]).not.toHaveProperty("project");
+    expect(suggestions.rows[0]).toHaveProperty("project", null);
     expect(
       Object.keys(
         (suggestions.rows[0].tags as Record<string, unknown>[])[0],
@@ -264,6 +306,16 @@ describePostgres("JobGraphRepository PostgreSQL integration", () => {
         "website",
       ].sort(),
     );
+    expect(
+      suggestions.rows.find(row => row.shortUUID === "project-candidate"),
+    ).toMatchObject({
+      organization: null,
+      project: {
+        id: "project-direct",
+        name: "Direct Protocol",
+        normalizedName: "direct protocol",
+      },
+    });
     await expect(
       repository.getJobTagMatchData("source"),
     ).resolves.toMatchObject({ jobTags: ["typescript"] });
@@ -274,6 +326,9 @@ describePostgres("JobGraphRepository PostgreSQL integration", () => {
     key: string,
     properties: Record<string, unknown>,
   ): Promise<string> {
+    if (label === "Organization" || label === "Project") {
+      return createProfileMemberFixture(postgres, label, key, properties);
+    }
     const [row] = await postgres.query<{ id: string }>(
       `
         INSERT INTO graph_nodes (label, labels, node_key, properties)
@@ -329,10 +384,40 @@ describePostgres("JobGraphRepository PostgreSQL integration", () => {
     return nodeId;
   }
 
+  async function createProject(id: string, name: string): Promise<string> {
+    const nodeId = await createNode("Project", id, {
+      id,
+      name,
+      normalizedName: name.toLowerCase(),
+    });
+    await postgres.query(
+      `
+        INSERT INTO project_search_documents (
+          project_node_id, project_id, slug, name, normalized_name, payload
+        ) VALUES ($1, $2, $2, $3, $4, $5::jsonb)
+      `,
+      [
+        nodeId,
+        id,
+        name,
+        name.toLowerCase(),
+        JSON.stringify({
+          id,
+          name,
+          normalizedName: name.toLowerCase(),
+          logo: null,
+          website: null,
+        }),
+      ],
+    );
+    return nodeId;
+  }
+
   async function createSearchJob(
     shortUuid: string,
     options: {
       organizationId?: string;
+      projectId?: string;
       tags?: string[];
       classifications?: string[];
       publishedTimestamp?: number;
@@ -361,6 +446,7 @@ describePostgres("JobGraphRepository PostgreSQL integration", () => {
           structured_jobpost_id,
           short_uuid,
           organization_id,
+          project_id,
           title,
           online,
           blocked,
@@ -370,8 +456,8 @@ describePostgres("JobGraphRepository PostgreSQL integration", () => {
           payload,
           detail_payload
         ) VALUES (
-          $1, $2, $3, $4, $3, true, false, $5, $6::text[], $7::text[],
-          $8::jsonb, $8::jsonb
+          $1, $2, $3, $4, $5, $3, true, false, $6, $7::text[], $8::text[],
+          $9::jsonb, $9::jsonb
         )
       `,
       [
@@ -379,6 +465,7 @@ describePostgres("JobGraphRepository PostgreSQL integration", () => {
         `${shortUuid}-id`,
         shortUuid,
         options.organizationId ?? null,
+        options.projectId ?? null,
         options.publishedTimestamp ?? Date.now(),
         options.tags ?? [],
         options.classifications ?? [],

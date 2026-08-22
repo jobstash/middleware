@@ -14,6 +14,7 @@ import {
   NAV_PILLAR_ORDERING,
   NAV_PILLAR_SLUG_PREFIX_MAPPINGS,
   NAV_PILLAR_TITLES,
+  CANONICAL_JOB_CLASSIFICATIONS,
 } from "src/shared/constants";
 import {
   MultiSelectFilter,
@@ -99,9 +100,6 @@ const TEAM_FILTER_FIELDS = new Set([
   "steppedDownLeads",
   "movedLeads",
   "earlyLeadDepartures",
-  "growingTeam",
-  "shrinkingTeam",
-  "earlyTeamShrinkage",
 ]);
 
 const navigationLinkSegments: Partial<
@@ -172,9 +170,6 @@ const booleanFilters: Partial<Record<SearchNav, Record<string, string>>> = {
     steppedDownLeads: "steppedDownLeads",
     movedLeads: "movedLeads",
     earlyLeadDepartures: "earlyLeadDepartures",
-    growingTeam: "growingTeam",
-    shrinkingTeam: "shrinkingTeam",
-    earlyTeamShrinkage: "earlyTeamShrinkage",
     recentlyFunded: "recentlyFunded",
   },
 };
@@ -1186,7 +1181,12 @@ export class SearchService {
       const jobs = (await this.hydratePillarJobs(rawJobs)).map(job =>
         this.normalizePillarJob(job),
       );
-      if (!jobs.length && !organization) {
+      const canonicalClassificationPillar =
+        parsed.pillarType === "classifications" &&
+        CANONICAL_JOB_CLASSIFICATIONS.some(
+          classification => classification.pillarSlug === slug,
+        );
+      if (!jobs.length && !organization && !canonicalClassificationPillar) {
         return {
           success: true,
           message: "No jobs found for this pillar",
@@ -1199,6 +1199,8 @@ export class SearchService {
         data: {
           ...header,
           jobs,
+          indexing: jobs.length > 0 ? "index" : "noindex",
+          hasEligibleOpenJobs: jobs.length > 0,
           organization,
           suggestedPillars: this.deriveSuggestedPillars(
             jobs,
@@ -1396,9 +1398,6 @@ export class SearchService {
           summary?.earlyLeadDepartureCount === undefined
             ? null
             : summary.earlyLeadDepartureCount > 0,
-        growingTeam: summary?.growingTeam ?? null,
-        shrinkingTeam: summary?.shrinkingTeam ?? null,
-        earlyTeamShrinkage: summary?.earlyTeamShrinkage ?? null,
       };
     });
   }
@@ -1426,9 +1425,6 @@ export class SearchService {
         steppedDownLeadCount: summary?.steppedDownLeadCount ?? null,
         movedLeadCount: summary?.movedLeadCount ?? null,
         earlyLeadDepartureCount: summary?.earlyLeadDepartureCount ?? null,
-        growingTeam: summary?.growingTeam ?? null,
-        shrinkingTeam: summary?.shrinkingTeam ?? null,
-        earlyTeamShrinkage: summary?.earlyTeamShrinkage ?? null,
       };
     });
   }

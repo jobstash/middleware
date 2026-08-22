@@ -31,9 +31,8 @@ import {
   UserVerificationStatus,
   UserVerifiedOrg,
   UserWorkHistory,
-  JobForMe,
   JobPreferences,
-  WorkLocationOption,
+  JobsForMeResponse,
   data,
 } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
@@ -81,20 +80,59 @@ export class ProfileService {
     return updated ? this.getJobPreferences(wallet) : null;
   }
 
-  async getJobsForMe(wallet: string, limit = 100): Promise<JobForMe[]> {
+  async getJobsForMe(wallet: string, limit = 100): Promise<JobsForMeResponse> {
     const preferences = await this.getJobPreferences(wallet);
-    if (!preferences) return [];
+    if (!preferences) {
+      const appliedPreferences: JobPreferences = {
+        workModes: ["remote", "hybrid", "onsite"],
+        residenceCountry: null,
+        utcOffset: null,
+        workAuthorization: null,
+        requiresSponsorship: null,
+        attendancePreference: null,
+        travelTolerance: null,
+      };
+      return {
+        confirmedMatches: [],
+        timezoneNearMisses: [],
+        needsChecking: [],
+        summary: {
+          confirmedMatches: 0,
+          timezoneNearMisses: 0,
+          needsChecking: 0,
+          total: 0,
+        },
+        appliedPreferences,
+      };
+    }
     const candidates = await this.profiles.getJobMatchingCandidates(limit);
-    return candidates.flatMap(candidate => {
+    const groups: Pick<
+      JobsForMeResponse,
+      "confirmedMatches" | "timezoneNearMisses" | "needsChecking"
+    > = {
+      confirmedMatches: [],
+      timezoneNearMisses: [],
+      needsChecking: [],
+    };
+    for (const candidate of candidates) {
       const match = matchWorkLocationOptions(
         candidate.job,
-        candidate.options as unknown as WorkLocationOption[],
+        candidate.options,
         preferences,
-        new Date(),
-        candidate.teamCollaborationBand,
+        candidate.arrangementClassification,
       );
-      return match ? [match] : [];
-    });
+      if (match) groups[match.group].push(match.item);
+    }
+    const summary = {
+      confirmedMatches: groups.confirmedMatches.length,
+      timezoneNearMisses: groups.timezoneNearMisses.length,
+      needsChecking: groups.needsChecking.length,
+      total:
+        groups.confirmedMatches.length +
+        groups.timezoneNearMisses.length +
+        groups.needsChecking.length,
+    };
+    return { ...groups, summary, appliedPreferences: preferences };
   }
 
   async getUserProfile(

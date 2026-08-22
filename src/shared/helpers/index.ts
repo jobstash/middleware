@@ -438,9 +438,6 @@ export const toShortOrg = (org: OrgListResult): ShortOrg => {
     steppedDownLeadCount,
     movedLeadCount,
     earlyLeadDepartureCount,
-    growingTeam,
-    shrinkingTeam,
-    earlyTeamShrinkage,
   } = org;
   const lastFundingRound = sort(org.fundingRounds).desc(x => x.date)[0];
   return new ShortOrgEntity({
@@ -468,9 +465,6 @@ export const toShortOrg = (org: OrgListResult): ShortOrg => {
     steppedDownLeadCount: steppedDownLeadCount ?? null,
     movedLeadCount: movedLeadCount ?? null,
     earlyLeadDepartureCount: earlyLeadDepartureCount ?? null,
-    growingTeam: growingTeam ?? null,
-    shrinkingTeam: shrinkingTeam ?? null,
-    earlyTeamShrinkage: earlyTeamShrinkage ?? null,
   }).getProperties();
 };
 
@@ -500,9 +494,6 @@ export const toShortOrgWithSummary = (
     steppedDownLeadCount,
     movedLeadCount,
     earlyLeadDepartureCount,
-    growingTeam,
-    shrinkingTeam,
-    earlyTeamShrinkage,
   } = org;
   const lastFundingRound = sort(org.fundingRounds).desc(x => x.date)[0];
   return new ShortOrgWithSummaryEntity({
@@ -531,9 +522,6 @@ export const toShortOrgWithSummary = (
     steppedDownLeadCount: steppedDownLeadCount ?? null,
     movedLeadCount: movedLeadCount ?? null,
     earlyLeadDepartureCount: earlyLeadDepartureCount ?? null,
-    growingTeam: growingTeam ?? null,
-    shrinkingTeam: shrinkingTeam ?? null,
-    earlyTeamShrinkage: earlyTeamShrinkage ?? null,
   }).getProperties();
 };
 

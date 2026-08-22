@@ -13,8 +13,8 @@ import { SearchRepository } from "./search.repository";
 import { UserRepository } from "./user.repository";
 import { ProfileRepository } from "./profile.repository";
 import { SubscriptionRepository } from "./subscription.repository";
-import { GrantRepository } from "./grant.repository";
 import { JobMarketRepository } from "./job-market.repository";
+import { AccessWorkspaceBillingRepository } from "./access-workspace-billing.repository";
 
 @Global()
 @Module({})
@@ -42,8 +42,8 @@ export class PostgresModule {
         UserRepository,
         ProfileRepository,
         SubscriptionRepository,
-        GrantRepository,
         JobMarketRepository,
+        AccessWorkspaceBillingRepository,
       ],
       exports: [
         PostgresService,
@@ -59,8 +59,8 @@ export class PostgresModule {
         UserRepository,
         ProfileRepository,
         SubscriptionRepository,
-        GrantRepository,
         JobMarketRepository,
+        AccessWorkspaceBillingRepository,
       ],
     };
   }

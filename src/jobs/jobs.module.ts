@@ -17,6 +17,7 @@ import { TagsModule } from "src/tags/tags.module";
 import { SubscriptionsModule } from "src/subscriptions/subscriptions.module";
 import { StripeModule } from "src/stripe/stripe.module";
 import { AccountModule } from "src/auth/account/account.module";
+import { JobClassificationsController } from "./job-classifications.controller";
 
 @Module({
   imports: [
@@ -43,7 +44,7 @@ import { AccountModule } from "src/auth/account/account.module";
     forwardRef(() => SubscriptionsModule),
     TagsModule,
   ],
-  controllers: [JobsController],
+  controllers: [JobsController, JobClassificationsController],
   providers: [
     JobsService,
     AuthService,

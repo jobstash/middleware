@@ -971,14 +971,24 @@ export class JobsService {
     dto: ChangeJobClassificationInput,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.jobGraph.replaceJobRelationships({
+      const changed = await this.jobGraph.replaceJobRelationships({
         shortUuids: dto.shortUUIDs,
         relationshipType: "HAS_CLASSIFICATION",
         targetLabel: "JobpostClassification",
         targetProperty: "name",
         targetValues: [dto.classification],
         creator: wallet,
+        requireSingleTarget: true,
+        ownership: "manual",
+        reviewed: true,
       });
+      if (changed === 0) {
+        return {
+          success: false,
+          message:
+            "Classification or job was not found; the existing classification was left unchanged",
+        };
+      }
       return {
         success: true,
         message: "Job classification changed successfully",

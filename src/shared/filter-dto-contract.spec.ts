@@ -115,7 +115,6 @@ describe("filter DTO HTTP contracts", () => {
       "fundingRounds",
       "investors",
       "seniority",
-      "locations",
     ] as const;
 
     it.each(numericProperties)("coerces %s to a number", async property => {
@@ -146,6 +145,14 @@ describe("filter DTO HTTP contracts", () => {
         expect(result[property]).toEqual(["first-value", "second-value"]);
       },
     );
+
+    it("splits and validates canonical workModes", async () => {
+      const result = await transformQuery(JobListParams, {
+        workModes: "remote,hybrid",
+      });
+
+      expect(result.workModes).toEqual(["remote", "hybrid"]);
+    });
 
     it.each([
       "today",
@@ -222,9 +229,10 @@ describe("filter DTO HTTP contracts", () => {
         fundingStages: "seed,series-a",
         minCurrentMaintainers: "3",
         maxCurrentMaintainers: "30",
-        growingTeam: "true",
-        shrinkingTeam: "false",
-        earlyTeamShrinkage: "true",
+        newActiveLeads: "true",
+        steppedDownLeads: "false",
+        movedLeads: "true",
+        earlyLeadDepartures: "false",
         recentlyFunded: "false",
         investors: "paradigm,variant",
         locations: "berlin,lisbon",
@@ -248,9 +256,10 @@ describe("filter DTO HTTP contracts", () => {
         fundingStages: ["seed", "series-a"],
         minCurrentMaintainers: 3,
         maxCurrentMaintainers: 30,
-        growingTeam: true,
-        shrinkingTeam: false,
-        earlyTeamShrinkage: true,
+        newActiveLeads: true,
+        steppedDownLeads: false,
+        movedLeads: true,
+        earlyLeadDepartures: false,
         recentlyFunded: false,
         investors: ["paradigm", "variant"],
         locations: ["berlin", "lisbon"],
@@ -307,9 +316,10 @@ describe("filter DTO HTTP contracts", () => {
         fundingStages: "seed,series-a",
         minCurrentMaintainers: "2",
         maxCurrentMaintainers: "12",
-        growingTeam: "false",
-        shrinkingTeam: "true",
-        earlyTeamShrinkage: "false",
+        newActiveLeads: "false",
+        steppedDownLeads: "true",
+        movedLeads: "false",
+        earlyLeadDepartures: "true",
         recentlyFunded: "true",
       });
 
@@ -317,9 +327,10 @@ describe("filter DTO HTTP contracts", () => {
         fundingStages: ["seed", "series-a"],
         minCurrentMaintainers: 2,
         maxCurrentMaintainers: 12,
-        growingTeam: false,
-        shrinkingTeam: true,
-        earlyTeamShrinkage: false,
+        newActiveLeads: false,
+        steppedDownLeads: true,
+        movedLeads: false,
+        earlyLeadDepartures: true,
         recentlyFunded: true,
       });
     });

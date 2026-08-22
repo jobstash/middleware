@@ -43,9 +43,6 @@ export class Organization {
     steppedDownLeadCount: t.union([t.number, t.null, t.undefined]),
     movedLeadCount: t.union([t.number, t.null, t.undefined]),
     earlyLeadDepartureCount: t.union([t.number, t.null, t.undefined]),
-    growingTeam: t.union([t.boolean, t.null, t.undefined]),
-    shrinkingTeam: t.union([t.boolean, t.null, t.undefined]),
-    earlyTeamShrinkage: t.union([t.boolean, t.null, t.undefined]),
     vertical: t.union([t.string, t.null, t.undefined]),
     verticalFirstAppliedTimestamp: t.union([t.number, t.null, t.undefined]),
     verticalAppliedTimestamp: t.union([t.number, t.null, t.undefined]),
@@ -122,15 +119,6 @@ export class Organization {
   earlyLeadDepartureCount?: number | null;
 
   @ApiPropertyOptional()
-  growingTeam?: boolean | null;
-
-  @ApiPropertyOptional()
-  shrinkingTeam?: boolean | null;
-
-  @ApiPropertyOptional()
-  earlyTeamShrinkage?: boolean | null;
-
-  @ApiPropertyOptional()
   vertical?: string | null;
 
   @ApiPropertyOptional()
@@ -175,9 +163,6 @@ export class Organization {
       steppedDownLeadCount,
       movedLeadCount,
       earlyLeadDepartureCount,
-      growingTeam,
-      shrinkingTeam,
-      earlyTeamShrinkage,
       vertical,
       verticalFirstAppliedTimestamp,
       verticalAppliedTimestamp,
@@ -211,9 +196,6 @@ export class Organization {
     this.steppedDownLeadCount = steppedDownLeadCount ?? null;
     this.movedLeadCount = movedLeadCount ?? null;
     this.earlyLeadDepartureCount = earlyLeadDepartureCount ?? null;
-    this.growingTeam = growingTeam ?? null;
-    this.shrinkingTeam = shrinkingTeam ?? null;
-    this.earlyTeamShrinkage = earlyTeamShrinkage ?? null;
     this.vertical = vertical ?? null;
     this.verticalFirstAppliedTimestamp = verticalFirstAppliedTimestamp ?? null;
     this.verticalAppliedTimestamp = verticalAppliedTimestamp ?? null;
@@ -401,9 +383,6 @@ export class ShortOrg {
     steppedDownLeadCount: t.union([t.number, t.null]),
     movedLeadCount: t.union([t.number, t.null]),
     earlyLeadDepartureCount: t.union([t.number, t.null]),
-    growingTeam: t.union([t.boolean, t.null]),
-    shrinkingTeam: t.union([t.boolean, t.null]),
-    earlyTeamShrinkage: t.union([t.boolean, t.null]),
   });
 
   @ApiProperty()
@@ -447,15 +426,6 @@ export class ShortOrg {
 
   @ApiPropertyOptional()
   earlyLeadDepartureCount: number | null;
-
-  @ApiPropertyOptional()
-  growingTeam: boolean | null;
-
-  @ApiPropertyOptional()
-  shrinkingTeam: boolean | null;
-
-  @ApiPropertyOptional()
-  earlyTeamShrinkage: boolean | null;
 
   @ApiProperty()
   location: string;
@@ -512,9 +482,6 @@ export class ShortOrg {
       steppedDownLeadCount,
       movedLeadCount,
       earlyLeadDepartureCount,
-      growingTeam,
-      shrinkingTeam,
-      earlyTeamShrinkage,
     } = raw;
 
     const result = ShortOrg.ShortOrgType.decode(raw);
@@ -542,9 +509,6 @@ export class ShortOrg {
     this.steppedDownLeadCount = steppedDownLeadCount;
     this.movedLeadCount = movedLeadCount;
     this.earlyLeadDepartureCount = earlyLeadDepartureCount;
-    this.growingTeam = growingTeam;
-    this.shrinkingTeam = shrinkingTeam;
-    this.earlyTeamShrinkage = earlyTeamShrinkage;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

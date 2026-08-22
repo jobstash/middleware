@@ -8,6 +8,7 @@ import {
   IsString,
   Min,
 } from "class-validator";
+import { WORK_MODES } from "src/shared/interfaces";
 import { toList } from "src/shared/helpers";
 import { DateRange, ListOrder, JobListOrderBy } from "src/shared/types";
 import { Compare } from "src/shared/validators";
@@ -212,16 +213,13 @@ export class JobListParams {
   @Transform(toList)
   seniority?: string[] | null = null;
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @Type(() => String)
-  @Transform(toList)
-  locations?: string[] | null = null;
-
   @ApiPropertyOptional({
-    description: "Work modes. Replaces the legacy locations query parameter.",
+    description: "Canonical work modes returned by /jobs/filters",
+    enum: WORK_MODES,
+    isArray: true,
   })
   @IsOptional()
+  @IsIn(WORK_MODES, { each: true })
   @Type(() => String)
   @Transform(toList)
   workModes?: string[] | null = null;
@@ -350,30 +348,6 @@ export class JobListParams {
   )
   @IsBoolean()
   earlyLeadDepartures?: boolean | null = null;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value,
-  )
-  @IsBoolean()
-  growingTeam?: boolean | null = null;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value,
-  )
-  @IsBoolean()
-  shrinkingTeam?: boolean | null = null;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value,
-  )
-  @IsBoolean()
-  earlyTeamShrinkage?: boolean | null = null;
 
   @ApiPropertyOptional()
   @IsOptional()

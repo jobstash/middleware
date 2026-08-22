@@ -3,6 +3,10 @@ import * as t from "io-ts";
 import { isLeft } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
 import { JobAvailability } from "./job-availability.interface";
+import {
+  EMPTY_WORK_ARRANGEMENT_V1,
+  WorkArrangementV1,
+} from "./work-arrangement.interface";
 
 export class StructuredJobpost {
   public static readonly StructuredJobpostType = t.strict({
@@ -40,6 +44,10 @@ export class StructuredJobpost {
     hiringProcess: t.union([t.string, t.null, t.undefined]),
     availability: t.union([
       t.array(JobAvailability.JobAvailabilityType),
+      t.undefined,
+    ]),
+    workArrangement: t.union([
+      WorkArrangementV1.WorkArrangementV1Type,
       t.undefined,
     ]),
   });
@@ -128,6 +136,9 @@ export class StructuredJobpost {
   @ApiPropertyOptional({ type: [JobAvailability] })
   availability?: JobAvailability[];
 
+  @ApiProperty({ type: () => WorkArrangementV1 })
+  workArrangement: WorkArrangementV1;
+
   constructor(raw: StructuredJobpost) {
     const {
       id,
@@ -158,6 +169,7 @@ export class StructuredJobpost {
       publishedTimestampIsVerified,
       hiringProcess,
       availability,
+      workArrangement,
     } = raw;
 
     const result = StructuredJobpost.StructuredJobpostType.decode(raw);
@@ -190,6 +202,7 @@ export class StructuredJobpost {
     this.publishedTimestampIsVerified = publishedTimestampIsVerified ?? null;
     this.hiringProcess = hiringProcess ?? null;
     this.availability = availability ?? [];
+    this.workArrangement = workArrangement ?? EMPTY_WORK_ARRANGEMENT_V1;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

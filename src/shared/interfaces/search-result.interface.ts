@@ -1,6 +1,4 @@
 export interface SearchResult {
-  grants?: SearchResultNav;
-  impact?: SearchResultNav;
   organizations?: SearchResultNav;
   projects?: SearchResultNav;
   jobs?: SearchResultNav;

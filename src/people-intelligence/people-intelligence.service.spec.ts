@@ -1,8 +1,48 @@
 import { HttpService } from "@nestjs/axios";
 import { AxiosError } from "axios";
 import { of, throwError } from "rxjs";
-import { PeopleIntelligenceService } from "./people-intelligence.service";
-import type { DeveloperReport } from "./people-intelligence.types";
+import {
+  PeopleIntelligenceService,
+  suppressDeveloperReportK5,
+} from "./people-intelligence.service";
+import type {
+  DeveloperReport,
+  DeveloperReportPoint,
+} from "./people-intelligence.types";
+
+const reportPoint = (
+  period: string,
+  activeDevelopers: number,
+  internalDevelopers = 0,
+): DeveloperReportPoint => ({
+  period,
+  allContributors: activeDevelopers,
+  activeDevelopers,
+  internalDevelopers,
+  canonicalInternalPeople: internalDevelopers,
+  activeMaintainers: internalDevelopers,
+  activeLeads: internalDevelopers,
+  activeOrganizations: activeDevelopers ? 1 : 0,
+  activeRepositories: activeDevelopers ? 1 : 0,
+  rawIndexedCommitRecords: 10,
+  commitsWritten: 10,
+  creditedOriginalCommits: 10,
+  mergedPullRequests: 0,
+  inheritedForkCommits: 0,
+  inheritedUnattributedCopyCommits: 0,
+  fullTimeDevelopers: internalDevelopers,
+  partTimeDevelopers: 0,
+  oneTimeDevelopers: 0,
+  newcomerDevelopers: 0,
+  emergingDevelopers: 0,
+  establishedDevelopers: 0,
+  newDevelopers: 0,
+  newRepositories: 0,
+  newForkRepositories: 0,
+  newUnattributedCopyRepositories: 0,
+  internalDeveloperShare:
+    activeDevelopers === 0 ? 0 : internalDevelopers / activeDevelopers,
+});
 
 const reportResponse = (
   scope: {
@@ -17,6 +57,12 @@ const reportResponse = (
     label: "All developers",
   },
 ): DeveloperReport => ({
+  privacy: {
+    minimumAggregateSize: 5,
+    suppressedValue: 0,
+    suppressedFields: [],
+    omittedRows: 0,
+  },
   available: true,
   asOf: "2026-07-01T00:00:00.000Z",
   completeThrough: "2026-07-01",
@@ -95,6 +141,125 @@ const reportResponse = (
 });
 
 describe("PeopleIntelligenceService", () => {
+  it("suppresses public developer-report person cells below k=5", () => {
+    const response = reportResponse();
+    response.summary.activeDevelopers = 4;
+    response.summary.internalDevelopers = 2;
+    response.summary.internalDeveloperShare = 0.5;
+    response.scopes.overall.activeDevelopers = 6;
+    response.scopes.overall.internalDevelopers = 2;
+    response.coverage.developersTotal = 4;
+    response.coverage.categorizedDevelopers = 3;
+    response.coverage.unclassifiedDevelopers = 1;
+    response.coverage.developerPercent = 75;
+    response.history = [
+      reportPoint("2026-05", 4, 2),
+      reportPoint("2026-06", 5, 2),
+    ];
+    response.current = response.history[1];
+    response.organizations = [
+      {
+        organizationKey: "unsafe",
+        organizationId: "unsafe",
+        organizationName: "Unsafe",
+        organizationSlug: "unsafe",
+        vertical: "crypto",
+        logoUrl: null,
+        layoutX: null,
+        layoutY: null,
+        communityId: null,
+        allContributors: 4,
+        activeDevelopers: 4,
+        internalDevelopers: 2,
+        canonicalInternalPeople: 2,
+        maintainers: 1,
+        leads: 1,
+        creditedOriginalCommits: 10,
+        activeRepositories: 1,
+        series: [],
+      },
+      {
+        organizationKey: "safe",
+        organizationId: "safe",
+        organizationName: "Safe",
+        organizationSlug: "safe",
+        vertical: "crypto",
+        logoUrl: null,
+        layoutX: null,
+        layoutY: null,
+        communityId: null,
+        allContributors: 6,
+        activeDevelopers: 6,
+        internalDevelopers: 2,
+        canonicalInternalPeople: 2,
+        maintainers: 1,
+        leads: 1,
+        creditedOriginalCommits: 10,
+        activeRepositories: 1,
+        series: [
+          {
+            period: "2026-05",
+            activeDevelopers: 4,
+            internalDevelopers: 2,
+            activeMaintainers: 1,
+            activeLeads: 1,
+          },
+          {
+            period: "2026-06",
+            activeDevelopers: 6,
+            internalDevelopers: 2,
+            activeMaintainers: 1,
+            activeLeads: 1,
+          },
+        ],
+      },
+    ];
+    response.top.organizations = [
+      {
+        organizationKey: "unsafe",
+        organizationName: "Unsafe",
+        activeDevelopers: 4,
+      },
+      {
+        organizationKey: "safe",
+        organizationName: "Safe",
+        activeDevelopers: 6,
+      },
+    ];
+
+    const result = suppressDeveloperReportK5(response);
+
+    expect(result.history.map(point => point.period)).toEqual(["2026-06"]);
+    expect(result.current?.period).toBe("2026-06");
+    expect(result.organizations.map(org => org.organizationKey)).toEqual([
+      "safe",
+    ]);
+    expect(result.organizations[0].series.map(point => point.period)).toEqual([
+      "2026-06",
+    ]);
+    expect(result.organizations[0].internalDevelopers).toBe(0);
+    expect(result.top.organizations.map(org => org.organizationKey)).toEqual([
+      "safe",
+    ]);
+    expect(result.summary.activeDevelopers).toBe(0);
+    expect(result.summary.internalDeveloperShare).toBe(0);
+    expect(result.coverage.developerPercent).toBe(0);
+    expect(result.privacy).toEqual(
+      expect.objectContaining({
+        minimumAggregateSize: 5,
+        suppressedValue: 0,
+        omittedRows: 3,
+        suppressedFields: expect.arrayContaining([
+          "summary.activeDevelopers",
+          "summary.internalDeveloperShare",
+          "scopes.overall.internalDevelopers",
+          "coverage.developerPercent",
+          "organizations[safe].internalDevelopers",
+        ]),
+      }),
+    );
+  });
+
   it("forwards public activity-map parameters to scorer", async () => {
     const response = {
       available: true,

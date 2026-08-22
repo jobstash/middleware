@@ -19,6 +19,10 @@ import {
   ProjectListResult,
 } from "src/shared/types";
 import { PostgresService } from "./postgres.service";
+import {
+  jobEmployerJoins,
+  jobEmployerPayload,
+} from "./sql/job-employer-payload.sql";
 
 type SearchRow<T> = {
   payload: T;
@@ -229,45 +233,6 @@ const normalizeList = (values?: string[] | null): string[] | null =>
 
 const activeRangeBound = (value?: number | null): boolean =>
   value !== null && value !== undefined && value !== 0;
-
-const jobEmployerPayload = (
-  basePayload: string,
-  jobAlias = "job",
-  organizationAlias = "organization",
-  projectAlias = "project",
-): string => `
-  ${basePayload}
-  || CASE
-    WHEN ${jobAlias}.organization_id IS NOT NULL
-      AND ${jobAlias}.project_id IS NULL
-      AND ${organizationAlias}.payload IS NOT NULL
-      THEN jsonb_build_object(
-        'organization', ${organizationAlias}.payload - 'tags' - 'jobs',
-        'project', NULL
-      )
-    WHEN ${jobAlias}.organization_id IS NULL
-      AND ${jobAlias}.project_id IS NOT NULL
-      AND ${projectAlias}.payload IS NOT NULL
-      THEN jsonb_build_object(
-        'organization', NULL,
-        'project', ${projectAlias}.payload - 'tags' - 'jobs'
-      )
-    ELSE jsonb_build_object('organization', NULL, 'project', NULL)
-  END
-`;
-
-const jobEmployerJoins = (
-  jobAlias = "job",
-  organizationAlias = "organization",
-  projectAlias = "project",
-): string => `
-  LEFT JOIN organization_search_documents ${organizationAlias}
-    ON ${organizationAlias}.organization_id = ${jobAlias}.organization_id
-   AND ${jobAlias}.project_id IS NULL
-  LEFT JOIN project_search_documents ${projectAlias}
-    ON ${projectAlias}.project_id = ${jobAlias}.project_id
-   AND ${jobAlias}.organization_id IS NULL
-`;
 
 const pageValues = (
   page: number | null | undefined,
@@ -934,11 +899,15 @@ export class SearchDocumentRepository {
       params.classifications,
     );
     where.addFacetKeyOverlap("commitments", "commitments", params.commitments);
-    where.addFacetKeyOverlap(
-      "workModes",
-      "location_types",
-      params.workModes ?? params.locations,
-    );
+    const workModes = normalizeList(params.workModes);
+    if (workModes?.length) {
+      const requestedModes = where.bind(workModes);
+      where.add(`EXISTS (
+        SELECT 1
+        FROM unnest(${requestedModes}::text[]) requested(mode)
+        WHERE job_has_work_location_mode(job_node_id, requested.mode)
+      )`);
+    }
     const addGeographyFacet = (
       facet:
         | "availability"
@@ -1344,7 +1313,7 @@ export class SearchDocumentRepository {
             job.tags,
             job.classifications,
             job.commitments,
-            job.location_types,
+            structured_job_work_location_modes(job.job_node_id) AS work_modes,
             job.availability_keys,
             job_team_collaboration_hour_keys(
               job.organization_id,
@@ -1383,7 +1352,7 @@ export class SearchDocumentRepository {
             tags,
             classifications,
             commitments,
-            location_types,
+            work_modes,
             availability_keys,
             collaboration_hours,
             seniority,
@@ -1457,43 +1426,41 @@ export class SearchDocumentRepository {
           (SELECT max(monthly_revenue)::float8 FROM eligible_projects) AS "maxMonthlyRevenue",
           (SELECT min(owner_headcount_estimate) FROM scoped_organizations) AS "minHeadCount",
           (SELECT max(owner_headcount_estimate) FROM scoped_organizations) AS "maxHeadCount",
-          ${filterKeys("tags", "tags", "scoped_job_documents", "scoped_job_documents")} AS tags,
+          ${filterKeys("tags", "scoped_job_documents")} AS tags,
           ${filterLabelMap("tags", "scoped_job_documents")} AS "tagLabels",
-          ${filterKeys("projects", "job_project_names", "scoped_job_documents", "scoped_job_documents")} AS projects,
+          ${filterKeys("job_project_names", "scoped_job_documents")} AS projects,
           ${filterLabelMap("projects", "scoped_job_documents")} AS "projectLabels",
-          ${filterKeys("organizations", "ARRAY[slugify_text(job_organization_name)]", "scoped_job_documents", "scoped_job_documents")} AS organizations,
+          ${filterKeys("ARRAY[slugify_text(job_organization_name)]", "scoped_job_documents")} AS organizations,
           ${filterLabelMap("organizations", "scoped_job_documents")} AS "organizationLabels",
-          ${filterKeys("investors", "job_investor_names", "scoped_job_documents", "scoped_job_documents")} AS investors,
+          ${filterKeys("job_investor_names", "scoped_job_documents")} AS investors,
           ${filterLabelMap("investors", "scoped_job_documents")} AS "investorLabels",
-          ${filterKeys("fundingRounds", "job_funding_round_names", "scoped_job_documents", "scoped_job_documents")} AS "fundingRounds",
+          ${filterKeys("job_funding_round_names", "scoped_job_documents")} AS "fundingRounds",
           ${filterLabelMap("fundingRounds", "scoped_job_documents")} AS "fundingRoundLabels",
-          ${filterKeys("fundingStages", "ARRAY[slugify_text(job_current_funding_stage)]", "scoped_job_documents", "scoped_job_documents")} AS "fundingStages",
+          ${filterKeys("ARRAY[slugify_text(job_current_funding_stage)]", "scoped_job_documents")} AS "fundingStages",
           ${filterLabelMap("fundingStages", "scoped_job_documents")} AS "fundingStageLabels",
-          ${filterKeys("chains", "job_chain_names", "scoped_job_documents", "scoped_job_documents")} AS chains,
+          ${filterKeys("job_chain_names", "scoped_job_documents")} AS chains,
           ${filterLabelMap("chains", "scoped_job_documents")} AS "chainLabels",
-          ${filterKeys("ecosystems", "job_ecosystems", "scoped_job_documents", "scoped_job_documents")} AS ecosystems,
+          ${filterKeys("job_ecosystems", "scoped_job_documents")} AS ecosystems,
           ${filterLabelMap("ecosystems", "scoped_job_documents")} AS "ecosystemLabels",
-          ${filterKeys("classifications", "classifications", "scoped_job_documents", "scoped_job_documents")} AS classifications,
+          ${filterKeys("classifications", "scoped_job_documents")} AS classifications,
           ${filterLabelMap("classifications", "scoped_job_documents")} AS "classificationLabels",
-          ${filterKeys("commitments", "commitments", "scoped_job_documents", "scoped_job_documents")} AS commitments,
+          ${filterKeys("commitments", "scoped_job_documents")} AS commitments,
           ${filterLabelMap("commitments", "scoped_job_documents")} AS "commitmentLabels",
-          ${filterKeys("locations", "location_types", "scoped_job_documents", "scoped_job_documents")} AS locations,
-          ${filterLabelMap("locations", "scoped_job_documents")} AS "locationLabels",
-          ${filterKeys("workModes", "location_types", "scoped_job_documents", "scoped_job_documents")} AS "workModes",
+          ${filterKeys("work_modes", "scoped_job_documents")} AS "workModes",
           ${filterLabelMap("workModes", "scoped_job_documents")} AS "workModeLabels",
-          ${filterKeys("availability", "availability_keys", "scoped_job_documents", "scoped_job_documents")} AS availability,
+          ${filterKeys("availability_keys", "scoped_job_documents")} AS availability,
           ${filterLabelMap("availability", "scoped_job_documents")} AS "availabilityLabels",
-          ${filterKeys("cities", "ARRAY[]::text[]", "scoped_job_documents", "scoped_job_documents")} AS cities,
+          ${filterKeys(filterLabelKeysPresentInAvailability("cities"), "scoped_job_documents")} AS cities,
           ${filterLabelMap("cities", "scoped_job_documents")} AS "cityLabels",
-          ${filterKeys("regions", "ARRAY[]::text[]", "scoped_job_documents", "scoped_job_documents")} AS regions,
+          ${filterKeys(filterLabelKeysPresentInAvailability("regions"), "scoped_job_documents")} AS regions,
           ${filterLabelMap("regions", "scoped_job_documents")} AS "regionLabels",
-          ${filterKeys("countries", "ARRAY[]::text[]", "scoped_job_documents", "scoped_job_documents")} AS countries,
+          ${filterKeys(filterLabelKeysPresentInAvailability("countries"), "scoped_job_documents")} AS countries,
           ${filterLabelMap("countries", "scoped_job_documents")} AS "countryLabels",
-          ${filterKeys("continents", "ARRAY[]::text[]", "scoped_job_documents", "scoped_job_documents")} AS continents,
+          ${filterKeys(filterLabelKeysPresentInAvailability("continents"), "scoped_job_documents")} AS continents,
           ${filterLabelMap("continents", "scoped_job_documents")} AS "continentLabels",
-          ${filterKeys("timezones", "ARRAY[]::text[]", "scoped_job_documents", "scoped_job_documents")} AS timezones,
+          ${filterKeys(filterLabelKeysPresentInAvailability("timezones"), "scoped_job_documents")} AS timezones,
           ${filterLabelMap("timezones", "scoped_job_documents")} AS "timezoneLabels",
-          ${filterKeys("collaborationHours", "collaboration_hours", "scoped_job_documents", "scoped_job_documents")} AS "collaborationHours",
+          ${filterKeys("collaboration_hours", "scoped_job_documents")} AS "collaborationHours",
           COALESCE((
             SELECT jsonb_object_agg(
               hour_key,
@@ -1613,7 +1580,6 @@ export class SearchDocumentRepository {
             'githubs', links.githubs,
             'aliases', links.aliases,
             'twitters', links.twitters,
-            'grantSites', links.grant_sites,
             'jobsites', links.jobsites,
             'detectedJobsites', links.detected_jobsites,
             'needsManualReview', COALESCE(
@@ -1671,8 +1637,6 @@ export class SearchDocumentRepository {
               FILTER (WHERE relationship.type = 'HAS_ORGANIZATION_ALIAS')), '[]'::jsonb) AS aliases,
             COALESCE(to_jsonb(array_agg(DISTINCT related.properties ->> 'username')
               FILTER (WHERE relationship.type = 'HAS_TWITTER')), '[]'::jsonb) AS twitters,
-            COALESCE(to_jsonb(array_agg(DISTINCT related.properties ->> 'url')
-              FILTER (WHERE relationship.type = 'HAS_GRANTSITE')), '[]'::jsonb) AS grant_sites,
             COALESCE(jsonb_agg(DISTINCT jsonb_build_object(
               'id', related.properties -> 'id',
               'url', related.properties -> 'url',
@@ -1850,8 +1814,16 @@ export class SearchDocumentRepository {
           AND EXISTS (
             SELECT 1
             FROM unnest($1::text[]) domain
-            WHERE lower(website.properties ->> 'url') LIKE '%' || lower(domain) || '%'
-               OR lower(domain) LIKE '%' || lower(website.properties ->> 'url') || '%'
+            WHERE normalized_url_host(website.properties ->> 'url') =
+                  normalized_url_host(domain)
+               OR right(
+                    normalized_url_host(website.properties ->> 'url'),
+                    char_length(normalized_url_host(domain)) + 1
+                  ) = '.' || normalized_url_host(domain)
+               OR right(
+                    normalized_url_host(domain),
+                    char_length(normalized_url_host(website.properties ->> 'url')) + 1
+                  ) = '.' || normalized_url_host(website.properties ->> 'url')
           )
         ORDER BY organization.id
         LIMIT 1
@@ -2803,8 +2775,16 @@ export class SearchDocumentRepository {
           AND EXISTS (
             SELECT 1
             FROM unnest($1::text[]) domain
-            WHERE lower(website.properties ->> 'url') LIKE '%' || lower(domain) || '%'
-               OR lower(domain) LIKE '%' || lower(website.properties ->> 'url') || '%'
+            WHERE normalized_url_host(website.properties ->> 'url') =
+                  normalized_url_host(domain)
+               OR right(
+                    normalized_url_host(website.properties ->> 'url'),
+                    char_length(normalized_url_host(domain)) + 1
+                  ) = '.' || normalized_url_host(domain)
+               OR right(
+                    normalized_url_host(domain),
+                    char_length(normalized_url_host(website.properties ->> 'url')) + 1
+                  ) = '.' || normalized_url_host(website.properties ->> 'url')
           )
         ORDER BY project.id
         LIMIT 1
@@ -2931,20 +2911,10 @@ const filterLabels = (
 `;
 
 const filterKeys = (
-  category: string,
   fallbackExpression: string,
   fallbackSource = "docs",
-  labelSource = "docs",
-  labelColumn = "filter_labels",
 ): string => `
   COALESCE(
-    (
-      SELECT array_agg(DISTINCT slug ORDER BY slug)
-      FROM ${labelSource} label_doc
-      CROSS JOIN LATERAL jsonb_each_text(
-        COALESCE(label_doc.${labelColumn} -> '${category}', '{}'::jsonb)
-      ) labels(slug, label)
-    ),
     (
       SELECT array_agg(DISTINCT fallback ORDER BY fallback)
       FROM ${fallbackSource} fallback_doc
@@ -2952,6 +2922,15 @@ const filterKeys = (
       WHERE fallback IS NOT NULL AND fallback <> ''
     ),
     ARRAY[]::text[]
+  )
+`;
+
+const filterLabelKeysPresentInAvailability = (category: string): string => `
+  ARRAY(
+    SELECT availability_key
+    FROM unnest(availability_keys) availability_key
+    WHERE COALESCE(filter_labels -> '${category}', '{}'::jsonb)
+      ? availability_key
   )
 `;
 

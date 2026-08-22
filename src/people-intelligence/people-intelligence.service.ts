@@ -7,7 +7,9 @@ import { slugify } from "src/shared/helpers";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import {
   DeveloperReport,
+  DeveloperReportPoint,
   DeveloperReportRange,
+  DeveloperReportScopeSummary,
   PeopleActivityMap,
   PeopleAtlasFrame,
   PeopleDirectoryPage,
@@ -94,6 +96,233 @@ const canonicalDeveloperReport = (report: DeveloperReport): DeveloperReport => {
   };
 };
 
+const PUBLIC_K = 5;
+const PERSON_COUNT_FIELDS = [
+  "allContributors",
+  "activeDevelopers",
+  "internalDevelopers",
+  "canonicalInternalPeople",
+  "activeMaintainers",
+  "activeLeads",
+  "fullTimeDevelopers",
+  "partTimeDevelopers",
+  "oneTimeDevelopers",
+  "newcomerDevelopers",
+  "emergingDevelopers",
+  "establishedDevelopers",
+  "newDevelopers",
+] as const;
+
+/**
+ * Public privacy representation: unsafe rows/period cells are omitted. Any
+ * remaining person-count cell from 1 through 4 is returned as zero and its
+ * JSON path is listed in privacy.suppressedFields, so zero is never ambiguous.
+ */
+export const suppressDeveloperReportK5 = (
+  report: DeveloperReport,
+): DeveloperReport => {
+  const suppressedFields: string[] = [];
+  let omittedRows = 0;
+  const count = (path: string, value: number): number => {
+    if (value > 0 && value < PUBLIC_K) {
+      suppressedFields.push(path);
+      return 0;
+    }
+    return value;
+  };
+  const safePopulation = (value: number): boolean =>
+    value === 0 || value >= PUBLIC_K;
+  const point = (
+    value: DeveloperReportPoint,
+    path: string,
+  ): DeveloperReportPoint => {
+    const next = { ...value };
+    for (const field of PERSON_COUNT_FIELDS) {
+      next[field] = count(`${path}.${field}`, next[field]) as never;
+    }
+    if (value.internalDevelopers > 0 && value.internalDevelopers < PUBLIC_K) {
+      next.internalDeveloperShare = 0;
+      suppressedFields.push(`${path}.internalDeveloperShare`);
+    }
+    return next;
+  };
+  const points = (
+    values: DeveloperReportPoint[],
+    path: string,
+  ): DeveloperReportPoint[] =>
+    values.flatMap(value => {
+      if (!safePopulation(value.activeDevelopers)) {
+        omittedRows += 1;
+        return [];
+      }
+      return [point(value, `${path}[${value.period}]`)];
+    });
+  const scope = (
+    value: DeveloperReportScopeSummary,
+    path: string,
+  ): DeveloperReportScopeSummary => ({
+    ...value,
+    allContributors: count(`${path}.allContributors`, value.allContributors),
+    activeDevelopers: count(`${path}.activeDevelopers`, value.activeDevelopers),
+    internalDevelopers: count(
+      `${path}.internalDevelopers`,
+      value.internalDevelopers,
+    ),
+    activeMaintainers: count(
+      `${path}.activeMaintainers`,
+      value.activeMaintainers,
+    ),
+    activeLeads: count(`${path}.activeLeads`, value.activeLeads),
+  });
+  const scopes = <T extends DeveloperReportScopeSummary>(
+    values: T[],
+    path: string,
+  ): T[] =>
+    values.flatMap(value => {
+      if (!safePopulation(value.activeDevelopers)) {
+        omittedRows += 1;
+        return [];
+      }
+      const sanitized = scope(value, `${path}[${value.slug}]`) as T;
+      if ("history" in value && Array.isArray(value.history)) {
+        Object.assign(sanitized, {
+          history: points(
+            value.history as DeveloperReportPoint[],
+            `${path}[${value.slug}].history`,
+          ),
+        });
+      }
+      return [sanitized];
+    });
+
+  const history = points(report.history, "history");
+  const organizations = report.organizations.flatMap(organization => {
+    if (!safePopulation(organization.activeDevelopers)) {
+      omittedRows += 1;
+      return [];
+    }
+    const path = `organizations[${organization.organizationKey}]`;
+    return [
+      {
+        ...organization,
+        allContributors: count(
+          `${path}.allContributors`,
+          organization.allContributors,
+        ),
+        internalDevelopers: count(
+          `${path}.internalDevelopers`,
+          organization.internalDevelopers,
+        ),
+        canonicalInternalPeople: count(
+          `${path}.canonicalInternalPeople`,
+          organization.canonicalInternalPeople,
+        ),
+        maintainers: count(`${path}.maintainers`, organization.maintainers),
+        leads: count(`${path}.leads`, organization.leads),
+        series: organization.series.flatMap(cell => {
+          if (!safePopulation(cell.activeDevelopers)) {
+            omittedRows += 1;
+            return [];
+          }
+          const cellPath = `${path}.series[${cell.period}]`;
+          return [
+            {
+              ...cell,
+              internalDevelopers: count(
+                `${cellPath}.internalDevelopers`,
+                cell.internalDevelopers,
+              ),
+              activeMaintainers: count(
+                `${cellPath}.activeMaintainers`,
+                cell.activeMaintainers,
+              ),
+              activeLeads: count(`${cellPath}.activeLeads`, cell.activeLeads),
+            },
+          ];
+        }),
+      },
+    ];
+  });
+  const summary = { ...report.summary };
+  for (const field of [
+    "allContributors",
+    "activeDevelopers",
+    "internalDevelopers",
+    "canonicalInternalPeople",
+    "maintainers",
+    "activeLeads",
+    "newDevelopers",
+  ] as const) {
+    summary[field] = count(`summary.${field}`, summary[field]);
+  }
+  if (
+    report.summary.internalDevelopers > 0 &&
+    report.summary.internalDevelopers < PUBLIC_K
+  ) {
+    summary.internalDeveloperShare = 0;
+    suppressedFields.push("summary.internalDeveloperShare");
+  }
+  const verticals = scopes(report.scopes.verticals, "scopes.verticals");
+  const chains = scopes(report.scopes.chains, "scopes.chains");
+  const overall = scope(report.scopes.overall, "scopes.overall");
+  const topVerticals = scopes(report.top.verticals, "top.verticals");
+  const topChains = scopes(report.top.chains, "top.chains");
+  const topOrganizationKeys = new Set(
+    organizations.map(organization => organization.organizationKey),
+  );
+  const coverage = {
+    ...report.coverage,
+    developersTotal: count(
+      "coverage.developersTotal",
+      report.coverage.developersTotal,
+    ),
+    categorizedDevelopers: count(
+      "coverage.categorizedDevelopers",
+      report.coverage.categorizedDevelopers,
+    ),
+    unclassifiedDevelopers: count(
+      "coverage.unclassifiedDevelopers",
+      report.coverage.unclassifiedDevelopers,
+    ),
+    developerPercent: [
+      report.coverage.developersTotal,
+      report.coverage.categorizedDevelopers,
+      report.coverage.unclassifiedDevelopers,
+    ].some(value => value > 0 && value < PUBLIC_K)
+      ? (suppressedFields.push("coverage.developerPercent"), 0)
+      : report.coverage.developerPercent,
+  };
+
+  return {
+    ...report,
+    privacy: {
+      minimumAggregateSize: 5,
+      suppressedValue: 0,
+      suppressedFields: [...new Set(suppressedFields)].sort(),
+      omittedRows,
+    },
+    summary,
+    scopes: {
+      overall,
+      verticals,
+      chains,
+    },
+    coverage,
+    current: history.at(-1) ?? null,
+    history,
+    top: {
+      verticals: topVerticals,
+      chains: topChains,
+      organizations: report.top.organizations.filter(
+        organization =>
+          topOrganizationKeys.has(organization.organizationKey) &&
+          safePopulation(organization.activeDevelopers),
+      ),
+    },
+    organizations,
+  };
+};
+
 @Injectable()
 export class PeopleIntelligenceService {
   private readonly logger = new CustomLogger(PeopleIntelligenceService.name);
@@ -129,6 +358,12 @@ export class PeopleIntelligenceService {
         ? "chain"
         : "overall";
     return this.get("developer-report", scorerQuery, {
+      privacy: {
+        minimumAggregateSize: 5,
+        suppressedValue: 0,
+        suppressedFields: [],
+        omittedRows: 0,
+      },
       available: false,
       asOf: null,
       completeThrough: null,
@@ -218,7 +453,9 @@ export class PeopleIntelligenceService {
       history: [],
       top: { verticals: [], chains: [], organizations: [] },
       organizations: [],
-    }).then(canonicalDeveloperReport);
+    })
+      .then(canonicalDeveloperReport)
+      .then(suppressDeveloperReportK5);
   }
 
   activityMap(query: Query): Promise<PeopleActivityMap> {

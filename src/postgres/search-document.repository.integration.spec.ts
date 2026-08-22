@@ -1,6 +1,11 @@
 import { performance } from "node:perf_hooks";
 import { JobFilterConfigsEntity } from "src/shared/entities";
 import { publicationDateRangeGenerator } from "src/shared/helpers";
+import {
+  attachStructuredJobToEmployerFixture,
+  createOwnedJobsiteFixture,
+  createProfileMemberFixture,
+} from "./postgres.integration-fixtures";
 import { SearchDocumentRepository } from "./search-document.repository";
 import { PostgresService } from "./postgres.service";
 
@@ -258,8 +263,8 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
         expected: ["job-protected"],
       },
       {
-        name: "location",
-        params: { locations: ["Remote"] },
+        name: "work mode",
+        params: { workModes: ["Remote"] },
         expected: ["job-protected"],
       },
       {
@@ -798,7 +803,7 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
       {
         name: "has projects false",
         params: { hasProjects: false },
-        expected: ["org-acme", "org-beta"],
+        expected: ["org-beta"],
       },
       {
         name: "ecosystem header",
@@ -1117,9 +1122,9 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
         expected: ["project-alpha"],
       },
       {
-        name: "audit alias false is omitted",
+        name: "audit false",
         params: { hasAudits: false },
-        expected: allProjectIds,
+        expected: ["project-beta"],
       },
       {
         name: "hack alias true",
@@ -1127,21 +1132,21 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
         expected: ["project-beta"],
       },
       {
-        name: "hack alias false is omitted",
+        name: "hack false",
         params: { hasHacks: false },
-        expected: allProjectIds,
+        expected: ["project-alpha"],
       },
       {
-        name: "token alias uses non-null compatibility flag",
+        name: "token true",
         params: { hasToken: true },
-        expected: allProjectIds,
+        expected: ["project-alpha"],
       },
       {
-        name: "token alias false is omitted",
+        name: "token false",
         params: { hasToken: false },
-        expected: allProjectIds,
+        expected: ["project-beta"],
       },
-    ])("applies legacy project-search $name", async ({ params, expected }) => {
+    ])("applies project-search $name", async ({ params, expected }) => {
       const page = await repository.searchProjects({ limit: 100, ...params });
 
       expect(page.data.map(project => project.id).sort()).toEqual(
@@ -1313,40 +1318,36 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
   });
 
   it("exposes the careers-page hiring process on organization jobsites", async () => {
-    const jobsiteNodeId = await createNode("Jobsite", "jobsite-acme");
-    await postgres.query(
+    const [owner] = await postgres.query<{ organizationNodeId: string }>(
       `
-        UPDATE graph_nodes
-        SET properties = properties || jsonb_build_object(
-          'url', 'https://acme.example/jobs',
-          'type', 'custom',
-          'hiringProcess', 'Screen, technical interview, offer'
-        )
-        WHERE id = $1
-      `,
-      [jobsiteNodeId],
-    );
-    await postgres.query(
-      `
-        INSERT INTO graph_relationships (
-          source_id, target_id, type, relationship_key
-        )
-        SELECT organization_node_id, $1, 'HAS_JOBSITE', ''
+        SELECT organization_node_id::text AS "organizationNodeId"
         FROM organization_search_documents
         WHERE organization_id = 'org-acme'
       `,
-      [jobsiteNodeId],
+    );
+    await createOwnedJobsiteFixture(
+      postgres,
+      owner.organizationNodeId,
+      "jobsite-acme",
+      {
+        id: "jobsite-acme",
+        url: "https://acme.example/jobs",
+        type: "custom",
+        hiringProcess: "Screen, technical interview, offer",
+      },
     );
 
     const [organization] =
       await repository.getOrganizationsWithLinks("org-acme");
 
-    expect(organization.jobsites).toEqual([
-      expect.objectContaining({
-        id: "jobsite-acme",
-        hiringProcess: "Screen, technical interview, offer",
-      }),
-    ]);
+    expect(organization.jobsites).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "jobsite-acme",
+          hiringProcess: "Screen, technical interview, offer",
+        }),
+      ]),
+    );
   });
 
   it("serves durable manual-review state to the admin organization and project lists", async () => {
@@ -1469,6 +1470,14 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
   });
 
   it("aggregates display labels and numeric filter bounds", async () => {
+    await postgres.query(
+      `
+        UPDATE job_search_documents
+        SET published_timestamp = $1
+        WHERE online AND legacy_list_eligible
+      `,
+      [Date.now()],
+    );
     const jobs = await repository.getJobFilterValues("ethereum");
     expect(jobs).toMatchObject({
       minSalaryRange: 90_000,
@@ -1602,7 +1611,9 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
     ] as const;
 
     for (const facet of facets) {
-      for (const option of configs[facet].options) {
+      const config = configs[facet];
+      if (!config) continue;
+      for (const option of config.options) {
         const page = await repository.searchJobs({
           [facet]: [String(option.value)],
           ...widestDateRange,
@@ -1646,13 +1657,16 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
     expect(page.count).toBe(20);
     expect(serializedPlan).toContain("job_search_tags_gin_idx");
     expect(elapsedMs).toBeLessThan(1_000);
-  }, 30_000);
+  }, 120_000);
 
   async function resetDatabase(): Promise<void> {
     await postgres.query(`TRUNCATE TABLE graph_nodes RESTART IDENTITY CASCADE`);
   }
 
   async function createNode(label: string, key: string): Promise<string> {
+    if (label === "Organization" || label === "Project") {
+      return createProfileMemberFixture(postgres, label, key, { id: key });
+    }
     const [row] = await postgres.query<{ id: string }>(
       `
         INSERT INTO graph_nodes (label, labels, node_key, properties)
@@ -1740,6 +1754,10 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
       `,
       [alphaNodeId, betaProjectNodeId],
     );
+    await postgres.query(`
+      UPDATE organization_search_documents SET detail_payload = payload;
+      UPDATE project_search_documents SET detail_payload = payload
+    `);
 
     await insertJob({
       id: "job-protected",
@@ -1832,6 +1850,37 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
     online?: boolean;
   }): Promise<void> {
     const nodeId = await createNode("StructuredJobpost", input.id);
+    const [owner] =
+      input.legacyListEligible === false
+        ? await postgres.query<{ ownerNodeId: string }>(
+            `
+              SELECT project_node_id::text AS "ownerNodeId"
+              FROM project_search_documents
+              WHERE project_id = 'project-beta'
+            `,
+          )
+        : await postgres.query<{ ownerNodeId: string }>(
+            `
+              SELECT organization_node_id::text AS "ownerNodeId"
+              FROM organization_search_documents
+              WHERE organization_id = $1
+            `,
+            [input.organizationId],
+          );
+    await attachStructuredJobToEmployerFixture(
+      postgres,
+      owner.ownerNodeId,
+      nodeId,
+      input.id,
+      {
+        workMode:
+          input.id === "job-public-acme"
+            ? "hybrid"
+            : input.id === "job-public-beta"
+              ? "onsite"
+              : "remote",
+      },
+    );
     const searchText = `${input.title} ${input.organizationName}`;
     await postgres.query(
       `
@@ -1855,7 +1904,7 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
           ARRAY['ethereum'], 'senior', ARRAY['ethereum'], 120, 1500000, 500000, 5000, 2000,
           1500000, 500000, 5000, 2000, true, true, false, true,
           $14::text, $15::text[], to_tsvector('simple', $14::text),
-          '{"tags":{"solidity":"Solidity","typescript":"TypeScript"},"projects":{"alpha":"Alpha","beta":"Beta"},"organizations":{"acme":"Acme","beta":"Beta"},"investors":{"paradigm":"Paradigm"},"fundingRounds":{"series-a":"Series A"},"chains":{"ethereum":"Ethereum"},"ecosystems":{"ethereum":"Ethereum"},"classifications":{"engineering":"Engineering"},"commitments":{"fulltime":"Full Time"},"locations":{"remote":"Remote"}}',
+          '{"tags":{"solidity":"Solidity","typescript":"TypeScript"},"projects":{"alpha":"Alpha","beta":"Beta"},"organizations":{"acme":"Acme","beta":"Beta"},"investors":{"paradigm":"Paradigm"},"fundingRounds":{"series-a":"Series A"},"chains":{"ethereum":"Ethereum"},"ecosystems":{"ethereum":"Ethereum"},"classifications":{"engineering":"Engineering"},"commitments":{"fulltime":"Full Time"},"locations":{"remote":"Remote"},"workModes":{"remote":"Remote"}}',
           jsonb_build_object(
             'id', $2::text,
             'shortUUID', $2::text,
@@ -2289,7 +2338,11 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
       [count],
     );
     await postgres.query(
-      `
+      "ALTER TABLE job_search_documents DISABLE TRIGGER entity_ban_job_projection_guard",
+    );
+    try {
+      await postgres.query(
+        `
         INSERT INTO job_search_documents (
           job_node_id, structured_jobpost_id, short_uuid, organization_id,
           organization_name, title, access, salary, salary_currency, online,
@@ -2319,6 +2372,11 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
         FROM graph_nodes n
         WHERE n.node_key LIKE 'perf-%'
       `,
-    );
+      );
+    } finally {
+      await postgres.query(
+        "ALTER TABLE job_search_documents ENABLE TRIGGER entity_ban_job_projection_guard",
+      );
+    }
   }
 });

@@ -22,23 +22,11 @@ jobs:
     permissions:
       contents: read # for checkout
     env:
-      # Give every workflow a predictable release + env
-      RELEASE_VERSION: ${{ github.sha }}
       NODE_ENV: test
       # Verbose Sentry output in CI
       SENTRY_DEBUG: true
 
     steps:
-      - name: Map branch to Sentry environment
-        id: env-map
-        run: |
-          case "${GITHUB_REF_NAME}" in
-            main)   echo "env=production"  >> "$GITHUB_OUTPUT" ;;
-            staging) echo "env=staging"    >> "$GITHUB_OUTPUT" ;;
-            dev)     echo "env=development" >> "$GITHUB_OUTPUT" ;;
-            *)      echo "env=feature-branch" >> "$GITHUB_OUTPUT" ;;
-          esac
-
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: { fetch-depth: 0 }
@@ -81,8 +69,6 @@ jobs:
       #     ETL_DOMAIN: ${{ secrets.ETL_DOMAIN }}
       #     EV_DOMAIN: ${{ secrets.EV_DOMAIN }}
       #     FE_DOMAIN: ${{ secrets.FE_DOMAIN }}
-      #     GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
-      #     GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY }}
       #     INFURA_API_KEY: ${{ secrets.INFURA_API_KEY }}
       #     JOB_PROMOTION_PRICE: ${{ secrets.JOB_PROMOTION_PRICE }}
       #     JWT_EXPIRES_IN: ${{ secrets.JWT_EXPIRES_IN }}
@@ -106,10 +92,8 @@ jobs:
       #     SCORER_DOMAIN: ${{ secrets.SCORER_DOMAIN }}
       #     SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
       #     SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
-      #     SENTRY_ENVIRONMENT: ${{ steps.env-map.outputs.env }}
       #     SENTRY_ORG: "jobstash"
       #     SENTRY_PROJECT: "middleware"
-      #     SENTRY_RELEASE: ${{ github.sha }}
       #     SENTRY_TRACES_SAMPLE_RATE: ${{ secrets.SENTRY_TRACES_SAMPLE_RATE }}
       #     SENTRY_PROFILE_SAMPLE_RATE: ${{ secrets.SENTRY_PROFILE_SAMPLE_RATE }}
       #     SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
@@ -129,20 +113,3 @@ jobs:
 
       - name: Build
         run: yarn build
-
-      - name: Release with sourcemaps to Sentry
-        uses: getsentry/action-release@ff07929a6537bac57790c3451cf4d364aca38528 # v3
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: "jobstash"
-          SENTRY_PROJECT: "middleware"
-          SENTRY_RELEASE: ${{ github.sha }}
-          SENTRY_ENVIRONMENT: ${{ steps.env-map.outputs.env }}
-          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
-        with:
-          environment: ${{ steps.env-map.outputs.env }}
-          release: ${{ env.RELEASE_VERSION }}
-          sourcemaps: ./dist
-          set_commits: "auto"
-          finalize: true
-          dist: ${{ github.run_number }}

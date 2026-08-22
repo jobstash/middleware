@@ -7,6 +7,7 @@ export * from "./testing";
 export * from "./stripe";
 export * from "./cache-keys";
 export * from "./search";
+export * from "./job-classifications";
 
 export const EMPTY_SESSION_OBJECT: SessionObject = {
   address: null,

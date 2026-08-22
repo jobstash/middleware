@@ -108,30 +108,6 @@ export class OrgListParams {
     value === "true" ? true : value === "false" ? false : value,
   )
   @IsBoolean()
-  growingTeam?: boolean | null = null;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value,
-  )
-  @IsBoolean()
-  shrinkingTeam?: boolean | null = null;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value,
-  )
-  @IsBoolean()
-  earlyTeamShrinkage?: boolean | null = null;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value,
-  )
-  @IsBoolean()
   recentlyFunded?: boolean | null = null;
 
   @ApiPropertyOptional()

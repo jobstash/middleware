@@ -5,6 +5,7 @@ import {
   Delete,
   ForbiddenException,
   Get,
+  GoneException,
   Headers,
   HttpStatus,
   NotFoundException,
@@ -83,7 +84,6 @@ import { SearchOrganizationsInput } from "./dto/search-organizations.input";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 import { SetOrganizationBannedInput } from "./dto/set-organization-banned.input";
 import { ResolveEntityReviewInput } from "src/shared/dto/resolve-entity-review.input";
-import { OrganizationTeamDetail } from "src/team-intelligence/team-intelligence.types";
 import { UpdateOrganizationClassificationInput } from "./dto/update-organization-classification.input";
 
 @Controller("organizations")
@@ -489,19 +489,22 @@ export class OrganizationsController {
   }
 
   @Get("details/slug/:slug/team")
-  @UseInterceptors(new CacheHeaderInterceptor({ mode: "revalidate-always" }))
-  async getOrgTeamBySlug(
-    @Param("slug") slug: string,
-    @Query("page") page = "1",
-    @Query("limit") limit = "20",
-  ): Promise<OrganizationTeamDetail> {
-    const result = await this.organizationsService.getOrgTeamBySlug(
-      slug,
-      Number(page) || 1,
-      Number(limit) || 20,
+  getOrgTeamBySlug(
+    @Param("slug") _slug: string,
+    @Res({ passthrough: true }) response: ExpressResponse,
+  ): never {
+    response.setHeader(
+      "Cache-Control",
+      "no-cache, private, no-store, must-revalidate",
     );
-    if (!result) throw new NotFoundException("Organization not found");
-    return result;
+    response.setHeader("Pragma", "no-cache");
+    response.setHeader("Expires", "0");
+    response.setHeader("X-Robots-Tag", "noindex, nofollow, noarchive");
+    throw new GoneException({
+      statusCode: 410,
+      message: "This individual-developer resource is no longer available",
+      error: "Gone",
+    });
   }
 
   @Post("/upload-logo")
@@ -701,7 +704,6 @@ export class OrganizationsController {
         });
       }
       const {
-        grants,
         projects,
         aliases,
         websites,
@@ -792,17 +794,6 @@ export class OrganizationsController {
 
         if (!res8.success) {
           return res8;
-        }
-      }
-
-      if (grants !== undefined) {
-        const res9 = await this.organizationsService.updateOrgGrants({
-          orgId: id,
-          grantsites: grants,
-        });
-
-        if (!res9.success) {
-          return res9;
         }
       }
 

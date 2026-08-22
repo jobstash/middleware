@@ -1,8 +1,12 @@
-import { ApiPropertyOptional } from "@nestjs/swagger";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
-import { IsOptional, IsString } from "class-validator";
+import { IsOptional, IsString, IsUUID } from "class-validator";
 
 export class GetAvailableUsersInput {
+  @ApiProperty()
+  @IsUUID()
+  workspaceId: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

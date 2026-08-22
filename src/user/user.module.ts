@@ -24,6 +24,7 @@ import { TagsService } from "src/tags/tags.service";
 import { SubscriptionsModule } from "src/subscriptions/subscriptions.module";
 import { BullModule } from "@nestjs/bull";
 import { StripeModule } from "src/stripe/stripe.module";
+import { AccessWorkspacesModule } from "src/access-workspaces/access-workspaces.module";
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { StripeModule } from "src/stripe/stripe.module";
     forwardRef(() => PrivyModule),
     forwardRef(() => ProfileModule),
     forwardRef(() => SubscriptionsModule),
+    forwardRef(() => AccessWorkspacesModule),
     BullModule.registerQueue({
       name: "mail",
       defaultJobOptions: {

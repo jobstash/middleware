@@ -18,6 +18,11 @@ const MAX_ORGANIZATIONS_PER_REQUEST = 10_000;
 const activeRangeBound = (value?: number | null): value is number =>
   value !== null && value !== undefined && value !== 0;
 
+const publicK5Count = (value: number | null | undefined): number | null =>
+  value === 0 || (value !== null && value !== undefined && value >= 5)
+    ? value
+    : null;
+
 @Injectable()
 export class TeamIntelligenceService {
   private readonly logger = new CustomLogger(TeamIntelligenceService.name);
@@ -33,10 +38,7 @@ export class TeamIntelligenceService {
       typeof input.newActiveLeads === "boolean" ||
       typeof input.steppedDownLeads === "boolean" ||
       typeof input.movedLeads === "boolean" ||
-      typeof input.earlyLeadDepartures === "boolean" ||
-      typeof input.growingTeam === "boolean" ||
-      typeof input.shrinkingTeam === "boolean" ||
-      typeof input.earlyTeamShrinkage === "boolean"
+      typeof input.earlyLeadDepartures === "boolean"
     );
   }
 
@@ -182,19 +184,28 @@ export class TeamIntelligenceService {
     organization: T,
     summary?: OrganizationTeamSummary,
   ): T {
+    const growingCompanyReasons: Array<"developer_growth" | "recently_funded"> =
+      [];
+    if (summary?.developerGrowth)
+      growingCompanyReasons.push("developer_growth");
+    if (organization.recentlyFunded)
+      growingCompanyReasons.push("recently_funded");
     return {
       ...organization,
       teamCoverageStatus: summary?.coverageStatus ?? null,
       teamSignalsAsOf: summary?.asOf ?? null,
-      currentMaintainerCount: summary?.currentMaintainerCount ?? null,
-      activeLeadCount: summary?.activeLeadCount ?? null,
-      newActiveLeadCount: summary?.newActiveLeadCount ?? null,
-      steppedDownLeadCount: summary?.steppedDownLeadCount ?? null,
-      movedLeadCount: summary?.movedLeadCount ?? null,
-      earlyLeadDepartureCount: summary?.earlyLeadDepartureCount ?? null,
-      growingTeam: summary?.growingTeam ?? null,
-      shrinkingTeam: summary?.shrinkingTeam ?? null,
-      earlyTeamShrinkage: summary?.earlyTeamShrinkage ?? null,
+      currentMaintainerCount: publicK5Count(summary?.currentMaintainerCount),
+      activeLeadCount: publicK5Count(summary?.activeLeadCount),
+      newActiveLeadCount: publicK5Count(summary?.newActiveLeadCount),
+      steppedDownLeadCount: publicK5Count(summary?.steppedDownLeadCount),
+      movedLeadCount: publicK5Count(summary?.movedLeadCount),
+      earlyLeadDepartureCount: publicK5Count(summary?.earlyLeadDepartureCount),
+      latestThreeMonthAverageActiveDevelopers:
+        summary?.latestThreeMonthAverageActiveDevelopers ?? null,
+      priorThreeMonthAverageActiveDevelopers:
+        summary?.priorThreeMonthAverageActiveDevelopers ?? null,
+      developerGrowth: summary?.developerGrowth ?? false,
+      growingCompanyReasons,
     };
   }
 
@@ -214,22 +225,16 @@ export class TeamIntelligenceService {
         : {}),
       ...(typeof input.newActiveLeads === "boolean"
         ? { newActiveLeads: input.newActiveLeads }
-        : typeof input.growingTeam === "boolean"
-          ? { newActiveLeads: input.growingTeam }
-          : {}),
+        : {}),
       ...(typeof input.steppedDownLeads === "boolean"
         ? { steppedDownLeads: input.steppedDownLeads }
-        : typeof input.shrinkingTeam === "boolean"
-          ? { steppedDownLeads: input.shrinkingTeam }
-          : {}),
+        : {}),
       ...(typeof input.movedLeads === "boolean"
         ? { movedLeads: input.movedLeads }
         : {}),
       ...(typeof input.earlyLeadDepartures === "boolean"
         ? { earlyLeadDepartures: input.earlyLeadDepartures }
-        : typeof input.earlyTeamShrinkage === "boolean"
-          ? { earlyLeadDepartures: input.earlyTeamShrinkage }
-          : {}),
+        : {}),
     };
   }
 

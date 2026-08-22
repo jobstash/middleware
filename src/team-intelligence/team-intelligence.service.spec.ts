@@ -22,12 +22,10 @@ const snapshot: TeamSnapshot = {
       steppedDownLeadCount: 0,
       movedLeadCount: 1,
       earlyLeadDepartureCount: 0,
-      newMaintainerCount: 2,
-      movedMaintainerCount: 1,
-      earlyMovedMaintainerCount: 0,
-      growingTeam: true,
-      shrinkingTeam: false,
-      earlyTeamShrinkage: false,
+      latestThreeMonthAverageActiveDevelopers: 8,
+      priorThreeMonthAverageActiveDevelopers: 6,
+      developerGrowth: true,
+      growthReasons: ["developer_growth"],
     },
   ],
 };
@@ -89,7 +87,7 @@ describe("TeamIntelligenceService", () => {
         orgId: "org-acme",
         teamCoverageStatus: "current",
         currentMaintainerCount: 99,
-        growingTeam: true,
+        newActiveLeadCount: 99,
       }),
     ).toMatchObject({
       teamCoverageStatus: null,
@@ -100,10 +98,42 @@ describe("TeamIntelligenceService", () => {
       steppedDownLeadCount: null,
       movedLeadCount: null,
       earlyLeadDepartureCount: null,
-      growingTeam: null,
-      shrinkingTeam: null,
-      earlyTeamShrinkage: null,
     });
+  });
+
+  it("suppresses every nonzero public organization cohort below k=5", () => {
+    const service = new TeamIntelligenceService({} as HttpService);
+
+    expect(
+      service.applySummary({ orgId: "org-acme" }, snapshot.organizations[0]),
+    ).toMatchObject({
+      currentMaintainerCount: 7,
+      activeLeadCount: null,
+      newActiveLeadCount: null,
+      steppedDownLeadCount: 0,
+      movedLeadCount: null,
+      earlyLeadDepartureCount: 0,
+      latestThreeMonthAverageActiveDevelopers: 8,
+      priorThreeMonthAverageActiveDevelopers: 6,
+      developerGrowth: true,
+      growingCompanyReasons: ["developer_growth"],
+    });
+  });
+
+  it("combines aggregate developer growth with PostgreSQL funding state", () => {
+    const service = new TeamIntelligenceService({} as HttpService);
+
+    expect(
+      service.applySummary(
+        { orgId: "org-acme", recentlyFunded: true },
+        snapshot.organizations[0],
+      ),
+    ).toMatchObject({
+      growingCompanyReasons: ["developer_growth", "recently_funded"],
+    });
+    expect(
+      service.applySummary({ orgId: "org-funded", recentlyFunded: true }),
+    ).toMatchObject({ growingCompanyReasons: ["recently_funded"] });
   });
 
   it("ignores team filters when the authoritative snapshot is unavailable", async () => {

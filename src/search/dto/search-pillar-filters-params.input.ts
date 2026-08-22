@@ -267,27 +267,6 @@ export class SearchPillarFiltersParams {
     value === "true" ? true : value === "false" ? false : value,
   )
   @IsBoolean()
-  growingTeam?: boolean | null = null;
-
-  @IsOptional()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value,
-  )
-  @IsBoolean()
-  shrinkingTeam?: boolean | null = null;
-
-  @IsOptional()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value,
-  )
-  @IsBoolean()
-  earlyTeamShrinkage?: boolean | null = null;
-
-  @IsOptional()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value,
-  )
-  @IsBoolean()
   recentlyFunded?: boolean | null = null;
 
   @IsOptional()

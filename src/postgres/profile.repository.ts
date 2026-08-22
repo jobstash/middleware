@@ -1,13 +1,45 @@
 import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
 import { EntityManager } from "typeorm";
+import {
+  JobListResult,
+  WorkArrangementClassification,
+  WorkLocationOption,
+} from "src/shared/interfaces";
 import { PostgresService } from "./postgres.service";
+import {
+  jobEmployerJoins,
+  jobEmployerPayload,
+} from "./sql/job-employer-payload.sql";
 
 type QueryExecutor = PostgresService | EntityManager;
 
 type NodeRecord = {
   nodeId: string;
   properties: Record<string, unknown>;
+};
+
+const normalizedHost = (value: string): string | null => {
+  try {
+    const url = new URL(value.includes("://") ? value : `https://${value}`);
+    return url.hostname
+      .toLowerCase()
+      .replace(/^www\./, "")
+      .replace(/\.$/, "");
+  } catch {
+    return null;
+  }
+};
+
+const hostsShareDomainBoundary = (left: string, right: string): boolean => {
+  const leftHost = normalizedHost(left);
+  const rightHost = normalizedHost(right);
+  if (!leftHost || !rightHost) return false;
+  return (
+    leftHost === rightHost ||
+    leftHost.endsWith(`.${rightHost}`) ||
+    rightHost.endsWith(`.${leftHost}`)
+  );
 };
 
 const queryRows = async <T>(
@@ -42,21 +74,16 @@ export class ProfileRepository {
       this.postgres,
       `
         SELECT jsonb_build_object(
+          'workModes', COALESCE(
+            preferences.work_modes,
+            ARRAY['remote', 'hybrid', 'onsite']::text[]
+          ),
           'residenceCountry', preferences.residence_country,
-          'residenceRegion', preferences.residence_region,
-          'ianaTimezone', preferences.iana_timezone,
-          'workAuthorizations', COALESCE(
-            preferences.work_authorizations, ARRAY[]::text[]
-          ),
-          'needsSponsorship', preferences.needs_sponsorship,
-          'acceptableWorkModes', COALESCE(
-            preferences.acceptable_work_modes,
-            ARRAY['remote', 'hybrid', 'onsite', 'remote_or_office']::text[]
-          ),
-          'travelTolerance', preferences.travel_tolerance,
-          'useInferredCollaborationHours', COALESCE(
-            preferences.use_inferred_collaboration_hours, false
-          )
+          'utcOffset', preferences.utc_offset_minutes / 60.0,
+          'workAuthorization', preferences.work_authorization,
+          'requiresSponsorship', preferences.requires_sponsorship,
+          'attendancePreference', preferences.attendance_preference,
+          'travelTolerance', preferences.travel_tolerance
         ) AS preferences
         FROM graph_nodes account
         LEFT JOIN user_job_preferences preferences
@@ -74,55 +101,53 @@ export class ProfileRepository {
   async updateJobPreferences(
     wallet: string,
     preferences: {
+      workModes: string[];
       residenceCountry: string | null;
-      residenceRegion: string | null;
-      ianaTimezone: string | null;
-      workAuthorizations: string[];
-      needsSponsorship: boolean | null;
-      acceptableWorkModes: string[];
+      utcOffset: number | null;
+      workAuthorization: string | null;
+      requiresSponsorship: boolean | null;
+      attendancePreference: string | null;
       travelTolerance: string | null;
-      useInferredCollaborationHours: boolean;
     },
   ): Promise<boolean> {
     const rows = await queryRows<{ userNodeId: string }>(
       this.postgres,
       `
         INSERT INTO user_job_preferences (
-          user_node_id, residence_country, residence_region, iana_timezone,
-          work_authorizations, needs_sponsorship, acceptable_work_modes,
-          travel_tolerance, use_inferred_collaboration_hours, updated_at
+          user_node_id, work_modes, residence_country, utc_offset_minutes,
+          work_authorization, requires_sponsorship, attendance_preference,
+          travel_tolerance, updated_at
         )
         SELECT
-          account.id, $2, $3, $4, $5::text[], $6::boolean, $7::text[],
-          $8, $9::boolean, now()
+          account.id, $2::text[], $3, $4::integer, $5, $6::boolean, $7,
+          $8, now()
         FROM graph_nodes account
         WHERE account.label = 'User'
           AND lower(account.properties ->> 'wallet') = lower($1)
         ORDER BY account.id
         LIMIT 1
         ON CONFLICT (user_node_id) DO UPDATE SET
+          work_modes = EXCLUDED.work_modes,
           residence_country = EXCLUDED.residence_country,
-          residence_region = EXCLUDED.residence_region,
-          iana_timezone = EXCLUDED.iana_timezone,
-          work_authorizations = EXCLUDED.work_authorizations,
-          needs_sponsorship = EXCLUDED.needs_sponsorship,
-          acceptable_work_modes = EXCLUDED.acceptable_work_modes,
+          utc_offset_minutes = EXCLUDED.utc_offset_minutes,
+          work_authorization = EXCLUDED.work_authorization,
+          requires_sponsorship = EXCLUDED.requires_sponsorship,
+          attendance_preference = EXCLUDED.attendance_preference,
           travel_tolerance = EXCLUDED.travel_tolerance,
-          use_inferred_collaboration_hours =
-            EXCLUDED.use_inferred_collaboration_hours,
           updated_at = now()
         RETURNING user_node_id::text AS "userNodeId"
       `,
       [
         wallet,
+        preferences.workModes,
         preferences.residenceCountry,
-        preferences.residenceRegion,
-        preferences.ianaTimezone,
-        preferences.workAuthorizations,
-        preferences.needsSponsorship,
-        preferences.acceptableWorkModes,
+        preferences.utcOffset === null
+          ? null
+          : Math.round(preferences.utcOffset * 60),
+        preferences.workAuthorization,
+        preferences.requiresSponsorship,
+        preferences.attendancePreference,
         preferences.travelTolerance,
-        preferences.useInferredCollaborationHours,
       ],
     );
     return rows.length === 1;
@@ -130,112 +155,148 @@ export class ProfileRepository {
 
   async getJobMatchingCandidates(limit = 100): Promise<
     Array<{
-      job: Record<string, unknown>;
-      options: Record<string, unknown>[];
-      teamCollaborationBand: {
-        minimumUtcMinute: number;
-        maximumUtcMinute: number;
-      } | null;
+      job: JobListResult;
+      options: WorkLocationOption[];
+      arrangementClassification: WorkArrangementClassification;
     }>
   > {
     return queryRows<{
-      job: Record<string, unknown>;
-      options: Record<string, unknown>[];
-      teamCollaborationBand: {
-        minimumUtcMinute: number;
-        maximumUtcMinute: number;
-      } | null;
+      job: JobListResult;
+      options: WorkLocationOption[];
+      arrangementClassification: WorkArrangementClassification;
     }>(
       this.postgres,
       `
-        WITH latest_options AS MATERIALIZED (
-          SELECT DISTINCT ON (
-            option.raw_job_node_id, option.jobsite_node_id, option.option_key
-          )
-            option.*
-          FROM job_work_location_options option
+        WITH latest_extractions AS MATERIALIZED (
+          SELECT DISTINCT ON (raw_job_node_id, jobsite_node_id)
+            raw_job_node_id, jobsite_node_id, extractor_version
+          FROM job_availability_extractions
           ORDER BY
-            option.raw_job_node_id,
-            option.jobsite_node_id,
-            option.option_key,
-            option.updated_at DESC,
-            option.extractor_version DESC
+            raw_job_node_id, jobsite_node_id,
+            extracted_at DESC, extractor_version DESC
+        ), selected_options AS MATERIALIZED (
+          SELECT option.*, structured_edge.target_id AS structured_job_node_id
+          FROM latest_extractions extraction
+          JOIN job_work_location_options option USING (
+            raw_job_node_id, jobsite_node_id, extractor_version
+          )
+          JOIN graph_relationships structured_edge
+            ON structured_edge.source_id = option.raw_job_node_id
+           AND structured_edge.type = 'HAS_STRUCTURED_JOBPOST'
+          WHERE option.mode IN ('remote', 'hybrid', 'onsite')
         )
         SELECT
-          document.payload AS job,
-          jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
+          ${jobEmployerPayload("document.payload", "document")} AS job,
+          COALESCE(
+            document.work_arrangement ->> 'classification', 'unstated'
+          ) AS "arrangementClassification",
+          COALESCE(jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
+            'classification', COALESCE(
+              document.work_arrangement ->> 'classification', 'unstated'
+            ),
             'mode', option.mode,
-            'scope', option.scope,
-            'countries', option.countries,
-            'regions', option.regions,
-            'minimumUtcOffsetMinutes', option.minimum_utc_offset_minutes,
-            'maximumUtcOffsetMinutes', option.maximum_utc_offset_minutes,
-            'timezonePreferenceStrength', option.timezone_preference_strength,
-            'residencyRequirement', option.residency_requirement,
-            'workAuthorization', option.work_authorization,
-            'sponsorship', option.sponsorship,
-            'officeLocation', option.office_location,
+            'scope', CASE option.scope
+              WHEN 'region_list' THEN 'region'
+              ELSE option.scope
+            END,
+            'includedCountries', ARRAY(
+              SELECT upper(country)
+              FROM unnest(option.countries) country
+              WHERE country ~* '^[A-Z]{2}$'
+            ),
+            'excludedCountries', COALESCE(
+              ARRAY(
+                SELECT upper(country)
+                FROM unnest(option.excluded_countries) country
+                WHERE country ~* '^[A-Z]{2}$'
+              ), ARRAY[]::text[]
+            ),
+            'includedRegions', ARRAY(
+              SELECT region
+              FROM unnest(option.regions) region
+              WHERE region = ANY(ARRAY[
+                'EU', 'Europe', 'EMEA', 'AMER', 'LATAM', 'APAC'
+              ]::text[])
+            ),
+            'excludedRegions', COALESCE(
+              ARRAY(
+                SELECT region
+                FROM unnest(option.excluded_regions) region
+                WHERE region = ANY(ARRAY[
+                  'EU', 'Europe', 'EMEA', 'AMER', 'LATAM', 'APAC'
+                ]::text[])
+              ), ARRAY[]::text[]
+            ),
+            'requiredUtcBand', CASE
+              WHEN option.required_minimum_utc_offset_minutes IS NOT NULL
+                AND option.required_maximum_utc_offset_minutes IS NOT NULL
+              THEN jsonb_build_object(
+                'minimumUtcOffset',
+                  option.required_minimum_utc_offset_minutes / 60.0,
+                'maximumUtcOffset',
+                  option.required_maximum_utc_offset_minutes / 60.0
+              )
+              ELSE NULL
+            END,
+            'preferredUtcBand', CASE
+              WHEN option.preferred_minimum_utc_offset_minutes IS NOT NULL
+                AND option.preferred_maximum_utc_offset_minutes IS NOT NULL
+              THEN jsonb_build_object(
+                'minimumUtcOffset',
+                  option.preferred_minimum_utc_offset_minutes / 60.0,
+                'maximumUtcOffset',
+                  option.preferred_maximum_utc_offset_minutes / 60.0
+              )
+              ELSE NULL
+            END,
+            'residencyRequirements', to_jsonb(option.residency_requirements),
+            'workAuthorizationRequirements',
+              to_jsonb(option.work_authorizations),
+            'sponsorshipStatus', option.sponsorship_status,
+            'officeCity', NULLIF(btrim(option.office_city), ''),
             'attendanceCadence', option.attendance_cadence,
-            'confidence', option.confidence,
-            'employerAuthoredRemoteEvidence',
-              option.employer_authored_remote_evidence,
-            'evidence', COALESCE((
-              SELECT jsonb_agg(jsonb_build_object(
-                'text', evidence.raw_text,
-                'source', evidence.evidence_source
-              ) ORDER BY CASE evidence.evidence_source
-                WHEN 'job_description' THEN 1
-                WHEN 'career_policy' THEN 2
-                WHEN 'employer_metadata' THEN 3
-                ELSE 4
-              END, evidence.id)
-              FROM job_availability_evidence evidence
-              WHERE evidence.raw_job_node_id = option.raw_job_node_id
-                AND evidence.jobsite_node_id = option.jobsite_node_id
-                AND evidence.extractor_version = option.extractor_version
-                AND evidence.option_key = option.option_key
-            ), '[]'::jsonb)
-          )) ORDER BY option.option_key) AS options,
-          CASE WHEN collaboration.profile_node_id IS NULL THEN NULL ELSE
-            jsonb_build_object(
-              'minimumUtcMinute', collaboration.minimum_utc_minute,
-              'maximumUtcMinute', collaboration.maximum_utc_minute
-            )
-          END AS "teamCollaborationBand"
-        FROM latest_options option
-        JOIN graph_relationships structured_edge
-          ON structured_edge.source_id = option.raw_job_node_id
-         AND structured_edge.type = 'HAS_STRUCTURED_JOBPOST'
-        JOIN job_search_documents document
-          ON document.job_node_id = structured_edge.target_id
-        LEFT JOIN LATERAL (
-          SELECT band.*
-          FROM graph_nodes child
-          JOIN graph_relationships membership
-            ON membership.target_id = child.id
-           AND membership.type IN (
-             'PROFILE_HAS_ORGANIZATION', 'PROFILE_HAS_PROJECT'
-           )
-          JOIN team_collaboration_bands band
-            ON band.profile_node_id = membership.source_id
-          WHERE (
-            child.label = 'Organization'
-            AND child.properties ->> 'orgId' = document.organization_id
-          ) OR (
-            child.label = 'Project'
-            AND child.properties ->> 'id' = document.project_id
-          )
-          ORDER BY band.profile_node_id
-          LIMIT 1
-        ) collaboration ON true
-        WHERE document.online AND NOT document.blocked
+            'travelRequirement', option.travel_requirement,
+            'evidence', CASE
+              WHEN NULLIF(btrim(option.evidence_quote), '') IS NOT NULL
+                AND option.evidence_start_offset >= 0
+                AND option.evidence_end_offset > option.evidence_start_offset
+                AND option.evidence_end_offset - option.evidence_start_offset
+                  = length(option.evidence_quote)
+                AND option.evidence_trust IN (
+                  'employer_body', 'employer_ats_field',
+                  'verified_employer_policy', 'aggregator'
+                )
+              THEN jsonb_build_array(jsonb_build_object(
+                'quote', option.evidence_quote,
+                'startOffset', option.evidence_start_offset,
+                'endOffset', option.evidence_end_offset,
+                'source', option.evidence_trust,
+                'trust', option.evidence_trust,
+                'provenance', option.evidence_provenance::text
+              ))
+              ELSE '[]'::jsonb
+            END,
+            'confidence', option.arrangement_confidence
+          )) ORDER BY option.option_key)
+            FILTER (WHERE option.option_key IS NOT NULL), '[]'::jsonb) AS options
+        FROM job_search_documents document
+        LEFT JOIN selected_options option
+          ON option.structured_job_node_id = document.job_node_id
+        ${jobEmployerJoins("document")}
+        WHERE document.online
+          AND NOT document.blocked
+          AND num_nonnulls(
+            document.organization_id,
+            document.project_id
+          ) = 1
+          AND (organization.payload IS NOT NULL OR project.payload IS NOT NULL)
         GROUP BY
           document.job_node_id,
           document.payload,
           document.published_timestamp,
-          collaboration.profile_node_id,
-          collaboration.minimum_utc_minute,
-          collaboration.maximum_utc_minute
+          organization.payload,
+          project.payload,
+          document.work_arrangement
         ORDER BY document.published_timestamp DESC NULLS LAST, document.job_node_id
         LIMIT $1
       `,
@@ -252,28 +313,153 @@ export class ProfileRepository {
         SELECT jsonb_build_object(
           'id', profile.properties ->> 'id',
           'slug', profile.properties ->> 'slug',
+          'canonicalSlug', profile.properties ->> 'slug',
           'category', profile.properties ->> 'category',
-          'banned', COALESCE(
-            jsonb_boolean_value(profile.properties, 'banned'), false
-          ),
-          'info', info.properties,
-          'organizations', COALESCE((
-            SELECT jsonb_agg(child.properties ORDER BY child.properties ->> 'name')
+          'info', jsonb_strip_nulls(jsonb_build_object(
+            'displayName', COALESCE(
+              info.properties ->> 'displayName',
+              info.properties ->> 'name'
+            ),
+            'description', COALESCE(
+              info.properties ->> 'description',
+              info.properties ->> 'descriptionShort'
+            ),
+            'logo', COALESCE(
+              info.properties ->> 'logo',
+              info.properties ->> 'icon'
+            ),
+            'canonicalSite', info.properties ->> 'canonicalSite',
+            'tagline', COALESCE(
+              info.properties ->> 'tagline',
+              info.properties ->> 'tagLine'
+            ),
+            'foundingDate', info.properties ->> 'foundingDate',
+            'profileType', info.properties -> 'profileType',
+            'profileSector', info.properties -> 'profileSector',
+            'profileStatus', info.properties -> 'profileStatus'
+          )),
+          'children', COALESCE((
+            SELECT jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
+              'id', COALESCE(
+                child.properties ->> 'orgId',
+                child.properties ->> 'id'
+              ),
+              'type', lower(child.label),
+              'name', child.properties ->> 'name',
+              'slug', COALESCE(
+                child.properties ->> 'slug',
+                child.properties ->> 'normalizedName'
+              ),
+              'logo', COALESCE(
+                child.properties ->> 'logoUrl',
+                child.properties ->> 'logo'
+              ),
+              'summary', COALESCE(
+                child.properties ->> 'summary',
+                child.properties ->> 'description'
+              )
+            )) ORDER BY child.label, child.properties ->> 'name', child.id)
             FROM graph_relationships membership
             JOIN graph_nodes child ON child.id = membership.target_id
             WHERE membership.source_id = profile.id
-              AND membership.type = 'PROFILE_HAS_ORGANIZATION'
-              AND child.label = 'Organization'
+              AND membership.type IN (
+                'PROFILE_HAS_ORGANIZATION', 'PROFILE_HAS_PROJECT'
+              )
+              AND child.label IN ('Organization', 'Project')
               AND NOT entity_property_is_banned(child.properties)
           ), '[]'::jsonb),
-          'projects', COALESCE((
-            SELECT jsonb_agg(child.properties ORDER BY child.properties ->> 'name')
-            FROM graph_relationships membership
-            JOIN graph_nodes child ON child.id = membership.target_id
-            WHERE membership.source_id = profile.id
-              AND membership.type = 'PROFILE_HAS_PROJECT'
-              AND child.label = 'Project'
-              AND NOT entity_property_is_banned(child.properties)
+          'reviews', COALESCE((
+            SELECT jsonb_build_object(
+              'count', count(*)::integer,
+              'averageRating', round(avg(review.rating)::numeric, 2)
+            )
+            FROM profile_reviews review
+            WHERE review.profile_node_id = profile.id
+              AND review.status IN ('published', 'redacted')
+          ), jsonb_build_object('count', 0, 'averageRating', NULL)),
+          'salaries', (
+            WITH salary_rows AS MATERIALIZED (
+              SELECT review.salary, review.currency
+              FROM profile_reviews review
+              WHERE review.profile_node_id = profile.id
+                -- Compensation aggregates are independent of whether review
+                -- prose has completed moderation. Pending exact-owner salary
+                -- rows are eligible; rejected rows never are.
+                AND review.status IN ('pending', 'published', 'redacted')
+                AND review.salary IS NOT NULL
+                AND review.salary > 0
+                AND review.currency ~ '^[A-Z]{3}$'
+                AND (
+                  review.child_node_id IS NULL OR EXISTS (
+                    SELECT 1
+                    FROM graph_relationships exact_membership
+                    WHERE exact_membership.source_id = profile.id
+                      AND exact_membership.target_id = review.child_node_id
+                      AND exact_membership.type IN (
+                        'PROFILE_HAS_ORGANIZATION', 'PROFILE_HAS_PROJECT'
+                      )
+                  )
+                )
+              UNION ALL
+              -- Transitional exact-ownership fallback. Migration 98 accounts
+              -- every safe legacy row, so only as-yet unmigrated, non-
+              -- quarantined rows can enter this arm.
+              SELECT jsonb_numeric_value(legacy.properties, 'salary'),
+                upper(legacy.properties ->> 'currency')
+              FROM graph_relationships membership
+              JOIN graph_relationships child_review
+                ON child_review.source_id = membership.target_id
+               AND child_review.type = 'HAS_REVIEW'
+              JOIN graph_nodes legacy
+                ON legacy.id = child_review.target_id
+               AND legacy.label = 'OrgReview'
+              WHERE membership.source_id = profile.id
+                AND membership.type IN (
+                  'PROFILE_HAS_ORGANIZATION', 'PROFILE_HAS_PROJECT'
+                )
+                AND jsonb_numeric_value(legacy.properties, 'salary') IS NOT NULL
+                AND jsonb_numeric_value(legacy.properties, 'salary') > 0
+                AND upper(legacy.properties ->> 'currency') ~ '^[A-Z]{3}$'
+                AND NOT EXISTS (
+                  SELECT 1 FROM profile_reviews migrated
+                  WHERE migrated.legacy_review_node_id = legacy.id
+                )
+                AND NOT EXISTS (
+                  SELECT 1 FROM legacy_org_review_quarantine quarantined
+                  WHERE quarantined.legacy_review_node_id = legacy.id
+                )
+            ), grouped AS (
+              SELECT currency, count(*)::integer AS review_count,
+                round(avg(salary)::numeric, 2) AS average_salary,
+                min(salary) AS minimum_salary,
+                max(salary) AS maximum_salary
+              FROM salary_rows
+              GROUP BY currency
+            )
+            SELECT jsonb_build_object(
+              'count', (SELECT count(*)::integer FROM salary_rows),
+              'byCurrency', COALESCE((
+                SELECT jsonb_agg(jsonb_build_object(
+                  'currency', salary.currency,
+                  'count', salary.review_count,
+                  'average', salary.average_salary,
+                  'minimum', salary.minimum_salary,
+                  'maximum', salary.maximum_salary
+                ) ORDER BY salary.currency)
+                FROM grouped salary
+              ), '[]'::jsonb)
+            )
+          ),
+          'notices', COALESCE((
+            SELECT jsonb_agg(jsonb_build_object(
+              'id', notice.id::text,
+              'text', notice.redacted_public_text,
+              'decidedAt', notice.decided_at
+            ) ORDER BY notice.decided_at DESC, notice.id)
+            FROM profile_notices notice
+            WHERE notice.profile_node_id = profile.id
+              AND notice.status = 'decided'
+              AND NULLIF(btrim(notice.redacted_public_text), '') IS NOT NULL
           ), '[]'::jsonb)
         ) AS profile
         FROM graph_nodes profile
@@ -283,13 +469,175 @@ export class ProfileRepository {
         JOIN graph_nodes info
           ON info.id = profile_info.target_id AND info.label = 'ProfileInfo'
         WHERE profile.label = 'EntityProfile'
-          AND profile.properties ->> 'slug' = $1
+          AND (
+            profile.properties ->> 'slug' = $1
+            OR COALESCE(profile.properties -> 'aliases', '[]'::jsonb) ? $1
+          )
           AND NOT COALESCE(jsonb_boolean_value(profile.properties, 'banned'), false)
         LIMIT 1
       `,
       [slug],
     );
     return (row?.profile as Record<string, unknown> | undefined) ?? null;
+  }
+
+  async createProfileReview(
+    authorUserId: string,
+    profileSlug: string,
+    input: {
+      childId?: string | null;
+      rating: number;
+      reviewText: string;
+      salary?: number | null;
+      currency?: string | null;
+      offersTokenAllocation?: boolean | null;
+    },
+  ): Promise<Record<string, unknown> | null> {
+    const [row] = await queryRows<{ value: Record<string, unknown> }>(
+      this.postgres,
+      `
+        WITH target_profile AS MATERIALIZED (
+          SELECT profile.id
+          FROM graph_nodes profile
+          WHERE profile.label = 'EntityProfile'
+            AND profile.properties ->> 'slug' = $2
+            AND NOT entity_property_is_banned(profile.properties)
+          ORDER BY profile.id
+          LIMIT 1
+        ), target_child AS MATERIALIZED (
+          SELECT child.id
+          FROM target_profile profile
+          JOIN graph_relationships membership
+            ON membership.source_id = profile.id
+           AND membership.type IN (
+             'PROFILE_HAS_ORGANIZATION', 'PROFILE_HAS_PROJECT'
+           )
+          JOIN graph_nodes child
+            ON child.id = membership.target_id
+           AND child.label IN ('Organization', 'Project')
+          WHERE $3::text IS NOT NULL
+            AND COALESCE(
+              child.properties ->> 'orgId',
+              child.properties ->> 'id'
+            ) = $3
+            AND NOT entity_property_is_banned(child.properties)
+          ORDER BY child.id
+          LIMIT 1
+        ), inserted AS (
+          INSERT INTO profile_reviews (
+            profile_node_id, child_node_id, author_user_id, rating,
+            review_text, salary, currency, offers_token_allocation,
+            status, ownership_fingerprint
+          )
+          SELECT profile.id, child.id, $1, $4::integer, btrim($5),
+            $6::numeric,
+            CASE WHEN $6::numeric IS NULL THEN NULL ELSE upper($7) END,
+            $8::boolean, 'pending', encode(digest(concat_ws(':',
+              profile.id::text, COALESCE(child.id::text, ''), lower($1),
+              clock_timestamp()::text
+            ), 'sha256'), 'hex')
+          FROM target_profile profile
+          LEFT JOIN target_child child ON true
+          WHERE $3::text IS NULL OR child.id IS NOT NULL
+          ON CONFLICT (profile_node_id, child_node_id, author_user_id)
+            WHERE legacy_review_node_id IS NULL
+          DO UPDATE SET
+            rating = EXCLUDED.rating,
+            review_text = EXCLUDED.review_text,
+            salary = EXCLUDED.salary,
+            currency = EXCLUDED.currency,
+            offers_token_allocation = EXCLUDED.offers_token_allocation,
+            status = 'pending',
+            redacted_public_text = NULL,
+            decided_at = NULL,
+            decided_by = NULL
+          RETURNING id, status, created_at
+        )
+        SELECT jsonb_build_object(
+          'id', id::text,
+          'status', status,
+          'createdAt', created_at
+        ) AS value
+        FROM inserted
+      `,
+      [
+        authorUserId,
+        profileSlug,
+        input.childId ?? null,
+        input.rating,
+        input.reviewText,
+        input.salary ?? null,
+        input.currency?.trim().toUpperCase() ?? null,
+        input.offersTokenAllocation ?? null,
+      ],
+    );
+    return row?.value ?? null;
+  }
+
+  async createRecruiterCase(
+    reporterUserId: string,
+    profileSlug: string,
+    input: {
+      childId?: string | null;
+      allegation: Record<string, unknown>;
+    },
+  ): Promise<Record<string, unknown> | null> {
+    const [row] = await queryRows<{ value: Record<string, unknown> }>(
+      this.postgres,
+      `
+        WITH target_profile AS MATERIALIZED (
+          SELECT profile.id
+          FROM graph_nodes profile
+          WHERE profile.label = 'EntityProfile'
+            AND profile.properties ->> 'slug' = $2
+            AND NOT entity_property_is_banned(profile.properties)
+          ORDER BY profile.id
+          LIMIT 1
+        ), target_child AS MATERIALIZED (
+          SELECT child.id
+          FROM target_profile profile
+          JOIN graph_relationships membership
+            ON membership.source_id = profile.id
+           AND membership.type IN (
+             'PROFILE_HAS_ORGANIZATION', 'PROFILE_HAS_PROJECT'
+           )
+          JOIN graph_nodes child
+            ON child.id = membership.target_id
+           AND child.label IN ('Organization', 'Project')
+          WHERE $3::text IS NOT NULL
+            AND COALESCE(
+              child.properties ->> 'orgId',
+              child.properties ->> 'id'
+            ) = $3
+            AND NOT entity_property_is_banned(child.properties)
+          ORDER BY child.id
+          LIMIT 1
+        ), inserted AS (
+          INSERT INTO recruiter_cases (
+            profile_node_id, child_node_id, reporter_user_id,
+            status, allegation
+          )
+          SELECT profile.id, child.id, $1, 'pending', $4::jsonb
+          FROM target_profile profile
+          LEFT JOIN target_child child ON true
+          WHERE $3::text IS NULL OR child.id IS NOT NULL
+          RETURNING id, status, created_at
+        )
+        SELECT jsonb_build_object(
+          'id', id::text,
+          'status', status,
+          'createdAt', created_at
+        ) AS value
+        FROM inserted
+      `,
+      [
+        reporterUserId,
+        profileSlug,
+        input.childId ?? null,
+        JSON.stringify(input.allegation),
+      ],
+    );
+    return row?.value ?? null;
   }
 
   async getUserRepos(wallet: string): Promise<Record<string, unknown>[]> {
@@ -388,29 +736,34 @@ export class ProfileRepository {
       `
         SELECT jsonb_build_object(
           'compensation', jsonb_build_object(
-            'salary', review.properties -> 'salary',
-            'currency', review.properties -> 'currency',
-            'offersTokenAllocation', review.properties -> 'offersTokenAllocation'
+            'salary', review.salary,
+            'currency', review.currency,
+            'offersTokenAllocation', COALESCE(
+              review.offers_token_allocation, false
+            )
           ),
           'rating', jsonb_build_object(
-            'onboarding', review.properties -> 'onboarding',
-            'careerGrowth', review.properties -> 'careerGrowth',
-            'benefits', review.properties -> 'benefits',
-            'workLifeBalance', review.properties -> 'workLifeBalance',
-            'diversityInclusion', review.properties -> 'diversityInclusion',
-            'management', review.properties -> 'management',
-            'product', review.properties -> 'product',
-            'compensation', review.properties -> 'compensation'
+            'onboarding', review.legacy_payload -> 'onboarding',
+            'careerGrowth', review.legacy_payload -> 'careerGrowth',
+            'benefits', review.legacy_payload -> 'benefits',
+            'workLifeBalance', review.legacy_payload -> 'workLifeBalance',
+            'diversityInclusion', review.legacy_payload -> 'diversityInclusion',
+            'management', review.legacy_payload -> 'management',
+            'product', review.legacy_payload -> 'product',
+            'compensation', review.legacy_payload -> 'compensation'
           ),
           'review', jsonb_build_object(
-            'id', review.properties -> 'id',
-            'title', review.properties -> 'title',
-            'location', review.properties -> 'location',
-            'timezone', review.properties -> 'timezone',
-            'pros', review.properties -> 'pros',
-            'cons', review.properties -> 'cons'
+            'id', review.id::text,
+            'title', review.legacy_payload -> 'title',
+            'location', review.legacy_payload -> 'location',
+            'timezone', review.legacy_payload -> 'timezone',
+            'pros', review.legacy_payload -> 'pros',
+            'cons', review.legacy_payload -> 'cons'
           ),
-          'reviewedTimestamp', review.properties -> 'reviewedTimestamp',
+          'reviewedTimestamp', COALESCE(
+            jsonb_numeric_value(review.legacy_payload, 'reviewedTimestamp'),
+            floor(extract(epoch FROM review.created_at) * 1000)::bigint
+          ),
           'org', organization.properties || jsonb_build_object(
             'docs', graph_first_related_text(organization.id, 'HAS_DOCSITE', 'url'),
             'github', graph_first_related_text(organization.id, 'HAS_GITHUB', 'login'),
@@ -420,20 +773,16 @@ export class ProfileRepository {
             'twitter', graph_first_related_text(organization.id, 'HAS_TWITTER', 'username')
           )
         ) AS value
-        FROM graph_nodes account
-        JOIN graph_relationships account_review
-          ON account_review.source_id = account.id
-         AND account_review.type = 'LEFT_REVIEW'
-        JOIN graph_nodes review
-          ON review.id = account_review.target_id AND review.label = 'OrgReview'
-        JOIN graph_relationships organization_review
-          ON organization_review.target_id = review.id
-         AND organization_review.type = 'HAS_REVIEW'
+        FROM profile_reviews review
         JOIN graph_nodes organization
-          ON organization.id = organization_review.source_id
+          ON organization.id = review.child_node_id
          AND organization.label = 'Organization'
-        WHERE account.label = 'User'
-          AND lower(account.properties ->> 'wallet') = lower($1)
+        JOIN graph_relationships membership
+          ON membership.source_id = review.profile_node_id
+         AND membership.target_id = organization.id
+         AND membership.type = 'PROFILE_HAS_ORGANIZATION'
+        WHERE lower(review.author_user_id) = lower($1)
+          AND review.status <> 'removed'
         ORDER BY review.id
       `,
       [wallet],
@@ -472,10 +821,18 @@ export class ProfileRepository {
         CROSS JOIN unnest($2::text[]) AS requested_domain(domain)
         WHERE website_relationship.source_id = organization.id
           AND website_relationship.type = 'HAS_WEBSITE'
-          AND regexp_replace(
-            lower(website.properties ->> 'url'),
-            '^https?://(www[.])?([^/:]+).*$','\\2'
-          ) LIKE '%' || requested_domain.domain || '%'
+          AND (
+            normalized_url_host(website.properties ->> 'url') =
+              normalized_url_host(requested_domain.domain)
+            OR right(
+              normalized_url_host(website.properties ->> 'url'),
+              char_length(normalized_url_host(requested_domain.domain)) + 1
+            ) = '.' || normalized_url_host(requested_domain.domain)
+            OR right(
+              normalized_url_host(requested_domain.domain),
+              char_length(normalized_url_host(website.properties ->> 'url')) + 1
+            ) = '.' || normalized_url_host(website.properties ->> 'url')
+          )
       )`,
       [domains],
     );
@@ -489,7 +846,7 @@ export class ProfileRepository {
       }
       const account = emails.find(email => {
         const domain = email.split("@")[1]?.toLowerCase();
-        return domain ? hostname.includes(domain) : false;
+        return domain ? hostsShareDomainBoundary(hostname, domain) : false;
       });
       return { ...organization, account: account ?? "" };
     });
@@ -829,48 +1186,127 @@ export class ProfileRepository {
         manager,
       );
       if (!account || !organization) return false;
-      const [existing] = await queryRows<{ nodeId: string }>(
+      const profiles = await queryRows<{ nodeId: string }>(
         manager,
         `
-          SELECT review.id::text AS "nodeId"
-          FROM graph_relationships account_review
-          JOIN graph_nodes review ON review.id = account_review.target_id
-          JOIN graph_relationships organization_review
-            ON organization_review.target_id = review.id
-           AND organization_review.type = 'HAS_REVIEW'
-          WHERE account_review.source_id = $1
-            AND account_review.type = 'LEFT_REVIEW'
-            AND organization_review.source_id = $2
-          LIMIT 1
+          SELECT profile.id::text AS "nodeId"
+          FROM graph_relationships membership
+          JOIN graph_nodes profile
+            ON profile.id = membership.source_id
+           AND profile.label = 'EntityProfile'
+          WHERE membership.target_id = $1
+            AND membership.type = 'PROFILE_HAS_ORGANIZATION'
+            AND NOT entity_property_is_banned(profile.properties)
+          ORDER BY profile.id
         `,
-        [account.nodeId, organization.nodeId],
+        [organization.nodeId],
       );
-      const properties = { ...patch, reviewedTimestamp: Date.now() };
-      if (existing) {
-        await queryRows(
-          manager,
-          "UPDATE graph_nodes SET properties = properties || $2::jsonb, updated_at = now() WHERE id = $1",
-          [existing.nodeId, JSON.stringify(properties)],
+      if (profiles.length !== 1) return false;
+
+      const ratingKeys = [
+        "onboarding",
+        "careerGrowth",
+        "benefits",
+        "workLifeBalance",
+        "diversityInclusion",
+        "management",
+        "product",
+        "compensation",
+      ];
+      const componentRatings = ratingKeys
+        .map(key => patch[key])
+        .filter(
+          (value): value is number =>
+            typeof value === "number" && value >= 1 && value <= 5,
         );
-      } else {
-        const review = await this.insertNode(manager, "OrgReview", {
-          id: randomUUID(),
-          ...properties,
-        });
-        await this.insertRelationship(
-          manager,
-          account.nodeId,
-          review,
-          "LEFT_REVIEW",
-        );
-        await this.insertRelationship(
-          manager,
+      const explicitRating = patch.rating;
+      const rating =
+        typeof explicitRating === "number" &&
+        explicitRating >= 1 &&
+        explicitRating <= 5
+          ? Math.round(explicitRating)
+          : componentRatings.length
+            ? Math.round(
+                componentRatings.reduce((total, value) => total + value, 0) /
+                  componentRatings.length,
+              )
+            : null;
+      const reviewParts = [
+        typeof patch.title === "string" ? patch.title.trim() : "",
+        typeof patch.pros === "string" && patch.pros.trim()
+          ? `Pros: ${patch.pros.trim()}`
+          : "",
+        typeof patch.cons === "string" && patch.cons.trim()
+          ? `Cons: ${patch.cons.trim()}`
+          : "",
+      ].filter(Boolean);
+      const reviewText = reviewParts.length ? reviewParts.join("\n\n") : null;
+      const salary =
+        Object.prototype.hasOwnProperty.call(patch, "salary") &&
+        (patch.salary === null || typeof patch.salary === "number")
+          ? patch.salary
+          : undefined;
+      const currency =
+        salary === null
+          ? null
+          : typeof patch.currency === "string"
+            ? patch.currency.trim().toUpperCase()
+            : undefined;
+      const tokenAllocation = Object.prototype.hasOwnProperty.call(
+        patch,
+        "offersTokenAllocation",
+      )
+        ? patch.offersTokenAllocation
+        : undefined;
+      const inserted = await queryRows(
+        manager,
+        `
+          INSERT INTO profile_reviews (
+            profile_node_id, child_node_id, author_user_id, rating,
+            review_text, salary, currency, offers_token_allocation,
+            status, ownership_fingerprint, legacy_payload
+          ) VALUES (
+            $1::bigint, $2::bigint, lower($3), $4::integer, $5,
+            $6::numeric, $7, $8::boolean, 'pending',
+            encode(digest(concat_ws(':', $1, $2, lower($3)), 'sha256'), 'hex'),
+            $9::jsonb
+          )
+          ON CONFLICT (profile_node_id, child_node_id, author_user_id)
+            WHERE legacy_review_node_id IS NULL
+          DO UPDATE SET
+            rating = COALESCE(EXCLUDED.rating, profile_reviews.rating),
+            review_text = COALESCE(
+              EXCLUDED.review_text, profile_reviews.review_text
+            ),
+            salary = CASE WHEN EXCLUDED.legacy_payload ? 'salary'
+              THEN EXCLUDED.salary ELSE profile_reviews.salary END,
+            currency = CASE WHEN EXCLUDED.legacy_payload ? 'salary'
+              THEN EXCLUDED.currency ELSE profile_reviews.currency END,
+            offers_token_allocation = CASE
+              WHEN EXCLUDED.legacy_payload ? 'offersTokenAllocation'
+                THEN EXCLUDED.offers_token_allocation
+              ELSE profile_reviews.offers_token_allocation END,
+            status = 'pending',
+            redacted_public_text = NULL,
+            decided_at = NULL,
+            decided_by = NULL,
+            legacy_payload = profile_reviews.legacy_payload
+              || EXCLUDED.legacy_payload
+          RETURNING id
+        `,
+        [
+          profiles[0].nodeId,
           organization.nodeId,
-          review,
-          "HAS_REVIEW",
-        );
-      }
-      return true;
+          wallet,
+          rating,
+          reviewText,
+          salary,
+          currency,
+          tokenAllocation,
+          JSON.stringify(patch),
+        ],
+      );
+      return inserted.length === 1;
     });
   }
 
@@ -878,20 +1314,29 @@ export class ProfileRepository {
     const [review] = await queryRows<{ properties: Record<string, unknown> }>(
       this.postgres,
       `
-        SELECT review.properties
-        FROM graph_nodes review
-        JOIN graph_relationships organization_review
-          ON organization_review.target_id = review.id
-         AND organization_review.type = 'HAS_REVIEW'
+        SELECT jsonb_build_object(
+          'id', review.id::text,
+          'title', COALESCE(
+            review.legacy_payload -> 'title', to_jsonb(review.review_text)
+          ),
+          'location', review.legacy_payload -> 'location',
+          'timezone', review.legacy_payload -> 'timezone',
+          'pros', review.legacy_payload -> 'pros',
+          'cons', review.legacy_payload -> 'cons'
+        ) AS properties
+        FROM profile_reviews review
         JOIN graph_nodes organization
-          ON organization.id = organization_review.source_id
+          ON organization.id = review.child_node_id
          AND organization.label = 'Organization'
-        WHERE review.label = 'OrgReview'
-          AND review.properties @> $1::jsonb
-        ORDER BY review.id
+        JOIN graph_relationships membership
+          ON membership.source_id = review.profile_node_id
+         AND membership.target_id = organization.id
+         AND membership.type = 'PROFILE_HAS_ORGANIZATION'
+        WHERE review.id = $1::uuid
+          AND review.status <> 'removed'
         LIMIT 1
       `,
-      [JSON.stringify({ id })],
+      [id],
     );
     return review?.properties;
   }

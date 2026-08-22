@@ -1390,7 +1390,7 @@ export const PUBLIC_API_SCHEMAS = {
       publicationDate: {
         $ref: getSchemaPath(SingleSelectFilter),
       },
-      locations: {
+      workModes: {
         $ref: getSchemaPath(MultiSelectFilter),
       },
       seniority: {

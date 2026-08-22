@@ -190,44 +190,6 @@ export class SearchRepository {
     nav: SearchNav,
     query?: string | null,
   ): Promise<NavigationFacet[]> {
-    if (nav === "grants" || nav === "impact") {
-      const configs = await this.getGrantConfigs(nav === "grants");
-      const pillars = [
-        "categories",
-        "chains",
-        "ecosystems",
-        "organizations",
-        "names",
-      ];
-      return pillars.flatMap(pillar => {
-        const counts = new Map<string, { label: string; count: number }>();
-        for (const config of configs) {
-          for (const value of this.asArray(config[pillar])) {
-            if (
-              query &&
-              !value.toLocaleLowerCase().includes(query.toLocaleLowerCase())
-            ) {
-              continue;
-            }
-            const key = slugify(value);
-            const current = counts.get(key);
-            counts.set(key, {
-              label: value,
-              count: (current?.count ?? 0) + 1,
-            });
-          }
-        }
-        return [...counts.values()]
-          .sort(
-            (first, second) =>
-              second.count - first.count ||
-              first.label.localeCompare(second.label),
-          )
-          .slice(0, 10)
-          .map(value => ({ pillar, label: value.label }));
-      });
-    }
-
     const source = projectionNavigation[nav];
     if (!source) return [];
     const unions = source.facets
@@ -288,9 +250,6 @@ export class SearchRepository {
     nav: SearchNav,
     ecosystem?: string,
   ): Promise<Record<string, unknown>[]> {
-    if (nav === "grants" || nav === "impact") {
-      return this.getGrantConfigs(nav === "grants");
-    }
     const ecosystemSlug = ecosystem ? slugify(ecosystem) : null;
     if (nav === "projects") {
       const rows = await this.postgres.query<{
@@ -859,6 +818,7 @@ export class SearchRepository {
           CROSS JOIN LATERAL unnest(
             structured_job_work_location_modes(job_node_id)
           ) mode
+          WHERE mode IN ('remote', 'hybrid', 'onsite')
           UNION ALL
           SELECT 'classifications', entry.key, entry.value, job_node_id,
             published_timestamp
@@ -1049,6 +1009,7 @@ export class SearchRepository {
             CROSS JOIN LATERAL unnest(
               structured_job_work_location_modes(recent.job_node_id)
             ) mode
+            WHERE mode IN ('remote', 'hybrid', 'onsite')
           ), values AS (
             SELECT id, min(label) AS label,
               count(DISTINCT job_node_id) AS popularity
@@ -1275,75 +1236,5 @@ export class SearchRepository {
       organizationName: row.organizationName,
       timestamp: row.timestamp ? Number(row.timestamp) : null,
     }));
-  }
-
-  private async getGrantConfigs(
-    active: boolean,
-  ): Promise<Record<string, unknown>[]> {
-    const rows = await this.postgres.query<{ config: Record<string, unknown> }>(
-      `
-        SELECT jsonb_build_object(
-          'names', ARRAY[program.properties ->> 'name'],
-          'date', jsonb_numeric_value(metadata.properties, 'startsAt'),
-          'programBudget', jsonb_numeric_value(metadata.properties, 'programBudget'),
-          'categories', COALESCE((
-            SELECT jsonb_agg(DISTINCT related.properties ->> 'name')
-            FROM graph_relationships relationship
-            JOIN graph_nodes related ON related.id = relationship.target_id
-            WHERE relationship.source_id = metadata.id
-              AND relationship.type = 'HAS_CATEGORY'
-              AND related.properties ->> 'name' IS NOT NULL
-          ), '[]'::jsonb),
-          'chains', COALESCE((
-            SELECT jsonb_agg(DISTINCT related.properties ->> 'name')
-            FROM graph_relationships relationship
-            JOIN graph_nodes related ON related.id = relationship.target_id
-            WHERE relationship.source_id = metadata.id
-              AND relationship.type = 'HAS_NETWORK'
-              AND related.properties ->> 'name' IS NOT NULL
-          ), '[]'::jsonb),
-          'ecosystems', COALESCE((
-            SELECT jsonb_agg(DISTINCT related.properties ->> 'name')
-            FROM graph_relationships relationship
-            JOIN graph_nodes related ON related.id = relationship.target_id
-            WHERE relationship.source_id = metadata.id
-              AND relationship.type = 'HAS_ECOSYSTEM'
-              AND related.properties ->> 'name' IS NOT NULL
-          ), '[]'::jsonb),
-          'organizations', COALESCE((
-            SELECT jsonb_agg(DISTINCT related.properties ->> 'name')
-            FROM graph_relationships relationship
-            JOIN graph_nodes related ON related.id = relationship.target_id
-            WHERE relationship.source_id = metadata.id
-              AND relationship.type = 'HAS_ORGANIZATION'
-              AND related.properties ->> 'name' IS NOT NULL
-          ), '[]'::jsonb)
-        ) AS config
-        FROM graph_nodes program
-        JOIN graph_relationships metadata_relationship
-          ON metadata_relationship.source_id = program.id
-         AND metadata_relationship.type = 'HAS_METADATA'
-        JOIN graph_nodes metadata
-          ON metadata.id = metadata_relationship.target_id
-         AND metadata.label = 'KarmaGapProgramMetadata'
-        WHERE program.label = 'KarmaGapProgram'
-          AND EXISTS (
-            SELECT 1
-            FROM graph_relationships status_relationship
-            JOIN graph_nodes status ON status.id = status_relationship.target_id
-            WHERE status_relationship.source_id = program.id
-              AND status_relationship.type = 'HAS_STATUS'
-              AND status.label = 'KarmaGapStatus'
-              AND status.properties ->> 'name' = $1
-          )
-      `,
-      [active ? "Active" : "Inactive"],
-    );
-    return rows.map(row => row.config);
-  }
-
-  private asArray(value: unknown): string[] {
-    if (Array.isArray(value)) return value.filter(Boolean).map(String);
-    return value === null || value === undefined ? [] : [String(value)];
   }
 }

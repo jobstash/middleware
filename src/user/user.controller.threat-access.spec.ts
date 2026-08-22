@@ -43,6 +43,7 @@ describe("UserController threat-intelligence access", () => {
       {} as StripeService,
       {} as SubscriptionsService,
       permissionService as unknown as PermissionService,
+      {} as never,
     );
     return { controller, permissionService, profileService };
   };

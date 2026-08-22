@@ -27,7 +27,6 @@ export class JobFilterConfigs {
     expertJobs: SingleSelectFilter.SingleSelectFilterType,
     order: SingleSelectFilter.SingleSelectFilterType,
     seniority: MultiSelectFilter.MultiSelectFilterType,
-    locations: MultiSelectFilter.MultiSelectFilterType,
     workModes: MultiSelectFilter.MultiSelectFilterType,
     availability: MultiSelectFilter.MultiSelectFilterType,
     cities: MultiSelectFilter.MultiSelectFilterType,
@@ -43,9 +42,6 @@ export class JobFilterConfigs {
     steppedDownLeads: SingleSelectFilter.SingleSelectFilterType,
     movedLeads: SingleSelectFilter.SingleSelectFilterType,
     earlyLeadDepartures: SingleSelectFilter.SingleSelectFilterType,
-    growingTeam: SingleSelectFilter.SingleSelectFilterType,
-    shrinkingTeam: SingleSelectFilter.SingleSelectFilterType,
-    earlyTeamShrinkage: SingleSelectFilter.SingleSelectFilterType,
     recentlyFunded: SingleSelectFilter.SingleSelectFilterType,
     orderBy: SingleSelectFilter.SingleSelectFilterType,
     tags: MultiSelectFilter.MultiSelectFilterType,
@@ -66,8 +62,6 @@ export class JobFilterConfigs {
   salary: RangeFilter;
   @ApiProperty()
   seniority: MultiSelectFilter;
-  @ApiProperty()
-  locations: MultiSelectFilter;
   @ApiProperty()
   workModes: MultiSelectFilter;
   @ApiProperty()
@@ -98,12 +92,6 @@ export class JobFilterConfigs {
   movedLeads: SingleSelectFilter;
   @ApiProperty()
   earlyLeadDepartures: SingleSelectFilter;
-  @ApiProperty()
-  growingTeam: SingleSelectFilter;
-  @ApiProperty()
-  shrinkingTeam: SingleSelectFilter;
-  @ApiProperty()
-  earlyTeamShrinkage: SingleSelectFilter;
   @ApiProperty()
   recentlyFunded: SingleSelectFilter;
   @ApiProperty()
@@ -162,7 +150,6 @@ export class JobFilterConfigs {
       orderBy,
       projects,
       seniority,
-      locations,
       workModes,
       availability,
       cities,
@@ -178,9 +165,6 @@ export class JobFilterConfigs {
       steppedDownLeads,
       movedLeads,
       earlyLeadDepartures,
-      growingTeam,
-      shrinkingTeam,
-      earlyTeamShrinkage,
       recentlyFunded,
       headcountEstimate,
       investors,
@@ -210,7 +194,6 @@ export class JobFilterConfigs {
     this.orderBy = orderBy;
     this.projects = projects;
     this.seniority = seniority;
-    this.locations = locations;
     this.workModes = workModes;
     this.availability = availability;
     this.cities = cities;
@@ -226,9 +209,6 @@ export class JobFilterConfigs {
     this.steppedDownLeads = steppedDownLeads;
     this.movedLeads = movedLeads;
     this.earlyLeadDepartures = earlyLeadDepartures;
-    this.growingTeam = growingTeam;
-    this.shrinkingTeam = shrinkingTeam;
-    this.earlyTeamShrinkage = earlyTeamShrinkage;
     this.recentlyFunded = recentlyFunded;
     this.onboardIntoWeb3 = onboardIntoWeb3;
     this.expertJobs = expertJobs;

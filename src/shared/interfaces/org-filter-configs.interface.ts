@@ -30,9 +30,6 @@ export class OrgFilterConfigs {
     steppedDownLeads: SingleSelectFilter.SingleSelectFilterType,
     movedLeads: SingleSelectFilter.SingleSelectFilterType,
     earlyLeadDepartures: SingleSelectFilter.SingleSelectFilterType,
-    growingTeam: SingleSelectFilter.SingleSelectFilterType,
-    shrinkingTeam: SingleSelectFilter.SingleSelectFilterType,
-    earlyTeamShrinkage: SingleSelectFilter.SingleSelectFilterType,
     recentlyFunded: SingleSelectFilter.SingleSelectFilterType,
     categories: MultiSelectFilter.MultiSelectFilterType,
   });
@@ -57,12 +54,6 @@ export class OrgFilterConfigs {
   movedLeads: SingleSelectFilter;
   @ApiProperty()
   earlyLeadDepartures: SingleSelectFilter;
-  @ApiProperty()
-  growingTeam: SingleSelectFilter;
-  @ApiProperty()
-  shrinkingTeam: SingleSelectFilter;
-  @ApiProperty()
-  earlyTeamShrinkage: SingleSelectFilter;
   @ApiProperty()
   recentlyFunded: SingleSelectFilter;
   @ApiProperty()
@@ -96,9 +87,6 @@ export class OrgFilterConfigs {
       steppedDownLeads,
       movedLeads,
       earlyLeadDepartures,
-      growingTeam,
-      shrinkingTeam,
-      earlyTeamShrinkage,
       recentlyFunded,
       categories,
       hasJobs,
@@ -121,9 +109,6 @@ export class OrgFilterConfigs {
     this.steppedDownLeads = steppedDownLeads;
     this.movedLeads = movedLeads;
     this.earlyLeadDepartures = earlyLeadDepartures;
-    this.growingTeam = growingTeam;
-    this.shrinkingTeam = shrinkingTeam;
-    this.earlyTeamShrinkage = earlyTeamShrinkage;
     this.recentlyFunded = recentlyFunded;
     this.categories = categories;
     this.hasJobs = hasJobs;

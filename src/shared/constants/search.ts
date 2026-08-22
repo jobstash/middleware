@@ -22,20 +22,6 @@ export const NAV_FILTER_LABEL_MAPPINGS: Record<
     tags: "Tags",
     projects: "Projects",
   },
-  grants: {
-    names: "Grants",
-    categories: "Categories",
-    chains: "Chains",
-    ecosystems: "Ecosystems",
-    organizations: "Organizations",
-  },
-  impact: {
-    names: "Impact",
-    categories: "Categories",
-    chains: "Chains",
-    ecosystems: "Ecosystems",
-    organizations: "Organizations",
-  },
   jobs: {
     tags: "Tags",
     locations: "Locations",
@@ -54,8 +40,6 @@ export const NAV_FILTER_LABEL_MAPPINGS: Record<
 };
 
 export const NAV_PILLAR_ORDERING: Record<SearchNav, string[]> = {
-  grants: ["categories", "chains", "ecosystems", "organizations", "names"],
-  impact: ["categories", "chains", "ecosystems", "organizations", "names"],
   organizations: [
     "investors",
     "locations",
@@ -120,8 +104,6 @@ export const NAV_FILTER_CONFIGS: Record<SearchNav, string[] | null> = {
     "order",
     "orderBy",
   ],
-  grants: ["date", "programBudget", "order", "orderBy"],
-  impact: ["order", "orderBy"],
   jobs: [
     "tags",
     "locations",
@@ -140,8 +122,6 @@ export const NAV_FILTER_CONFIGS: Record<SearchNav, string[] | null> = {
 };
 
 export const NAV_PILLAR_TITLES: Record<SearchNav, string> = {
-  grants: "Grant Program",
-  impact: "Concluded Grant Program",
   organizations: "Organization",
   projects: "Project",
   jobs: "Job",
@@ -169,20 +149,6 @@ export const NAV_PILLAR_SLUG_PREFIX_MAPPINGS: Record<
     names: "o",
     tags: "t",
     projects: "p",
-  },
-  grants: {
-    names: "g",
-    categories: "c",
-    chains: "ch",
-    ecosystems: "e",
-    organizations: "o",
-  },
-  impact: {
-    names: "i",
-    categories: "c",
-    chains: "ch",
-    ecosystems: "e",
-    organizations: "o",
   },
   vcs: { names: "v" },
   jobs: {

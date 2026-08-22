@@ -22,7 +22,6 @@ import { ScorerModule } from "./scorer/scorer.module";
 import { ChainsModule } from "./chains/chains.module";
 import { InvestorsModule } from "./investors/investors.module";
 import { PrivyModule } from "./auth/privy/privy.module";
-import { GoogleBigQueryModule } from "./google-bigquery/google-bigquery.module";
 import { SearchModule } from "./search/search.module";
 import { UserModule } from "./user/user.module";
 import { Auth0Module } from "./auth0/auth0.module";
@@ -38,6 +37,8 @@ import { PostgresModule } from "./postgres/postgres.module";
 import { TeamIntelligenceModule } from "./team-intelligence/team-intelligence.module";
 import { PeopleIntelligenceModule } from "./people-intelligence/people-intelligence.module";
 import { HealthModule } from "./health/health.module";
+import { AdminIngestionModule } from "./admin-ingestion/admin-ingestion.module";
+import { AccessWorkspacesModule } from "./access-workspaces/access-workspaces.module";
 
 @Module({
   imports: [
@@ -64,6 +65,8 @@ import { HealthModule } from "./health/health.module";
     TeamIntelligenceModule,
     PeopleIntelligenceModule,
     HealthModule,
+    AdminIngestionModule,
+    AccessWorkspacesModule,
     BullModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -94,7 +97,6 @@ import { HealthModule } from "./health/health.module";
     ChainsModule,
     InvestorsModule,
     PrivyModule,
-    GoogleBigQueryModule,
     SearchModule,
     Auth0Module,
     SubscriptionsModule,

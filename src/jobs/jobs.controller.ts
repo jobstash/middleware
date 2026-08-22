@@ -44,6 +44,7 @@ import {
   JobDetailsResult,
   JobFilterConfigs,
   JobForMe,
+  JobsForMeResponse,
   JobListResult,
   JobMatchResult,
   JobpostFolder,
@@ -54,6 +55,7 @@ import {
   SessionObject,
   StructuredJobpostWithRelations,
   ValidationError,
+  WorkLocationOption,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { TagsService } from "src/tags/tags.service";
@@ -80,7 +82,15 @@ import { isEmpty, isEqual, map, xor } from "lodash";
 import { AccountService } from "src/auth/account/account.service";
 
 @Controller("jobs")
-@ApiExtraModels(PaginatedData, JobFilterConfigs, ValidationError, JobListResult)
+@ApiExtraModels(
+  PaginatedData,
+  JobFilterConfigs,
+  ValidationError,
+  JobListResult,
+  JobForMe,
+  JobsForMeResponse,
+  WorkLocationOption,
+)
 export class JobsController {
   private readonly logger = new CustomLogger(JobsController.name);
   constructor(
@@ -96,10 +106,15 @@ export class JobsController {
   @Get("for-me")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER)
+  @ApiOkResponse({
+    description:
+      "Groups jobs by confirmed eligibility, a required UTC-band near miss of at most one hour, or constraints that still need checking",
+    type: JobsForMeResponse,
+  })
   getJobsForMe(
     @Session() { address }: SessionObject,
     @Query("limit") limit = "100",
-  ): Promise<JobForMe[]> {
+  ): Promise<JobsForMeResponse> {
     return this.profileService.getJobsForMe(address, Number(limit) || 100);
   }
 

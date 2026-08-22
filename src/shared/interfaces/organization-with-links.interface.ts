@@ -56,7 +56,6 @@ export class OrganizationWithLinks extends Organization {
       ),
     }),
     t.partial({
-      grantSites: t.array(t.string),
       needsManualReview: t.boolean,
       manualReviewStatus: t.union([t.string, t.null]),
       manualReviewReason: t.union([t.string, t.null]),
@@ -84,9 +83,6 @@ export class OrganizationWithLinks extends Organization {
 
   @ApiProperty()
   grants: GrantFunding[];
-
-  @ApiProperty()
-  grantSites?: string[];
 
   @ApiProperty()
   twitters: string[];
@@ -135,7 +131,6 @@ export class OrganizationWithLinks extends Organization {
       githubs,
       aliases,
       grants,
-      grantSites,
       twitters,
       docs,
       projects,
@@ -161,7 +156,6 @@ export class OrganizationWithLinks extends Organization {
     this.githubs = githubs;
     this.aliases = aliases;
     this.grants = grants;
-    this.grantSites = grantSites ?? [];
     this.twitters = twitters;
     this.docs = docs;
     this.projects = projects;

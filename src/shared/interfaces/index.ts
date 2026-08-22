@@ -42,6 +42,7 @@ export * from "./project-more-info.interface";
 export * from "./jobpost-commitment.interface";
 export * from "./jobpost-folder.interface";
 export * from "./structured-jobpost.interface";
+export * from "./work-arrangement.interface";
 export * from "./job-filter-configs.interface";
 export * from "./org-filter-configs.interface";
 export * from "./authorization-result.interface";

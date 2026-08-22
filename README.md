@@ -1,6 +1,6 @@
 # JobStash.xyz Middleware
 
-This project is a NestJS server backed by PostgreSQL 18 with pgvector. It serves JobStash search, account, subscription, grant, and operational APIs.
+This project is a NestJS server backed by PostgreSQL 18 with pgvector. It serves JobStash search, account, subscription, historical funding, and operational APIs.
 
 ## Getting Started
 
@@ -31,12 +31,14 @@ Here are the steps you need to take to get the project setup on your local devel
 
 ## Versioning & Deployment
 
-Automatic deploy workflows are setup to deploy the code to the server under specific conditions. We use [Semver](https://semver.org) for our versioning and the versions are automatically determined by the `semantic-release` plugin which counts the number of commits that have certain keywords. see the [Semver Spec](https://semver.org) for more info. For available versions see [repo tags](https://github.com/jobstash/middleware/tags)
+Production changes are deployed from reviewed pushes to `main`. The existing
+Coolify integration observes `main` and automatically builds the selected
+revision; this repository does not create releases, tags, or deployment
+identities.
 
 ## IMPORTANT
 
 - Make sure to update the `.env.example` file anytime you add new env vars to the project
-- Commits messages are to follow the semver spec **strictly**
 - Please address linter warnings before pushing the code to the remote repo, all linter warnings will be treated as errors and will cause the checks to fail with errors.
 - Remember to update the readme if any changes are made.
 

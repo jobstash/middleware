@@ -1,4 +1,4 @@
-import { ForbiddenException } from "@nestjs/common";
+import { ForbiddenException, GoneException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { OrganizationsController } from "./organizations.controller";
 import { CheckWalletPermissions } from "src/shared/constants";
@@ -11,6 +11,7 @@ type OrganizationsControllerFixture = {
     getOrgById: jest.Mock;
     getAdminDirectory: jest.Mock;
     getAllForAdminGrid: jest.Mock;
+    getOrgTeamBySlug: jest.Mock;
     updateVerticalClassification: jest.Mock;
     update: jest.Mock;
   };
@@ -31,6 +32,7 @@ describe("OrganizationsController RBAC", () => {
       getOrgById: jest.fn(),
       getAdminDirectory: jest.fn(),
       getAllForAdminGrid: jest.fn(),
+      getOrgTeamBySlug: jest.fn(),
       updateVerticalClassification: jest.fn(),
       update: jest.fn(),
     };
@@ -74,6 +76,36 @@ describe("OrganizationsController RBAC", () => {
     expect(result.success).toBe(true);
     expect(data(result)).toEqual({ orgId: "12256", name: "External org" });
     expect(userService.isOrgMember).not.toHaveBeenCalled();
+  });
+
+  it("tombstones every organization team roster without resolving the slug", () => {
+    const { controller, organizationsService } = buildController();
+    const errors: GoneException[] = [];
+    const responses = [{ setHeader: jest.fn() }, { setHeader: jest.fn() }];
+
+    for (const [index, slug] of ["existing", "missing"].entries()) {
+      try {
+        controller.getOrgTeamBySlug(slug, responses[index] as never);
+      } catch (error) {
+        errors.push(error as GoneException);
+      }
+    }
+
+    expect(errors.map(error => error.getStatus())).toEqual([410, 410]);
+    expect(errors[0].getResponse()).toEqual(errors[1].getResponse());
+    expect(organizationsService.getOrgTeamBySlug).not.toHaveBeenCalled();
+    for (const response of responses) {
+      expect(response.setHeader).toHaveBeenCalledWith(
+        "Cache-Control",
+        "no-cache, private, no-store, must-revalidate",
+      );
+      expect(response.setHeader).toHaveBeenCalledWith("Pragma", "no-cache");
+      expect(response.setHeader).toHaveBeenCalledWith("Expires", "0");
+      expect(response.setHeader).toHaveBeenCalledWith(
+        "X-Robots-Tag",
+        "noindex, nofollow, noarchive",
+      );
+    }
   });
 
   it("normalizes and caps the admin organization directory request", async () => {

@@ -6,6 +6,7 @@ import { ProfileService } from "src/auth/profile/profile.service";
 import { PrivyService } from "src/auth/privy/privy.service";
 import { PermissionService } from "src/user/permission.service";
 import { Subscription } from "src/shared/interfaces/org";
+import { createProfileMemberFixture } from "./postgres.integration-fixtures";
 
 const describePostgres =
   process.env.RUN_POSTGRES_INTEGRATION === "1" ? describe : describe.skip;
@@ -316,18 +317,21 @@ describePostgres("UserRepository PostgreSQL integration", () => {
     ).resolves.toBe(true);
   });
 
-  it("returns available profiles, scoped notes, and verification exclusions", async () => {
+  it("returns an opted-in safe Signals profile without notes or legacy org exclusions", async () => {
     await seedRichProfile();
     await expect(
       repository.setRecruiterNote("0xUserOne", "Strong fit", "acme-org"),
     ).resolves.toBe(true);
-    let users = await repository.getAvailableUsers("acme-org");
-    expect(users).toEqual([
-      expect.objectContaining({ wallet: "0xUserOne", note: "Strong fit" }),
-    ]);
+    let users = await repository.getAvailableUsers();
+    expect(users).toEqual([expect.objectContaining({ wallet: "0xUserOne" })]);
+    expect(users[0]).not.toHaveProperty("note");
+    expect(users[0]).not.toHaveProperty("alternateEmails");
+    expect(users[0]).not.toHaveProperty("linkedAccounts");
+    expect(users[0]).not.toHaveProperty("jobCategoryInterests");
+    expect(users[0]).not.toHaveProperty("lastAppliedTimestamp");
     await createRelationship(userOneId, organizationId, "VERIFIED_FOR_ORG");
-    users = await repository.getAvailableUsers("acme-org");
-    expect(users).toEqual([]);
+    users = await repository.getAvailableUsers();
+    expect(users).toEqual([expect.objectContaining({ wallet: "0xUserOne" })]);
     await expect(repository.getAllProfiles()).resolves.toHaveLength(2);
     await expect(repository.getCryptoNative("0xUserOne")).resolves.toBe(true);
   });
@@ -411,19 +415,28 @@ describePostgres("UserRepository PostgreSQL integration", () => {
       },
     });
     await expect(
-      service.getUsersAvailableForWork(
-        { city: "amster", country: "nether", page: null, limit: null },
-        null,
-      ),
+      service.getUsersAvailableForWork({
+        city: "amster",
+        country: "nether",
+        page: null,
+        limit: null,
+      }),
     ).resolves.toMatchObject({
       success: true,
-      data: [
-        expect.objectContaining({
-          wallet: "0xUserOne",
-          availableForWork: true,
-          skills: [expect.objectContaining({ normalizedName: "typescript" })],
-        }),
-      ],
+      data: {
+        candidates: [
+          expect.objectContaining({
+            wallet: "0xUserOne",
+            availableForWork: true,
+            skills: [expect.objectContaining({ normalizedName: "typescript" })],
+          }),
+        ],
+        aggregateInterests: {
+          minimumAggregateSize: 5,
+          jobClassifications: [],
+          tags: [],
+        },
+      },
     });
   });
 
@@ -523,6 +536,9 @@ describePostgres("UserRepository PostgreSQL integration", () => {
     key: string,
     properties: Record<string, unknown>,
   ): Promise<string> {
+    if (label === "Organization" || label === "Project") {
+      return createProfileMemberFixture(postgres, label, key, properties);
+    }
     const [row] = await postgres.query<{ id: string }>(
       `
         INSERT INTO graph_nodes (label, labels, node_key, properties)

@@ -48,7 +48,13 @@ export type FilterMatrixCase = {
   headers: Record<string, string>;
   coveredParameters: string[];
   kind:
-    "baseline" | "single" | "pair" | "range" | "sort" | "header" | "validation";
+    | "baseline"
+    | "single"
+    | "pair"
+    | "range"
+    | "sort"
+    | "header"
+    | "validation";
   productionBaselineMayFail: boolean;
 };
 
@@ -180,22 +186,14 @@ const jobParameters = (): MatrixParameter[] => [
   arrayParameter("fundingStages", "series-a", "seed"),
   arrayParameter("investors", "paradigm", "coinbase-ventures"),
   arrayParameter("seniority", "3", "4"),
-  arrayParameter("locations", "remote", "hybrid"),
   arrayParameter("workModes", "remote", "hybrid"),
-  arrayParameter(
-    "availability",
-    "berlin",
-    "europe-berlin",
-  ),
+  arrayParameter("availability", "berlin", "europe-berlin"),
   arrayParameter("cities", "berlin", "amsterdam"),
   arrayParameter("regions", "emea", "apac"),
   arrayParameter("countries", "germany", "netherlands"),
   arrayParameter("continents", "europe", "asia"),
   arrayParameter("timezones", "europe-berlin", "america-new-york"),
   arrayParameter("collaborationHours", "utc-08", "utc-17"),
-  booleanParameter("growingTeam"),
-  booleanParameter("shrinkingTeam"),
-  booleanParameter("earlyTeamShrinkage"),
   booleanParameter("newActiveLeads"),
   booleanParameter("steppedDownLeads"),
   booleanParameter("movedLeads"),
@@ -287,9 +285,6 @@ const organizationParameters = (includeHasJobs: boolean): MatrixParameter[] => [
   booleanParameter("hasProjects"),
   ...(!includeHasJobs
     ? [
-        booleanParameter("growingTeam"),
-        booleanParameter("shrinkingTeam"),
-        booleanParameter("earlyTeamShrinkage"),
         booleanParameter("newActiveLeads"),
         booleanParameter("steppedDownLeads"),
         booleanParameter("movedLeads"),

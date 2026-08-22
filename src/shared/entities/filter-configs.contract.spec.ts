@@ -25,7 +25,8 @@ describe("filter config response contracts", () => {
       classifications: ["ENGINEERING"],
       commitments: ["FULL_TIME"],
       chains: ["Ethereum"],
-      locations: ["REMOTE"],
+      workModes: ["remote"],
+      workModeLabels: { remote: "REMOTE" },
       availability: ["place:geonames:2759794", "place:unm49:528"],
       availabilityLabels: {
         "place:geonames:2759794": "Amsterdam",
@@ -98,7 +99,7 @@ describe("filter config response contracts", () => {
         options: [{ label: "Full Time", value: "fulltime" }],
       },
       chains: { options: [{ label: "Ethereum", value: "ethereum" }] },
-      locations: { options: [{ label: "Remote", value: "remote" }] },
+      workModes: { options: [{ label: "Remote", value: "remote" }] },
       availability: {
         options: [
           {
@@ -277,9 +278,10 @@ describe("filter config response contracts", () => {
           highest: { value: 20, paramKey: "maxCurrentMaintainers" },
         },
       },
-      growingTeam: { paramKey: "growingTeam" },
-      shrinkingTeam: { paramKey: "shrinkingTeam" },
-      earlyTeamShrinkage: { paramKey: "earlyTeamShrinkage" },
+      newActiveLeads: { paramKey: "newActiveLeads" },
+      steppedDownLeads: { paramKey: "steppedDownLeads" },
+      movedLeads: { paramKey: "movedLeads" },
+      earlyLeadDepartures: { paramKey: "earlyLeadDepartures" },
       recentlyFunded: { paramKey: "recentlyFunded" },
       investors: { options: [{ label: "Paradigm", value: "paradigm" }] },
       ecosystems: { options: [{ label: "Ethereum", value: "ethereum" }] },

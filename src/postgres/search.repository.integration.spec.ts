@@ -4,6 +4,10 @@ import { SearchService } from "src/search/search.service";
 import { SearchPillarParams } from "src/search/dto/search-pillar.input";
 import { SearchPillarItemParams } from "src/search/dto/search-pillar-items.input";
 import { SearchPillarFiltersParams } from "src/search/dto/search-pillar-filters-params.input";
+import {
+  attachStructuredJobToEmployerFixture,
+  createProfileMemberFixture,
+} from "./postgres.integration-fixtures";
 
 const describePostgres =
   process.env.RUN_POSTGRES_INTEGRATION === "1" ? describe : describe.skip;
@@ -47,7 +51,7 @@ describePostgres("SearchRepository PostgreSQL integration", () => {
     await seedProjectionData();
   });
 
-  it("searches projection and grant navigation facets", async () => {
+  it("searches projection navigation facets", async () => {
     await expect(
       repository.getNavigationFacets("projects", "type"),
     ).resolves.toEqual(
@@ -64,12 +68,6 @@ describePostgres("SearchRepository PostgreSQL integration", () => {
     await expect(repository.getNavigationFacets("vcs", "seq")).resolves.toEqual(
       [{ pillar: "names", label: "Sequoia" }],
     );
-    await expect(
-      repository.getNavigationFacets("grants", "grant"),
-    ).resolves.toEqual(
-      expect.arrayContaining([{ pillar: "names", label: "Test Grant" }]),
-    );
-    await expect(repository.getNavigationFacets("impact")).resolves.toEqual([]);
   });
 
   it("builds compact pillar configs from each projection", async () => {
@@ -93,12 +91,6 @@ describePostgres("SearchRepository PostgreSQL integration", () => {
       projects: ["Acme Protocol"],
       hasProjects: true,
       hasJobs: true,
-    });
-    const [grant] = await repository.getPillarConfigs("grants");
-    expect(grant).toMatchObject({
-      names: ["Test Grant"],
-      categories: ["Infrastructure"],
-      programBudget: 100000,
     });
   });
 
@@ -744,6 +736,13 @@ describePostgres("SearchRepository PostgreSQL integration", () => {
       shortUUID: "job-short",
       title: "TypeScript Engineer",
     });
+    await attachStructuredJobToEmployerFixture(
+      postgres,
+      organizationNodeId,
+      jobNodeId,
+      "job:test",
+      { workMode: "remote" },
+    );
     await createNode("Tag", "tag:typescript", {
       id: "tag-id",
       name: "TypeScript",
@@ -914,42 +913,6 @@ describePostgres("SearchRepository PostgreSQL integration", () => {
       title: "DeFi Projects",
       description: "Projects in decentralized finance",
     });
-    await seedGrant();
-  }
-
-  async function seedGrant(): Promise<void> {
-    const program = await createNode("KarmaGapProgram", "grant:program", {
-      id: "grant-id",
-      name: "Test Grant",
-    });
-    const metadata = await createNode(
-      "KarmaGapProgramMetadata",
-      "grant:metadata",
-      { startsAt: now, programBudget: 100000 },
-    );
-    const status = await createNode("KarmaGapStatus", "grant:status", {
-      name: "Active",
-    });
-    const category = await createNode("KarmaGapCategory", "grant:category", {
-      name: "Infrastructure",
-    });
-    const network = await createNode("KarmaGapNetwork", "grant:network", {
-      name: "Ethereum",
-    });
-    const ecosystem = await createNode("KarmaGapEcosystem", "grant:ecosystem", {
-      name: "Ethereum",
-    });
-    const organization = await createNode(
-      "KarmaGapOrganization",
-      "grant:organization",
-      { name: "Acme Foundation" },
-    );
-    await createRelationship(program, metadata, "HAS_METADATA");
-    await createRelationship(program, status, "HAS_STATUS");
-    await createRelationship(metadata, category, "HAS_CATEGORY");
-    await createRelationship(metadata, network, "HAS_NETWORK");
-    await createRelationship(metadata, ecosystem, "HAS_ECOSYSTEM");
-    await createRelationship(metadata, organization, "HAS_ORGANIZATION");
   }
 
   async function createNode(
@@ -957,6 +920,9 @@ describePostgres("SearchRepository PostgreSQL integration", () => {
     key: string,
     properties: Record<string, unknown>,
   ): Promise<string> {
+    if (label === "Organization" || label === "Project") {
+      return createProfileMemberFixture(postgres, label, key, properties);
+    }
     const [row] = await postgres.query<{ id: string }>(
       `
         INSERT INTO graph_nodes (label, labels, node_key, properties)
@@ -966,20 +932,5 @@ describePostgres("SearchRepository PostgreSQL integration", () => {
       [label, key, JSON.stringify(properties)],
     );
     return row.id;
-  }
-
-  async function createRelationship(
-    sourceId: string,
-    targetId: string,
-    type: string,
-  ): Promise<void> {
-    await postgres.query(
-      `
-        INSERT INTO graph_relationships (
-          source_id, target_id, type, relationship_key, properties
-        ) VALUES ($1, $2, $3, '', '{}'::jsonb)
-      `,
-      [sourceId, targetId, type],
-    );
   }
 });

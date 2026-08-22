@@ -110,9 +110,6 @@ export class OrgFilterConfigsEntity {
       earlyLeadDepartures: this.getTeamSingleSelectPresets(
         "earlyLeadDepartures",
       ),
-      growingTeam: this.getSingleSelectPresets("growingTeam"),
-      shrinkingTeam: this.getSingleSelectPresets("shrinkingTeam"),
-      earlyTeamShrinkage: this.getSingleSelectPresets("earlyTeamShrinkage"),
       recentlyFunded: this.getSingleSelectPresets("recentlyFunded"),
       investors: this.getMultiValuePresets("investors"),
       ecosystems: this.getMultiValuePresets("ecosystems"),

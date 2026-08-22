@@ -355,7 +355,7 @@ describe("SearchDocumentRepository", () => {
       chains: ["Ethereum"],
       classifications: ["Engineering"],
       commitments: ["Full Time"],
-      locations: ["Remote"],
+      workModes: ["Remote"],
     });
 
     const [sql, parameters] = query.mock.calls[0];
@@ -367,11 +367,14 @@ describe("SearchDocumentRepository", () => {
       "chain_names",
       "classifications",
       "commitments",
-      "location_types",
     ]) {
       expect(sql).toContain(`(${column}) &&`);
     }
     expect(sql).toContain("(funding_round_names) &&");
+    expect(sql).toContain(
+      "job_has_work_location_mode(job_node_id, requested.mode)",
+    );
+    expect(sql).not.toContain("(location_types) &&");
     expect(sql).toContain("FROM unnest(classifications) facet_key");
     expect(sql).toContain("replace(facet_key, '-', '')");
     expect(parameters).toEqual(
@@ -1000,6 +1003,9 @@ describe("SearchDocumentRepository", () => {
     expect(sql).toContain(
       "NOT entity_property_is_banned(organization.properties)",
     );
+    expect(sql).toContain("normalized_url_host(domain)");
+    expect(sql).toContain("right(");
+    expect(sql).not.toContain("LIKE '%' || lower(domain)");
     expect(sql).not.toContain(malicious);
     expect(parameters).toEqual([[malicious]]);
   });
@@ -1012,6 +1018,9 @@ describe("SearchDocumentRepository", () => {
     ).resolves.toBe("project-1");
     const [sql, parameters] = query.mock.calls[0];
     expect(sql).toContain("NOT entity_property_is_banned(project.properties)");
+    expect(sql).toContain("normalized_url_host(domain)");
+    expect(sql).toContain("right(");
+    expect(sql).not.toContain("LIKE '%' || lower(domain)");
     expect(parameters).toEqual([["project.example"]]);
   });
 

@@ -7,23 +7,20 @@ import {
   Post,
   Query,
   UseGuards,
-  // UseInterceptors,
+  UseInterceptors,
   ValidationPipe,
   Param,
   Delete,
+  ParseUUIDPipe,
   Put,
 } from "@nestjs/common";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { UserService } from "./user.service";
 import { Permissions, Session } from "src/shared/decorators";
 import { PBACGuard } from "src/auth/pbac.guard";
-import {
-  // CACHE_DURATION_15_MINUTES,
-  CheckWalletPermissions,
-} from "src/shared/constants";
+import { CheckWalletPermissions } from "src/shared/constants";
 import {
   AdjacentRepo,
-  UserAvailableForWork,
   EcosystemActivation,
   ResponseWithNoData,
   UserProfile,
@@ -32,10 +29,15 @@ import {
   data,
   TalentList,
   TalentListWithUsers,
+  SignalCandidate,
+  SignalClassificationInterest,
+  SignalsAggregateInterests,
+  SignalsData,
+  SignalTagInterest,
 } from "src/shared/interfaces";
 import { GetAvailableUsersInput } from "./dto/get-available-users.input";
 import { ApiKeyGuard } from "src/auth/api-key.guard";
-import { ApiOkResponse } from "@nestjs/swagger";
+import { ApiExtraModels, ApiOkResponse, getSchemaPath } from "@nestjs/swagger";
 import { UserWorkHistory } from "src/shared/interfaces/user/user-work-history.interface";
 import { ProfileService } from "src/auth/profile/profile.service";
 import { ScorerService } from "src/scorer/scorer.service";
@@ -44,13 +46,22 @@ import { SubscriptionsService } from "src/subscriptions/subscriptions.service";
 import { NewSubscriptionInput } from "src/subscriptions/dto/new-subscription.input";
 import { PermissionService } from "./permission.service";
 import { UpdateThreatIntelAccessDto } from "./dto/update-threat-intel-access.dto";
-// import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
+import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 import { StripeService } from "src/stripe/stripe.service";
 import { UpdateTalentListInput } from "./dto/update-talent-list.input";
 import { CreateTalentListInput } from "./dto/create-talent-list.input";
 import { UpdateTalentListNameInput } from "./dto/update-talent-list-name.input";
+import { AccessWorkspacesService } from "src/access-workspaces/access-workspaces.service";
+import { responseSchemaWrapper } from "src/shared/helpers";
 
 @Controller("users")
+@ApiExtraModels(
+  SignalsData,
+  SignalsAggregateInterests,
+  SignalCandidate,
+  SignalClassificationInterest,
+  SignalTagInterest,
+)
 export class UserController {
   private logger = new CustomLogger(UserController.name);
   constructor(
@@ -60,6 +71,7 @@ export class UserController {
     private readonly stripeService: StripeService,
     private readonly subscriptionService: SubscriptionsService,
     private readonly permissionService: PermissionService,
+    private readonly accessWorkspaces: AccessWorkspacesService,
   ) {}
 
   @Get("threat-intel-access")
@@ -163,74 +175,54 @@ export class UserController {
 
   @Get("available")
   @UseGuards(PBACGuard)
-  @Permissions(
-    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
-    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER],
-  )
-  // @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_15_MINUTES))
+  @Permissions(CheckWalletPermissions.USER)
+  @UseInterceptors(new CacheHeaderInterceptor({ mode: "no-store" }))
+  @ApiOkResponse({
+    description:
+      "Returns opted-in public candidates plus k=5-suppressed cohort interests",
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(SignalsData) }),
+  })
   async getUsersAvailableForWork(
     @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true }))
     params: GetAvailableUsersInput,
-  ): Promise<ResponseWithOptionalData<UserAvailableForWork[]>> {
-    const orgId = address
-      ? await this.userService.findOrgIdByMemberUserWallet(address)
-      : null;
-    if (orgId) {
-      this.logger.log(`/users/available ${JSON.stringify(params)}`);
-      const subscription = data(
-        await this.subscriptionService.getSubscriptionInfoByOrgId(orgId),
-      );
-      if (subscription?.canAccessService("stashPool")) {
-        return this.userService.getUsersAvailableForWork(params, orgId);
-      } else {
-        throw new ForbiddenException({
-          success: false,
-          message:
-            "Organization does not have an active or valid subscription to use this service",
-        });
-      }
-    } else {
+  ): Promise<ResponseWithOptionalData<SignalsData>> {
+    if (!address) {
       throw new ForbiddenException({
         success: false,
         message: "Access denied",
       });
     }
+    await this.accessWorkspaces.requireAgencyEntitlement(
+      params.workspaceId,
+      address,
+    );
+    this.logger.log(`/users/available`);
+    return this.userService.getUsersAvailableForWork(params);
   }
 
   @Get("available/top")
   @UseGuards(PBACGuard)
-  @Permissions(
-    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
-    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER],
-  )
-  // @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_15_MINUTES))
+  @Permissions(CheckWalletPermissions.USER)
+  @UseInterceptors(new CacheHeaderInterceptor({ mode: "no-store" }))
+  @ApiOkResponse({
+    description:
+      "Returns up to 50 opted-in public candidates plus k=5-suppressed cohort interests",
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(SignalsData) }),
+  })
   async getTopUsers(
     @Session() { address }: SessionObject,
-  ): Promise<ResponseWithOptionalData<UserAvailableForWork[]>> {
-    const orgId = address
-      ? await this.userService.findOrgIdByMemberUserWallet(address)
-      : null;
-    if (orgId) {
-      this.logger.log(`/users/available/top`);
-      const subscription = data(
-        await this.subscriptionService.getSubscriptionInfoByOrgId(orgId),
-      );
-      if (subscription?.canAccessService("stashPool")) {
-        return this.userService.getTopUsers(orgId);
-      } else {
-        throw new ForbiddenException({
-          success: false,
-          message:
-            "Organization does not have an active or valid subscription to use this service",
-        });
-      }
-    } else {
+    @Query("workspaceId", new ParseUUIDPipe()) workspaceId: string,
+  ): Promise<ResponseWithOptionalData<SignalsData>> {
+    if (!address) {
       throw new ForbiddenException({
         success: false,
         message: "Access denied",
       });
     }
+    await this.accessWorkspaces.requireAgencyEntitlement(workspaceId, address);
+    this.logger.log(`/users/available/top`);
+    return this.userService.getTopUsers();
   }
 
   @Get("/org/:id/talent-lists")

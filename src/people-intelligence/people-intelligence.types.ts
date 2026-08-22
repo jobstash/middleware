@@ -80,6 +80,12 @@ export type DeveloperVerticalSummary = DeveloperReportScopeSummary & {
 };
 
 export type DeveloperReport = {
+  privacy: {
+    minimumAggregateSize: 5;
+    suppressedValue: 0;
+    suppressedFields: string[];
+    omittedRows: number;
+  };
   available: boolean;
   asOf: string | null;
   completeThrough: string | null;

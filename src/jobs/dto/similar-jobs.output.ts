@@ -14,6 +14,20 @@ class SimilarJobOrganization {
   website: string | null;
 }
 
+class SimilarJobProject {
+  @ApiProperty()
+  name: string;
+
+  @ApiPropertyOptional()
+  logo: string | null;
+
+  @ApiPropertyOptional()
+  normalizedName: string | null;
+
+  @ApiPropertyOptional()
+  website: string | null;
+}
+
 export class SimilarJob {
   @ApiProperty()
   shortUUID: string;
@@ -24,6 +38,9 @@ export class SimilarJob {
   @ApiPropertyOptional()
   timestamp: number | null;
 
-  @ApiPropertyOptional()
+  @ApiProperty({ type: SimilarJobOrganization, nullable: true })
   organization: SimilarJobOrganization | null;
+
+  @ApiProperty({ type: SimilarJobProject, nullable: true })
+  project: SimilarJobProject | null;
 }

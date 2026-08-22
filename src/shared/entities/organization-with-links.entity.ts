@@ -20,7 +20,6 @@ export class OrganizationWithLinksEntity {
       detectedJobsites,
       jobsites,
       grants,
-      grantSites,
     } = organization;
 
     return new OrganizationWithLinks({
@@ -124,7 +123,6 @@ export class OrganizationWithLinksEntity {
       ecosystems: ecosystems ?? [],
       websites: websites ?? [],
       aliases: aliases ?? [],
-      grantSites: grantSites ?? [],
       detectedJobsites:
         detectedJobsites.map(detectedJobsite => ({
           id: detectedJobsite.id,

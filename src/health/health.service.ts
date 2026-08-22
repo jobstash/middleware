@@ -12,9 +12,6 @@ export type ServiceHealth = {
   status: "live" | "ready" | "not_ready";
   service: string;
   environment: string;
-  releaseSha: string;
-  imageDigest: string;
-  buildTime: string;
   responseTimeMs: number;
   instanceRole: string;
   dependencies: Record<string, DependencyState>;
@@ -96,9 +93,6 @@ export class HealthService {
         "APP_ENV",
         process.env.NODE_ENV ?? "unknown",
       ),
-      releaseSha: this.config.get<string>("RELEASE_SHA", "unknown"),
-      imageDigest: this.config.get<string>("IMAGE_DIGEST", "unknown"),
-      buildTime: this.config.get<string>("BUILD_TIME", "unknown"),
       responseTimeMs: Date.now() - startedAt,
       instanceRole: this.config.get<string>("INSTANCE_ROLE", "api"),
       dependencies,

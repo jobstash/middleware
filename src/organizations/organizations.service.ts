@@ -51,7 +51,6 @@ import { UpdateOrgGithubsInput } from "./dto/update-organization-githubs.input";
 import { UpdateOrgDiscordsInput } from "./dto/update-organization-discords.input";
 import { UpdateOrgDocsInput } from "./dto/update-organization-docs.input";
 import { UpdateOrgTelegramsInput } from "./dto/update-organization-telegrams.input";
-import { UpdateOrgGrantsInput } from "./dto/update-organization-grants.input";
 import { ActivateOrgJobsiteInput } from "./dto/activate-organization-jobsites.input";
 import { UpdateOrgJobsitesInput } from "./dto/update-organization-jobsites.input";
 import { UpdateOrgProjectInput } from "./dto/update-organization-projects.input";
@@ -1131,7 +1130,6 @@ export class OrganizationsService {
     id: string,
     properties: Omit<
       UpdateOrganizationInput,
-      | "grants"
       | "projects"
       | "ecosystems"
       | "aliases"
@@ -1237,7 +1235,6 @@ export class OrganizationsService {
           "HAS_WEBSITE",
           "HAS_RAW_WEBSITE",
           "HAS_RAW_WEBSITE_METADATA",
-          "HAS_GRANTSITE",
           "HAS_DOCSITE",
           "HAS_TELEGRAM",
           "HAS_GITHUB",
@@ -1258,7 +1255,6 @@ export class OrganizationsService {
           "Website",
           "RawWebsite",
           "RawWebsiteMetadata",
-          "GrantSite",
           "DocSite",
           "Telegram",
           "GithubOrganization",
@@ -1370,6 +1366,7 @@ export class OrganizationsService {
         const response2 = await axios.post(
           `${url}/imports/runs`,
           {
+            source: "jobposts",
             idempotencyKey: `middleware-jobsite-${randomUUID()}`,
             scope: "jobsite",
             jobsiteUrl: jobsite.url,
@@ -1709,17 +1706,6 @@ export class OrganizationsService {
       targetLabel: "Telegram",
       targetProperty: "username",
       resourceName: "telegrams",
-    });
-  }
-
-  async updateOrgGrants(
-    dto: UpdateOrgGrantsInput,
-  ): Promise<ResponseWithOptionalData<string[]>> {
-    return this.replaceOrgLinks(dto.orgId, dto.grantsites, {
-      relationshipType: "HAS_GRANTSITE",
-      targetLabel: "GrantSite",
-      targetProperty: "url",
-      resourceName: "grantsites",
     });
   }
 

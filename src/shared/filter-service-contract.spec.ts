@@ -128,7 +128,7 @@ describe("filter service contracts", () => {
     );
 
     await service.getJobsListWithSearch({
-      growingTeam: true,
+      newActiveLeads: true,
       query: null,
     });
 
@@ -155,7 +155,7 @@ describe("filter service contracts", () => {
     );
 
     await expect(
-      service.getJobsListWithSearch({ growingTeam: true, query: null }),
+      service.getJobsListWithSearch({ newActiveLeads: true, query: null }),
     ).rejects.toThrow("scorer unavailable");
     expect(searchJobs).not.toHaveBeenCalled();
   });

@@ -2,6 +2,7 @@ import { ConfigService } from "@nestjs/config";
 import { GithubUserService } from "src/auth/github/github-user.service";
 import { ProfileService } from "src/auth/profile/profile.service";
 import { ScorerService } from "src/scorer/scorer.service";
+import { createProfileMemberFixture } from "./postgres.integration-fixtures";
 import { PostgresService } from "./postgres.service";
 import { ProfileRepository } from "./profile.repository";
 import { UserRepository } from "./user.repository";
@@ -189,6 +190,25 @@ describePostgres("ProfileRepository PostgreSQL integration", () => {
   });
 
   it("resolves, persists, and reads organization verifications", async () => {
+    const deceptiveOrganization = await createNode(
+      "Organization",
+      "org:not-acme",
+      {
+        id: "not-acme-organization-id",
+        orgId: "not-acme-org",
+        name: "Not Acme",
+        normalizedName: "not-acme",
+      },
+    );
+    const deceptiveWebsite = await createNode("Website", "website:not-acme", {
+      id: "not-acme-website-id",
+      url: "https://notacme.example",
+    });
+    await createRelationship(
+      deceptiveOrganization,
+      deceptiveWebsite,
+      "HAS_WEBSITE",
+    );
     await expect(
       repository.findVerificationOrganizationsByNames("0xProfileUser", [
         "Acme",
@@ -201,7 +221,11 @@ describePostgres("ProfileRepository PostgreSQL integration", () => {
         "person@acme.example",
       ]),
     ).resolves.toEqual([
-      expect.objectContaining({ id: "acme-org", name: "Acme" }),
+      expect.objectContaining({
+        id: "acme-org",
+        name: "Acme",
+        account: "person@acme.example",
+      }),
     ]);
     await repository.replaceVerifications("0xProfileUser", [
       {
@@ -760,6 +784,10 @@ describePostgres("ProfileRepository PostgreSQL integration", () => {
     expect(searchCount.count).toBe("1");
   });
 
+  it("executes the Jobs for me employer-union aggregate", async () => {
+    await expect(repository.getJobMatchingCandidates()).resolves.toEqual([]);
+  });
+
   async function seedGraph(): Promise<void> {
     userId = await createNode("User", "user:profile", {
       id: "profile-user-id",
@@ -859,6 +887,9 @@ describePostgres("ProfileRepository PostgreSQL integration", () => {
     key: string,
     properties: Record<string, unknown>,
   ): Promise<string> {
+    if (label === "Organization" || label === "Project") {
+      return createProfileMemberFixture(postgres, label, key, properties);
+    }
     const [row] = await postgres.query<{ id: string }>(
       `
         INSERT INTO graph_nodes (label, labels, node_key, properties)

@@ -3,15 +3,21 @@ import {
   Controller,
   Headers,
   Inject,
+  Param,
   Post,
   RawBodyRequest,
   Req,
+  UseGuards,
 } from "@nestjs/common";
 import { StripeService } from "./stripe.service";
 import Stripe from "stripe";
 import { Request } from "express";
 import * as Sentry from "@sentry/node";
 import { CustomLogger } from "src/shared/utils/custom-logger";
+import { PBACGuard } from "src/auth/pbac.guard";
+import { CheckWalletPermissions } from "src/shared/constants";
+import { Permissions, Session } from "src/shared/decorators";
+import { SessionObject } from "src/shared/interfaces";
 
 @Controller("stripe")
 export class StripeController {
@@ -23,6 +29,27 @@ export class StripeController {
     private readonly webhookSecret: string,
     private readonly stripeService: StripeService,
   ) {}
+
+  @Post("agency-workspaces/:workspaceId/checkout")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
+  async createAgencyCheckout(
+    @Param("workspaceId") workspaceId: string,
+    @Session() session: SessionObject,
+  ): Promise<{
+    success: true;
+    message: string;
+    data: { id: string; url: string };
+  }> {
+    return {
+      success: true,
+      message: "Agency checkout created successfully",
+      data: await this.stripeService.createAgencyCheckout(
+        workspaceId,
+        session.address!,
+      ),
+    };
+  }
 
   @Post("webhook")
   async handleWebhook(
@@ -40,6 +67,7 @@ export class StripeController {
         case "checkout.session.completed":
           await this.stripeService.handleCheckoutSessionCompleted(
             event.data.object,
+            event.id,
           );
           break;
 

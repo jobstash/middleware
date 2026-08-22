@@ -4,8 +4,6 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import {
-  UserAvailableForWork,
-  UserAvailableForWorkEntity,
   ResponseWithNoData,
   ResponseWithOptionalData,
   User,
@@ -14,6 +12,8 @@ import {
   UserProfileEntity,
   data,
   UserPermission,
+  SignalCandidate,
+  SignalsData,
   TalentListWithUsers,
   TalentListWithUsersEntity,
 } from "src/shared/types";
@@ -48,6 +48,81 @@ import {
   ThreatAccessUserRow,
   UserRepository,
 } from "src/postgres/user.repository";
+
+const EMAIL_LIKE = /\b[^\s@]+@[^\s@]+\.[^\s@]+\b/i;
+
+const publicString = (value: unknown): string | null =>
+  typeof value === "string" && !EMAIL_LIKE.test(value) ? value : null;
+
+/** Defense in depth: repository extras can never become Signals response keys. */
+export const toSignalCandidate = (
+  profile: Record<string, unknown>,
+): SignalCandidate => {
+  const input = profile as unknown as SignalCandidate;
+  const location = input.location ?? { city: null, country: null };
+  return {
+    wallet: publicString(input.wallet) ?? "",
+    name: publicString(input.name),
+    githubAvatar: publicString(input.githubAvatar),
+    location: {
+      city: publicString(location.city),
+      country: publicString(location.country),
+    },
+    availableForWork: true,
+    cryptoNative: input.cryptoNative === true,
+    cryptoAdjacent: input.cryptoAdjacent === true,
+    skills: (Array.isArray(input.skills) ? input.skills : []).map(skill => ({
+      id: publicString(skill.id) ?? "",
+      name: publicString(skill.name),
+      normalizedName: publicString(skill.normalizedName),
+      canTeach: skill.canTeach === true,
+    })),
+    showcases: (Array.isArray(input.showcases) ? input.showcases : [])
+      .map(showcase => ({
+        id: publicString(showcase.id) ?? "",
+        label: publicString(showcase.label) ?? "",
+        url: publicString(showcase.url) ?? "",
+      }))
+      .filter(showcase => showcase.id && showcase.label && showcase.url),
+    workHistory: (Array.isArray(input.workHistory)
+      ? input.workHistory
+      : []
+    ).map(history => ({
+      login: publicString(history.login) ?? "",
+      name: publicString(history.name),
+      logoUrl: publicString(history.logoUrl),
+      description: publicString(history.description),
+      url: publicString(history.url),
+      firstContributedAt: history.firstContributedAt,
+      lastContributedAt: history.lastContributedAt,
+      commitsCount: history.commitsCount,
+      tenure: history.tenure,
+      cryptoNative: history.cryptoNative === true,
+      repositories: (Array.isArray(history.repositories)
+        ? history.repositories
+        : []
+      ).map(repository => ({
+        name: publicString(repository.name) ?? "",
+        url: publicString(repository.url) ?? "",
+        description: publicString(repository.description),
+        commitsCount: repository.commitsCount,
+        firstContributedAt: repository.firstContributedAt,
+        lastContributedAt: repository.lastContributedAt,
+        skills: (Array.isArray(repository.skills)
+          ? repository.skills
+          : []
+        ).filter(skill => !EMAIL_LIKE.test(skill)),
+        tenure: repository.tenure,
+        stars: repository.stars,
+        cryptoNative: repository.cryptoNative === true,
+        createdAt: repository.createdAt,
+        updatedAt: repository.updatedAt,
+      })),
+      createdAt: history.createdAt,
+      updatedAt: history.updatedAt,
+    })),
+  };
+};
 
 @Injectable()
 export class UserService {
@@ -1017,9 +1092,8 @@ export class UserService {
   }
 
   async getUsersAvailableForWork(
-    params: GetAvailableUsersInput,
-    orgId: string | null,
-  ): Promise<ResponseWithOptionalData<UserAvailableForWork[]>> {
+    params: Pick<GetAvailableUsersInput, "city" | "country" | "page" | "limit">,
+  ): Promise<ResponseWithOptionalData<SignalsData>> {
     try {
       const paramsPassed = {
         city: params.city ? new RegExp(params.city, "i") : null,
@@ -1028,7 +1102,7 @@ export class UserService {
 
       const { city, country } = paramsPassed;
 
-      const locationFilter = (dev: UserAvailableForWork): boolean => {
+      const locationFilter = (dev: SignalCandidate): boolean => {
         const cityMatch = city ? city.test(dev.location?.city) : true;
         const countryMatch = country
           ? country.test(dev.location?.country)
@@ -1036,17 +1110,19 @@ export class UserService {
         return cityMatch && countryMatch;
       };
 
-      const users = await this.users
-        .getAvailableUsers(orgId)
-        .then(profiles =>
-          profiles
-            .map(profile =>
-              new UserAvailableForWorkEntity({
-                ...(profile as unknown as UserAvailableForWork),
-                ecosystemActivations: [],
-              }).getProperties(),
-            )
-            .filter(locationFilter),
+      const [users, interestRows] = await Promise.all([
+        this.users.getAvailableUsers(),
+        this.users.getAvailableUserAggregateInterests(),
+      ])
+        .then(
+          ([profiles, interests]) =>
+            [
+              profiles
+                .map(toSignalCandidate)
+                .filter(candidate => candidate.wallet.length > 0)
+                .filter(locationFilter),
+              interests,
+            ] as const,
         )
         .catch(err => {
           Sentry.withScope(scope => {
@@ -1059,17 +1135,36 @@ export class UserService {
           this.logger.error(
             `UserService::getDevsAvailableForWork ${err.message}`,
           );
-          return [];
+          return [[], []] as const;
         });
+
+      const candidates = sort(users).by([
+        { desc: (user): boolean => user.cryptoNative },
+        { desc: (user): boolean => user.cryptoAdjacent },
+        { desc: (user): number => user.workHistory.length ?? 0 },
+      ]);
 
       return {
         success: true,
         message: "Users available for work retrieved successfully",
-        data: sort(users).by([
-          { desc: (user): boolean => user.cryptoNative },
-          { desc: (user): boolean => user.cryptoAdjacent },
-          { desc: (user): number => user.workHistory.length ?? 0 },
-        ]),
+        data: {
+          candidates,
+          aggregateInterests: {
+            minimumAggregateSize: 5,
+            jobClassifications: interestRows
+              .filter(row => row.kind === "classification")
+              .map(row => ({
+                classification: row.label,
+                interestedCandidates: row.interestedCandidates,
+              })),
+            tags: interestRows
+              .filter(row => row.kind === "tag")
+              .map(row => ({
+                tag: row.label,
+                interestedCandidates: row.interestedCandidates,
+              })),
+          },
+        },
       };
     } catch (err) {
       Sentry.withScope(scope => {
@@ -1088,35 +1183,30 @@ export class UserService {
     }
   }
 
-  async getTopUsers(
-    orgId: string,
-  ): Promise<ResponseWithOptionalData<UserAvailableForWork[]>> {
+  async getTopUsers(): Promise<ResponseWithOptionalData<SignalsData>> {
     try {
-      const base = await this.getUsersAvailableForWork(
-        {
-          city: null,
-          country: null,
-          page: null,
-          limit: null,
-        },
-        orgId,
-      );
+      const base = await this.getUsersAvailableForWork({
+        city: null,
+        country: null,
+        page: null,
+        limit: null,
+      });
       if (!base.success) {
         return base;
       }
-      const users = data(base);
-      const topUsers = sort(users).by([
+      const signals = data(base);
+      const topUsers = sort(signals.candidates).by([
         { desc: (user): boolean => user.cryptoNative },
         { desc: (user): boolean => user.cryptoAdjacent },
-        { desc: (user): number => user.attestations.upvotes ?? 0 },
-        { asc: (user): number => user.attestations.downvotes ?? 0 },
         { desc: (user): number => user.workHistory.length ?? 0 },
-        { desc: (user): number => user.lastAppliedTimestamp ?? 0 },
       ]);
       return {
         success: true,
         message: "Top users retrieved successfully",
-        data: topUsers.slice(0, 50),
+        data: {
+          candidates: topUsers.slice(0, 50),
+          aggregateInterests: signals.aggregateInterests,
+        },
       };
     } catch (err) {
       Sentry.withScope(scope => {
