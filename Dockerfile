@@ -12,14 +12,17 @@ RUN corepack enable && corepack prepare yarn@1.22.22 --activate
 
 # 1) Install (with dev) to build
 COPY package.json yarn.lock ./
-RUN yarn install --frozen-lockfile --production=false
+RUN yarn install --frozen-lockfile --production=false --ignore-scripts \
+    && npm rebuild bcrypt --build-from-source --foreground-scripts
 
 # 2) Build
 COPY . .
 RUN yarn build
 
 # 3) Reinstall prod-only deps (still in build stage with toolchain)
-RUN rm -rf node_modules && yarn install --frozen-lockfile --production
+RUN rm -rf node_modules \
+    && yarn install --frozen-lockfile --production --ignore-scripts \
+    && npm rebuild bcrypt --build-from-source --foreground-scripts
 
 # ---------- runtime (no compilers, no installs, no yarn) ----------
 FROM node:22-alpine3.22 AS runtime
