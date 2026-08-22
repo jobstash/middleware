@@ -350,7 +350,6 @@ export class UserController {
   )
   async getEcosystemActivationsForWallets(
     @Query("wallets") wallets: string,
-    @Query("orgId") orgId: string | null,
   ): Promise<
     ResponseWithOptionalData<
       { wallet: string; ecosystemActivations: EcosystemActivation[] }[]
@@ -359,7 +358,6 @@ export class UserController {
     this.logger.log(`/users/ecosystem-activations`);
     return this.scorerService.getEcosystemActivationsForWallets(
       wallets.split(","),
-      orgId,
     );
   }
 

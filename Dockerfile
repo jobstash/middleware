@@ -1,5 +1,5 @@
 # ---------- build (toolchain + Yarn v1 pinned) ----------
-FROM node:22-alpine3.22 AS build
+FROM node:22-alpine3.22@sha256:cd7807368cf24826297cbad5dca1a44972ccfd770647db52a8c7589eb4599ac8 AS build
 WORKDIR /usr/src/app
 
 # Toolchain for native deps (bufferutil, etc.)
@@ -12,26 +12,30 @@ RUN corepack enable && corepack prepare yarn@1.22.22 --activate
 
 # 1) Install (with dev) to build
 COPY package.json yarn.lock ./
-RUN yarn install --frozen-lockfile --production=false
+RUN yarn install --frozen-lockfile --production=false --ignore-scripts \
+    && npm rebuild bcrypt --build-from-source --foreground-scripts
 
 # 2) Build
 COPY . .
 RUN yarn build
 
 # 3) Reinstall prod-only deps (still in build stage with toolchain)
-RUN rm -rf node_modules && yarn install --frozen-lockfile --production
+RUN rm -rf node_modules \
+    && yarn install --frozen-lockfile --production --ignore-scripts \
+    && npm rebuild bcrypt --build-from-source --foreground-scripts
 
 # ---------- runtime (no compilers, no installs, no yarn) ----------
-FROM node:22-alpine3.22 AS runtime
+FROM node:22-alpine3.22@sha256:cd7807368cf24826297cbad5dca1a44972ccfd770647db52a8c7589eb4599ac8 AS runtime
 WORKDIR /usr/src/app
 
 # Coolify's Dockerfile health checks require curl or wget in the runtime image.
 RUN apk add --no-cache curl
 
 # Only copy what you need to run
-COPY --from=build /usr/src/app/package.json ./
-COPY --from=build /usr/src/app/node_modules ./node_modules
-COPY --from=build /usr/src/app/dist ./dist
+COPY --chown=node:node --from=build /usr/src/app/package.json ./
+COPY --chown=node:node --from=build /usr/src/app/node_modules ./node_modules
+COPY --chown=node:node --from=build /usr/src/app/dist ./dist
 
 # Avoid yarn entirely at runtime to dodge shims/collisions
+USER node
 CMD ["node", "dist/main.js"]

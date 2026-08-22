@@ -1,3 +1,5 @@
+import { TEAM_SIGNAL_SINGLE_SELECT_OPTIONS } from "./team-signal-filter-options";
+
 export enum FilterKind {
   SINGLE_SELECT = "SINGLE_SELECT",
   RANGE = "RANGE",
@@ -43,38 +45,7 @@ export const SINGLE_SELECT_OPTIONS = {
       { label: "Has projects", value: true },
       { label: "Has no projects", value: false },
     ],
-    growingTeam: [
-      { label: "New active leads", value: true },
-      { label: "No new active leads", value: false },
-    ],
-    shrinkingTeam: [
-      { label: "Lead step-downs", value: true },
-      { label: "No lead step-downs", value: false },
-    ],
-    earlyTeamShrinkage: [
-      { label: "Early lead departures", value: true },
-      { label: "No early lead departures", value: false },
-    ],
-    newActiveLeads: [
-      { label: "New active leads", value: true },
-      { label: "No new active leads", value: false },
-    ],
-    steppedDownLeads: [
-      { label: "Lead step-downs", value: true },
-      { label: "No lead step-downs", value: false },
-    ],
-    movedLeads: [
-      { label: "Lead movements", value: true },
-      { label: "No lead movements", value: false },
-    ],
-    earlyLeadDepartures: [
-      { label: "Early lead departures", value: true },
-      { label: "No early lead departures", value: false },
-    ],
-    recentlyFunded: [
-      { label: "Funded in the last 6 months", value: true },
-      { label: "No funding event in the last 6 months", value: false },
-    ],
+    ...TEAM_SIGNAL_SINGLE_SELECT_OPTIONS,
     order: [
       { label: "Ascending", value: "asc" },
       { label: "Descending", value: "desc" },
@@ -550,8 +521,24 @@ export const FILTER_CONFIG_PRESETS = {
       kind: FilterKind.MULTI_SELECT,
       prefix: null,
     },
-    seniority: {
+    timezones: {
       position: 6,
+      label: "Timezones",
+      show: true,
+      googleAnalyticsEventName: "filter_search_timezones",
+      kind: FilterKind.MULTI_SELECT,
+      prefix: null,
+    },
+    collaborationHours: {
+      position: 7,
+      label: "Likely Team Collaboration Hours (UTC)",
+      show: true,
+      googleAnalyticsEventName: "filter_search_collaboration_hours",
+      kind: FilterKind.MULTI_SELECT,
+      prefix: null,
+    },
+    seniority: {
+      position: 8,
       label: "Seniority",
       show: true,
       googleAnalyticsEventName: "filter_search_seniority",
@@ -559,7 +546,7 @@ export const FILTER_CONFIG_PRESETS = {
       prefix: null,
     },
     organizations: {
-      position: 7,
+      position: 9,
       label: "Organizations",
       show: true,
       googleAnalyticsEventName: "filter_search_organizations",
@@ -567,7 +554,7 @@ export const FILTER_CONFIG_PRESETS = {
       prefix: null,
     },
     investors: {
-      position: 8,
+      position: 10,
       label: "Investors",
       show: true,
       googleAnalyticsEventName: "filter_search_investors",
@@ -575,15 +562,23 @@ export const FILTER_CONFIG_PRESETS = {
       prefix: null,
     },
     fundingRounds: {
-      position: 9,
+      position: 11,
       label: "Funding Rounds",
       show: true,
       googleAnalyticsEventName: "filter_search_funding_rounds",
       kind: FilterKind.MULTI_SELECT,
       prefix: null,
     },
+    fundingStages: {
+      position: 12,
+      label: "Current Funding Stage",
+      show: true,
+      googleAnalyticsEventName: "filter_search_funding_stages",
+      kind: FilterKind.MULTI_SELECT,
+      prefix: null,
+    },
     order: {
-      position: 10,
+      position: 13,
       label: "Order",
       show: true,
       googleAnalyticsEventName: "filter_search_order",
@@ -591,7 +586,7 @@ export const FILTER_CONFIG_PRESETS = {
       options: SINGLE_SELECT_OPTIONS.jobs.order,
     },
     orderBy: {
-      position: 11,
+      position: 14,
       label: "Order By",
       show: true,
       googleAnalyticsEventName: "filter_search_order_by",
@@ -699,10 +694,13 @@ export const FILTER_PARAM_KEY_PRESETS = {
     tags: "tags",
     commitments: "commitments",
     locationTypes: "locationTypes",
+    timezones: "timezones",
+    collaborationHours: "collaborationHours",
     seniority: "seniority",
     organizations: "organizations",
     investors: "investors",
     fundingRounds: "fundingRounds",
+    fundingStages: "fundingStages",
     order: "order",
     orderBy: "orderBy",
   },
@@ -792,10 +790,13 @@ export const FILTER_PARAM_KEY_REVERSE_PRESETS = {
     tags: "tags",
     commitments: "commitments",
     locationTypes: "locationTypes",
+    timezones: "timezones",
+    collaborationHours: "collaborationHours",
     seniority: "seniority",
     organizations: "organizations",
     investors: "investors",
     fundingRounds: "fundingRounds",
+    fundingStages: "fundingStages",
     order: "order",
     orderBy: "orderBy",
   },

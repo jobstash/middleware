@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { Injectable } from "@nestjs/common";
 import { go } from "fuzzysort";
 import { JobListParams } from "src/jobs/dto/job-list.input";
@@ -44,6 +46,19 @@ type LegacySqlPage = {
   offset: number;
   total?: number;
   empty: boolean;
+};
+
+type AdminGridOptions = {
+  limit: number;
+  offset: number;
+  query?: string;
+  reviewOnly?: boolean;
+  bannedOnly?: boolean;
+};
+
+type AdminGridResult = {
+  data: Record<string, unknown>[];
+  total: number;
 };
 
 export type SearchPage<T> = {
@@ -99,6 +114,11 @@ type OrganizationSearchParams = Partial<OrgListParams> & {
 };
 
 const NATURAL_NAME_SQL = "name COLLATE jobstash_natural";
+
+const ORGANIZATION_ADMIN_GRID_SQL = readFileSync(
+  join(__dirname, "sql", "organization-admin-grid.sql"),
+  "utf8",
+);
 
 const ADMIN_DIRECTORY_QUERY_KEY_SQL = `
   CASE
@@ -210,6 +230,45 @@ const normalizeList = (values?: string[] | null): string[] | null =>
 const activeRangeBound = (value?: number | null): boolean =>
   value !== null && value !== undefined && value !== 0;
 
+const jobEmployerPayload = (
+  basePayload: string,
+  jobAlias = "job",
+  organizationAlias = "organization",
+  projectAlias = "project",
+): string => `
+  ${basePayload}
+  || CASE
+    WHEN ${jobAlias}.organization_id IS NOT NULL
+      AND ${jobAlias}.project_id IS NULL
+      AND ${organizationAlias}.payload IS NOT NULL
+      THEN jsonb_build_object(
+        'organization', ${organizationAlias}.payload - 'tags' - 'jobs',
+        'project', NULL
+      )
+    WHEN ${jobAlias}.organization_id IS NULL
+      AND ${jobAlias}.project_id IS NOT NULL
+      AND ${projectAlias}.payload IS NOT NULL
+      THEN jsonb_build_object(
+        'organization', NULL,
+        'project', ${projectAlias}.payload - 'tags' - 'jobs'
+      )
+    ELSE jsonb_build_object('organization', NULL, 'project', NULL)
+  END
+`;
+
+const jobEmployerJoins = (
+  jobAlias = "job",
+  organizationAlias = "organization",
+  projectAlias = "project",
+): string => `
+  LEFT JOIN organization_search_documents ${organizationAlias}
+    ON ${organizationAlias}.organization_id = ${jobAlias}.organization_id
+   AND ${jobAlias}.project_id IS NULL
+  LEFT JOIN project_search_documents ${projectAlias}
+    ON ${projectAlias}.project_id = ${jobAlias}.project_id
+   AND ${jobAlias}.organization_id IS NULL
+`;
+
 const pageValues = (
   page: number | null | undefined,
   limit: number | null | undefined,
@@ -265,21 +324,14 @@ export class SearchDocumentRepository {
 
     const rows = await this.postgres.query<{ payload: JobListResult }>(
       `
-        SELECT CASE
-          WHEN organization.payload IS NULL THEN job.payload
-          ELSE job.payload || jsonb_build_object(
-            'organization', organization.payload - 'tags' - 'jobs',
-            'project', NULL
-          )
-        END AS payload
+        SELECT ${jobEmployerPayload("job.payload")} AS payload
         FROM job_search_documents job
-        LEFT JOIN organization_search_documents organization
-          ON organization.organization_id = job.organization_id
+        ${jobEmployerJoins()}
         WHERE job.online
           AND NOT job.blocked
           AND job.legacy_list_eligible
           AND cardinality(job.tags) > 0
-          AND (job.organization_id IS NOT NULL OR job.project_id IS NOT NULL)
+          AND num_nonnulls(job.organization_id, job.project_id) = 1
           AND NOT (
             job.access = 'public'
             AND job.organization_has_expert_jobs
@@ -298,15 +350,19 @@ export class SearchDocumentRepository {
       SELECT
         job.short_uuid AS "shortUUID",
         job.title,
-        organization.name AS "organizationName",
-        cardinality(organization.project_ids) > 0 AS "hasProjects"
+        COALESCE(organization.name, project.name) AS "organizationName",
+        CASE
+          WHEN job.organization_id IS NOT NULL AND job.project_id IS NULL
+            THEN cardinality(organization.project_ids) > 0
+          ELSE false
+        END AS "hasProjects"
       FROM job_search_documents job
-      JOIN organization_search_documents organization
-        ON organization.organization_id = job.organization_id
+      ${jobEmployerJoins()}
       WHERE job.online
         AND NOT job.blocked
         AND job.legacy_list_eligible
         AND cardinality(job.tags) > 0
+        AND num_nonnulls(job.organization_id, job.project_id) = 1
         AND NOT (
           job.access = 'public'
           AND job.organization_has_expert_jobs
@@ -756,18 +812,17 @@ export class SearchDocumentRepository {
     const rows = await this.postgres.query<{ payload: JobListResult }>(
       `
         SELECT
-          job.payload || jsonb_build_object(
-            'organization', organization.payload - 'tags' - 'jobs',
-            'project', NULL,
+          ${jobEmployerPayload("job.payload")}
+          || jsonb_build_object(
             'online', job.online,
             'blocked', job.blocked
           ) AS payload
         FROM job_search_documents job
-        JOIN organization_search_documents organization
-          ON organization.organization_id = job.organization_id
+        ${jobEmployerJoins()}
         WHERE job.managed_ecosystems && $1::text[]
           AND job.legacy_list_eligible
           AND cardinality(job.tags) > 0
+          AND num_nonnulls(job.organization_id, job.project_id) = 1
         ORDER BY job.published_timestamp DESC NULLS LAST, job.job_node_id
       `,
       [normalized],
@@ -778,22 +833,15 @@ export class SearchDocumentRepository {
   async getAllJobPayloads(): Promise<JobListResult[]> {
     const rows = await this.postgres.query<{ payload: JobListResult }>(`
       SELECT
-        job.payload
-        || CASE
-          WHEN organization.payload IS NULL THEN '{}'::jsonb
-          ELSE jsonb_build_object(
-            'organization', organization.payload - 'tags' - 'jobs',
-            'project', NULL
-          )
-        END
+        ${jobEmployerPayload("job.payload")}
         || jsonb_build_object(
           'isOnline', job.online,
           'isBlocked', job.blocked
         ) AS payload
       FROM job_search_documents job
-      LEFT JOIN organization_search_documents organization
-        ON organization.organization_id = job.organization_id
+      ${jobEmployerJoins()}
       WHERE cardinality(job.tags) > 0
+        AND num_nonnulls(job.organization_id, job.project_id) = 1
       ORDER BY job.published_timestamp DESC NULLS LAST, job.job_node_id
     `);
     return rows.map(row => row.payload);
@@ -833,6 +881,7 @@ export class SearchDocumentRepository {
         LEFT JOIN organization_search_documents organization
           ON organization.organization_id = job.organization_id
         WHERE job.organization_id = $1
+          AND job.project_id IS NULL
           AND cardinality(job.tags) > 0
         ORDER BY job.published_timestamp DESC NULLS LAST, job.job_node_id
       `,
@@ -852,7 +901,7 @@ export class SearchDocumentRepository {
       where.add("NOT blocked");
     }
     where.add("legacy_list_eligible");
-    where.add("(organization_id IS NOT NULL OR project_id IS NOT NULL)");
+    where.add("num_nonnulls(organization_id, project_id) = 1");
     where.add("cardinality(tags) > 0");
     if (params.suppressPublicForExpertOrganizations !== false) {
       where.add("NOT (access = 'public' AND organization_has_expert_jobs)");
@@ -921,6 +970,13 @@ export class SearchDocumentRepository {
     addGeographyFacet("countries", params.countries);
     addGeographyFacet("continents", params.continents);
     addGeographyFacet("timezones", params.timezones);
+    const collaborationHours = normalizeList(params.collaborationHours);
+    if (collaborationHours?.length) {
+      where.add(`job_team_collaboration_hour_keys(
+        organization_id,
+        project_id
+      ) && ${where.bind(collaborationHours)}::text[]`);
+    }
     where.addFacetKeyOverlap(
       "fundingStages",
       "ARRAY[slugify_text(current_funding_stage)]",
@@ -1136,17 +1192,10 @@ export class SearchDocumentRepository {
           FROM unnest($1::bigint[]) WITH ORDINALITY
             AS requested(job_node_id, ordinality)
         )
-        SELECT CASE
-          WHEN organization.payload IS NULL THEN job.payload
-          ELSE job.payload || jsonb_build_object(
-            'organization', organization.payload - 'tags' - 'jobs',
-            'project', NULL
-          )
-        END AS payload
+        SELECT ${jobEmployerPayload("job.payload")} AS payload
         FROM page
         JOIN job_search_documents job ON job.job_node_id = page.job_node_id
-        LEFT JOIN organization_search_documents organization
-          ON organization.organization_id = job.organization_id
+        ${jobEmployerJoins()}
         ORDER BY page.ordinality
       `,
       [page.map(candidate => candidate.job_node_id)],
@@ -1180,22 +1229,14 @@ export class SearchDocumentRepository {
     const rows = await this.postgres.query<{ payload: JobListResult }>(
       `
         SELECT
-          job.payload
-          || CASE
-            WHEN organization.payload IS NULL THEN '{}'::jsonb
-            ELSE jsonb_build_object(
-              'organization', organization.payload - 'tags' - 'jobs',
-              'project', NULL
-            )
-          END AS payload
+          ${jobEmployerPayload("job.payload")} AS payload
         FROM job_search_documents job
-        LEFT JOIN organization_search_documents organization
-          ON organization.organization_id = job.organization_id
+        ${jobEmployerJoins()}
         WHERE job.online
           AND NOT job.blocked
           AND job.legacy_list_eligible
           AND cardinality(job.tags) > 0
-          AND (job.organization_id IS NOT NULL OR job.project_id IS NOT NULL)
+          AND num_nonnulls(job.organization_id, job.project_id) = 1
           AND (
             NOT $1::boolean
             OR NOT (
@@ -1236,14 +1277,7 @@ export class SearchDocumentRepository {
     >(
       `
         SELECT
-          job.payload
-          || CASE
-            WHEN organization.payload IS NULL THEN '{}'::jsonb
-            ELSE jsonb_build_object(
-              'organization', organization.payload - 'tags' - 'jobs',
-              'project', NULL
-            )
-          END
+          ${jobEmployerPayload("job.payload")}
           || jsonb_build_object(
             'online', job.online,
             'publishedTimestampIsVerified', COALESCE(
@@ -1253,12 +1287,11 @@ export class SearchDocumentRepository {
           ) AS payload,
           count(*) OVER () AS total_count
         FROM job_search_documents job
-        LEFT JOIN organization_search_documents organization
-          ON organization.organization_id = job.organization_id
+        ${jobEmployerJoins()}
         WHERE NOT job.blocked
           AND job.legacy_list_eligible
           AND cardinality(job.tags) > 0
-          AND (job.organization_id IS NOT NULL OR job.project_id IS NOT NULL)
+          AND num_nonnulls(job.organization_id, job.project_id) = 1
         ORDER BY job.published_timestamp DESC NULLS LAST, job.job_node_id
         LIMIT $1 OFFSET $2
       `,
@@ -1277,6 +1310,7 @@ export class SearchDocumentRepository {
       "NOT job.blocked",
       "job.legacy_list_eligible",
       "cardinality(job.tags) > 0",
+      "num_nonnulls(job.organization_id, job.project_id) = 1",
       "NOT (job.access = 'public' AND job.organization_has_expert_jobs)",
     ];
     if (ecosystem) {
@@ -1285,7 +1319,7 @@ export class SearchDocumentRepository {
         : [slugify(ecosystem)];
       parameters.push(ecosystems);
       predicates.push(
-        `organization.managed_ecosystems && $${parameters.length}::text[]`,
+        `job.managed_ecosystems && $${parameters.length}::text[]`,
       );
     }
     if (organizationId) {
@@ -1312,8 +1346,13 @@ export class SearchDocumentRepository {
             job.commitments,
             job.location_types,
             job.availability_keys,
+            job_team_collaboration_hour_keys(
+              job.organization_id,
+              job.project_id
+            ) AS collaboration_hours,
             job.seniority,
             job.filter_labels,
+            job.project_id AS job_project_id,
             job.project_names AS job_project_names,
             job.organization_name AS job_organization_name,
             job.investor_names AS job_investor_names,
@@ -1332,8 +1371,8 @@ export class SearchDocumentRepository {
             organization.ecosystems AS owner_ecosystems,
             organization.filter_labels AS owner_filter_labels
           FROM job_search_documents job
-          JOIN job_search_owners owner ON owner.job_node_id = job.job_node_id
-          JOIN organization_search_documents organization
+          LEFT JOIN job_search_owners owner ON owner.job_node_id = job.job_node_id
+          LEFT JOIN organization_search_documents organization
             ON organization.organization_node_id = owner.organization_node_id
           WHERE ${predicates.join(" AND ")}
         ), scoped_job_documents AS MATERIALIZED (
@@ -1346,8 +1385,10 @@ export class SearchDocumentRepository {
             commitments,
             location_types,
             availability_keys,
+            collaboration_hours,
             seniority,
             filter_labels,
+            job_project_id,
             job_project_names,
             job_organization_name,
             job_investor_names,
@@ -1370,6 +1411,7 @@ export class SearchDocumentRepository {
             owner_ecosystems,
             owner_filter_labels
           FROM scoped_jobs
+          WHERE owner_organization_id IS NOT NULL
           ORDER BY owner_organization_id
         ), eligible_organizations AS MATERIALIZED (
           SELECT scoped.*
@@ -1389,6 +1431,11 @@ export class SearchDocumentRepository {
             SELECT array_agg(DISTINCT slugify_text(owner_organization_id))
             FROM eligible_organizations
           ), ARRAY[]::text[])
+             OR project.project_id IN (
+               SELECT scoped.job_project_id
+               FROM scoped_job_documents scoped
+               WHERE scoped.job_project_id IS NOT NULL
+             )
         )
         SELECT
           COALESCE(
@@ -1446,6 +1493,18 @@ export class SearchDocumentRepository {
           ${filterLabelMap("continents", "scoped_job_documents")} AS "continentLabels",
           ${filterKeys("timezones", "ARRAY[]::text[]", "scoped_job_documents", "scoped_job_documents")} AS timezones,
           ${filterLabelMap("timezones", "scoped_job_documents")} AS "timezoneLabels",
+          ${filterKeys("collaborationHours", "collaboration_hours", "scoped_job_documents", "scoped_job_documents")} AS "collaborationHours",
+          COALESCE((
+            SELECT jsonb_object_agg(
+              hour_key,
+              substring(hour_key FROM 5 FOR 2) || ':00 UTC'
+              ORDER BY hour_key
+            )
+            FROM (
+              SELECT DISTINCT unnest(collaboration_hours) AS hour_key
+              FROM scoped_job_documents
+            ) collaboration
+          ), '{}'::jsonb) AS "collaborationHourLabels",
           (SELECT array_remove(array_agg(DISTINCT seniority), NULL)
             FROM scoped_job_documents) AS seniority
       `,
@@ -1481,14 +1540,9 @@ export class SearchDocumentRepository {
     const [row] = await this.postgres.query<{ payload: JobListResult }>(
       `
         SELECT
-          COALESCE(job.detail_payload, '{}'::jsonb) || job.payload
-          || CASE
-            WHEN organization.payload IS NULL THEN '{}'::jsonb
-            ELSE jsonb_build_object(
-              'organization', organization.payload - 'tags' - 'jobs',
-              'project', NULL
-            )
-          END
+          ${jobEmployerPayload(
+            "COALESCE(job.detail_payload, '{}'::jsonb) || job.payload",
+          )}
           || jsonb_build_object(
             'online', job.online,
             'blocked', job.blocked,
@@ -1506,10 +1560,10 @@ export class SearchDocumentRepository {
             )
           ) AS payload
         FROM job_search_documents job
-        LEFT JOIN organization_search_documents organization
-          ON organization.organization_id = job.organization_id
+        ${jobEmployerJoins()}
         WHERE job.short_uuid = $1
           AND cardinality(job.tags) > 0
+          AND num_nonnulls(job.organization_id, job.project_id) = 1
           AND ($2::boolean OR (job.online AND NOT job.blocked))
           AND ($3::text IS NULL OR $3 = ANY(job.managed_ecosystems))
         ORDER BY job.online DESC, job.blocked ASC, job.job_node_id
@@ -1649,270 +1703,30 @@ export class SearchDocumentRepository {
     return rows.map(row => row.payload);
   }
 
-  async getOrganizationsForAdminGrid(options: {
-    limit: number;
-    offset: number;
-    query?: string;
-    reviewOnly?: boolean;
-    bannedOnly?: boolean;
-  }): Promise<{ data: Record<string, unknown>[]; total: number }> {
+  private async queryAdminGrid(
+    sql: string,
+    options: AdminGridOptions,
+  ): Promise<AdminGridResult> {
     const rows = await this.postgres.query<{
       payload: Record<string, unknown>;
       total_count: string;
-    }>(
-      `
-        WITH selected_organizations AS (
-          SELECT
-            organization.organization_node_id,
-            organization.payload,
-            NULL::jsonb AS graph_properties,
-            false AS from_graph
-          FROM organization_search_documents organization
-          UNION ALL
-          SELECT
-            banned.id,
-            NULL::jsonb,
-            banned.properties,
-            true
-          FROM graph_nodes banned
-          WHERE banned.label = 'Organization'
-            AND entity_property_is_banned(banned.properties)
-            AND NOT EXISTS (
-              SELECT 1
-              FROM organization_search_documents existing
-              WHERE existing.organization_node_id = banned.id
-            )
-        ), paged_organizations AS (
-          SELECT
-            selected.organization_node_id,
-            selected.payload,
-            selected.graph_properties,
-            selected.from_graph,
-            count(*) OVER() AS total_count
-          FROM selected_organizations selected
-          JOIN graph_nodes selected_node
-            ON selected_node.id = selected.organization_node_id
-          WHERE (
-              $3::text IS NULL
-              OR lower(COALESCE(selected.payload, selected.graph_properties)::text)
-                   LIKE '%' || lower($3) || '%'
-            )
-            AND (
-              NOT $4::boolean
-              OR lower(COALESCE(
-                   selected_node.properties ->> 'needsManualReview',
-                   'false'
-                 )) IN ('true', '1', 'yes', 'on')
-            )
-            AND (
-              NOT $5::boolean
-              OR entity_property_is_banned(selected_node.properties)
-            )
-          ORDER BY selected.organization_node_id
-          LIMIT $1 OFFSET $2
-        )
-        SELECT CASE
-          WHEN organization.from_graph THEN jsonb_build_object(
-            'id', organization.graph_properties -> 'id',
-            'orgId', COALESCE(
-              organization.graph_properties -> 'orgId',
-              organization.graph_properties -> 'id'
-            ),
-            'name', organization.graph_properties -> 'name',
-            'normalizedName', organization.graph_properties -> 'normalizedName',
-            'location', organization.graph_properties -> 'location',
-            'logoUrl', organization.graph_properties -> 'logoUrl',
-            'description', organization.graph_properties -> 'description',
-            'summary', organization.graph_properties -> 'summary',
-            'headcountEstimate', organization.graph_properties -> 'headcountEstimate',
-            'altName', organization.graph_properties -> 'altName',
-            'createdTimestamp', organization.graph_properties -> 'createdTimestamp',
-            'updatedTimestamp', organization.graph_properties -> 'updatedTimestamp',
-            'vertical', organization.graph_properties -> 'vertical',
-            'verticalFirstAppliedTimestamp', organization.graph_properties -> 'verticalFirstAppliedTimestamp',
-            'verticalAppliedTimestamp', organization.graph_properties -> 'verticalAppliedTimestamp',
-            'verticalClassificationSource', organization.graph_properties -> 'verticalClassificationSource',
-            'verticalClassificationProvider', organization.graph_properties -> 'verticalClassificationProvider',
-            'verticalClassificationModel', organization.graph_properties -> 'verticalClassificationModel',
-            'verticalClassificationReason', organization.graph_properties -> 'verticalClassificationReason',
-            'websites', '[]'::jsonb,
-            'aliases', '[]'::jsonb,
-            'twitters', '[]'::jsonb,
-            'githubs', '[]'::jsonb,
-            'discords', '[]'::jsonb,
-            'docs', '[]'::jsonb,
-            'telegrams', '[]'::jsonb,
-            'communities', '[]'::jsonb,
-            'grants', '[]'::jsonb,
-            'jobsites', '[]'::jsonb,
-            'detectedJobsites', '[]'::jsonb,
-            'projects', '[]'::jsonb,
-            'needsManualReview', false,
-            'manualReviewStatus', NULL,
-            'manualReviewReason', NULL,
-            'manualReviewSeverity', NULL,
-            'manualReviewEvidence', '[]'::jsonb,
-            'manualReviewProposedActions', '[]'::jsonb,
-            'manualReviewUpdatedTimestamp', NULL,
-            'banned', true
-          )
-          ELSE jsonb_build_object(
-          'id', organization.payload -> 'id',
-          'orgId', organization.payload -> 'orgId',
-          'name', organization.payload -> 'name',
-          'normalizedName', organization.payload -> 'normalizedName',
-          'location', organization.payload -> 'location',
-          'logoUrl', organization.payload -> 'logoUrl',
-          'description', organization.payload -> 'description',
-          'summary', organization.payload -> 'summary',
-          'headcountEstimate', organization.payload -> 'headcountEstimate',
-          'altName', organization.payload -> 'altName',
-          'createdTimestamp', organization.payload -> 'createdTimestamp',
-          'updatedTimestamp', organization.payload -> 'updatedTimestamp',
-          'vertical', node.properties -> 'vertical',
-          'verticalFirstAppliedTimestamp', node.properties -> 'verticalFirstAppliedTimestamp',
-          'verticalAppliedTimestamp', node.properties -> 'verticalAppliedTimestamp',
-          'verticalClassificationSource', node.properties -> 'verticalClassificationSource',
-          'verticalClassificationProvider', node.properties -> 'verticalClassificationProvider',
-          'verticalClassificationModel', node.properties -> 'verticalClassificationModel',
-          'verticalClassificationReason', node.properties -> 'verticalClassificationReason',
-          'websites', links.websites,
-          'aliases', links.aliases,
-          'twitters', links.twitters,
-          'githubs', links.githubs,
-          'discords', links.discords,
-          'docs', links.docs,
-          'telegrams', links.telegrams,
-          'communities', COALESCE(organization.payload -> 'communities', '[]'::jsonb),
-          'grants', COALESCE(organization.payload -> 'grants', '[]'::jsonb),
-          'jobsites', links.jobsites,
-          'detectedJobsites', links.detected_jobsites,
-          'projects', COALESCE((
-            SELECT jsonb_agg(jsonb_build_object(
-              'id', project -> 'id',
-              'name', project -> 'name'
-            ))
-            FROM jsonb_array_elements(
-              CASE
-                WHEN jsonb_typeof(organization.payload -> 'projects') = 'array'
-                  THEN organization.payload -> 'projects'
-                ELSE '[]'::jsonb
-              END
-            ) project
-            WHERE project ->> 'id' IS NOT NULL
-          ), '[]'::jsonb),
-          'needsManualReview', COALESCE(
-            (node.properties ->> 'needsManualReview')::boolean,
-            false
-          ),
-          'manualReviewStatus', node.properties ->> 'manualReviewStatus',
-          'manualReviewReason', node.properties ->> 'manualReviewReason',
-          'manualReviewSeverity', node.properties ->> 'manualReviewSeverity',
-          'manualReviewEvidence', CASE
-            WHEN jsonb_typeof(node.properties -> 'manualReviewEvidence') = 'array'
-              THEN node.properties -> 'manualReviewEvidence'
-            ELSE '[]'::jsonb
-          END,
-          'manualReviewProposedActions', CASE
-            WHEN jsonb_typeof(node.properties -> 'manualReviewProposedActions') = 'array'
-              THEN node.properties -> 'manualReviewProposedActions'
-            ELSE '[]'::jsonb
-          END,
-          'manualReviewUpdatedTimestamp', jsonb_numeric_value(
-            node.properties,
-            'manualReviewUpdatedTimestamp'
-          ),
-          'banned', entity_property_is_banned(node.properties)
-          )
-        END AS payload,
-        organization.total_count
-        FROM paged_organizations organization
-        JOIN graph_nodes node ON node.id = organization.organization_node_id
-        CROSS JOIN LATERAL (
-          SELECT
-            COALESCE(to_jsonb(array_agg(DISTINCT related.properties ->> 'url')
-              FILTER (
-                WHERE relationship.type = 'HAS_WEBSITE'
-                  AND related.properties ->> 'url' IS NOT NULL
-              )), '[]'::jsonb) AS websites,
-            COALESCE(to_jsonb(array_agg(DISTINCT related.properties ->> 'name')
-              FILTER (
-                WHERE relationship.type = 'HAS_ORGANIZATION_ALIAS'
-                  AND related.properties ->> 'name' IS NOT NULL
-              )), '[]'::jsonb) AS aliases,
-            COALESCE(to_jsonb(array_agg(DISTINCT related.properties ->> 'username')
-              FILTER (
-                WHERE relationship.type = 'HAS_TWITTER'
-                  AND related.properties ->> 'username' IS NOT NULL
-              )), '[]'::jsonb) AS twitters,
-            COALESCE(to_jsonb(array_agg(DISTINCT related.properties ->> 'login')
-              FILTER (
-                WHERE relationship.type = 'HAS_GITHUB'
-                  AND related.properties ->> 'login' IS NOT NULL
-              )), '[]'::jsonb) AS githubs,
-            COALESCE(to_jsonb(array_agg(DISTINCT related.properties ->> 'invite')
-              FILTER (
-                WHERE relationship.type = 'HAS_DISCORD'
-                  AND related.properties ->> 'invite' IS NOT NULL
-              )), '[]'::jsonb) AS discords,
-            COALESCE(to_jsonb(array_agg(DISTINCT related.properties ->> 'url')
-              FILTER (
-                WHERE relationship.type = 'HAS_DOCSITE'
-                  AND related.properties ->> 'url' IS NOT NULL
-              )), '[]'::jsonb) AS docs,
-            COALESCE(to_jsonb(array_agg(DISTINCT related.properties ->> 'username')
-              FILTER (
-                WHERE relationship.type = 'HAS_TELEGRAM'
-                  AND related.properties ->> 'username' IS NOT NULL
-              )), '[]'::jsonb) AS telegrams,
-            COALESCE(jsonb_agg(jsonb_build_object(
-              'id', related.properties -> 'id',
-              'url', related.properties -> 'url',
-              'type', related.properties -> 'type',
-              'lastImportAttemptTimestamp', jsonb_numeric_value(
-                related.properties,
-                'lastImportAttemptTimestamp'
-              ),
-              'lastSuccessfulImportTimestamp', jsonb_numeric_value(
-                related.properties,
-                'lastSuccessfulImportTimestamp'
-              ),
-              'lastNewJobTimestamp', jsonb_numeric_value(
-                related.properties,
-                'lastNewJobTimestamp'
-              )
-            )) FILTER (
-              WHERE relationship.type = 'HAS_JOBSITE'
-                AND related.label = 'Jobsite'
-                AND related.properties ->> 'id' IS NOT NULL
-            ), '[]'::jsonb) AS jobsites,
-            COALESCE(jsonb_agg(jsonb_build_object(
-              'id', related.properties -> 'id',
-              'url', related.properties -> 'url',
-              'type', related.properties -> 'type'
-            )) FILTER (
-              WHERE relationship.type = 'HAS_JOBSITE'
-                AND related.label = 'DetectedJobsite'
-                AND related.properties ->> 'id' IS NOT NULL
-            ), '[]'::jsonb) AS detected_jobsites
-          FROM graph_relationships relationship
-          JOIN graph_nodes related ON related.id = relationship.target_id
-          WHERE relationship.source_id = node.id
-        ) links
-        ORDER BY organization.organization_node_id
-      `,
-      [
-        options.limit,
-        options.offset,
-        options.query?.trim() || null,
-        options.reviewOnly ?? false,
-        options.bannedOnly ?? false,
-      ],
-    );
+    }>(sql, [
+      options.limit,
+      options.offset,
+      options.query?.trim() || null,
+      options.reviewOnly ?? false,
+      options.bannedOnly ?? false,
+    ]);
     return {
       data: rows.map(row => row.payload),
       total: Number(rows[0]?.total_count ?? 0),
     };
+  }
+
+  async getOrganizationsForAdminGrid(
+    options: AdminGridOptions,
+  ): Promise<AdminGridResult> {
+    return this.queryAdminGrid(ORGANIZATION_ADMIN_GRID_SQL, options);
   }
 
   async searchOrganizations(
@@ -1974,58 +1788,14 @@ export class SearchDocumentRepository {
       ? `${sortExpression} ${direction} NULLS LAST, ${NATURAL_NAME_SQL} ASC, organization_node_id ASC`
       : `${NATURAL_NAME_SQL} ASC, organization_node_id ASC`;
     const requestedPage = legacyPageValues(params.page, params.limit);
-    const filterSql = where.toSql();
-    const filterParameters = [...where.parameters];
-    if (params.query) {
-      return this.searchNamedDocuments(
-        "organization_search_documents",
-        "organization_node_id",
-        filterSql,
-        filterParameters,
-        orderSql,
-        params.query,
-        requestedPage.page,
-        requestedPage.limit,
-      );
-    }
-    const paging = await this.resolveLegacySqlPage(
+    return this.searchSqlDocuments(
       "organization_search_documents",
-      filterSql,
-      filterParameters,
-      requestedPage.page,
-      requestedPage.limit,
+      "organization_node_id",
+      where,
+      orderSql,
+      params.query,
+      requestedPage,
     );
-    if (paging.empty) {
-      return {
-        page: paging.page,
-        count: 0,
-        total: paging.total ?? 0,
-        data: [],
-      };
-    }
-    const limitParam = where.bind(paging.limit);
-    const offsetParam = where.bind(paging.offset);
-
-    const rows = await this.postgres.query<SearchRow<OrgListResult>>(
-      `
-        SELECT payload, count(*) OVER () AS total_count
-        FROM organization_search_documents
-        ${filterSql}
-        ORDER BY ${orderSql}
-        LIMIT ${limitParam}
-        OFFSET ${offsetParam}
-      `,
-      where.parameters,
-    );
-    if (!rows.length && paging.offset > 0) {
-      return this.emptyPageWithTotal(
-        "organization_search_documents",
-        filterSql,
-        filterParameters,
-        paging.page,
-      );
-    }
-    return toPage(rows, paging.page);
   }
 
   async getOrganizationById(
@@ -2224,22 +1994,41 @@ export class SearchDocumentRepository {
         ? `${NATURAL_NAME_SQL} ${direction} NULLS LAST, project_node_id ASC`
         : `${sortExpression} ${direction} NULLS LAST, ${NATURAL_NAME_SQL} ASC, project_node_id ASC`;
     const requestedPage = legacyPageValues(params.page, params.limit);
+    return this.searchSqlDocuments(
+      "project_search_documents",
+      "project_node_id",
+      where,
+      orderSql,
+      params.query,
+      requestedPage,
+    );
+  }
+
+  private async searchSqlDocuments<T>(
+    table: "organization_search_documents" | "project_search_documents",
+    idColumn: "organization_node_id" | "project_node_id",
+    where: SqlPredicateBuilder,
+    orderSql: string,
+    query: string | undefined,
+    requestedPage: { page: number; limit: number },
+  ): Promise<SearchPage<T>> {
     const filterSql = where.toSql();
     const filterParameters = [...where.parameters];
-    if (params.query) {
+    if (query) {
       return this.searchNamedDocuments(
-        "project_search_documents",
-        "project_node_id",
+        table,
+        idColumn,
         filterSql,
         filterParameters,
         orderSql,
-        params.query,
+        query,
         requestedPage.page,
         requestedPage.limit,
       );
     }
+
     const paging = await this.resolveLegacySqlPage(
-      "project_search_documents",
+      table,
       filterSql,
       filterParameters,
       requestedPage.page,
@@ -2253,13 +2042,13 @@ export class SearchDocumentRepository {
         data: [],
       };
     }
+
     const limitParam = where.bind(paging.limit);
     const offsetParam = where.bind(paging.offset);
-
-    const rows = await this.postgres.query<SearchRow<ProjectListResult>>(
+    const rows = await this.postgres.query<SearchRow<T>>(
       `
         SELECT payload, count(*) OVER () AS total_count
-        FROM project_search_documents
+        FROM ${table}
         ${filterSql}
         ORDER BY ${orderSql}
         LIMIT ${limitParam}
@@ -2269,7 +2058,7 @@ export class SearchDocumentRepository {
     );
     if (!rows.length && paging.offset > 0) {
       return this.emptyPageWithTotal(
-        "project_search_documents",
+        table,
         filterSql,
         filterParameters,
         paging.page,
@@ -2421,17 +2210,10 @@ export class SearchDocumentRepository {
     return row?.payload;
   }
 
-  async getProjectsForAdminGrid(options: {
-    limit: number;
-    offset: number;
-    query?: string;
-    reviewOnly?: boolean;
-    bannedOnly?: boolean;
-  }): Promise<{ data: Record<string, unknown>[]; total: number }> {
-    const rows = await this.postgres.query<{
-      payload: Record<string, unknown>;
-      total_count: string;
-    }>(
+  async getProjectsForAdminGrid(
+    options: AdminGridOptions,
+  ): Promise<AdminGridResult> {
+    return this.queryAdminGrid(
       `
         WITH selected_projects AS (
           SELECT
@@ -2671,18 +2453,8 @@ export class SearchDocumentRepository {
         project.total_count
         FROM paged_projects project
       `,
-      [
-        options.limit,
-        options.offset,
-        options.query?.trim() || null,
-        options.reviewOnly ?? false,
-        options.bannedOnly ?? false,
-      ],
+      options,
     );
-    return {
-      data: rows.map(row => row.payload),
-      total: Number(rows[0]?.total_count ?? 0),
-    };
   }
 
   async getProjectPayloads<T = ProjectListResult>(
@@ -3047,7 +2819,7 @@ export class SearchDocumentRepository {
   ): Promise<Record<string, unknown>> {
     const parameters: unknown[] = [];
     const ecosystemSql = ecosystem
-      ? "AND $1 = ANY(organization.managed_ecosystems)"
+      ? "AND $1 = ANY(job.managed_ecosystems)"
       : "";
     if (ecosystem) parameters.push(slugify(ecosystem));
     const [row] = await this.postgres.query<Record<string, unknown>>(
@@ -3055,15 +2827,17 @@ export class SearchDocumentRepository {
         WITH scoped_jobs AS MATERIALIZED (
           SELECT
             job.job_node_id,
+            job.project_id AS job_project_id,
             owner.organization_id AS owner_organization_id,
             organization.name AS owner_organization_name,
             organization.investors AS owner_investor_names,
             organization.filter_labels AS owner_filter_labels
           FROM job_search_documents job
-          JOIN job_search_owners owner ON owner.job_node_id = job.job_node_id
-          JOIN organization_search_documents organization
+          LEFT JOIN job_search_owners owner ON owner.job_node_id = job.job_node_id
+          LEFT JOIN organization_search_documents organization
             ON organization.organization_node_id = owner.organization_node_id
           WHERE job.online
+            AND num_nonnulls(job.organization_id, job.project_id) = 1
           ${ecosystemSql}
         ), scoped_organizations AS MATERIALIZED (
           SELECT DISTINCT ON (owner_organization_id)
@@ -3072,6 +2846,7 @@ export class SearchDocumentRepository {
             owner_investor_names,
             owner_filter_labels
           FROM scoped_jobs
+          WHERE owner_organization_id IS NOT NULL
           ORDER BY owner_organization_id
         ), eligible_organizations AS MATERIALIZED (
           SELECT scoped.*
@@ -3091,6 +2866,11 @@ export class SearchDocumentRepository {
             SELECT array_agg(DISTINCT slugify_text(owner_organization_id))
             FROM scoped_organizations
           ), ARRAY[]::text[])
+             OR project.project_id IN (
+               SELECT job_project_id
+               FROM scoped_jobs
+               WHERE job_project_id IS NOT NULL
+             )
         ), eligible_projects AS MATERIALIZED (
           SELECT project.*
           FROM project_search_documents project
@@ -3098,6 +2878,11 @@ export class SearchDocumentRepository {
             SELECT array_agg(DISTINCT slugify_text(owner_organization_id))
             FROM eligible_organizations
           ), ARRAY[]::text[])
+             OR project.project_id IN (
+               SELECT job_project_id
+               FROM scoped_jobs
+               WHERE job_project_id IS NOT NULL
+             )
         )
         SELECT
           (SELECT min(tvl)::float8 FROM eligible_projects) AS "minTvl",
@@ -3119,18 +2904,6 @@ export class SearchDocumentRepository {
     return row ?? {};
   }
 }
-
-const fallbackLabels = (expression: string, source: string): string => `
-  COALESCE(
-    (
-      SELECT array_agg(DISTINCT fallback ORDER BY fallback)
-      FROM ${source} fallback_doc
-      CROSS JOIN LATERAL unnest(${expression}) fallback
-      WHERE fallback IS NOT NULL AND fallback <> ''
-    ),
-    ARRAY[]::text[]
-  )
-`;
 
 const filterLabels = (
   category: string,

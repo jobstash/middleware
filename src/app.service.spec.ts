@@ -30,13 +30,6 @@ describe("AppService", () => {
 
   beforeEach(() => jest.clearAllMocks());
 
-  it("reports health without dependencies", () => {
-    expect(service.healthCheck()).toEqual({
-      success: true,
-      message: "Server is healthy and up!",
-    });
-  });
-
   it("builds the frontend sitemap from every minimal PostgreSQL job row", async () => {
     jobsService.getFrontendSitemapJobs.mockResolvedValue([
       {

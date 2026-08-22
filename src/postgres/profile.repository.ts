@@ -35,6 +35,263 @@ const queryRows = async <T>(
 export class ProfileRepository {
   constructor(private readonly postgres: PostgresService) {}
 
+  async getJobPreferences(
+    wallet: string,
+  ): Promise<Record<string, unknown> | null> {
+    const [row] = await queryRows<Record<string, unknown>>(
+      this.postgres,
+      `
+        SELECT jsonb_build_object(
+          'residenceCountry', preferences.residence_country,
+          'residenceRegion', preferences.residence_region,
+          'ianaTimezone', preferences.iana_timezone,
+          'workAuthorizations', COALESCE(
+            preferences.work_authorizations, ARRAY[]::text[]
+          ),
+          'needsSponsorship', preferences.needs_sponsorship,
+          'acceptableWorkModes', COALESCE(
+            preferences.acceptable_work_modes,
+            ARRAY['remote', 'hybrid', 'onsite', 'remote_or_office']::text[]
+          ),
+          'travelTolerance', preferences.travel_tolerance,
+          'useInferredCollaborationHours', COALESCE(
+            preferences.use_inferred_collaboration_hours, false
+          )
+        ) AS preferences
+        FROM graph_nodes account
+        LEFT JOIN user_job_preferences preferences
+          ON preferences.user_node_id = account.id
+        WHERE account.label = 'User'
+          AND lower(account.properties ->> 'wallet') = lower($1)
+        ORDER BY account.id
+        LIMIT 1
+      `,
+      [wallet],
+    );
+    return (row?.preferences as Record<string, unknown> | undefined) ?? null;
+  }
+
+  async updateJobPreferences(
+    wallet: string,
+    preferences: {
+      residenceCountry: string | null;
+      residenceRegion: string | null;
+      ianaTimezone: string | null;
+      workAuthorizations: string[];
+      needsSponsorship: boolean | null;
+      acceptableWorkModes: string[];
+      travelTolerance: string | null;
+      useInferredCollaborationHours: boolean;
+    },
+  ): Promise<boolean> {
+    const rows = await queryRows<{ userNodeId: string }>(
+      this.postgres,
+      `
+        INSERT INTO user_job_preferences (
+          user_node_id, residence_country, residence_region, iana_timezone,
+          work_authorizations, needs_sponsorship, acceptable_work_modes,
+          travel_tolerance, use_inferred_collaboration_hours, updated_at
+        )
+        SELECT
+          account.id, $2, $3, $4, $5::text[], $6::boolean, $7::text[],
+          $8, $9::boolean, now()
+        FROM graph_nodes account
+        WHERE account.label = 'User'
+          AND lower(account.properties ->> 'wallet') = lower($1)
+        ORDER BY account.id
+        LIMIT 1
+        ON CONFLICT (user_node_id) DO UPDATE SET
+          residence_country = EXCLUDED.residence_country,
+          residence_region = EXCLUDED.residence_region,
+          iana_timezone = EXCLUDED.iana_timezone,
+          work_authorizations = EXCLUDED.work_authorizations,
+          needs_sponsorship = EXCLUDED.needs_sponsorship,
+          acceptable_work_modes = EXCLUDED.acceptable_work_modes,
+          travel_tolerance = EXCLUDED.travel_tolerance,
+          use_inferred_collaboration_hours =
+            EXCLUDED.use_inferred_collaboration_hours,
+          updated_at = now()
+        RETURNING user_node_id::text AS "userNodeId"
+      `,
+      [
+        wallet,
+        preferences.residenceCountry,
+        preferences.residenceRegion,
+        preferences.ianaTimezone,
+        preferences.workAuthorizations,
+        preferences.needsSponsorship,
+        preferences.acceptableWorkModes,
+        preferences.travelTolerance,
+        preferences.useInferredCollaborationHours,
+      ],
+    );
+    return rows.length === 1;
+  }
+
+  async getJobMatchingCandidates(limit = 100): Promise<
+    Array<{
+      job: Record<string, unknown>;
+      options: Record<string, unknown>[];
+      teamCollaborationBand: {
+        minimumUtcMinute: number;
+        maximumUtcMinute: number;
+      } | null;
+    }>
+  > {
+    return queryRows<{
+      job: Record<string, unknown>;
+      options: Record<string, unknown>[];
+      teamCollaborationBand: {
+        minimumUtcMinute: number;
+        maximumUtcMinute: number;
+      } | null;
+    }>(
+      this.postgres,
+      `
+        WITH latest_options AS MATERIALIZED (
+          SELECT DISTINCT ON (
+            option.raw_job_node_id, option.jobsite_node_id, option.option_key
+          )
+            option.*
+          FROM job_work_location_options option
+          ORDER BY
+            option.raw_job_node_id,
+            option.jobsite_node_id,
+            option.option_key,
+            option.updated_at DESC,
+            option.extractor_version DESC
+        )
+        SELECT
+          document.payload AS job,
+          jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
+            'mode', option.mode,
+            'scope', option.scope,
+            'countries', option.countries,
+            'regions', option.regions,
+            'minimumUtcOffsetMinutes', option.minimum_utc_offset_minutes,
+            'maximumUtcOffsetMinutes', option.maximum_utc_offset_minutes,
+            'timezonePreferenceStrength', option.timezone_preference_strength,
+            'residencyRequirement', option.residency_requirement,
+            'workAuthorization', option.work_authorization,
+            'sponsorship', option.sponsorship,
+            'officeLocation', option.office_location,
+            'attendanceCadence', option.attendance_cadence,
+            'confidence', option.confidence,
+            'employerAuthoredRemoteEvidence',
+              option.employer_authored_remote_evidence,
+            'evidence', COALESCE((
+              SELECT jsonb_agg(jsonb_build_object(
+                'text', evidence.raw_text,
+                'source', evidence.evidence_source
+              ) ORDER BY CASE evidence.evidence_source
+                WHEN 'job_description' THEN 1
+                WHEN 'career_policy' THEN 2
+                WHEN 'employer_metadata' THEN 3
+                ELSE 4
+              END, evidence.id)
+              FROM job_availability_evidence evidence
+              WHERE evidence.raw_job_node_id = option.raw_job_node_id
+                AND evidence.jobsite_node_id = option.jobsite_node_id
+                AND evidence.extractor_version = option.extractor_version
+                AND evidence.option_key = option.option_key
+            ), '[]'::jsonb)
+          )) ORDER BY option.option_key) AS options,
+          CASE WHEN collaboration.profile_node_id IS NULL THEN NULL ELSE
+            jsonb_build_object(
+              'minimumUtcMinute', collaboration.minimum_utc_minute,
+              'maximumUtcMinute', collaboration.maximum_utc_minute
+            )
+          END AS "teamCollaborationBand"
+        FROM latest_options option
+        JOIN graph_relationships structured_edge
+          ON structured_edge.source_id = option.raw_job_node_id
+         AND structured_edge.type = 'HAS_STRUCTURED_JOBPOST'
+        JOIN job_search_documents document
+          ON document.job_node_id = structured_edge.target_id
+        LEFT JOIN LATERAL (
+          SELECT band.*
+          FROM graph_nodes child
+          JOIN graph_relationships membership
+            ON membership.target_id = child.id
+           AND membership.type IN (
+             'PROFILE_HAS_ORGANIZATION', 'PROFILE_HAS_PROJECT'
+           )
+          JOIN team_collaboration_bands band
+            ON band.profile_node_id = membership.source_id
+          WHERE (
+            child.label = 'Organization'
+            AND child.properties ->> 'orgId' = document.organization_id
+          ) OR (
+            child.label = 'Project'
+            AND child.properties ->> 'id' = document.project_id
+          )
+          ORDER BY band.profile_node_id
+          LIMIT 1
+        ) collaboration ON true
+        WHERE document.online AND NOT document.blocked
+        GROUP BY
+          document.job_node_id,
+          document.payload,
+          document.published_timestamp,
+          collaboration.profile_node_id,
+          collaboration.minimum_utc_minute,
+          collaboration.maximum_utc_minute
+        ORDER BY document.published_timestamp DESC NULLS LAST, document.job_node_id
+        LIMIT $1
+      `,
+      [Math.max(1, Math.min(limit, 500))],
+    );
+  }
+
+  async getPublicEntityProfile(
+    slug: string,
+  ): Promise<Record<string, unknown> | null> {
+    const [row] = await queryRows<Record<string, unknown>>(
+      this.postgres,
+      `
+        SELECT jsonb_build_object(
+          'id', profile.properties ->> 'id',
+          'slug', profile.properties ->> 'slug',
+          'category', profile.properties ->> 'category',
+          'banned', COALESCE(
+            jsonb_boolean_value(profile.properties, 'banned'), false
+          ),
+          'info', info.properties,
+          'organizations', COALESCE((
+            SELECT jsonb_agg(child.properties ORDER BY child.properties ->> 'name')
+            FROM graph_relationships membership
+            JOIN graph_nodes child ON child.id = membership.target_id
+            WHERE membership.source_id = profile.id
+              AND membership.type = 'PROFILE_HAS_ORGANIZATION'
+              AND child.label = 'Organization'
+              AND NOT entity_property_is_banned(child.properties)
+          ), '[]'::jsonb),
+          'projects', COALESCE((
+            SELECT jsonb_agg(child.properties ORDER BY child.properties ->> 'name')
+            FROM graph_relationships membership
+            JOIN graph_nodes child ON child.id = membership.target_id
+            WHERE membership.source_id = profile.id
+              AND membership.type = 'PROFILE_HAS_PROJECT'
+              AND child.label = 'Project'
+              AND NOT entity_property_is_banned(child.properties)
+          ), '[]'::jsonb)
+        ) AS profile
+        FROM graph_nodes profile
+        JOIN graph_relationships profile_info
+          ON profile_info.source_id = profile.id
+         AND profile_info.type = 'HAS_PROFILE_INFO'
+        JOIN graph_nodes info
+          ON info.id = profile_info.target_id AND info.label = 'ProfileInfo'
+        WHERE profile.label = 'EntityProfile'
+          AND profile.properties ->> 'slug' = $1
+          AND NOT COALESCE(jsonb_boolean_value(profile.properties, 'banned'), false)
+        LIMIT 1
+      `,
+      [slug],
+    );
+    return (row?.profile as Record<string, unknown> | undefined) ?? null;
+  }
+
   async getUserRepos(wallet: string): Promise<Record<string, unknown>[]> {
     const rows = await queryRows<{ repo: Record<string, unknown> }>(
       this.postgres,

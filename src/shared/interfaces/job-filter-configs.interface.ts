@@ -35,6 +35,7 @@ export class JobFilterConfigs {
     countries: MultiSelectFilter.MultiSelectFilterType,
     continents: MultiSelectFilter.MultiSelectFilterType,
     timezones: MultiSelectFilter.MultiSelectFilterType,
+    collaborationHours: MultiSelectFilter.MultiSelectFilterType,
     fundingStages: MultiSelectFilter.MultiSelectFilterType,
     currentMaintainers: RangeFilter.RangeFilterType,
     activeLeads: RangeFilter.RangeFilterType,
@@ -81,6 +82,8 @@ export class JobFilterConfigs {
   continents: MultiSelectFilter;
   @ApiProperty()
   timezones: MultiSelectFilter;
+  @ApiProperty()
+  collaborationHours: MultiSelectFilter;
   @ApiProperty()
   fundingStages: MultiSelectFilter;
   @ApiProperty()
@@ -167,6 +170,7 @@ export class JobFilterConfigs {
       countries,
       continents,
       timezones,
+      collaborationHours,
       fundingStages,
       currentMaintainers,
       activeLeads,
@@ -214,6 +218,7 @@ export class JobFilterConfigs {
     this.countries = countries;
     this.continents = continents;
     this.timezones = timezones;
+    this.collaborationHours = collaborationHours;
     this.fundingStages = fundingStages;
     this.currentMaintainers = currentMaintainers;
     this.activeLeads = activeLeads;

@@ -15,7 +15,6 @@ import { ProjectsModule } from "./projects/projects.module";
 import { CacheModule } from "@nestjs/cache-manager";
 import { PublicModule } from "./public/public.module";
 import { ProfileModule } from "./auth/profile/profile.module";
-import { ProfileV2Module } from "./auth/profile/v2/profile-v2.module";
 import { MailModule } from "./mail/mail.module";
 import { HacksModule } from "./hacks/hacks.module";
 import { AuditsModule } from "./audits/audits.module";
@@ -38,6 +37,7 @@ import { AccountModule } from "./auth/account/account.module";
 import { PostgresModule } from "./postgres/postgres.module";
 import { TeamIntelligenceModule } from "./team-intelligence/team-intelligence.module";
 import { PeopleIntelligenceModule } from "./people-intelligence/people-intelligence.module";
+import { HealthModule } from "./health/health.module";
 
 @Module({
   imports: [
@@ -63,6 +63,7 @@ import { PeopleIntelligenceModule } from "./people-intelligence/people-intellige
     }),
     TeamIntelligenceModule,
     PeopleIntelligenceModule,
+    HealthModule,
     BullModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -86,7 +87,6 @@ import { PeopleIntelligenceModule } from "./people-intelligence/people-intellige
     ProjectsModule,
     PublicModule,
     ProfileModule,
-    ProfileV2Module,
     MailModule,
     HacksModule,
     AuditsModule,

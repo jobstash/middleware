@@ -66,6 +66,8 @@ export type RawJobFilters = {
   continentLabels?: Record<string, string> | null;
   timezones?: string[] | null;
   timezoneLabels?: Record<string, string> | null;
+  collaborationHours?: string[] | null;
+  collaborationHourLabels?: Record<string, string> | null;
   investors?: string[] | null;
   investorLabels?: Record<string, string> | null;
   hacks?: string[] | null;
@@ -172,7 +174,8 @@ export class JobFilterConfigsEntity {
       | "regions"
       | "countries"
       | "continents"
-      | "timezones",
+      | "timezones"
+      | "collaborationHours",
     labelKey:
       | "tagLabels"
       | "projectLabels"
@@ -191,7 +194,8 @@ export class JobFilterConfigsEntity {
       | "regionLabels"
       | "countryLabels"
       | "continentLabels"
-      | "timezoneLabels",
+      | "timezoneLabels"
+      | "collaborationHourLabels",
   ): MultiSelectFilter {
     const labels = this.raw[labelKey] ?? {};
     const seoKeys = new Set([
@@ -297,6 +301,10 @@ export class JobFilterConfigsEntity {
       countries: this.getKeyedPresets("countries", "countryLabels"),
       continents: this.getKeyedPresets("continents", "continentLabels"),
       timezones: this.getKeyedPresets("timezones", "timezoneLabels"),
+      collaborationHours: this.getKeyedPresets(
+        "collaborationHours",
+        "collaborationHourLabels",
+      ),
       currentMaintainers: this.getTeamRangePresets("currentMaintainers"),
       activeLeads: this.getTeamRangePresets("activeLeads"),
       newActiveLeads: this.getTeamSingleSelectPresets("newActiveLeads"),

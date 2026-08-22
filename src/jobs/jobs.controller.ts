@@ -43,6 +43,7 @@ import {
   JobApplicant,
   JobDetailsResult,
   JobFilterConfigs,
+  JobForMe,
   JobListResult,
   JobMatchResult,
   JobpostFolder,
@@ -91,6 +92,16 @@ export class JobsController {
     private readonly profileService: ProfileService,
     private readonly subscriptionService: SubscriptionsService,
   ) {}
+
+  @Get("for-me")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
+  getJobsForMe(
+    @Session() { address }: SessionObject,
+    @Query("limit") limit = "100",
+  ): Promise<JobForMe[]> {
+    return this.profileService.getJobsForMe(address, Number(limit) || 100);
+  }
 
   @Get("/list")
   @UseGuards(PBACGuard)

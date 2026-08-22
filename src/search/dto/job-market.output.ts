@@ -22,7 +22,8 @@ export interface JobMarketFilter {
     | "regions"
     | "countries"
     | "continents"
-    | "timezones";
+    | "timezones"
+    | "collaborationHours";
   value: string;
 }
 

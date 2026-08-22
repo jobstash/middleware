@@ -355,6 +355,14 @@ export class JobMarketRepository {
           FROM job_market_salary_observations
         ), filtered AS MATERIALIZED (
           SELECT observation.*,
+            CASE
+              WHEN document.organization_id IS NOT NULL
+                AND document.project_id IS NULL
+                THEN 'organization:' || document.organization_id
+              WHEN document.organization_id IS NULL
+                AND document.project_id IS NOT NULL
+                THEN 'project:' || document.project_id
+            END AS current_employer_key,
             CASE COALESCE(observation.seniority, '')
               WHEN '1' THEN 's-intern'
               WHEN '2' THEN 's-junior'
@@ -372,10 +380,16 @@ export class JobMarketRepository {
               ELSE initcap(replace(observation.seniority, '_', ' '))
             END AS seniority_label
           FROM job_market_salary_observations observation
+          JOIN job_search_documents document
+            ON document.job_node_id = observation.job_node_id
           CROSS JOIN latest
           WHERE observation.continent_slug = 'all'
             AND observation.seniority IS NOT NULL
             AND observation.seniority <> ''
+            AND num_nonnulls(
+              document.organization_id,
+              document.project_id
+            ) = 1
             AND ($1 = 'market' OR observation.classification_slug = $1)
             AND (
               $2 = 'max'
@@ -383,10 +397,10 @@ export class JobMarketRepository {
                 - CASE $2 WHEN '90' THEN 89 ELSE 364 END
             )
         ), employer_counts AS (
-          SELECT segment, seniority_slug, organization_id, count(*) AS jobs
+          SELECT segment, seniority_slug, current_employer_key, count(*) AS jobs
           FROM filtered
-          WHERE organization_id IS NOT NULL
-          GROUP BY segment, seniority_slug, organization_id
+          WHERE current_employer_key IS NOT NULL
+          GROUP BY segment, seniority_slug, current_employer_key
         ), concentration AS (
           SELECT segment, seniority_slug,
             max(jobs)::numeric / nullif(sum(jobs), 0) AS max_employer_share
@@ -406,8 +420,8 @@ export class JobMarketRepository {
             ORDER BY filtered.salary_monthly_usd
           )::text AS "salaryP75MonthlyUsd",
           count(DISTINCT filtered.job_node_id)::text AS "salarySampleCount",
-          count(DISTINCT filtered.organization_id)
-            FILTER (WHERE filtered.organization_id IS NOT NULL)::text
+          count(DISTINCT filtered.current_employer_key)
+            FILTER (WHERE filtered.current_employer_key IS NOT NULL)::text
             AS "employerCount",
           concentration.max_employer_share::text AS "maxEmployerShare",
           count(DISTINCT date_trunc('month', filtered.observed_date))::text
@@ -445,11 +459,13 @@ export class JobMarketRepository {
             document.location_types, document.published_at,
             COALESCE(
               organization.name,
+              project.name,
               document.payload #>> '{organization,name}',
               document.payload #>> '{project,name}'
             ) AS organization_name,
             COALESCE(
               organization.payload ->> 'logoUrl',
+              project.payload ->> 'logoUrl',
               document.payload #>> '{organization,logoUrl}',
               document.payload #>> '{project,logoUrl}'
             ) AS organization_logo_url,
@@ -472,6 +488,10 @@ export class JobMarketRepository {
             ON document.job_node_id = observation.job_node_id
           LEFT JOIN organization_search_documents organization
             ON organization.organization_id = document.organization_id
+           AND document.project_id IS NULL
+          LEFT JOIN project_search_documents project
+            ON project.project_id = document.project_id
+           AND document.organization_id IS NULL
           LEFT JOIN LATERAL (
             SELECT min(membership.label) AS label
             FROM job_market_job_pillars membership
@@ -488,17 +508,27 @@ export class JobMarketRepository {
             AND document.legacy_list_eligible
             AND cardinality(document.tags) > 0
             AND document.short_uuid IS NOT NULL
-            AND (document.organization_id IS NOT NULL
-              OR document.project_id IS NOT NULL)
+            AND num_nonnulls(
+              document.organization_id,
+              document.project_id
+            ) = 1
             AND NOT (document.access = 'public'
               AND document.organization_has_expert_jobs)
             AND NOT EXISTS (
-              SELECT 1 FROM graph_nodes banned_organization
-              WHERE banned_organization.label = 'Organization'
-                AND banned_organization.properties ->> 'orgId' =
-                  document.organization_id
+              SELECT 1 FROM graph_nodes banned_employer
+              WHERE (
+                (
+                    banned_employer.label = 'Organization'
+                    AND banned_employer.properties ->> 'orgId' =
+                      document.organization_id
+                  ) OR (
+                    banned_employer.label = 'Project'
+                    AND banned_employer.properties ->> 'id' =
+                      document.project_id
+                  )
+                )
                 AND entity_property_is_banned(
-                  banned_organization.properties
+                  banned_employer.properties
                 )
             )
             AND (
@@ -604,7 +634,15 @@ export class JobMarketRepository {
           SELECT max(sample_date) AS as_of_date
           FROM job_market_daily_metrics
         ), eligible_jobs AS MATERIALIZED (
-          SELECT document.job_node_id, document.organization_id,
+          SELECT document.job_node_id,
+            CASE
+              WHEN document.organization_id IS NOT NULL
+                AND document.project_id IS NULL
+                THEN 'organization:' || document.organization_id
+              WHEN document.organization_id IS NULL
+                AND document.project_id IS NOT NULL
+                THEN 'project:' || document.project_id
+            END AS employer_key,
             COALESCE(
               CASE
                 WHEN jsonb_boolean_value(
@@ -617,30 +655,12 @@ export class JobMarketRepository {
               )::double precision / 1000)::date,
               document.published_at::date
             ) AS observed_date,
-            (
-              'remote' = ANY(COALESCE(document.location_types, ARRAY[]::text[]))
-              OR EXISTS (
-                SELECT 1 FROM jsonb_array_elements(
-                  COALESCE(document.payload -> 'availability', '[]'::jsonb)
-                ) item WHERE item ->> 'workMode' = 'remote'
-              )
-            ) AS has_remote,
-            (
-              'onsite' = ANY(COALESCE(document.location_types, ARRAY[]::text[]))
-              OR EXISTS (
-                SELECT 1 FROM jsonb_array_elements(
-                  COALESCE(document.payload -> 'availability', '[]'::jsonb)
-                ) item WHERE item ->> 'workMode' = 'onsite'
-              )
-            ) AS has_onsite,
-            (
-              'hybrid' = ANY(COALESCE(document.location_types, ARRAY[]::text[]))
-              OR EXISTS (
-                SELECT 1 FROM jsonb_array_elements(
-                  COALESCE(document.payload -> 'availability', '[]'::jsonb)
-                ) item WHERE item ->> 'workMode' = 'hybrid'
-              )
-            ) AS has_hybrid
+            job_has_work_location_mode(document.job_node_id, 'remote')
+              AS has_remote,
+            job_has_work_location_mode(document.job_node_id, 'onsite')
+              AS has_onsite,
+            job_has_work_location_mode(document.job_node_id, 'hybrid')
+              AS has_hybrid
           FROM job_search_documents document
           INNER JOIN job_market_job_pillars classification
             ON classification.job_node_id = document.job_node_id
@@ -650,15 +670,25 @@ export class JobMarketRepository {
             AND NOT document.blocked
             AND document.legacy_list_eligible
             AND cardinality(document.tags) > 0
-            AND (document.organization_id IS NOT NULL
-              OR document.project_id IS NOT NULL)
+            AND num_nonnulls(
+              document.organization_id,
+              document.project_id
+            ) = 1
             AND NOT (document.access = 'public'
               AND document.organization_has_expert_jobs)
             AND NOT EXISTS (
-              SELECT 1 FROM graph_nodes organization
-              WHERE organization.label = 'Organization'
-                AND organization.properties ->> 'orgId' = document.organization_id
-                AND entity_property_is_banned(organization.properties)
+              SELECT 1 FROM graph_nodes employer
+              WHERE (
+                (
+                    employer.label = 'Organization'
+                    AND employer.properties ->> 'orgId' =
+                      document.organization_id
+                  ) OR (
+                    employer.label = 'Project'
+                    AND employer.properties ->> 'id' = document.project_id
+                  )
+                )
+                AND entity_property_is_banned(employer.properties)
             )
         ), segment_jobs AS MATERIALIZED (
           SELECT * FROM eligible_jobs
@@ -670,8 +700,8 @@ export class JobMarketRepository {
         ), open_stats AS MATERIALIZED (
           SELECT tag.slug, min(tag.label) AS label,
             count(DISTINCT job.job_node_id)::int AS active_jobs,
-            count(DISTINCT job.organization_id)
-              FILTER (WHERE job.organization_id IS NOT NULL)::int
+            count(DISTINCT job.employer_key)
+              FILTER (WHERE job.employer_key IS NOT NULL)::int
               AS hiring_companies,
             count(DISTINCT job.job_node_id) FILTER (
               WHERE job.observed_date > latest.as_of_date - 7
@@ -692,8 +722,18 @@ export class JobMarketRepository {
             ON tag.job_node_id = job.job_node_id AND tag.kind = 'tags'
           GROUP BY tag.slug
         ), salary_base AS MATERIALIZED (
-          SELECT observation.*, pillar.slug, pillar.label
+          SELECT observation.*, pillar.slug, pillar.label,
+            CASE
+              WHEN document.organization_id IS NOT NULL
+                AND document.project_id IS NULL
+                THEN 'organization:' || document.organization_id
+              WHEN document.organization_id IS NULL
+                AND document.project_id IS NOT NULL
+                THEN 'project:' || document.project_id
+            END AS current_employer_key
           FROM job_market_salary_observations observation
+          JOIN job_search_documents document
+            ON document.job_node_id = observation.job_node_id
           INNER JOIN job_market_salary_observation_pillars mapping
             ON mapping.job_node_id = observation.job_node_id
            AND mapping.segment = observation.segment
@@ -703,11 +743,15 @@ export class JobMarketRepository {
           WHERE observation.classification_slug = $1
             AND observation.segment = $3
             AND observation.continent_slug = 'all'
+            AND num_nonnulls(
+              document.organization_id,
+              document.project_id
+            ) = 1
         ), employer_counts AS (
-          SELECT slug, organization_id, count(*) AS jobs
+          SELECT slug, current_employer_key, count(*) AS jobs
           FROM salary_base
-          WHERE organization_id IS NOT NULL
-          GROUP BY slug, organization_id
+          WHERE current_employer_key IS NOT NULL
+          GROUP BY slug, current_employer_key
         ), salary_stats AS (
           SELECT salary.slug, min(salary.label) AS label,
             percentile_cont(0.5) WITHIN GROUP (
@@ -723,8 +767,8 @@ export class JobMarketRepository {
               ORDER BY salary.adjusted_log_premium
             )) - 1) AS adjusted_premium,
             count(DISTINCT salary.job_node_id)::int AS salary_jobs,
-            count(DISTINCT salary.organization_id)
-              FILTER (WHERE salary.organization_id IS NOT NULL)::int
+            count(DISTINCT salary.current_employer_key)
+              FILTER (WHERE salary.current_employer_key IS NOT NULL)::int
               AS salary_employers,
             count(DISTINCT date_trunc('month', salary.observed_date))::int
               AS observed_months,

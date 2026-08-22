@@ -1,3 +1,5 @@
+import { TEAM_SIGNAL_SINGLE_SELECT_OPTIONS } from "./team-signal-filter-options";
+
 export enum FilterKind {
   SINGLE_SELECT = "SINGLE_SELECT",
   RANGE = "RANGE",
@@ -34,38 +36,7 @@ export const SINGLE_SELECT_OPTIONS = {
     { label: "Expert Jobs", value: true },
     { label: "Not Expert Jobs", value: false },
   ],
-  growingTeam: [
-    { label: "New active leads", value: true },
-    { label: "No new active leads", value: false },
-  ],
-  shrinkingTeam: [
-    { label: "Lead step-downs", value: true },
-    { label: "No lead step-downs", value: false },
-  ],
-  earlyTeamShrinkage: [
-    { label: "Early lead departures", value: true },
-    { label: "No early lead departures", value: false },
-  ],
-  newActiveLeads: [
-    { label: "New active leads", value: true },
-    { label: "No new active leads", value: false },
-  ],
-  steppedDownLeads: [
-    { label: "Lead step-downs", value: true },
-    { label: "No lead step-downs", value: false },
-  ],
-  movedLeads: [
-    { label: "Lead movements", value: true },
-    { label: "No lead movements", value: false },
-  ],
-  earlyLeadDepartures: [
-    { label: "Early lead departures", value: true },
-    { label: "No early lead departures", value: false },
-  ],
-  recentlyFunded: [
-    { label: "Funded in the last 6 months", value: true },
-    { label: "No funding event in the last 6 months", value: false },
-  ],
+  ...TEAM_SIGNAL_SINGLE_SELECT_OPTIONS,
   order: [
     { label: "A-Z", value: "asc" },
     { label: "Z-A", value: "desc" },
@@ -187,15 +158,22 @@ export const FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: "filter_joblist_timezones",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
-  fundingStages: {
+  collaborationHours: {
     position: 31,
+    label: "Likely Team Collaboration Hours (UTC)",
+    show: true,
+    googleAnalyticsEventName: "filter_joblist_collaboration_hours",
+    kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
+  },
+  fundingStages: {
+    position: 32,
     label: "Current Funding Stage",
     show: true,
     googleAnalyticsEventName: "filter_joblist_funding_stages",
     kind: FilterKind.MULTI_SELECT,
   },
   currentMaintainers: {
-    position: 32,
+    position: 33,
     label: "Current Maintainers",
     show: true,
     googleAnalyticsEventName: "filter_joblist_current_maintainers",
@@ -203,7 +181,7 @@ export const FILTER_CONFIG_PRESETS = {
     prefix: null,
   },
   activeLeads: {
-    position: 33,
+    position: 34,
     label: "Active Leads",
     show: true,
     googleAnalyticsEventName: "filter_joblist_active_leads",
@@ -211,7 +189,7 @@ export const FILTER_CONFIG_PRESETS = {
     prefix: null,
   },
   newActiveLeads: {
-    position: 34,
+    position: 35,
     label: "New Active Leads",
     show: true,
     googleAnalyticsEventName: "filter_joblist_new_active_leads",
@@ -219,7 +197,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.newActiveLeads,
   },
   steppedDownLeads: {
-    position: 35,
+    position: 36,
     label: "Lead Step-Downs",
     show: true,
     googleAnalyticsEventName: "filter_joblist_stepped_down_leads",
@@ -227,7 +205,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.steppedDownLeads,
   },
   movedLeads: {
-    position: 36,
+    position: 37,
     label: "Lead Movements",
     show: true,
     googleAnalyticsEventName: "filter_joblist_moved_leads",
@@ -235,7 +213,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.movedLeads,
   },
   earlyLeadDepartures: {
-    position: 37,
+    position: 38,
     label: "Early Lead Departures",
     show: true,
     googleAnalyticsEventName: "filter_joblist_early_lead_departures",
@@ -267,7 +245,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.earlyTeamShrinkage,
   },
   recentlyFunded: {
-    position: 38,
+    position: 39,
     label: "Recently Funded",
     show: true,
     googleAnalyticsEventName: "filter_joblist_recently_funded",
@@ -429,6 +407,7 @@ export const FILTER_PARAM_KEY_PRESETS = {
   countries: "countries",
   continents: "continents",
   timezones: "timezones",
+  collaborationHours: "collaborationHours",
   fundingStages: "fundingStages",
   currentMaintainers: {
     lowest: "minCurrentMaintainers",

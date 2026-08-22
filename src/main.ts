@@ -14,6 +14,10 @@ import * as basicAuth from "express-basic-auth";
 import * as compression from "compression";
 import { PublicModule } from "./public/public.module";
 import { generatePublicApiSpec } from "./shared/helpers";
+import {
+  BROWSER_CORS_HEADERS,
+  BROWSER_CORS_METHODS,
+} from "./shared/constants/cors";
 dotenv.config();
 
 // This project intentionally compiles without `esModuleInterop`. Node exposes
@@ -48,8 +52,8 @@ async function bootstrap(): Promise<void> {
   app.enableCors({
     credentials: true,
     origin: process.env.ALLOWED_ORIGINS?.split(","),
-    allowedHeaders: ["content-type", "x-ecosystem", "authorization"],
-    methods: ["GET", "OPTIONS", "POST", "DELETE"],
+    allowedHeaders: [...BROWSER_CORS_HEADERS],
+    methods: [...BROWSER_CORS_METHODS],
   });
   app.use(
     ["/api", "/api-json", "/api-yaml"],

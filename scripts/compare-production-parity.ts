@@ -88,7 +88,7 @@ const basicAuthorization = `Basic ${Buffer.from(
 ).toString("base64")}`;
 
 const runtimeCases: RuntimeCase[] = [
-  { path: "/app/health" },
+  { path: "/health/ready" },
   { path: "/app/diff" },
   { path: "/app/sitemap", compareXmlLocations: true },
   { path: "/app/sitemap/ev", compareXmlLocations: true },

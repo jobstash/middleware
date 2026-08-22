@@ -1,28 +1,12 @@
-import { forwardRef, Module } from "@nestjs/common";
+import { Module } from "@nestjs/common";
 import { ScorerService } from "./scorer.service";
 import { HttpModule } from "@nestjs/axios";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { REALLY_LONG_TIME } from "src/shared/constants";
-import { ScorerController } from "./scorer.controller";
 import * as https from "https";
-import { UserService } from "src/user/user.service";
-import { AuthService } from "src/auth/auth.service";
-import { JwtService } from "@nestjs/jwt";
-import { ProfileService } from "src/auth/profile/profile.service";
-import { RpcService } from "src/user/rpc.service";
-import { PrivyModule } from "src/auth/privy/privy.module";
-import { GithubModule } from "src/auth/github/github.module";
-import { UserModule } from "src/user/user.module";
-import { SubscriptionsModule } from "src/subscriptions/subscriptions.module";
-import { StripeModule } from "src/stripe/stripe.module";
 
 @Module({
   imports: [
-    PrivyModule,
-    GithubModule,
-    StripeModule,
-    forwardRef(() => UserModule),
-    forwardRef(() => SubscriptionsModule),
     HttpModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -38,15 +22,7 @@ import { StripeModule } from "src/stripe/stripe.module";
       }),
     }),
   ],
-  providers: [
-    ScorerService,
-    UserService,
-    AuthService,
-    JwtService,
-    ProfileService,
-    RpcService,
-  ],
-  controllers: [ScorerController],
+  providers: [ScorerService],
   exports: [ScorerService],
 })
 export class ScorerModule {}

@@ -13,7 +13,7 @@ on:
     branches: [main, staging, dev]
 
 concurrency:
-  group: ci-${{ github.head_ref || github.ref_name }}
+  group: ci-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -40,7 +40,7 @@ jobs:
           esac
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: { fetch-depth: 0 }
 
       - name: Enable Corepack & Yarn
@@ -49,16 +49,21 @@ jobs:
           corepack prepare yarn@1.22.22 --activate
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22.15.0
           cache: "yarn"
 
       - name: Install deps
-        run: yarn install --frozen-lockfile
+        run: |
+          yarn install --frozen-lockfile --ignore-scripts
+          npm rebuild bcrypt --build-from-source --foreground-scripts
 
       - name: Lint
         run: yarn lint
+
+      - name: Unit tests
+        run: yarn test --runInBand --ci --forceExit
 
       # - name: Run Tests
       #   run: yarn test --detectOpenHandles --forceExit --ci --coverage --reporters=default --reporters=jest-junit
@@ -126,7 +131,7 @@ jobs:
         run: yarn build
 
       - name: Release with sourcemaps to Sentry
-        uses: getsentry/action-release@v3
+        uses: getsentry/action-release@ff07929a6537bac57790c3451cf4d364aca38528 # v3
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: "jobstash"

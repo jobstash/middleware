@@ -81,6 +81,11 @@ export class SearchPillarFiltersParams {
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
+  collaborationHours?: string[] | null = null;
+
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
   seniority?: string[] | null = null;
 
   @IsOptional()

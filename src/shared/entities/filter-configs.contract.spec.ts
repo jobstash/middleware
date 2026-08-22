@@ -41,6 +41,11 @@ describe("filter config response contracts", () => {
       continentLabels: { "place:geonames:6255148": "Europe" },
       timezones: ["tz:Europe/Amsterdam"],
       timezoneLabels: { "tz:Europe/Amsterdam": "Europe/Amsterdam" },
+      collaborationHours: ["utc-08", "utc-17"],
+      collaborationHourLabels: {
+        "utc-08": "08:00 UTC",
+        "utc-17": "17:00 UTC",
+      },
       investors: ["Paradigm"],
       ecosystems: ["Ethereum"],
       organizations: ["Acme"],
@@ -151,6 +156,12 @@ describe("filter config response contracts", () => {
             value: "europe-amsterdam",
             aliases: ["tz:Europe/Amsterdam"],
           },
+        ],
+      },
+      collaborationHours: {
+        options: [
+          { label: "08:00 UTC", value: "utc-08" },
+          { label: "17:00 UTC", value: "utc-17" },
         ],
       },
       investors: { options: [{ label: "Paradigm", value: "paradigm" }] },

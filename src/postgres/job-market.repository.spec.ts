@@ -34,6 +34,9 @@ describe("JobMarketRepository", () => {
     expect(sql).toContain("document.online");
     expect(sql).toContain("document.legacy_list_eligible");
     expect(sql).toContain("job_market_salary_observations");
+    expect(sql).toContain("'organization:' || document.organization_id");
+    expect(sql).toContain("'project:' || document.project_id");
+    expect(sql).toContain("count(DISTINCT job.employer_key)");
     expect(sql).toContain("open.active_jobs >= 10");
     expect(sql).toContain("open.hiring_companies >= 5");
     expect(parameters).toEqual(["cl-sales", true, "remote", "negotiation"]);
@@ -49,6 +52,8 @@ describe("JobMarketRepository", () => {
     expect(sql).toContain("FROM job_market_salary_observations observation");
     expect(sql).toContain("percentile_cont(0.5)");
     expect(sql).toContain("max_employer_share");
+    expect(sql).toContain("JOIN job_search_documents document");
+    expect(sql).toContain("count(DISTINCT filtered.current_employer_key)");
     expect(sql).toContain("observedMonthCount");
     expect(parameters).toEqual(["cl-sales", "max"]);
   });
@@ -87,6 +92,12 @@ describe("JobMarketRepository", () => {
     expect(sql).toContain("document.filter_labels -> $4");
     expect(sql).toContain("item ->> 'workMode'");
     expect(sql).toContain("entity_property_is_banned");
+    expect(sql).toContain("LEFT JOIN project_search_documents project");
+    expect(sql).toContain("project.name");
+    expect(sql).toContain("banned_employer.label = 'Project'");
+    expect(sql).toContain(
+      "num_nonnulls(\n              document.organization_id,\n              document.project_id",
+    );
     expect(parameters).toEqual([
       "cl-backend",
       "local",

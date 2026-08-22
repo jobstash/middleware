@@ -138,4 +138,59 @@ describe("SearchService organization intelligence filters", () => {
       ]),
     );
   });
+
+  it("keeps collaboration-hour keys stable while exposing plain UTC labels", async () => {
+    const service = new SearchService(
+      {
+        getPillarConfigs: jest
+          .fn()
+          .mockResolvedValue([{ collaborationHours: ["utc-08", "utc-17"] }]),
+      } as unknown as SearchRepository,
+      {} as never,
+      {} as never,
+    );
+
+    const result = await service.searchPillarFilters(
+      { nav: "jobs" } as never,
+      undefined,
+    );
+
+    expect(result.success).toBe(true);
+    if (!("data" in result)) throw new Error("Expected filter data");
+    expect(result.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: "Likely Team Collaboration Hours (UTC)",
+          paramKey: "collaborationHours",
+          options: [
+            { label: "08:00 UTC", value: "utc-08" },
+            { label: "17:00 UTC", value: "utc-17" },
+          ],
+        }),
+      ]),
+    );
+  });
+
+  it("resolves collaboration-hour pillar slugs to plain UTC labels", async () => {
+    const service = new SearchService(
+      {
+        getPillarConfigs: jest
+          .fn()
+          .mockResolvedValue([{ collaborationHours: ["utc-08"] }]),
+      } as unknown as SearchRepository,
+      {} as never,
+      {} as never,
+    );
+
+    await expect(
+      service.fetchPillarItemLabels({
+        nav: "jobs",
+        pillars: ["collaborationHours"],
+        slugs: ["utc-08"],
+      } as never),
+    ).resolves.toMatchObject({
+      success: true,
+      data: [{ slug: "utc-08", label: "08:00 UTC" }],
+    });
+  });
 });
