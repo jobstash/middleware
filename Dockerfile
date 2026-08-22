@@ -32,9 +32,10 @@ WORKDIR /usr/src/app
 RUN apk add --no-cache curl
 
 # Only copy what you need to run
-COPY --from=build /usr/src/app/package.json ./
-COPY --from=build /usr/src/app/node_modules ./node_modules
-COPY --from=build /usr/src/app/dist ./dist
+COPY --chown=node:node --from=build /usr/src/app/package.json ./
+COPY --chown=node:node --from=build /usr/src/app/node_modules ./node_modules
+COPY --chown=node:node --from=build /usr/src/app/dist ./dist
 
 # Avoid yarn entirely at runtime to dodge shims/collisions
+USER node
 CMD ["node", "dist/main.js"]
