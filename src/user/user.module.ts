@@ -22,7 +22,6 @@ import { UserController } from "./user.controller";
 import { Auth0Module } from "src/auth0/auth0.module";
 import { TagsService } from "src/tags/tags.service";
 import { SubscriptionsModule } from "src/subscriptions/subscriptions.module";
-import { BullModule } from "@nestjs/bull";
 import { StripeModule } from "src/stripe/stripe.module";
 import { AccessWorkspacesModule } from "src/access-workspaces/access-workspaces.module";
 
@@ -35,17 +34,6 @@ import { AccessWorkspacesModule } from "src/access-workspaces/access-workspaces.
     forwardRef(() => ProfileModule),
     forwardRef(() => SubscriptionsModule),
     forwardRef(() => AccessWorkspacesModule),
-    BullModule.registerQueue({
-      name: "mail",
-      defaultJobOptions: {
-        attempts: 5,
-        backoff: {
-          type: "exponential",
-        },
-        removeOnComplete: true,
-        timeout: 60000,
-      },
-    }),
     HttpModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

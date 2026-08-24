@@ -1,6 +1,5 @@
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import Redis from "ioredis";
 import { PostgresService } from "src/postgres/postgres.service";
 
 type DependencyState = {
@@ -30,14 +29,9 @@ export class HealthService {
 
   async ready(): Promise<ServiceHealth> {
     const startedAt = Date.now();
-    const [postgres, redis] = await Promise.all([
-      this.probe(() => this.postgres.query("SELECT 1")),
-      this.probeRedis(),
-    ]);
-    const dependencies = { postgres, redis };
-    const isReady = Object.values(dependencies).every(
-      dependency => dependency.status === "up",
-    );
+    const postgres = await this.probe(() => this.postgres.query("SELECT 1"));
+    const dependencies = { postgres };
+    const isReady = postgres.status === "up";
     return this.response(
       isReady ? "ready" : "not_ready",
       startedAt,
@@ -58,27 +52,6 @@ export class HealthService {
     } catch {
       return { status: "down", responseTimeMs: Date.now() - startedAt };
     }
-  }
-
-  private probeRedis(): Promise<DependencyState> {
-    return this.probe(async () => {
-      const redis = new Redis({
-        host: this.config.getOrThrow<string>("REDIS_HOST"),
-        port: this.config.getOrThrow<number>("REDIS_PORT"),
-        password: this.config.get<string>("REDIS_PASSWORD"),
-        lazyConnect: true,
-        connectTimeout: 1_000,
-        commandTimeout: 1_000,
-        maxRetriesPerRequest: 0,
-        retryStrategy: (): null => null,
-      });
-      try {
-        await redis.connect();
-        await redis.ping();
-      } finally {
-        redis.disconnect(false);
-      }
-    });
   }
 
   private response(

@@ -26,7 +26,6 @@ import { SearchModule } from "./search/search.module";
 import { UserModule } from "./user/user.module";
 import { Auth0Module } from "./auth0/auth0.module";
 import { SubscriptionsModule } from "./subscriptions/subscriptions.module";
-import { BullModule } from "@nestjs/bull";
 import { ScheduleModule } from "@nestjs/schedule";
 import { TelemetryModule } from "./telemetry/telemetry.module";
 import { EcosystemsModule } from "./ecosystems/ecosystems.module";
@@ -67,17 +66,6 @@ import { AccessWorkspacesModule } from "./access-workspaces/access-workspaces.mo
     HealthModule,
     AdminIngestionModule,
     AccessWorkspacesModule,
-    BullModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        redis: {
-          host: configService.get<string>("REDIS_HOST"),
-          port: configService.get<number>("REDIS_PORT"),
-          password: configService.get<string>("REDIS_PASSWORD"),
-        },
-      }),
-    }),
     ScheduleModule.forRoot(),
     CacheModule.register({ isGlobal: true }),
     StripeModule,
