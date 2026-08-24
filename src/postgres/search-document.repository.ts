@@ -231,54 +231,73 @@ class SqlPredicateBuilder {
 const normalizeList = (values?: string[] | null): string[] | null =>
   values?.map(value => slugify(value)).filter(Boolean) ?? null;
 
-const strictFullyRemotePredicate = (columnPrefix = ""): string => {
-  const workArrangement = `${columnPrefix}work_arrangement`;
-  return `(
-    COALESCE((${workArrangement} ->> 'fullyRemote')::boolean, false)
-    AND EXISTS (
-      SELECT 1
-      FROM jsonb_array_elements(
-        COALESCE(${workArrangement} -> 'remoteOptions', '[]'::jsonb)
-      ) remote_option
-      WHERE remote_option ->> 'mode' = 'remote'
-        AND remote_option ->> 'scope' = 'global'
-        AND COALESCE(
-          jsonb_array_length(remote_option -> 'includedCountries'),
-          0
-        ) = 0
-        AND COALESCE(
-          jsonb_array_length(remote_option -> 'excludedCountries'),
-          0
-        ) = 0
-        AND COALESCE(
-          jsonb_array_length(remote_option -> 'includedRegions'),
-          0
-        ) = 0
-        AND COALESCE(
-          jsonb_array_length(remote_option -> 'excludedRegions'),
-          0
-        ) = 0
-        AND remote_option ->> 'requiredUtcBand' IS NULL
-        AND COALESCE(
-          jsonb_array_length(remote_option -> 'residencyRequirements'),
-          0
-        ) = 0
-        AND COALESCE(
-          jsonb_array_length(
-            remote_option -> 'workAuthorizationRequirements'
-          ),
-          0
-        ) = 0
-        AND remote_option ->> 'attendanceCadence' IS NULL
-        AND remote_option ->> 'travelRequirement' IS NULL
+/**
+ * A job is 100% Remote when one current, employer-authored remote option is
+ * available globally without a hard eligibility or attendance restriction.
+ * Other options on the same job are intentionally irrelevant: a global
+ * remote arm remains valid when the employer also offers an office arm.
+ *
+ * Read only committed extraction tables. Import staging data is unfinished
+ * and must never change a public search result.
+ */
+const strictFullyRemotePredicate = (
+  jobNodeExpression = "job_node_id",
+): string => `EXISTS (
+  SELECT 1
+  FROM (
+    SELECT DISTINCT ON (
+      extraction.raw_job_node_id,
+      extraction.jobsite_node_id
     )
-  )`;
-};
+      extraction.raw_job_node_id,
+      extraction.jobsite_node_id,
+      extraction.extractor_version
+    FROM graph_relationships structured_job
+    JOIN job_availability_extractions extraction
+      ON extraction.raw_job_node_id = structured_job.source_id
+    WHERE structured_job.target_id = ${jobNodeExpression}
+      AND structured_job.type = 'HAS_STRUCTURED_JOBPOST'
+    ORDER BY
+      extraction.raw_job_node_id,
+      extraction.jobsite_node_id,
+      extraction.extracted_at DESC,
+      extraction.extractor_version DESC
+  ) latest_extraction
+  JOIN job_work_location_options remote_option USING (
+    raw_job_node_id,
+    jobsite_node_id,
+    extractor_version
+  )
+  WHERE remote_option.mode = 'remote'
+    AND remote_option.scope = 'global'
+    AND remote_option.arrangement_confidence IN ('source_stated', 'parsed')
+    AND remote_option.employer_authored_remote_evidence
+    AND cardinality(remote_option.countries) = 0
+    AND cardinality(remote_option.excluded_countries) = 0
+    AND cardinality(remote_option.regions) = 0
+    AND cardinality(remote_option.excluded_regions) = 0
+    AND remote_option.required_minimum_utc_offset_minutes IS NULL
+    AND remote_option.required_maximum_utc_offset_minutes IS NULL
+    AND remote_option.timezone_preference_strength <> 'required'
+    AND (
+      (
+        remote_option.minimum_utc_offset_minutes IS NULL
+        AND remote_option.maximum_utc_offset_minutes IS NULL
+      )
+      OR remote_option.timezone_preference_strength = 'preferred'
+    )
+    AND cardinality(remote_option.residency_requirements) = 0
+    AND NULLIF(btrim(remote_option.residency_requirement), '') IS NULL
+    AND cardinality(remote_option.work_authorizations) = 0
+    AND NULLIF(btrim(remote_option.work_authorization), '') IS NULL
+    AND NULLIF(btrim(remote_option.attendance_cadence), '') IS NULL
+    AND NULLIF(btrim(remote_option.travel_requirement), '') IS NULL
+)`;
 
 const projectedWorkModes = (columnPrefix = ""): string => `array_cat(
   COALESCE(${columnPrefix}location_types, ARRAY[]::text[]),
   CASE
-    WHEN ${strictFullyRemotePredicate(columnPrefix)}
+    WHEN ${strictFullyRemotePredicate(`${columnPrefix}job_node_id`)}
       THEN ARRAY['fully_remote']::text[]
     ELSE ARRAY[]::text[]
   END

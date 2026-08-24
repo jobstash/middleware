@@ -372,9 +372,32 @@ describe("SearchDocumentRepository", () => {
     }
     expect(sql).toContain("(funding_round_names) &&");
     expect(sql).toContain("'remote' = ANY(COALESCE(location_types");
-    expect(sql).toContain("work_arrangement ->> 'fullyRemote'");
-    expect(sql).toContain("remote_option ->> 'scope' = 'global'");
-    expect(sql).toContain("remote_option ->> 'requiredUtcBand' IS NULL");
+    expect(sql).toContain("FROM graph_relationships structured_job");
+    expect(sql).toContain("JOIN job_availability_extractions extraction");
+    expect(sql).toContain("JOIN job_work_location_options remote_option");
+    expect(sql).toContain("remote_option.scope = 'global'");
+    expect(sql).toContain(
+      "remote_option.arrangement_confidence IN ('source_stated', 'parsed')",
+    );
+    expect(sql).toContain("remote_option.employer_authored_remote_evidence");
+    expect(sql).toContain(
+      "remote_option.required_minimum_utc_offset_minutes IS NULL",
+    );
+    expect(sql).toContain(
+      "remote_option.timezone_preference_strength <> 'required'",
+    );
+    expect(sql).toContain(
+      "cardinality(remote_option.residency_requirements) = 0",
+    );
+    expect(sql).toContain("cardinality(remote_option.work_authorizations) = 0");
+    expect(sql).toContain(
+      "NULLIF(btrim(remote_option.attendance_cadence), '') IS NULL",
+    );
+    expect(sql).toContain(
+      "NULLIF(btrim(remote_option.travel_requirement), '') IS NULL",
+    );
+    expect(sql).not.toContain("work_arrangement ->> 'fullyRemote'");
+    expect(sql).not.toContain("structured_job_refresh_staging");
     expect(sql).not.toContain("job_has_work_location_mode");
     expect(sql).toContain("FROM unnest(classifications) facet_key");
     expect(sql).toContain("replace(facet_key, '-', '')");

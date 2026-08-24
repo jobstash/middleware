@@ -2,7 +2,7 @@ const canonicalWorkArrangementOption = (
   valueAlias: string,
   classificationExpression: string,
 ): string => `
-  jsonb_strip_nulls(jsonb_build_object(
+  jsonb_build_object(
     'classification', ${classificationExpression},
     'mode', ${valueAlias} ->> 'mode',
     'scope', ${valueAlias} ->> 'scope',
@@ -71,7 +71,7 @@ const canonicalWorkArrangementOption = (
       btrim(${valueAlias} ->> 'travelRequirement'), ''
     ),
     'confidence', COALESCE(${valueAlias} ->> 'confidence', 'parsed')
-  ))
+  )
 `;
 
 export const jobWorkArrangementPayload = (jobAlias = "job"): string => `

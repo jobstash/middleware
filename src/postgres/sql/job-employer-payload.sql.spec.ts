@@ -25,6 +25,7 @@ describe("job WorkArrangementV1 payload SQL", () => {
     expect(sql).toContain("'officeCity'");
     expect(sql).toContain("'attendanceCadence'");
     expect(sql).toContain("'travelRequirement'");
+    expect(sql).not.toContain("jsonb_strip_nulls");
     expect(sql).not.toContain("'evidence'");
     expect(sql).toContain("'confidence'");
     expect(sql).not.toContain("remote_or_office");
