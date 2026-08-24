@@ -33,6 +33,7 @@ describe("StructuredJobpost WorkArrangementV1", () => {
   it("preserves canonical mode-separated options in list/detail inheritance", () => {
     const workArrangement: WorkArrangementV1 = {
       classification: "verified_remote",
+      fullyRemote: true,
       remoteOptions: [
         {
           classification: "verified_remote",
@@ -53,16 +54,6 @@ describe("StructuredJobpost WorkArrangementV1", () => {
           officeCity: null,
           attendanceCadence: null,
           travelRequirement: null,
-          evidence: [
-            {
-              quote: "Work remotely from the Netherlands.",
-              startOffset: 0,
-              endOffset: 37,
-              source: "employer_body",
-              trust: "employer_body",
-              provenance: '{"source":"job_description"}',
-            },
-          ],
           confidence: "source_stated",
         },
       ],
@@ -83,6 +74,7 @@ describe("StructuredJobpost WorkArrangementV1", () => {
 
     expect(result.workArrangement).toEqual({
       classification: "unstated",
+      fullyRemote: null,
       remoteOptions: [],
       hybridOptions: [],
       onsiteOptions: [],

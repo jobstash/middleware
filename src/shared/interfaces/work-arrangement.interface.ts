@@ -39,13 +39,6 @@ const WorkRegionType = t.union([
   t.literal("APAC"),
 ]);
 
-const WorkEvidenceTrustType = t.union([
-  t.literal("employer_body"),
-  t.literal("employer_ats_field"),
-  t.literal("verified_employer_policy"),
-  t.literal("aggregator"),
-]);
-
 export class WorkArrangementUtcBand {
   public static readonly WorkArrangementUtcBandType = t.strict({
     minimumUtcOffset: t.number,
@@ -92,16 +85,6 @@ export class WorkLocationOption {
     officeCity: t.union([t.string, t.null]),
     attendanceCadence: t.union([t.string, t.null]),
     travelRequirement: t.union([t.string, t.null]),
-    evidence: t.array(
-      t.strict({
-        quote: t.string,
-        startOffset: t.number,
-        endOffset: t.number,
-        source: WorkEvidenceTrustType,
-        trust: WorkEvidenceTrustType,
-        provenance: t.string,
-      }),
-    ),
     confidence: t.union([
       t.literal("source_stated"),
       t.literal("parsed"),
@@ -162,72 +145,18 @@ export class WorkLocationOption {
   @ApiPropertyOptional({ nullable: true })
   travelRequirement: string | null;
 
-  @ApiProperty({
-    type: "array",
-    items: {
-      type: "object",
-      required: [
-        "quote",
-        "startOffset",
-        "endOffset",
-        "source",
-        "trust",
-        "provenance",
-      ],
-      properties: {
-        quote: { type: "string" },
-        startOffset: { type: "integer" },
-        endOffset: { type: "integer" },
-        source: {
-          type: "string",
-          enum: [
-            "employer_body",
-            "employer_ats_field",
-            "verified_employer_policy",
-            "aggregator",
-          ],
-        },
-        trust: {
-          type: "string",
-          enum: [
-            "employer_body",
-            "employer_ats_field",
-            "verified_employer_policy",
-            "aggregator",
-          ],
-        },
-        provenance: { type: "string" },
-      },
-    },
-  })
-  evidence: {
-    quote: string;
-    startOffset: number;
-    endOffset: number;
-    source:
-      | "employer_body"
-      | "employer_ats_field"
-      | "verified_employer_policy"
-      | "aggregator";
-    trust:
-      | "employer_body"
-      | "employer_ats_field"
-      | "verified_employer_policy"
-      | "aggregator";
-    provenance: string;
-  }[];
-
   @ApiProperty({ enum: ["source_stated", "parsed", "inherited"] })
   confidence: "source_stated" | "parsed" | "inherited";
 }
 
 /**
  * Public WorkArrangementV1. Alternative remote-or-office arms stay in their
- * respective mode arrays and retain their common evidence/provenance.
+ * respective mode arrays and retain their source trust.
  */
 export class WorkArrangementV1 {
   public static readonly WorkArrangementV1Type = t.strict({
     classification: WorkArrangementClassificationType,
+    fullyRemote: t.union([t.boolean, t.null]),
     remoteOptions: t.array(WorkLocationOption.WorkLocationOptionType),
     hybridOptions: t.array(WorkLocationOption.WorkLocationOptionType),
     onsiteOptions: t.array(WorkLocationOption.WorkLocationOptionType),
@@ -235,6 +164,9 @@ export class WorkArrangementV1 {
 
   @ApiProperty({ enum: WORK_ARRANGEMENT_CLASSIFICATIONS })
   classification: WorkArrangementClassification;
+
+  @ApiPropertyOptional({ nullable: true })
+  fullyRemote: boolean | null;
 
   @ApiProperty({ type: [WorkLocationOption] })
   remoteOptions: WorkLocationOption[];
@@ -248,6 +180,7 @@ export class WorkArrangementV1 {
 
 export const EMPTY_WORK_ARRANGEMENT_V1: WorkArrangementV1 = {
   classification: "unstated",
+  fullyRemote: null,
   remoteOptions: [],
   hybridOptions: [],
   onsiteOptions: [],

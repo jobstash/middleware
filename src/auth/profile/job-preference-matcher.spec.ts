@@ -20,16 +20,6 @@ const option = (
   attendanceCadence: null,
   travelRequirement: null,
   confidence: "source_stated",
-  evidence: [
-    {
-      quote: "Remote in NL or PT",
-      startOffset: 0,
-      endOffset: 18,
-      source: "employer_body",
-      trust: "employer_body",
-      provenance: "job-description",
-    },
-  ],
   ...overrides,
 });
 
@@ -58,7 +48,7 @@ describe("matchWorkLocationOptions", () => {
           {
             code: "work_arrangement_unstated",
             message:
-              "No current employer-authored work-arrangement evidence is available.",
+              "No current employer-authored work arrangement is available.",
           },
         ],
         optionalSignals: [],
@@ -80,12 +70,12 @@ describe("matchWorkLocationOptions", () => {
         job: { shortUUID: "aggregator-remote" },
         option: null,
         explanation:
-          "A source labels this role Remote, but no employer-authored evidence verifies that claim.",
+          "A source labels this role Remote, but the employer's actual arrangement is not established.",
         needsChecking: [
           {
             code: "remote_evidence_unqualified",
             message:
-              "Remote eligibility is based only on unverified aggregator evidence.",
+              "Remote eligibility comes only from an inherited source label.",
           },
         ],
         optionalSignals: [],
@@ -270,16 +260,7 @@ describe("matchWorkLocationOptions", () => {
             scope: "global",
             includedCountries: [],
             classification: "remote_unqualified",
-            evidence: [
-              {
-                quote: "Remote",
-                startOffset: 0,
-                endOffset: 6,
-                source: "aggregator",
-                trust: "aggregator",
-                provenance: "aggregator-field",
-              },
-            ],
+            confidence: "inherited",
           }),
         ],
         preferences,
@@ -287,49 +268,15 @@ describe("matchWorkLocationOptions", () => {
     ).toBeNull();
   });
 
-  it("fails closed when remote evidence source and trust disagree", () => {
+  it("fails closed when a remote option is inherited", () => {
     expect(
       matchWorkLocationOptions(
-        { shortUUID: "mismatched-evidence" },
+        { shortUUID: "inherited" },
         [
           option({
             scope: "global",
             includedCountries: [],
-            evidence: [
-              {
-                quote: "Remote worldwide",
-                startOffset: 0,
-                endOffset: 16,
-                source: "aggregator",
-                trust: "employer_body",
-                provenance: "aggregator-field",
-              },
-            ],
-          }),
-        ],
-        preferences,
-      ),
-    ).toBeNull();
-  });
-
-  it("fails closed when two different employer evidence levels are paired", () => {
-    expect(
-      matchWorkLocationOptions(
-        { shortUUID: "mismatched-employer-evidence" },
-        [
-          option({
-            scope: "global",
-            includedCountries: [],
-            evidence: [
-              {
-                quote: "Remote worldwide",
-                startOffset: 0,
-                endOffset: 16,
-                source: "employer_ats_field",
-                trust: "employer_body",
-                provenance: "ats.location",
-              },
-            ],
+            confidence: "inherited",
           }),
         ],
         preferences,

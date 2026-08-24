@@ -108,9 +108,7 @@ const disallowsRequiredAttendance = (preference: string | null): boolean =>
   /^(?:remote[_ -]?only|no[_ -]?required[_ -]?attendance)$/i.test(preference);
 
 export type JobForMeGroup =
-  | "confirmedMatches"
-  | "timezoneNearMisses"
-  | "needsChecking";
+  "confirmedMatches" | "timezoneNearMisses" | "needsChecking";
 
 export interface CategorizedJobForMe<TJob extends object> {
   group: JobForMeGroup;
@@ -122,12 +120,6 @@ const groupRank: Record<JobForMeGroup, number> = {
   timezoneNearMisses: 2,
   needsChecking: 1,
 };
-
-const EMPLOYER_EVIDENCE = new Set([
-  "employer_body",
-  "employer_ats_field",
-  "verified_employer_policy",
-]);
 
 /**
  * Evaluates every separate WorkArrangementV1 option and returns the strongest
@@ -147,12 +139,12 @@ export const matchWorkLocationOptions = <TJob extends object>(
           job,
           option: null,
           explanation:
-            "A source labels this role Remote, but no employer-authored evidence verifies that claim.",
+            "A source labels this role Remote, but the employer's actual arrangement is not established.",
           needsChecking: [
             {
               code: "remote_evidence_unqualified",
               message:
-                "Remote eligibility is based only on unverified aggregator evidence.",
+                "Remote eligibility comes only from an inherited source label.",
             },
           ],
           optionalSignals: [],
@@ -170,7 +162,7 @@ export const matchWorkLocationOptions = <TJob extends object>(
           {
             code: "work_arrangement_unstated",
             message:
-              "No current employer-authored work-arrangement evidence is available.",
+              "No current employer-authored work arrangement is available.",
           },
         ],
         optionalSignals: [],
@@ -184,12 +176,7 @@ export const matchWorkLocationOptions = <TJob extends object>(
     if (
       option.mode === "remote" &&
       (!["verified_remote", "conflicting"].includes(option.classification) ||
-        !option.evidence.some(
-          evidence =>
-            EMPLOYER_EVIDENCE.has(evidence.source) &&
-            EMPLOYER_EVIDENCE.has(evidence.trust) &&
-            evidence.source === evidence.trust,
-        ))
+        option.confidence === "inherited")
     ) {
       continue;
     }
@@ -207,7 +194,7 @@ export const matchWorkLocationOptions = <TJob extends object>(
       needsChecking.push({
         code: "conflicting_work_arrangement",
         message:
-          "The employer's work-arrangement evidence conflicts and needs review.",
+          "The employer's work-arrangement requirements conflict and need checking.",
       });
     }
 
