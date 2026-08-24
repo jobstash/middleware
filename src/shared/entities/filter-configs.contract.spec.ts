@@ -102,6 +102,8 @@ describe("filter config response contracts", () => {
       workModes: {
         options: [
           { label: "100% Remote", value: "fully-remote" },
+          { label: "Hybrid", value: "hybrid" },
+          { label: "Onsite", value: "onsite" },
           { label: "Remote", value: "remote" },
         ],
       },
@@ -246,6 +248,9 @@ describe("filter config response contracts", () => {
       },
     ]);
     expect(result.workModes.options).toEqual([
+      { label: "100% Remote", value: "fully-remote" },
+      { label: "Hybrid", value: "hybrid" },
+      { label: "Onsite", value: "onsite" },
       { label: "Remote", value: "remote" },
     ]);
     expect(result.fundingRounds.options).toEqual([

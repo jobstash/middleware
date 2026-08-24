@@ -17,6 +17,13 @@ import {
 } from "../helpers";
 import { toHeaderCase } from "js-convert-case";
 
+const CANONICAL_WORK_MODE_FILTERS = [
+  "remote",
+  "fully_remote",
+  "onsite",
+  "hybrid",
+];
+
 export type RawJobFilters = {
   minSalaryRange?: number | null;
   maxSalaryRange?: number | null;
@@ -209,7 +216,10 @@ export class JobFilterConfigsEntity {
     ]);
     const values = [
       ...new Set(
-        (this.raw[key] ?? []).filter(
+        [
+          ...(key === "workModes" ? CANONICAL_WORK_MODE_FILTERS : []),
+          ...(this.raw[key] ?? []),
+        ].filter(
           (value): value is string =>
             typeof value === "string" && isValidFilterConfig(value),
         ),
