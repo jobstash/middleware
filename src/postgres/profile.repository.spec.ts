@@ -39,6 +39,7 @@ describe("ProfileRepository", () => {
     expect(sql).toContain("'canonicalSlug'");
     expect(sql).toContain("'summary'");
     expect(sql).toContain("profile_info_properties ->> 'description'");
+    expect(sql).not.toContain("descriptionShort");
     expect(sql).toContain("PROFILE_HAS_ORGANIZATION");
     expect(sql).toContain("PROFILE_HAS_PROJECT");
     expect(parameters).toEqual([25, 50, "acme", "org-one", "Organization"]);
@@ -122,6 +123,7 @@ describe("ProfileRepository", () => {
     expect(sql).toContain("FROM profile_reviews review");
     expect(sql).toContain("'summary'");
     expect(sql).toContain("info.properties ->> 'description'");
+    expect(sql).not.toContain("descriptionShort");
     expect(sql).toContain("review.status IN ('published', 'redacted')");
     expect(sql).toContain(
       "review.status IN ('pending', 'published', 'redacted')",

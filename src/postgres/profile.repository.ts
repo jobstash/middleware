@@ -181,10 +181,8 @@ export class ProfileRepository {
                 page.profile_info_properties ->> 'displayName',
                 page.profile_info_properties ->> 'name'
               ),
-              'summary', COALESCE(
+              'summary',
                 page.profile_info_properties ->> 'summary',
-                page.profile_info_properties ->> 'descriptionShort'
-              ),
               'description',
                 page.profile_info_properties ->> 'description',
               'logo', COALESCE(
@@ -531,10 +529,7 @@ export class ProfileRepository {
               info.properties ->> 'displayName',
               info.properties ->> 'name'
             ),
-            'summary', COALESCE(
-              info.properties ->> 'summary',
-              info.properties ->> 'descriptionShort'
-            ),
+            'summary', info.properties ->> 'summary',
             'description', info.properties ->> 'description',
             'logo', COALESCE(
               info.properties ->> 'logo',
