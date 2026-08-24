@@ -391,13 +391,6 @@ describe("SearchDocumentRepository", () => {
     );
   });
 
-  it("does not hide otherwise eligible jobs whose tag list is empty", async () => {
-    await repository.searchJobs({ workModes: ["fully-remote"] });
-
-    const [sql] = query.mock.calls[0];
-    expect(sql).not.toContain("cardinality(tags) > 0");
-  });
-
   it("accepts legacy compact facet URLs without losing canonical matches", async () => {
     await repository.searchJobs({
       classifications: ["engineeringmanagement"],

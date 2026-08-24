@@ -867,6 +867,7 @@ export class SearchDocumentRepository {
     }
     where.add("legacy_list_eligible");
     where.add("num_nonnulls(organization_id, project_id) = 1");
+    where.add("cardinality(tags) > 0");
     if (params.suppressPublicForExpertOrganizations !== false) {
       where.add("NOT (access = 'public' AND organization_has_expert_jobs)");
     }
