@@ -216,16 +216,25 @@ export class JobFilterConfigsEntity {
       ),
     ];
     const options = values.map(value => {
-      const label = labels[value] ?? value;
+      const isFullyRemote =
+        key === "workModes" &&
+        (value === "fully_remote" || value === "fully-remote");
+      const label = isFullyRemote ? "100% Remote" : (labels[value] ?? value);
       return {
-        label: headerLabels.has(key) ? toHeaderCase(label) : label,
-        value: seoKeys.has(key)
-          ? slugifyFacetLabel(label)
-          : labels[value] !== undefined
-            ? value
-            : key === "ecosystems"
+        label: isFullyRemote
+          ? label
+          : headerLabels.has(key)
+            ? toHeaderCase(label)
+            : label,
+        value: isFullyRemote
+          ? "fully-remote"
+          : seoKeys.has(key)
+            ? slugifyFacetLabel(label)
+            : labels[value] !== undefined
               ? value
-              : slugify(value),
+              : key === "ecosystems"
+                ? value
+                : slugify(value),
         ...(seoKeys.has(key) ? { aliases: [value] } : {}),
       };
     });

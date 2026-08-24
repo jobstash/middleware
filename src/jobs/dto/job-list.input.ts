@@ -13,6 +13,8 @@ import { toList } from "src/shared/helpers";
 import { DateRange, ListOrder, JobListOrderBy } from "src/shared/types";
 import { Compare } from "src/shared/validators";
 
+const JOB_WORK_MODE_FILTERS = [...WORK_MODES, "fully-remote"] as const;
+
 export class JobListParams {
   @ApiPropertyOptional({
     example: "this-week",
@@ -215,11 +217,11 @@ export class JobListParams {
 
   @ApiPropertyOptional({
     description: "Canonical work modes returned by /jobs/filters",
-    enum: WORK_MODES,
+    enum: JOB_WORK_MODE_FILTERS,
     isArray: true,
   })
   @IsOptional()
-  @IsIn(WORK_MODES, { each: true })
+  @IsIn(JOB_WORK_MODE_FILTERS, { each: true })
   @Type(() => String)
   @Transform(toList)
   workModes?: string[] | null = null;

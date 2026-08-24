@@ -1070,9 +1070,7 @@ export class SearchService {
         ),
       ];
       const filters: (
-        | SearchRangeFilter
-        | SingleSelectFilter
-        | MultiSelectFilter
+        SearchRangeFilter | SingleSelectFilter | MultiSelectFilter
       )[] = [];
       for (const filter of filterNames) {
         const configs = this.filterConfigs(allConfigs, params, filter);
@@ -2005,6 +2003,7 @@ export class SearchService {
       Bizdev: "Business Development",
       Devops: "DevOps",
       Devrel: "Developer Relations",
+      "Fully Remote": "100% Remote",
       Fullstack: "Full Stack",
     };
     return establishedLabels[normalized] ?? normalized;

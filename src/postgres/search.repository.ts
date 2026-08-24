@@ -810,6 +810,7 @@ export class SearchRepository {
           SELECT 'locationTypes', replace(mode, '_', '-'),
             CASE mode
               WHEN 'remote_or_office' THEN 'Remote or office'
+              WHEN 'fully_remote' THEN '100% Remote'
               ELSE initcap(mode)
             END,
             job_node_id,
@@ -818,7 +819,7 @@ export class SearchRepository {
           CROSS JOIN LATERAL unnest(
             structured_job_work_location_modes(job_node_id)
           ) mode
-          WHERE mode IN ('remote', 'hybrid', 'onsite')
+          WHERE mode IN ('remote', 'fully_remote', 'hybrid', 'onsite')
           UNION ALL
           SELECT 'classifications', entry.key, entry.value, job_node_id,
             published_timestamp

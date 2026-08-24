@@ -8,6 +8,7 @@ describe("job WorkArrangementV1 payload SQL", () => {
     const sql = jobWorkArrangementPayload("job");
 
     expect(sql).toContain("job.work_arrangement ->> 'classification'");
+    expect(sql).toContain("job.work_arrangement -> 'fullyRemote'");
     expect(sql).toContain("'remoteOptions'");
     expect(sql).toContain("'hybridOptions'");
     expect(sql).toContain("'onsiteOptions'");
@@ -24,7 +25,7 @@ describe("job WorkArrangementV1 payload SQL", () => {
     expect(sql).toContain("'officeCity'");
     expect(sql).toContain("'attendanceCadence'");
     expect(sql).toContain("'travelRequirement'");
-    expect(sql).toContain("'evidence'");
+    expect(sql).not.toContain("'evidence'");
     expect(sql).toContain("'confidence'");
     expect(sql).not.toContain("remote_or_office");
     expect(sql).not.toContain("structured_job_work_arrangements_v1");

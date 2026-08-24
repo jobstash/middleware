@@ -35,16 +35,6 @@ describe("ProfileService Jobs For Me contract", () => {
               attendanceCadence: null,
               travelRequirement: null,
               confidence: "source_stated",
-              evidence: [
-                {
-                  quote: "Remote worldwide",
-                  startOffset: 0,
-                  endOffset: 16,
-                  source: "employer_body",
-                  trust: "employer_body",
-                  provenance: "job-description",
-                },
-              ],
             },
           ],
         },

@@ -56,7 +56,9 @@ const canonicalWorkArrangementOption = (
       ${valueAlias} -> 'residencyRequirements', '[]'::jsonb
     ),
     'workAuthorizationRequirements', COALESCE(
-      ${valueAlias} -> 'workAuthorizations', '[]'::jsonb
+      ${valueAlias} -> 'workAuthorizationRequirements',
+      ${valueAlias} -> 'workAuthorizations',
+      '[]'::jsonb
     ),
     'sponsorshipStatus', COALESCE(
       ${valueAlias} ->> 'sponsorshipStatus', 'unstated'
@@ -68,29 +70,6 @@ const canonicalWorkArrangementOption = (
     'travelRequirement', NULLIF(
       btrim(${valueAlias} ->> 'travelRequirement'), ''
     ),
-    'evidence', CASE
-      WHEN NULLIF(btrim(${valueAlias} -> 'evidence' ->> 'quote'), '') IS NOT NULL
-        AND (${valueAlias} -> 'evidence' ->> 'startOffset')::integer >= 0
-        AND (${valueAlias} -> 'evidence' ->> 'endOffset')::integer
-          > (${valueAlias} -> 'evidence' ->> 'startOffset')::integer
-        AND (${valueAlias} -> 'evidence' ->> 'endOffset')::integer
-          - (${valueAlias} -> 'evidence' ->> 'startOffset')::integer
-          = length(${valueAlias} -> 'evidence' ->> 'quote')
-        AND ${valueAlias} -> 'evidence' ->> 'trust' IN (
-          'employer_body', 'employer_ats_field',
-          'verified_employer_policy', 'aggregator'
-        )
-      THEN jsonb_build_array(jsonb_build_object(
-        'quote', ${valueAlias} -> 'evidence' ->> 'quote',
-        'startOffset',
-          (${valueAlias} -> 'evidence' ->> 'startOffset')::integer,
-        'endOffset', (${valueAlias} -> 'evidence' ->> 'endOffset')::integer,
-        'source', ${valueAlias} -> 'evidence' ->> 'trust',
-        'trust', ${valueAlias} -> 'evidence' ->> 'trust',
-        'provenance', COALESCE(
-          (${valueAlias} -> 'evidence' -> 'provenance')::text, '{}'
-        )
-      )) ELSE '[]'::jsonb END,
     'confidence', COALESCE(${valueAlias} ->> 'confidence', 'parsed')
   ))
 `;
@@ -100,6 +79,11 @@ export const jobWorkArrangementPayload = (jobAlias = "job"): string => `
     'classification', COALESCE(
       ${jobAlias}.work_arrangement ->> 'classification', 'unstated'
     ),
+    'fullyRemote', CASE
+      WHEN jsonb_typeof(${jobAlias}.work_arrangement -> 'fullyRemote') = 'boolean'
+        THEN (${jobAlias}.work_arrangement ->> 'fullyRemote')::boolean
+      ELSE NULL
+    END,
     'remoteOptions', COALESCE((
       SELECT jsonb_agg(
         ${canonicalWorkArrangementOption(

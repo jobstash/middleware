@@ -25,7 +25,7 @@ describe("filter config response contracts", () => {
       classifications: ["ENGINEERING"],
       commitments: ["FULL_TIME"],
       chains: ["Ethereum"],
-      workModes: ["remote"],
+      workModes: ["remote", "fully_remote"],
       workModeLabels: { remote: "REMOTE" },
       availability: ["place:geonames:2759794", "place:unm49:528"],
       availabilityLabels: {
@@ -99,7 +99,12 @@ describe("filter config response contracts", () => {
         options: [{ label: "Full Time", value: "fulltime" }],
       },
       chains: { options: [{ label: "Ethereum", value: "ethereum" }] },
-      workModes: { options: [{ label: "Remote", value: "remote" }] },
+      workModes: {
+        options: [
+          { label: "100% Remote", value: "fully-remote" },
+          { label: "Remote", value: "remote" },
+        ],
+      },
       availability: {
         options: [
           {

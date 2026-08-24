@@ -92,6 +92,7 @@ describe("ProjectListResultEntity", () => {
       ethSeasonOfInternships: false,
       workArrangement: {
         classification: "unstated",
+        fullyRemote: null,
         remoteOptions: [],
         hybridOptions: [],
         onsiteOptions: [],
