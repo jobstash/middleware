@@ -263,9 +263,19 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
         expected: ["job-protected"],
       },
       {
-        name: "work mode",
+        name: "remote work mode",
         params: { workModes: ["Remote"] },
         expected: ["job-protected"],
+      },
+      {
+        name: "hybrid work mode",
+        params: { workModes: ["Hybrid"] },
+        expected: ["job-public-acme"],
+      },
+      {
+        name: "onsite work mode",
+        params: { workModes: ["Onsite"] },
+        expected: ["job-public-beta"],
       },
       {
         name: "minimum salary is inclusive",
@@ -427,6 +437,87 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
 
       expect(page.total).toBe(expected.length);
       expect(page.data.map(job => job.id).sort()).toEqual([...expected].sort());
+    });
+
+    it("keeps 100% Remote strict while Remote includes restricted remote jobs", async () => {
+      await postgres.query(`
+        UPDATE job_search_documents
+        SET location_types = ARRAY['remote'],
+            work_arrangement = CASE structured_jobpost_id
+              WHEN 'job-protected' THEN '{
+                "version": "WorkArrangementV1",
+                "classification": "verified_remote",
+                "fullyRemote": true,
+                "remoteOptions": [{
+                  "mode": "remote",
+                  "scope": "global",
+                  "includedCountries": [],
+                  "excludedCountries": [],
+                  "includedRegions": [],
+                  "excludedRegions": [],
+                  "residencyRequirements": [],
+                  "workAuthorizationRequirements": []
+                }],
+                "hybridOptions": [],
+                "onsiteOptions": []
+              }'::jsonb
+              WHEN 'job-public-acme' THEN '{
+                "version": "WorkArrangementV1",
+                "classification": "verified_remote",
+                "fullyRemote": true,
+                "remoteOptions": [{
+                  "mode": "remote",
+                  "scope": "country_list",
+                  "includedCountries": ["US"],
+                  "excludedCountries": [],
+                  "includedRegions": [],
+                  "excludedRegions": [],
+                  "residencyRequirements": [],
+                  "workAuthorizationRequirements": []
+                }],
+                "hybridOptions": [],
+                "onsiteOptions": []
+              }'::jsonb
+              ELSE '{
+                "version": "WorkArrangementV1",
+                "classification": "verified_remote",
+                "fullyRemote": false,
+                "remoteOptions": [{
+                  "mode": "remote",
+                  "scope": "global",
+                  "includedCountries": [],
+                  "excludedCountries": [],
+                  "includedRegions": [],
+                  "excludedRegions": [],
+                  "residencyRequirements": [],
+                  "workAuthorizationRequirements": []
+                }],
+                "hybridOptions": [],
+                "onsiteOptions": []
+              }'::jsonb
+            END
+        WHERE structured_jobpost_id IN (
+          'job-protected', 'job-public-acme', 'job-public-beta'
+        )
+      `);
+
+      const remote = await repository.searchJobs({
+        suppressPublicForExpertOrganizations: false,
+        workModes: ["remote"],
+        limit: 100,
+      });
+      const fullyRemote = await repository.searchJobs({
+        suppressPublicForExpertOrganizations: false,
+        workModes: ["fully-remote"],
+        limit: 100,
+      });
+
+      expect(remote.data.map(job => job.id).sort()).toEqual([
+        "job-protected",
+        "job-public-acme",
+        "job-public-beta",
+      ]);
+      expect(fullyRemote.data.map(job => job.id)).toEqual(["job-protected"]);
     });
 
     it("uses OR within a filter and AND across different filters", async () => {

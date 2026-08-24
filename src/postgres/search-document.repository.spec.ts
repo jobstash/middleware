@@ -371,10 +371,11 @@ describe("SearchDocumentRepository", () => {
       expect(sql).toContain(`(${column}) &&`);
     }
     expect(sql).toContain("(funding_round_names) &&");
-    expect(sql).toContain(
-      "job_has_work_location_mode(job_node_id, requested.mode)",
-    );
-    expect(sql).not.toContain("(location_types) &&");
+    expect(sql).toContain("'remote' = ANY(COALESCE(location_types");
+    expect(sql).toContain("work_arrangement ->> 'fullyRemote'");
+    expect(sql).toContain("remote_option ->> 'scope' = 'global'");
+    expect(sql).toContain("remote_option ->> 'requiredUtcBand' IS NULL");
+    expect(sql).not.toContain("job_has_work_location_mode");
     expect(sql).toContain("FROM unnest(classifications) facet_key");
     expect(sql).toContain("replace(facet_key, '-', '')");
     expect(parameters).toEqual(
@@ -660,27 +661,37 @@ describe("SearchDocumentRepository", () => {
     expect(sql).toContain("WITH scoped_jobs AS MATERIALIZED");
     expect(sql).toContain("NOT job.blocked");
     expect(sql).toContain("organization_has_expert_jobs");
-    expect(sql).toContain("filter_labels -> 'tags'");
+    expect(sql).toContain("CROSS JOIN LATERAL jsonb_each(");
     expect(sql).toContain('AS "tagLabels"');
     expect(sql).toContain('AS "projectLabels"');
     expect(sql).toContain('AS "organizationLabels"');
     expect(sql).toContain('AS "fundingRoundLabels"');
     expect(sql).toContain('AS "classificationLabels"');
     expect(sql).toContain('AS "workModeLabels"');
-    expect(sql).toContain("filter_labels -> 'availability'");
+    expect(sql).toContain("scoped_filter_keys AS MATERIALIZED");
+    expect(sql).toContain("scoped_filter_label_maps AS MATERIALIZED");
+    expect(sql).toContain("scoped_collaboration_hours AS MATERIALIZED");
+    expect(sql).toContain("FROM team_collaboration_bands band");
+    expect(sql).not.toContain("job_team_collaboration_hour_keys(");
+    expect(sql).not.toContain("structured_job_work_location_modes(");
     expect(sql).toContain('AS "availabilityLabels"');
-    expect(sql).toContain("filter_labels -> 'cities'");
+    expect(sql).toContain("('cities', filter_doc.filter_labels -> 'cities')");
     expect(sql).toContain('AS "cityLabels"');
-    expect(sql).toContain("filter_labels -> 'countries'");
+    expect(sql).toContain(
+      "('countries', filter_doc.filter_labels -> 'countries')",
+    );
     expect(sql).toContain('AS "countryLabels"');
-    expect(sql).toContain("filter_labels -> 'continents'");
+    expect(sql).toContain(
+      "('continents', filter_doc.filter_labels -> 'continents')",
+    );
     expect(sql).toContain('AS "continentLabels"');
-    expect(sql).toContain("filter_labels -> 'timezones'");
+    expect(sql).toContain(
+      "('timezones', filter_doc.filter_labels -> 'timezones')",
+    );
     expect(sql).toContain('AS "timezoneLabels"');
-    expect(sql).toContain("job_team_collaboration_hour_keys(");
     expect(sql).toContain('AS "collaborationHours"');
     expect(sql).toContain('AS "collaborationHourLabels"');
-    expect(sql).toContain("jsonb_object_agg(label.slug, label.label");
+    expect(sql).toContain("jsonb_object_agg(slug, label ORDER BY slug)");
     expect(sql).toContain("job.project_id AS job_project_id");
     expect(sql).toContain("project.project_id IN (");
     expect(sql).toContain("FROM scoped_job_documents scoped");
