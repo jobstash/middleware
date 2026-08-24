@@ -231,18 +231,50 @@ class SqlPredicateBuilder {
 const normalizeList = (values?: string[] | null): string[] | null =>
   values?.map(value => slugify(value)).filter(Boolean) ?? null;
 
+const restrictedRemoteOption = (optionAlias: string): string => `(
+  ${optionAlias}.mode = 'remote'
+  AND ${optionAlias}.arrangement_confidence IN ('source_stated', 'parsed')
+  AND ${optionAlias}.employer_authored_remote_evidence
+  AND (
+    ${optionAlias}.scope IN ('region', 'country_list')
+    OR cardinality(${optionAlias}.countries) > 0
+    OR cardinality(${optionAlias}.excluded_countries) > 0
+    OR cardinality(${optionAlias}.regions) > 0
+    OR cardinality(${optionAlias}.excluded_regions) > 0
+    OR ${optionAlias}.required_minimum_utc_offset_minutes IS NOT NULL
+    OR ${optionAlias}.required_maximum_utc_offset_minutes IS NOT NULL
+    OR ${optionAlias}.timezone_preference_strength = 'required'
+    OR (
+      (
+        ${optionAlias}.minimum_utc_offset_minutes IS NOT NULL
+        OR ${optionAlias}.maximum_utc_offset_minutes IS NOT NULL
+      )
+      AND ${optionAlias}.timezone_preference_strength <> 'preferred'
+    )
+    OR cardinality(${optionAlias}.residency_requirements) > 0
+    OR NULLIF(btrim(${optionAlias}.residency_requirement), '') IS NOT NULL
+    OR cardinality(${optionAlias}.work_authorizations) > 0
+    OR NULLIF(btrim(${optionAlias}.work_authorization), '') IS NOT NULL
+    OR NULLIF(btrim(${optionAlias}.attendance_cadence), '') IS NOT NULL
+    OR NULLIF(btrim(${optionAlias}.travel_requirement), '') IS NOT NULL
+  )
+)`;
+
 /**
- * A job is 100% Remote when one current, employer-authored remote option is
- * available globally without a hard eligibility or attendance restriction.
- * Other options on the same job are intentionally irrelevant: a global
- * remote arm remains valid when the employer also offers an office arm.
+ * A job is 100% Remote only when the current LLM extraction contains a clean
+ * global remote option and the StructuredJobpost classification agrees that
+ * it is fully remote. A hard restriction on any remote option disqualifies
+ * the job. Onsite and hybrid options remain independent, so an employer can
+ * still offer a separately located office arm.
  *
  * Read only committed extraction tables. Import staging data is unfinished
  * and must never change a public search result.
  */
-const strictFullyRemotePredicate = (
-  jobNodeExpression = "job_node_id",
-): string => `EXISTS (
+const strictFullyRemotePredicate = (columnPrefix = ""): string => `(
+  ${columnPrefix}work_arrangement ->> 'version' = 'WorkArrangementV1'
+  AND ${columnPrefix}work_arrangement ->> 'classification' = 'verified_remote'
+  AND ${columnPrefix}work_arrangement ->> 'fullyRemote' = 'true'
+  AND EXISTS (
   SELECT 1
   FROM (
     SELECT DISTINCT ON (
@@ -255,7 +287,7 @@ const strictFullyRemotePredicate = (
     FROM graph_relationships structured_job
     JOIN job_availability_extractions extraction
       ON extraction.raw_job_node_id = structured_job.source_id
-    WHERE structured_job.target_id = ${jobNodeExpression}
+    WHERE structured_job.target_id = ${columnPrefix}job_node_id
       AND structured_job.type = 'HAS_STRUCTURED_JOBPOST'
     ORDER BY
       extraction.raw_job_node_id,
@@ -268,7 +300,8 @@ const strictFullyRemotePredicate = (
     jobsite_node_id,
     extractor_version
   )
-  WHERE remote_option.mode = 'remote'
+  HAVING bool_or(
+    remote_option.mode = 'remote'
     AND remote_option.scope = 'global'
     AND remote_option.arrangement_confidence IN ('source_stated', 'parsed')
     AND remote_option.employer_authored_remote_evidence
@@ -292,12 +325,17 @@ const strictFullyRemotePredicate = (
     AND NULLIF(btrim(remote_option.work_authorization), '') IS NULL
     AND NULLIF(btrim(remote_option.attendance_cadence), '') IS NULL
     AND NULLIF(btrim(remote_option.travel_requirement), '') IS NULL
+  )
+  AND NOT COALESCE(bool_or(
+    ${restrictedRemoteOption("remote_option")}
+  ), false)
+  )
 )`;
 
 const projectedWorkModes = (columnPrefix = ""): string => `array_cat(
   COALESCE(${columnPrefix}location_types, ARRAY[]::text[]),
   CASE
-    WHEN ${strictFullyRemotePredicate(`${columnPrefix}job_node_id`)}
+    WHEN ${strictFullyRemotePredicate(columnPrefix)}
       THEN ARRAY['fully_remote']::text[]
     ELSE ARRAY[]::text[]
   END

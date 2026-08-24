@@ -1,8 +1,5 @@
 import { performance } from "node:perf_hooks";
-import {
-  JobFilterConfigsEntity,
-  JobListResultEntity,
-} from "src/shared/entities";
+import { JobFilterConfigsEntity } from "src/shared/entities";
 import { publicationDateRangeGenerator } from "src/shared/helpers";
 import {
   attachStructuredJobToEmployerFixture,
@@ -467,10 +464,12 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
       expect(page.data.map(job => job.id).sort()).toEqual([...expected].sort());
     });
 
-    it("uses an unrestricted current option rather than the stored fully-remote flag", async () => {
+    it("requires the fully-remote property and ignores a separate office arm", async () => {
       await postgres.query(`
         UPDATE job_search_documents
         SET location_types = ARRAY['remote'],
+            location = 'Remote',
+            required_availability_keys = ARRAY[]::text[],
             work_arrangement = CASE structured_jobpost_id
               WHEN 'job-protected' THEN '{
                 "version": "WorkArrangementV1",
@@ -515,6 +514,21 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
           'job-protected', 'job-public-acme', 'job-public-beta'
         )
       `);
+      await setWorkArrangementConclusion(
+        "job-protected",
+        "verified_remote",
+        false,
+      );
+      await setWorkArrangementConclusion(
+        "job-public-acme",
+        "verified_remote",
+        true,
+      );
+      await setWorkArrangementConclusion(
+        "job-public-beta",
+        "verified_remote",
+        true,
+      );
       await publishWorkLocationOptions("job-protected", [
         { optionKey: "global-remote" },
         {
@@ -535,8 +549,10 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
         { optionKey: "global-remote" },
         {
           optionKey: "europe-only-alternative",
+          mode: "onsite",
           scope: "region",
           regions: ["Europe"],
+          employerAuthoredRemoteEvidence: false,
         },
       ]);
 
@@ -556,22 +572,70 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
         "job-public-acme",
         "job-public-beta",
       ]);
-      expect(fullyRemote).toMatchObject({ count: 2, total: 2 });
-      expect(fullyRemote.data.map(job => job.id).sort()).toEqual([
+      expect(fullyRemote).toMatchObject({ count: 1, total: 1 });
+      expect(fullyRemote.data.map(job => job.id)).toEqual(["job-public-beta"]);
+      expect(fullyRemote.data).toHaveLength(fullyRemote.count);
+    });
+
+    it("rejects a fully-remote boolean paired with a hybrid classification", async () => {
+      await postgres.query(`
+        UPDATE job_search_documents
+        SET work_arrangement = jsonb_build_object(
+              'version', 'WorkArrangementV1',
+              'classification', 'verified_hybrid',
+              'fullyRemote', true,
+              'remoteOptions', '[]'::jsonb,
+              'hybridOptions', '[]'::jsonb,
+              'onsiteOptions', '[]'::jsonb
+            )
+        WHERE structured_jobpost_id = 'job-protected'
+      `);
+      await setWorkArrangementConclusion(
         "job-protected",
-        "job-public-beta",
-      ]);
-      const apiJobs = fullyRemote.data.map(job =>
-        new JobListResultEntity(job).getProperties(),
+        "verified_hybrid",
+        true,
       );
-      expect(apiJobs).toHaveLength(fullyRemote.count);
-      expect(apiJobs[0].workArrangement.remoteOptions[0]).toMatchObject({
-        requiredUtcBand: null,
-        preferredUtcBand: null,
-        officeCity: null,
-        attendanceCadence: null,
-        travelRequirement: null,
+      await publishWorkLocationOptions("job-protected", [
+        { optionKey: "global-remote" },
+      ]);
+
+      const page = await repository.searchJobs({
+        suppressPublicForExpertOrganizations: false,
+        workModes: ["fully-remote"],
+        limit: 100,
       });
+
+      expect(page).toMatchObject({ count: 0, total: 0, data: [] });
+    });
+
+    it("fails closed for missing or malformed WorkArrangementV1", async () => {
+      await publishWorkLocationOptions("job-protected", [
+        { optionKey: "global-remote" },
+      ]);
+
+      await postgres.query(`
+        UPDATE job_search_documents
+        SET work_arrangement = NULL
+        WHERE structured_jobpost_id = 'job-protected'
+      `);
+      const missing = await repository.searchJobs({
+        suppressPublicForExpertOrganizations: false,
+        workModes: ["fully-remote"],
+        limit: 100,
+      });
+      expect(missing).toMatchObject({ count: 0, total: 0, data: [] });
+
+      await postgres.query(`
+        UPDATE job_search_documents
+        SET work_arrangement = '{"fullyRemote":true}'::jsonb
+        WHERE structured_jobpost_id = 'job-protected'
+      `);
+      const malformed = await repository.searchJobs({
+        suppressPublicForExpertOrganizations: false,
+        workModes: ["fully-remote"],
+        limit: 100,
+      });
+      expect(malformed).toMatchObject({ count: 0, total: 0, data: [] });
     });
 
     it.each<{
@@ -680,6 +744,25 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
         },
       },
     ])("rejects a global remote option with $name", async ({ option }) => {
+      await postgres.query(`
+        UPDATE job_search_documents
+        SET location = 'Remote',
+            required_availability_keys = ARRAY[]::text[],
+            work_arrangement = jsonb_build_object(
+              'version', 'WorkArrangementV1',
+              'classification', 'verified_remote',
+              'fullyRemote', true,
+              'remoteOptions', '[]'::jsonb,
+              'hybridOptions', '[]'::jsonb,
+              'onsiteOptions', '[]'::jsonb
+            )
+        WHERE structured_jobpost_id = 'job-protected'
+      `);
+      await setWorkArrangementConclusion(
+        "job-protected",
+        "verified_remote",
+        true,
+      );
       await publishWorkLocationOptions("job-protected", [option]);
 
       const page = await repository.searchJobs({
@@ -692,6 +775,25 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
     });
 
     it("allows a preferred timezone and a display-only office city", async () => {
+      await postgres.query(`
+        UPDATE job_search_documents
+        SET location = 'Remote',
+            required_availability_keys = ARRAY[]::text[],
+            work_arrangement = jsonb_build_object(
+              'version', 'WorkArrangementV1',
+              'classification', 'verified_remote',
+              'fullyRemote', true,
+              'remoteOptions', '[]'::jsonb,
+              'hybridOptions', '[]'::jsonb,
+              'onsiteOptions', '[]'::jsonb
+            )
+        WHERE structured_jobpost_id = 'job-protected'
+      `);
+      await setWorkArrangementConclusion(
+        "job-protected",
+        "verified_remote",
+        true,
+      );
       await publishWorkLocationOptions("job-protected", [
         {
           optionKey: "preferred-overlap",
@@ -713,7 +815,147 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
       expect(page.data.map(job => job.id)).toEqual(["job-protected"]);
     });
 
+    it("does not apply office-arm geography to a global remote option", async () => {
+      await postgres.query(`
+        UPDATE job_search_documents
+        SET location = 'Remote',
+            required_availability_keys = ARRAY[
+              'place:geonames:6252001',
+              'tz:America/New_York'
+            ]::text[],
+            work_arrangement = jsonb_build_object(
+              'version', 'WorkArrangementV1',
+              'classification', 'verified_remote',
+              'fullyRemote', true,
+              'remoteOptions', '[]'::jsonb,
+              'hybridOptions', '[]'::jsonb,
+              'onsiteOptions', '[]'::jsonb
+            )
+        WHERE structured_jobpost_id = 'job-protected'
+      `);
+      await setWorkArrangementConclusion(
+        "job-protected",
+        "verified_remote",
+        true,
+      );
+      await publishWorkLocationOptions("job-protected", [
+        { optionKey: "incorrect-global" },
+      ]);
+
+      const page = await repository.searchJobs({
+        suppressPublicForExpertOrganizations: false,
+        workModes: ["fully-remote"],
+        limit: 100,
+      });
+
+      expect(page).toMatchObject({ count: 1, total: 1 });
+      expect(page.data.map(job => job.id)).toEqual(["job-protected"]);
+    });
+
+    it("preserves an explicit global remote arm beside a located office arm", async () => {
+      await postgres.query(`
+        UPDATE job_search_documents
+        SET location = 'Berlin - Remote (any location)',
+            required_availability_keys = ARRAY[
+              'place:geonames:2950159',
+              'tz:Europe/Berlin'
+            ]::text[],
+            work_arrangement = jsonb_build_object(
+              'version', 'WorkArrangementV1',
+              'classification', 'verified_remote',
+              'fullyRemote', true,
+              'remoteOptions', '[]'::jsonb,
+              'hybridOptions', '[]'::jsonb,
+              'onsiteOptions', '[]'::jsonb
+            )
+        WHERE structured_jobpost_id = 'job-protected'
+      `);
+      await setWorkArrangementConclusion(
+        "job-protected",
+        "verified_remote",
+        true,
+      );
+      await publishWorkLocationOptions("job-protected", [
+        { optionKey: "global-remote" },
+        {
+          optionKey: "berlin-office",
+          mode: "onsite",
+          scope: "country_list",
+          countries: ["DE"],
+          officeCity: "Berlin",
+          attendanceCadence: "Three days per week",
+          employerAuthoredRemoteEvidence: false,
+        },
+      ]);
+
+      const page = await repository.searchJobs({
+        suppressPublicForExpertOrganizations: false,
+        workModes: ["fully-remote"],
+        limit: 100,
+      });
+
+      expect(page).toMatchObject({ count: 1, total: 1 });
+      expect(page.data.map(job => job.id)).toEqual(["job-protected"]);
+    });
+
+    it("rejects a restricted remote alternative without a global claim", async () => {
+      await postgres.query(`
+        UPDATE job_search_documents
+        SET location = 'Remote',
+            required_availability_keys = ARRAY[]::text[],
+            work_arrangement = jsonb_build_object(
+              'version', 'WorkArrangementV1',
+              'classification', 'verified_remote',
+              'fullyRemote', true,
+              'remoteOptions', '[]'::jsonb,
+              'hybridOptions', '[]'::jsonb,
+              'onsiteOptions', '[]'::jsonb
+            )
+        WHERE structured_jobpost_id = 'job-protected'
+      `);
+      await setWorkArrangementConclusion(
+        "job-protected",
+        "verified_remote",
+        true,
+      );
+      await publishWorkLocationOptions("job-protected", [
+        { optionKey: "global-remote" },
+        {
+          optionKey: "country-remote",
+          scope: "country_list",
+          countries: ["US"],
+        },
+      ]);
+
+      const page = await repository.searchJobs({
+        suppressPublicForExpertOrganizations: false,
+        workModes: ["fully-remote"],
+        limit: 100,
+      });
+
+      expect(page).toMatchObject({ count: 0, total: 0, data: [] });
+    });
+
     it("uses the newest committed extraction for each source", async () => {
+      await postgres.query(`
+        UPDATE job_search_documents
+        SET location = 'Remote',
+            required_availability_keys = ARRAY[]::text[],
+            work_arrangement = jsonb_build_object(
+              'version', 'WorkArrangementV1',
+              'classification', 'verified_remote',
+              'fullyRemote', true,
+              'remoteOptions', '[]'::jsonb,
+              'hybridOptions', '[]'::jsonb,
+              'onsiteOptions', '[]'::jsonb
+            )
+        WHERE structured_jobpost_id = 'job-protected'
+      `);
+      await setWorkArrangementConclusion(
+        "job-protected",
+        "verified_remote",
+        true,
+      );
       await publishWorkLocationOptions("job-protected", [
         { optionKey: "old-global" },
       ]);
@@ -1828,6 +2070,20 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
       SET properties = properties || jsonb_build_object('orgId', node_key)
       WHERE label = 'Organization'
     `);
+    await configureJobFilterDocuments();
+    await postgres.query(`
+      UPDATE job_search_documents
+      SET location_types = ARRAY['hybrid', 'onsite']::text[]
+      WHERE structured_jobpost_id = 'job-public-acme'
+    `);
+    await setWorkArrangementConclusion(
+      "job-protected",
+      "verified_remote",
+      true,
+    );
+    await publishWorkLocationOptions("job-protected", [
+      { optionKey: "global-remote" },
+    ]);
     await postgres.query(
       `UPDATE job_search_documents
        SET published_timestamp = $1,
@@ -2504,6 +2760,47 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
         extractorVersion,
         JSON.stringify(options),
       ],
+    );
+  }
+
+  async function setWorkArrangementConclusion(
+    structuredJobpostId: string,
+    classification:
+      | "verified_remote"
+      | "verified_hybrid"
+      | "verified_onsite"
+      | "remote_unqualified"
+      | "conflicting"
+      | "unstated",
+    fullyRemote: boolean | null,
+  ): Promise<void> {
+    await postgres.query(
+      `
+        UPDATE graph_nodes structured
+        SET properties = jsonb_set(
+          jsonb_set(
+            structured.properties,
+            '{workArrangementClassification}',
+            to_jsonb($2::text),
+            true
+          ),
+          '{workArrangementFullyRemote}',
+          to_jsonb($3::boolean),
+          true
+        )
+        FROM job_search_documents job
+        WHERE job.structured_jobpost_id = $1
+          AND structured.id = job.job_node_id;
+      `,
+      [structuredJobpostId, classification, fullyRemote],
+    );
+    await postgres.query(
+      `
+        UPDATE job_search_documents
+        SET work_arrangement = structured_job_work_arrangement_v1(job_node_id)
+        WHERE structured_jobpost_id = $1
+      `,
+      [structuredJobpostId],
     );
   }
 

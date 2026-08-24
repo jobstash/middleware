@@ -381,6 +381,18 @@ describe("SearchDocumentRepository", () => {
     );
     expect(sql).toContain("remote_option.employer_authored_remote_evidence");
     expect(sql).toContain(
+      "work_arrangement ->> 'version' = 'WorkArrangementV1'",
+    );
+    expect(sql).toContain(
+      "work_arrangement ->> 'classification' = 'verified_remote'",
+    );
+    expect(sql).toContain("work_arrangement ->> 'fullyRemote' = 'true'");
+    expect(sql).not.toContain("required_availability_keys");
+    expect(sql).not.toContain("lower(COALESCE(location, ''))");
+    expect(sql).not.toContain("lower(COALESCE(title, ''))");
+    expect(sql).toContain("NOT COALESCE(bool_or");
+    expect(sql).toContain("remote_option.scope IN ('region', 'country_list')");
+    expect(sql).toContain(
       "remote_option.required_minimum_utc_offset_minutes IS NULL",
     );
     expect(sql).toContain(
@@ -396,7 +408,6 @@ describe("SearchDocumentRepository", () => {
     expect(sql).toContain(
       "NULLIF(btrim(remote_option.travel_requirement), '') IS NULL",
     );
-    expect(sql).not.toContain("work_arrangement ->> 'fullyRemote'");
     expect(sql).not.toContain("structured_job_refresh_staging");
     expect(sql).not.toContain("job_has_work_location_mode");
     expect(sql).toContain("FROM unnest(classifications) facet_key");
