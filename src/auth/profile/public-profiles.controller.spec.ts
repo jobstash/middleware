@@ -3,12 +3,68 @@ import { ProfileRepository } from "src/postgres/profile.repository";
 import { PublicProfilesController } from "./public-profiles.controller";
 
 describe("PublicProfilesController", () => {
+  it("exposes a normalized, super-admin-only paginated Profile grid", async () => {
+    const repository = {
+      getEntityProfilesForAdminGrid: jest.fn().mockResolvedValue({
+        data: [{ id: "profile-one", slug: "acme" }],
+        total: 1,
+      }),
+    };
+    const controller = new PublicProfilesController(
+      repository as unknown as ProfileRepository,
+    );
+
+    await expect(
+      controller.getProfilesForAdminGrid(
+        "9999",
+        "-2",
+        "  Acme  ",
+        "  org-one  ",
+        "Organization",
+      ),
+    ).resolves.toEqual({
+      success: true,
+      message: "Retrieved the Profile grid successfully",
+      data: [{ id: "profile-one", slug: "acme" }],
+      total: 1,
+    });
+    expect(repository.getEntityProfilesForAdminGrid).toHaveBeenCalledWith({
+      limit: 500,
+      offset: 0,
+      query: "Acme",
+      childId: "org-one",
+      childType: "Organization",
+    });
+    expect(
+      Reflect.getMetadata(
+        "permissions",
+        PublicProfilesController.prototype.getProfilesForAdminGrid,
+      ),
+    ).toEqual(["SUPER_ADMIN"]);
+  });
+
+  it("rejects an invalid Profile child type before querying", async () => {
+    const repository = { getEntityProfilesForAdminGrid: jest.fn() };
+    const controller = new PublicProfilesController(
+      repository as unknown as ProfileRepository,
+    );
+
+    await expect(
+      controller.getProfilesForAdminGrid("10", "0", "", "child-one", "Company"),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(repository.getEntityProfilesForAdminGrid).not.toHaveBeenCalled();
+  });
+
   it("wraps the stable safe public Profile payload", async () => {
     const data = {
       id: "profile-one",
       slug: "acme",
       canonicalSlug: "acme",
-      info: { displayName: "Acme" },
+      info: {
+        displayName: "Acme",
+        summary: "A short summary.",
+        description: "A distinct long-form description.",
+      },
       children: [],
       reviews: { count: 0, averageRating: null },
       salaries: { count: 0, byCurrency: [] },

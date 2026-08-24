@@ -339,6 +339,13 @@ export const RELEASE_ROUTE_MANIFEST = [
     "stripe/agency-workspaces/:workspaceId/checkout",
     "active",
   ],
+  [
+    "PublicProfilesController",
+    "getProfilesForAdminGrid",
+    "GET",
+    "profiles/grid",
+    "active",
+  ],
   ["PublicProfilesController", "getProfile", "GET", "profiles/:slug", "active"],
   [
     "PublicProfilesController",
