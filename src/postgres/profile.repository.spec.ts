@@ -45,6 +45,36 @@ describe("ProfileRepository", () => {
     expect(parameters).toEqual([25, 50, "acme", "org-one", "Organization"]);
   });
 
+  it("falls back to the canonical id for Organizations without orgId", async () => {
+    const query = jest.fn().mockResolvedValue([
+      {
+        profile: {
+          id: "profile-homeward",
+          info: { id: "profile-info-homeward", displayName: "Homeward" },
+          organizations: [{ id: "organization-homeward" }],
+          projects: [],
+        },
+        totalCount: "1",
+      },
+    ]);
+    const repository = new ProfileRepository({ query } as never);
+
+    await expect(
+      repository.getEntityProfilesForAdminGrid({ limit: 1, offset: 0 }),
+    ).resolves.toEqual({
+      data: [
+        expect.objectContaining({
+          organizations: [{ id: "organization-homeward" }],
+        }),
+      ],
+      total: 1,
+    });
+    const [sql] = query.mock.calls[0] as [string, unknown[]];
+    expect(sql).toContain(
+      "'id', COALESCE(\n                child.properties ->> 'orgId',\n                child.properties ->> 'id'\n              )",
+    );
+  });
+
   it("serializes work-location exclusions for Jobs for me", async () => {
     const query = jest.fn().mockResolvedValue([]);
     const repository = new ProfileRepository({

@@ -216,7 +216,10 @@ export class ProfileRepository {
         LEFT JOIN LATERAL (
           SELECT
             jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
-              'id', child.properties ->> 'orgId',
+              'id', COALESCE(
+                child.properties ->> 'orgId',
+                child.properties ->> 'id'
+              ),
               'nodeId', child.id::text,
               'name', child.properties ->> 'name',
               'slug', COALESCE(
