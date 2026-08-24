@@ -9,6 +9,7 @@ import {
 import { ConfigService } from "@nestjs/config";
 import axios, { AxiosRequestConfig } from "axios";
 import { Auth0Service } from "src/auth0/auth0.service";
+import { PostgresService } from "src/postgres/postgres.service";
 import {
   CollisionListQueryDto,
   CreateEntityReconciliationRunDto,
@@ -28,6 +29,7 @@ export class AdminIngestionService {
   constructor(
     private readonly configService: ConfigService,
     private readonly auth0Service: Auth0Service,
+    private readonly postgres: PostgresService,
   ) {}
 
   createImportRun(input: CreateImportRunDto): Promise<unknown> {
@@ -53,8 +55,85 @@ export class AdminIngestionService {
     return this.request("POST", "/jobposts/structured-refresh-runs", input);
   }
 
-  getStructuredRefresh(id: string): Promise<unknown> {
-    return this.request("GET", `/jobposts/structured-refresh-runs/${id}`);
+  async getStructuredRefresh(id: string): Promise<unknown> {
+    return this.getStructuredRefreshProgress(id);
+  }
+
+  async getCurrentStructuredRefresh(): Promise<unknown> {
+    return this.getStructuredRefreshProgress(null);
+  }
+
+  private async getStructuredRefreshProgress(
+    id: string | null,
+  ): Promise<unknown> {
+    const rows = await this.postgres.query<Record<string, unknown>>(
+      `SELECT
+         refresh.id::text AS id,
+         refresh.idempotency_key AS "idempotencyKey",
+         refresh.status,
+         refresh.extractor_version AS "extractorVersion",
+         refresh.concurrency,
+         refresh.batch_size AS "batchSize",
+         refresh.pacing_milliseconds AS "pacingMilliseconds",
+         refresh.scheduled_count AS "scheduledCount",
+         refresh.processed_count AS "processedCount",
+         refresh.succeeded_count AS "succeededCount",
+         refresh.failed_count AS "failedCount",
+         refresh.created_at AS "createdAt",
+         refresh.started_at AS "startedAt",
+         refresh.heartbeat_at AS "heartbeatAt",
+         refresh.completed_at AS "completedAt",
+         inference.id::text AS "inferenceRunId",
+         jsonb_build_object(
+           'provider', 'openai',
+           'accessMode', 'chatgpt_subscription',
+           'launcher', 'codex_exec',
+           'model', (
+             SELECT min(item.model_version)
+             FROM inference_items item
+             WHERE item.run_id = inference.id
+           )
+         ) AS inference,
+         inference.unique_inventory_count AS "uniqueInventoryCount",
+         inference.maximum_remaining_calls AS "maximumRemainingCalls",
+         inference.calls_started AS "callsStarted",
+         inference.successful_results AS "successfulResults",
+         inference.call_outcome_unknown AS "callOutcomeUnknown",
+         inference.prelaunch_failures AS "prelaunchFailures",
+         inference.paid_fallback_count AS "paidFallbackCount",
+         (
+           SELECT count(*)::integer
+           FROM inference_invocations invocation
+           WHERE invocation.run_id = inference.id
+             AND invocation.status = 'started'
+             AND invocation.finished_at IS NULL
+         ) AS "activeCalls",
+         (
+           SELECT count(*)::integer
+           FROM inference_launch_permits permit
+           WHERE permit.expires_at > now()
+         ) AS "activePermits"
+       FROM structured_job_refresh_runs refresh
+       LEFT JOIN inference_runs inference
+         ON inference.workload = 'structured_jobpost'
+        AND inference.source_run_key =
+          'structured-job-refresh:' || refresh.id::text
+       WHERE ($1::uuid IS NULL OR refresh.id = $1::uuid)
+       ORDER BY
+         CASE WHEN refresh.status IN (
+           'queued', 'running', 'paused', 'ready_to_publish', 'publishing'
+         ) THEN 0 ELSE 1 END,
+         refresh.created_at DESC
+       LIMIT 1`,
+      [id],
+    );
+    if (!rows[0]) {
+      throw new NotFoundException({
+        success: false,
+        message: "Structured refresh not found",
+      });
+    }
+    return rows[0];
   }
 
   getStructuredRefreshDiff(id: string): Promise<unknown> {
@@ -258,7 +337,9 @@ export class AdminIngestionService {
       }
       const upstreamStatus = error.response?.status;
       const responseData = error.response?.data as
-        { message?: unknown } | string | undefined;
+        | { message?: unknown }
+        | string
+        | undefined;
       const rawMessage =
         typeof responseData === "string" ? responseData : responseData?.message;
       const message = Array.isArray(rawMessage)
