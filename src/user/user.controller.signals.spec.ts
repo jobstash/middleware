@@ -1,5 +1,7 @@
-import { ForbiddenException } from "@nestjs/common";
+import { ForbiddenException, RequestMethod } from "@nestjs/common";
+import { METHOD_METADATA, PATH_METADATA } from "@nestjs/common/constants";
 import { AccessWorkspacesService } from "src/access-workspaces/access-workspaces.service";
+import { CheckWalletPermissions } from "src/shared/constants";
 import { ProfileService } from "src/auth/profile/profile.service";
 import { ScorerService } from "src/scorer/scorer.service";
 import { StripeService } from "src/stripe/stripe.service";
@@ -136,6 +138,49 @@ describe("UserController Agency Signals entitlement", () => {
       workspaceId,
       "analyst",
     );
+    expect(users.getAgencyCandidateReport).toHaveBeenCalledWith(
+      "public-opt-in",
+    );
+  });
+
+  it("exposes separate superuser candidate and report routes without an Agency workspace", async () => {
+    const { controller, users, access } = build(false);
+    const candidatesMethod =
+      UserController.prototype.getUsersAvailableForWorkAsSuperadmin;
+    const reportMethod =
+      UserController.prototype.getAgencyCandidateReportAsSuperadmin;
+
+    expect(Reflect.getMetadata(METHOD_METADATA, candidatesMethod)).toBe(
+      RequestMethod.GET,
+    );
+    expect(Reflect.getMetadata(PATH_METADATA, candidatesMethod)).toBe(
+      "admin/available",
+    );
+    expect(Reflect.getMetadata("permissions", candidatesMethod)).toEqual([
+      CheckWalletPermissions.SUPER_ADMIN,
+    ]);
+    expect(Reflect.getMetadata(PATH_METADATA, reportMethod)).toBe(
+      "admin/available/:wallet/report",
+    );
+    expect(Reflect.getMetadata("permissions", reportMethod)).toEqual([
+      CheckWalletPermissions.SUPER_ADMIN,
+    ]);
+
+    const filters = {
+      city: null,
+      country: null,
+      page: null,
+      limit: null,
+    };
+    await expect(
+      controller.getUsersAvailableForWorkAsSuperadmin(filters),
+    ).resolves.toMatchObject({ success: true });
+    await expect(
+      controller.getAgencyCandidateReportAsSuperadmin("public-opt-in"),
+    ).resolves.toMatchObject({ success: true });
+
+    expect(access.requireAgencyEntitlement).not.toHaveBeenCalled();
+    expect(users.getUsersAvailableForWork).toHaveBeenCalledWith(filters);
     expect(users.getAgencyCandidateReport).toHaveBeenCalledWith(
       "public-opt-in",
     );

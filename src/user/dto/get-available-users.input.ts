@@ -29,3 +29,27 @@ export class GetAvailableUsersInput {
   @Type(() => Number)
   limit: number | null = null;
 }
+
+export class GetAvailableUsersAdminInput {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Type(() => String)
+  city: string | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Type(() => String)
+  country: string | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  page: number | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  limit: number | null = null;
+}

@@ -37,7 +37,10 @@ import {
   AgencyCandidateReport,
   AgencyCandidateReportSummary,
 } from "src/shared/interfaces";
-import { GetAvailableUsersInput } from "./dto/get-available-users.input";
+import {
+  GetAvailableUsersAdminInput,
+  GetAvailableUsersInput,
+} from "./dto/get-available-users.input";
 import { ApiKeyGuard } from "src/auth/api-key.guard";
 import { ApiExtraModels, ApiOkResponse, getSchemaPath } from "@nestjs/swagger";
 import { UserWorkHistory } from "src/shared/interfaces/user/user-work-history.interface";
@@ -175,6 +178,38 @@ export class UserController {
   async getAllUsers(): Promise<UserProfile[]> {
     this.logger.log("/users");
     return this.userService.findAll();
+  }
+
+  @Get("admin/available")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
+  @UseInterceptors(new CacheHeaderInterceptor({ mode: "no-store" }))
+  @ApiOkResponse({
+    description:
+      "Returns opted-in public candidates plus k=5-suppressed cohort interests to a superuser",
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(SignalsData) }),
+  })
+  async getUsersAvailableForWorkAsSuperadmin(
+    @Query(new ValidationPipe({ transform: true }))
+    params: GetAvailableUsersAdminInput,
+  ): Promise<ResponseWithOptionalData<SignalsData>> {
+    return this.userService.getUsersAvailableForWork(params);
+  }
+
+  @Get("admin/available/:wallet/report")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
+  @UseInterceptors(new CacheHeaderInterceptor({ mode: "no-store" }))
+  @ApiOkResponse({
+    description: "Returns an opted-in candidate report to a superuser",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(AgencyCandidateReport),
+    }),
+  })
+  async getAgencyCandidateReportAsSuperadmin(
+    @Param("wallet") wallet: string,
+  ): Promise<ResponseWithOptionalData<AgencyCandidateReport>> {
+    return this.userService.getAgencyCandidateReport(wallet);
   }
 
   @Get("available")
