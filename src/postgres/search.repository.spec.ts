@@ -164,6 +164,9 @@ describe("SearchRepository", () => {
     expect(sql).toContain(
       "cardinality(remote_option.residency_requirements) = 0",
     );
+    expect(sql).toContain("job.payload -> 'availability'");
+    expect(sql).toContain("jsonb_typeof(job.payload -> 'availability')");
+    expect(sql).toContain("required_remote_availability.item ->> 'workMode'");
     expect(sql).not.toContain("job_has_work_location_mode(job.job_node_id");
     expect(parameters).toEqual([1, 2, 60]);
   });
