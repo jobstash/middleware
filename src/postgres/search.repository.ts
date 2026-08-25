@@ -5,6 +5,7 @@ import { SuggestionGroupId } from "src/search/dto/job-suggestions.input";
 import { SuggestionItem } from "src/search/dto/job-suggestions.output";
 import { SkillSuggestionItem } from "src/search/dto/skill-suggestions.output";
 import { SitemapJob } from "src/search/dto/pillar-page.output";
+import { strictFullyRemotePredicate } from "./search-document.repository";
 import { PostgresService } from "./postgres.service";
 
 export type NavigationFacet = {
@@ -525,9 +526,13 @@ export class SearchRepository {
         predicates.push(hasFacetKey("commitments", value, "job.commitments"));
         break;
       case "locationTypes":
-        predicates.push(
-          `job_has_work_location_mode(job.job_node_id, ${bind(value)})`,
-        );
+        if (slugify(value) === "fully-remote") {
+          predicates.push(strictFullyRemotePredicate("job."));
+        } else {
+          predicates.push(
+            `job_has_work_location_mode(job.job_node_id, ${bind(value)})`,
+          );
+        }
         break;
       case "organizations":
         predicates.push(

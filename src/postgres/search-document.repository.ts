@@ -270,7 +270,7 @@ const restrictedRemoteOption = (optionAlias: string): string => `(
  * Read only committed extraction tables. Import staging data is unfinished
  * and must never change a public search result.
  */
-const strictFullyRemotePredicate = (columnPrefix = ""): string => `(
+export const strictFullyRemotePredicate = (columnPrefix = ""): string => `(
   ${columnPrefix}work_arrangement ->> 'version' = 'WorkArrangementV1'
   AND ${columnPrefix}work_arrangement ->> 'classification' = 'verified_remote'
   AND ${columnPrefix}work_arrangement ->> 'fullyRemote' = 'true'
