@@ -65,6 +65,16 @@ const richUserPayload = (orgParameter: string): string => `
       ORDER BY github.id
       LIMIT 1
     ),
+    'github', (
+      SELECT NULLIF(github.properties ->> 'login', '')
+      FROM graph_relationships relationship
+      JOIN graph_nodes github ON github.id = relationship.target_id
+      WHERE relationship.source_id = user.id
+        AND relationship.type = 'HAS_GITHUB_USER'
+        AND github.label = 'GithubUser'
+      ORDER BY github.id
+      LIMIT 1
+    ),
     'alternateEmails', COALESCE((
       SELECT jsonb_agg(email.properties ->> 'email' ORDER BY email.id)
       FROM graph_relationships relationship
@@ -216,6 +226,16 @@ const signalCandidatePayload = (): string => `
     ),
     'githubAvatar', (
       SELECT github.properties ->> 'avatarUrl'
+      FROM graph_relationships relationship
+      JOIN graph_nodes github ON github.id = relationship.target_id
+      WHERE relationship.source_id = user.id
+        AND relationship.type = 'HAS_GITHUB_USER'
+        AND github.label = 'GithubUser'
+      ORDER BY github.id
+      LIMIT 1
+    ),
+    'github', (
+      SELECT NULLIF(github.properties ->> 'login', '')
       FROM graph_relationships relationship
       JOIN graph_nodes github ON github.id = relationship.target_id
       WHERE relationship.source_id = user.id
@@ -1231,6 +1251,27 @@ export class UserRepository {
       `,
     );
     return rows.map(row => row.profile);
+  }
+
+  async getAvailableUser(
+    wallet: string,
+  ): Promise<Record<string, unknown> | undefined> {
+    const [row] = await queryRows<{ profile: Record<string, unknown> }>(
+      this.postgres,
+      `
+        SELECT ${signalCandidatePayload()} AS profile
+        FROM graph_nodes user
+        WHERE user.label = 'User'
+          AND lower(user.properties ->> 'wallet') = lower($1)
+          AND NULLIF(btrim(user.properties ->> 'wallet'), '') IS NOT NULL
+          AND COALESCE(
+            jsonb_boolean_value(user.properties, 'available'), false
+          )
+        LIMIT 1
+      `,
+      [wallet],
+    );
+    return row?.profile;
   }
 
   async getAvailableUserAggregateInterests(): Promise<SignalsInterestRow[]> {

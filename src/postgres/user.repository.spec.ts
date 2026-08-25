@@ -47,4 +47,23 @@ describe("UserRepository public Signals query", () => {
     expect(sql).toContain("HAVING count(DISTINCT user_id) >= 5");
     expect(sql).not.toContain("application.properties");
   });
+
+  it("loads an individual report candidate only when the user opted in", async () => {
+    const query = jest.fn().mockResolvedValue([]);
+    const repository = new UserRepository({
+      query,
+    } as unknown as PostgresService);
+
+    await repository.getAvailableUser("0xCandidate");
+
+    const [sql, parameters] = query.mock.calls[0] as [string, unknown[]];
+    expect(sql).toContain(
+      "lower(profile_user.properties ->> 'wallet') = lower($1)",
+    );
+    expect(sql).toContain(
+      "jsonb_boolean_value(profile_user.properties, 'available')",
+    );
+    expect(sql).toContain("'github'");
+    expect(parameters).toEqual(["0xCandidate"]);
+  });
 });

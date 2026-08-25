@@ -100,6 +100,10 @@ export class AccessWorkspacesService {
     return workspace;
   }
 
+  async list(actorUserId: string): Promise<Record<string, unknown>[]> {
+    return this.repository.listForMember(actorUserId);
+  }
+
   async requireAgencyEntitlement(
     workspaceId: string,
     actorUserId: string,
@@ -112,6 +116,18 @@ export class AccessWorkspacesService {
       throw new ForbiddenException("An active Agency entitlement is required");
     }
     return authorization;
+  }
+
+  async listBountyOpportunities(
+    workspaceId: string,
+    actorUserId: string,
+    requestedLimit: number,
+  ) {
+    await this.requireAgencyEntitlement(workspaceId, actorUserId);
+    const limit = Number.isSafeInteger(requestedLimit)
+      ? Math.max(1, Math.min(requestedLimit, 100))
+      : 50;
+    return this.repository.listBountyOpportunities(limit);
   }
 
   async transferDomain(

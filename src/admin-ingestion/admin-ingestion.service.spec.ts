@@ -144,13 +144,43 @@ describe("AdminIngestionService", () => {
       structuredJobpostItemIds: ["c9500341-2ccd-4a1b-909a-853f66c41285"],
     };
 
-    await service.createKimiCanaryCampaign(input);
+    await service.createInferenceCanaryCampaign(input);
 
     expect(request).toHaveBeenCalledWith(
       expect.objectContaining({
         method: "POST",
-        url: "https://etl.internal/kimi/canary-campaigns",
+        url: "https://etl.internal/inference/canary-campaigns",
         data: input,
+      }),
+    );
+  });
+
+  it("preserves canonical Codex subscription run telemetry without rewriting counts", async () => {
+    const runId = "f9500341-2ccd-4a1b-909a-853f66c41285";
+    const telemetry = {
+      inference: {
+        provider: "openai",
+        accessMode: "chatgpt_subscription",
+        launcher: "codex_exec",
+        model: "gpt-5.6-luna",
+      },
+      uniqueInventoryCount: 12,
+      alreadyCompletedCanaryCount: 3,
+      maximumRemainingCalls: 9,
+      callsStarted: 4,
+      successfulResults: 3,
+      callOutcomeUnknown: 1,
+      prelaunchFailures: 0,
+      paidFallbackCount: 0,
+    };
+    request.mockResolvedValueOnce({ data: telemetry });
+
+    await expect(service.getInferenceRun(runId)).resolves.toEqual(telemetry);
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "GET",
+        url: `https://etl.internal/inference/runs/${runId}`,
       }),
     );
   });
@@ -178,5 +208,45 @@ describe("AdminIngestionService", () => {
         data: reconciliationInput,
       }),
     );
+  });
+
+  it("does not retry a failed subscription inference proxy request", async () => {
+    request.mockRejectedValueOnce(new Error("upstream timeout"));
+    jest.spyOn(axios, "isAxiosError").mockReturnValue(false);
+
+    await expect(service.inferenceCapabilityPreflight()).rejects.toMatchObject({
+      response: {
+        success: false,
+        message: "Ingestion service request failed",
+      },
+    });
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "POST",
+        url: "https://etl.internal/inference/capability-preflight",
+      }),
+    );
+  });
+
+  it("fails closed rather than exposing stale provider metadata", async () => {
+    request.mockResolvedValueOnce({
+      data: {
+        inference: {
+          provider: "unsupported-provider",
+          accessMode: "subscription",
+          launcher: "unsupported-launcher",
+          model: "unsupported-model",
+        },
+      },
+    });
+
+    await expect(service.inferenceCapabilityPreflight()).rejects.toMatchObject({
+      response: {
+        success: false,
+        message: "Ingestion service returned invalid inference metadata",
+      },
+    });
+    expect(request).toHaveBeenCalledTimes(1);
   });
 });

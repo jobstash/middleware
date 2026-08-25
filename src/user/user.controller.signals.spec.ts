@@ -36,6 +36,11 @@ describe("UserController Agency Signals entitlement", () => {
           },
         },
       }),
+      getAgencyCandidateReport: jest.fn().mockResolvedValue({
+        success: true,
+        message: "Candidate report retrieved successfully",
+        data: { candidate: { wallet: "public-opt-in" } },
+      }),
     };
     const subscriptions = {
       getSubscriptionInfoByOrgId: jest.fn().mockResolvedValue({
@@ -112,5 +117,20 @@ describe("UserController Agency Signals entitlement", () => {
       controller.getTopUsers({ address: "viewer" } as never, workspaceId),
     ).resolves.toMatchObject({ success: true });
     expect(users.getTopUsers).toHaveBeenCalledWith();
+
+    await expect(
+      controller.getAgencyCandidateReport(
+        { address: "analyst" } as never,
+        "public-opt-in",
+        workspaceId,
+      ),
+    ).resolves.toMatchObject({ success: true });
+    expect(access.requireAgencyEntitlement).toHaveBeenLastCalledWith(
+      workspaceId,
+      "analyst",
+    );
+    expect(users.getAgencyCandidateReport).toHaveBeenCalledWith(
+      "public-opt-in",
+    );
   });
 });

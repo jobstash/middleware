@@ -13,6 +13,7 @@ import {
   data,
   UserPermission,
   SignalCandidate,
+  AgencyCandidateReport,
   SignalsData,
   TalentListWithUsers,
   TalentListWithUsersEntity,
@@ -64,6 +65,7 @@ export const toSignalCandidate = (
     wallet: publicString(input.wallet) ?? "",
     name: publicString(input.name),
     githubAvatar: publicString(input.githubAvatar),
+    github: publicString(input.github),
     location: {
       city: publicString(location.city),
       country: publicString(location.country),
@@ -121,6 +123,63 @@ export const toSignalCandidate = (
       createdAt: history.createdAt,
       updatedAt: history.updatedAt,
     })),
+  };
+};
+
+const finiteNumber = (value: unknown): number =>
+  typeof value === "number" && Number.isFinite(value) ? value : 0;
+
+const workHistoryCommits = (history: SignalCandidate["workHistory"][number]) =>
+  finiteNumber(history.commitsCount) ||
+  history.repositories.reduce(
+    (total, repository) => total + finiteNumber(repository.commitsCount),
+    0,
+  );
+
+export const toAgencyCandidateReport = (
+  candidate: SignalCandidate,
+): AgencyCandidateReport => {
+  const workHistory = candidate.workHistory;
+  const repositories = workHistory.flatMap(history => history.repositories);
+  const contributionStarts = workHistory
+    .map(history => finiteNumber(history.firstContributedAt))
+    .filter(timestamp => timestamp > 0);
+  const contributionEnds = workHistory
+    .map(history => finiteNumber(history.lastContributedAt))
+    .filter(timestamp => timestamp > 0);
+  const tenures = workHistory
+    .map(history => finiteNumber(history.tenure))
+    .filter(tenure => tenure > 0);
+
+  return {
+    candidate,
+    summary: {
+      organizationCount: workHistory.length,
+      repositoryCount: repositories.length,
+      totalCommits: repositories.reduce(
+        (total, repository) => total + finiteNumber(repository.commitsCount),
+        0,
+      ),
+      totalStars: repositories.reduce(
+        (total, repository) => total + finiteNumber(repository.stars),
+        0,
+      ),
+      averageTenure:
+        tenures.length > 0
+          ? tenures.reduce((total, tenure) => total + tenure, 0) /
+            tenures.length
+          : null,
+      firstContributedAt:
+        contributionStarts.length > 0 ? Math.min(...contributionStarts) : null,
+      lastContributedAt:
+        contributionEnds.length > 0 ? Math.max(...contributionEnds) : null,
+    },
+    topOrganizations: [...workHistory]
+      .sort(
+        (left, right) => workHistoryCommits(right) - workHistoryCommits(left),
+      )
+      .slice(0, 5),
+    workHistory,
   };
 };
 
@@ -1181,6 +1240,23 @@ export class UserService {
         message: "Error retrieving users available for work",
       };
     }
+  }
+
+  async getAgencyCandidateReport(
+    wallet: string,
+  ): Promise<ResponseWithOptionalData<AgencyCandidateReport>> {
+    const stored = await this.users.getAvailableUser(wallet);
+    if (!stored) {
+      return {
+        success: false,
+        message: "Available candidate not found",
+      };
+    }
+    return {
+      success: true,
+      message: "Candidate report retrieved successfully",
+      data: toAgencyCandidateReport(toSignalCandidate(stored)),
+    };
   }
 
   async getTopUsers(): Promise<ResponseWithOptionalData<SignalsData>> {

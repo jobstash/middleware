@@ -331,7 +331,9 @@ describePostgres("UserRepository PostgreSQL integration", () => {
     expect(users[0]).not.toHaveProperty("lastAppliedTimestamp");
     await createRelationship(userOneId, organizationId, "VERIFIED_FOR_ORG");
     users = await repository.getAvailableUsers();
-    expect(users).toEqual([expect.objectContaining({ wallet: "0xUserOne" })]);
+    expect(users).toEqual([
+      expect.objectContaining({ wallet: "0xUserOne", github: "user-one" }),
+    ]);
     await expect(repository.getAllProfiles()).resolves.toHaveLength(2);
     await expect(repository.getCryptoNative("0xUserOne")).resolves.toBe(true);
   });
