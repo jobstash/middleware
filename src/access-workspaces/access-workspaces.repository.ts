@@ -3,6 +3,10 @@ import { createHash } from "node:crypto";
 import { EntityManager } from "typeorm";
 import { PostgresService } from "src/postgres/postgres.service";
 import { AgencyBountyOpportunities } from "./access-workspaces.dto";
+import {
+  aggregateKnownBountyTotals,
+  groupKnownBountyTotalsByCompany,
+} from "./bounty-amounts";
 
 type Executor = PostgresService | EntityManager;
 
@@ -159,7 +163,16 @@ export class AccessWorkspacesRepository {
   async listBountyOpportunities(
     limit: number,
   ): Promise<AgencyBountyOpportunities> {
-    const [result] = await rows<{ value: AgencyBountyOpportunities }>(
+    const [result] = await rows<{
+      value: Omit<AgencyBountyOpportunities, "summary" | "companies"> & {
+        summary: Omit<AgencyBountyOpportunities["summary"], "knownTotals">;
+        companies: Omit<
+          AgencyBountyOpportunities["companies"][number],
+          "knownTotals"
+        >[];
+      };
+      amountRows: { companyId: string; bountyAmount: string | null }[];
+    }>(
       this.postgres,
       `
         WITH bounty_jobs AS MATERIALIZED (
@@ -289,21 +302,43 @@ export class AccessWorkspacesRepository {
               LIMIT $1::int
             ) latest
           ), '[]'::jsonb)
-        ) AS value
+        ) AS value,
+        COALESCE((
+          SELECT jsonb_agg(jsonb_build_object(
+            'companyId', company_id,
+            'bountyAmount', bounty_amount
+          ) ORDER BY company_id, job_node_id)
+          FROM bounty_jobs
+          WHERE bounty_amount IS NOT NULL
+        ), '[]'::jsonb) AS "amountRows"
       `,
       [limit],
     );
-    return (
-      result?.value ?? {
+    if (!result?.value) {
+      return {
         summary: {
           openJobCount: 0,
           companyCount: 0,
           disclosedAmountCount: 0,
+          knownTotals: [],
         },
         companies: [],
         jobs: [],
-      }
-    );
+      };
+    }
+    const amountRows = result.amountRows ?? [];
+    const companyTotals = groupKnownBountyTotalsByCompany(amountRows);
+    return {
+      ...result.value,
+      summary: {
+        ...result.value.summary,
+        knownTotals: aggregateKnownBountyTotals(amountRows),
+      },
+      companies: result.value.companies.map(company => ({
+        ...company,
+        knownTotals: companyTotals.get(company.id) ?? [],
+      })),
+    };
   }
 
   async authorize(

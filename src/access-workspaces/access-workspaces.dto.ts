@@ -10,6 +10,7 @@ import {
   IsUUID,
   MinLength,
 } from "class-validator";
+import { KnownBountyTotal } from "./bounty-amounts";
 
 export const ACCESS_WORKSPACE_MEMBER_ROLES = [
   "admin",
@@ -26,6 +27,20 @@ export class AgencyBountySummary {
 
   @ApiProperty()
   disclosedAmountCount: number;
+
+  @ApiProperty({ type: () => [AgencyKnownBountyTotal] })
+  knownTotals: AgencyKnownBountyTotal[];
+}
+
+export class AgencyKnownBountyTotal implements KnownBountyTotal {
+  @ApiProperty()
+  currency: string;
+
+  @ApiProperty()
+  amount: number;
+
+  @ApiProperty()
+  jobCount: number;
 }
 
 export class AgencyBountyCompany {
@@ -46,6 +61,9 @@ export class AgencyBountyCompany {
 
   @ApiProperty()
   openBountyJobCount: number;
+
+  @ApiProperty({ type: () => [AgencyKnownBountyTotal] })
+  knownTotals: AgencyKnownBountyTotal[];
 
   @ApiProperty({ nullable: true })
   latestPublishedTimestamp: number | null;

@@ -10,17 +10,42 @@ describe("AccessWorkspacesRepository", () => {
   it("loads only current bounty jobs and supports career-page fallback", async () => {
     const value = {
       summary: { openJobCount: 1, companyCount: 1, disclosedAmountCount: 1 },
-      companies: [],
+      companies: [
+        {
+          id: "moonpay",
+          type: "organization" as const,
+          name: "MoonPay",
+          slug: "moonpay",
+          logoUrl: null,
+          openBountyJobCount: 1,
+          latestPublishedTimestamp: 1,
+        },
+      ],
       jobs: [],
     };
-    const query = jest.fn().mockResolvedValue([{ value }]);
+    const query = jest.fn().mockResolvedValue([
+      {
+        value,
+        amountRows: [{ companyId: "moonpay", bountyAmount: "10K USDC" }],
+      },
+    ]);
     const repository = new AccessWorkspacesRepository({
       query,
     } as unknown as PostgresService);
 
-    await expect(repository.listBountyOpportunities(25)).resolves.toEqual(
-      value,
-    );
+    await expect(repository.listBountyOpportunities(25)).resolves.toEqual({
+      ...value,
+      summary: {
+        ...value.summary,
+        knownTotals: [{ currency: "USDC", amount: 10000, jobCount: 1 }],
+      },
+      companies: [
+        {
+          ...value.companies[0],
+          knownTotals: [{ currency: "USDC", amount: 10000, jobCount: 1 }],
+        },
+      ],
+    });
 
     const [sql, parameters] = query.mock.calls[0] as [string, unknown[]];
     expect(sql).toContain("WHERE job.online AND NOT job.blocked");
