@@ -1,11 +1,11 @@
 import { toAgencyCandidateReport, toSignalCandidate } from "./user.service";
 
-describe("Signals safe candidate projection", () => {
-  it("cannot leak private/email/account/application fields or untyped nested extras", () => {
+describe("Signals Agency candidate projection", () => {
+  it("exposes one contact email without leaking account/application fields or untyped nested extras", () => {
     const result = toSignalCandidate({
       wallet: "0xPublicOptIn",
       name: "Public Candidate",
-      email: "secret@example.com",
+      email: "contact@example.com",
       alternateEmails: ["secret@example.com"],
       linkedAccounts: {
         email: "secret@example.com",
@@ -43,6 +43,7 @@ describe("Signals safe candidate projection", () => {
       name: "Public Candidate",
       githubAvatar: null,
       github: null,
+      email: "contact@example.com",
       location: { city: "Amsterdam", country: "NL" },
       availableForWork: true,
       cryptoNative: true,
@@ -84,6 +85,7 @@ describe("Signals safe candidate projection", () => {
     });
 
     expect(JSON.stringify(result)).not.toContain("candidate@example.com");
+    expect(result.email).toBeNull();
   });
 
   it("normalizes missing work-history timestamps for the Signals contract", () => {
@@ -109,7 +111,7 @@ describe("Signals safe candidate projection", () => {
     expect(result.workHistory[0].repositories[0].updatedAt).toBeNull();
   });
 
-  it("builds a candidate report from the public Signals fields", () => {
+  it("builds a candidate report from the Agency Signals fields", () => {
     const candidate = toSignalCandidate({
       wallet: "0xCandidate",
       name: "Ada",
@@ -199,6 +201,9 @@ describe("Signals safe candidate projection", () => {
       "first",
       "second",
     ]);
-    expect(JSON.stringify(report)).not.toMatch(/email|note|application/i);
+    expect(report.candidate.email).toBeNull();
+    expect(JSON.stringify(report)).not.toMatch(
+      /note|application|linkedAccounts/i,
+    );
   });
 });

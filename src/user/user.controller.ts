@@ -30,10 +30,7 @@ import {
   TalentList,
   TalentListWithUsers,
   SignalCandidate,
-  SignalClassificationInterest,
-  SignalsAggregateInterests,
   SignalsData,
-  SignalTagInterest,
   AgencyCandidateReport,
   AgencyCandidateReportSummary,
   CandidateReport,
@@ -63,10 +60,7 @@ import { responseSchemaWrapper } from "src/shared/helpers";
 @Controller("users")
 @ApiExtraModels(
   SignalsData,
-  SignalsAggregateInterests,
   SignalCandidate,
-  SignalClassificationInterest,
-  SignalTagInterest,
   AgencyCandidateReport,
   AgencyCandidateReportSummary,
 )
@@ -187,7 +181,7 @@ export class UserController {
   @UseInterceptors(new CacheHeaderInterceptor({ mode: "no-store" }))
   @ApiOkResponse({
     description:
-      "Returns opted-in public candidates plus k=5-suppressed cohort interests to a superuser",
+      "Returns opted-in candidates with one verified contact email to a superuser",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(SignalsData) }),
   })
   async getUsersAvailableForWorkAsSuperadmin(
@@ -219,7 +213,7 @@ export class UserController {
   @UseInterceptors(new CacheHeaderInterceptor({ mode: "no-store" }))
   @ApiOkResponse({
     description:
-      "Returns opted-in public candidates plus k=5-suppressed cohort interests",
+      "Returns opted-in candidates with one verified contact email to an entitled Agency workspace",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(SignalsData) }),
   })
   async getUsersAvailableForWork(
@@ -247,7 +241,7 @@ export class UserController {
   @UseInterceptors(new CacheHeaderInterceptor({ mode: "no-store" }))
   @ApiOkResponse({
     description:
-      "Returns up to 50 opted-in public candidates plus k=5-suppressed cohort interests",
+      "Returns up to 50 opted-in candidates with one verified contact email to an entitled Agency workspace",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(SignalsData) }),
   })
   async getTopUsers(

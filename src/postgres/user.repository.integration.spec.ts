@@ -323,7 +323,12 @@ describePostgres("UserRepository PostgreSQL integration", () => {
       repository.setRecruiterNote("0xUserOne", "Strong fit", "acme-org"),
     ).resolves.toBe(true);
     let users = await repository.getAvailableUsers();
-    expect(users).toEqual([expect.objectContaining({ wallet: "0xUserOne" })]);
+    expect(users).toEqual([
+      expect.objectContaining({
+        wallet: "0xUserOne",
+        email: "person@example.com",
+      }),
+    ]);
     expect(users[0]).not.toHaveProperty("note");
     expect(users[0]).not.toHaveProperty("alternateEmails");
     expect(users[0]).not.toHaveProperty("linkedAccounts");
@@ -433,11 +438,6 @@ describePostgres("UserRepository PostgreSQL integration", () => {
             skills: [expect.objectContaining({ normalizedName: "typescript" })],
           }),
         ],
-        aggregateInterests: {
-          minimumAggregateSize: 5,
-          jobClassifications: [],
-          tags: [],
-        },
       },
     });
   });
