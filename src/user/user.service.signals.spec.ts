@@ -86,6 +86,29 @@ describe("Signals safe candidate projection", () => {
     expect(JSON.stringify(result)).not.toContain("candidate@example.com");
   });
 
+  it("normalizes missing work-history timestamps for the Signals contract", () => {
+    const result = toSignalCandidate({
+      wallet: "0x123",
+      availableForWork: true,
+      workHistory: [
+        {
+          login: "example-org",
+          createdAt: 1,
+          repositories: [
+            {
+              name: "example-repo",
+              url: "https://github.com/example-org/example-repo",
+              createdAt: 1,
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(result.workHistory[0].updatedAt).toBeNull();
+    expect(result.workHistory[0].repositories[0].updatedAt).toBeNull();
+  });
+
   it("builds a candidate report from the public Signals fields", () => {
     const candidate = toSignalCandidate({
       wallet: "0xCandidate",
