@@ -964,6 +964,63 @@ export class SearchDocumentRepository {
     return rows.map(row => row.payload);
   }
 
+  async getAdminJobPayloadPage(input: {
+    page: number;
+    limit: number;
+    online?: boolean;
+  }): Promise<SearchPage<JobListResult>> {
+    const paging = pageValues(input.page, input.limit);
+    const parameters = [input.online ?? null, paging.limit, paging.offset];
+    const eligibility = `
+      job.legacy_list_eligible
+      AND cardinality(job.tags) > 0
+      AND num_nonnulls(job.organization_id, job.project_id) = 1
+      AND ($1::boolean IS NULL OR job.online = $1::boolean)
+    `;
+
+    const [totalRows, rows] = await Promise.all([
+      this.postgres.query<{ total: string }>(
+        `SELECT count(*)::text AS total
+         FROM job_search_documents job
+         WHERE ${eligibility}`,
+        [input.online ?? null],
+      ),
+      this.postgres.query<{ payload: JobListResult }>(
+        `SELECT
+           ${jobEmployerPayload("job.payload")}
+           || jsonb_build_object(
+             'online', job.online,
+             'blocked', job.blocked,
+             'applications', (
+               SELECT count(*)
+               FROM graph_relationships application
+               WHERE application.target_id = job.job_node_id
+                 AND application.type = 'APPLIED_TO'
+             ),
+             'views', (
+               SELECT count(*)
+               FROM graph_relationships view_event
+               WHERE view_event.target_id = job.job_node_id
+                 AND view_event.type = 'VIEWED_DETAILS'
+             )
+           ) AS payload
+         FROM job_search_documents job
+         ${jobEmployerJoins()}
+         WHERE ${eligibility}
+         ORDER BY job.published_timestamp DESC NULLS LAST, job.job_node_id
+         LIMIT $2 OFFSET $3`,
+        parameters,
+      ),
+    ]);
+
+    return {
+      page: paging.page,
+      count: rows.length,
+      total: Number(totalRows[0]?.total ?? 0),
+      data: rows.map(row => row.payload),
+    };
+  }
+
   async getOrganizationJobPayloads(
     organizationId: string,
   ): Promise<JobListResult[]> {

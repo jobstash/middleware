@@ -46,6 +46,7 @@ import { CACHE_DURATION_15_MINUTES } from "src/shared/constants/cache-control";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { RpcService } from "src/user/rpc.service";
 import { AllJobsParams } from "./dto/all-jobs.input";
+import { AdminJobsParams } from "./dto/admin-jobs.input";
 import { BlockJobsInput } from "./dto/block-jobs.input";
 import { ChangeJobClassificationInput } from "./dto/change-classification.input";
 import { ChangeJobCommitmentInput } from "./dto/change-commitment.input";
@@ -161,6 +162,39 @@ export class JobsService {
       }
     });
   };
+
+  async getAdminJobs(
+    params: AdminJobsParams,
+  ): Promise<PaginatedData<EcosystemJobListResult>> {
+    const page = await this.searchDocuments.getAdminJobPayloadPage(params);
+    const hydrated = await this.hydrateJobTeamSummaries(page.data);
+
+    return {
+      ...page,
+      data: hydrated.flatMap(payload => {
+        try {
+          return [
+            new EcosystemJobListResultEntity(
+              payload as EcosystemJobListResult,
+            ).getProperties(),
+          ];
+        } catch (error) {
+          Sentry.withScope(scope => {
+            scope.setTags({
+              action: "entity-mapping",
+              source: "jobs.service.admin-list",
+            });
+            scope.setExtra("failed_result", {
+              id: payload?.id,
+              shortUUID: payload?.shortUUID,
+            });
+            Sentry.captureException(error);
+          });
+          return [];
+        }
+      }),
+    };
+  }
 
   async getJobsListWithSearch(
     params: JobListParams & { ecosystemHeader?: string },

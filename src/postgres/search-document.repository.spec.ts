@@ -45,6 +45,39 @@ describe("SearchDocumentRepository", () => {
     expect(parameters).toBeUndefined();
   });
 
+  it("paginates all admin jobs and applies the exact online state", async () => {
+    query
+      .mockResolvedValueOnce([{ total: "2048" }])
+      .mockResolvedValueOnce([{ payload: { id: "job-101" } }]);
+
+    await expect(
+      repository.getAdminJobPayloadPage({
+        page: 2,
+        limit: 100,
+        online: false,
+      }),
+    ).resolves.toEqual({
+      page: 2,
+      count: 1,
+      total: 2048,
+      data: [{ id: "job-101" }],
+    });
+
+    const [countSql, countParameters] = query.mock.calls[0];
+    expect(countSql).toContain("job.online = $1::boolean");
+    expect(countSql).toContain("job.legacy_list_eligible");
+    expect(countSql).toContain("cardinality(job.tags) > 0");
+    expect(countParameters).toEqual([false]);
+
+    const [pageSql, pageParameters] = query.mock.calls[1];
+    expect(pageSql).toContain("'online', job.online");
+    expect(pageSql).toContain("'blocked', job.blocked");
+    expect(pageSql).toContain("application.type = 'APPLIED_TO'");
+    expect(pageSql).toContain("view_event.type = 'VIEWED_DETAILS'");
+    expect(pageSql).toContain("LIMIT $2 OFFSET $3");
+    expect(pageParameters).toEqual([false, 100, 100]);
+  });
+
   it.each([
     ["list", (): Promise<unknown> => repository.getJobPayloads()],
     [

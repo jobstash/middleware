@@ -448,6 +448,7 @@ export const RELEASE_ROUTE_MANIFEST = [
     "active",
   ],
   ["JobsController", "getAllJobsWithSearch", "GET", "jobs/all", "active"],
+  ["JobsController", "getAdminJobs", "GET", "jobs/admin/list", "active"],
   [
     "JobsController",
     "getAllJobsListFilterConfigs",
@@ -1413,7 +1414,13 @@ export const RELEASE_ROUTE_MANIFEST = [
     "users/admin/available/:wallet/report",
     "active",
   ],
-  ["UserController", "getCandidateReportAsSuperadmin", "GET", "users/admin/candidate-report/:github", "active"],
+  [
+    "UserController",
+    "getCandidateReportAsSuperadmin",
+    "GET",
+    "users/admin/candidate-report/:github",
+    "active",
+  ],
   [
     "UserController",
     "getUsersAvailableForWork",
@@ -1429,7 +1436,13 @@ export const RELEASE_ROUTE_MANIFEST = [
     "users/available/:wallet/report",
     "active",
   ],
-  ["UserController", "getCandidateReport", "GET", "users/candidate-report/:github", "active"],
+  [
+    "UserController",
+    "getCandidateReport",
+    "GET",
+    "users/candidate-report/:github",
+    "active",
+  ],
   [
     "UserController",
     "getEcosystemActivationsForWallets",

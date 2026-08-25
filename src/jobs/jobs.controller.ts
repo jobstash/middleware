@@ -61,6 +61,7 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 import { TagsService } from "src/tags/tags.service";
 import { UserService } from "src/user/user.service";
 import { AllJobsParams } from "./dto/all-jobs.input";
+import { AdminJobsParams } from "./dto/admin-jobs.input";
 import { BlockJobsInput } from "./dto/block-jobs.input";
 import { ChangeJobClassificationInput } from "./dto/change-classification.input";
 import { CreateJobFolderInput } from "./dto/create-job-folder.input";
@@ -686,6 +687,22 @@ export class JobsController {
   ): Promise<Response<AllJobsListResult[]>> {
     this.logger.log(`/jobs/all ${JSON.stringify(params)}`);
     return this.jobsService.getAllJobsWithSearch(params);
+  }
+
+  @Get("/admin/list")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
+  @ApiOkResponse({
+    description:
+      "Returns one page of all jobs for superuser administration, optionally restricted to online or offline jobs",
+    type: PaginatedData<EcosystemJobListResult>,
+  })
+  async getAdminJobs(
+    @Query(new ValidationPipe({ transform: true }))
+    params: AdminJobsParams,
+  ): Promise<PaginatedData<EcosystemJobListResult>> {
+    this.logger.log(`/jobs/admin/list ${JSON.stringify(params)}`);
+    return this.jobsService.getAdminJobs(params);
   }
 
   @Get("/all/filters")
