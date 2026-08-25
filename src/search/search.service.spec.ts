@@ -3,9 +3,10 @@ import { SearchService } from "./search.service";
 
 describe("SearchService organization intelligence filters", () => {
   it("keeps the canonical zero-job FDE pillar available but noindex", async () => {
+    const getPillarJobs = jest.fn().mockResolvedValue([]);
     const service = new SearchService(
       {
-        getPillarJobs: jest.fn().mockResolvedValue([]),
+        getPillarJobs,
       } as unknown as SearchRepository,
       { getSummariesById: jest.fn().mockResolvedValue(new Map()) } as never,
       {} as never,
@@ -22,6 +23,9 @@ describe("SearchService organization intelligence filters", () => {
         hasEligibleOpenJobs: false,
       },
     });
+    expect(getPillarJobs).toHaveBeenCalledWith(
+      expect.objectContaining({ limit: 100 }),
+    );
   });
 
   it("links current-stage navigation to the working organization filter route", async () => {

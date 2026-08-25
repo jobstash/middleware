@@ -1176,7 +1176,9 @@ export class SearchService {
         ecosystem,
         startDate,
         endDate,
-        limit: 60,
+        // Match the maximum public /jobs/list page size. The smaller
+        // pillar-only cap silently dropped eligible jobs from the SEO page.
+        limit: 100,
       });
       const jobs = (await this.hydratePillarJobs(rawJobs)).map(job =>
         this.normalizePillarJob(job),
