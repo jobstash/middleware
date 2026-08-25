@@ -140,6 +140,34 @@ describe("SearchRepository", () => {
     expect(parameters).toEqual([1, 2, "remote", 60]);
   });
 
+  it("applies the strict global predicate to the fully-remote pillar", async () => {
+    const query = jest.fn().mockResolvedValue([]);
+    const repository = new SearchRepository({
+      query,
+    } as unknown as PostgresService);
+
+    await repository.getPillarJobs({
+      pillarType: "locationTypes",
+      value: "fully-remote",
+      startDate: 1,
+      endDate: 2,
+    });
+
+    const [sql, parameters] = query.mock.calls[0];
+    expect(sql).toContain("job.work_arrangement ->> 'fullyRemote' = 'true'");
+    expect(sql).toContain("remote_option.scope = 'global'");
+    expect(sql).toContain("cardinality(remote_option.countries) = 0");
+    expect(sql).toContain("cardinality(remote_option.regions) = 0");
+    expect(sql).toContain(
+      "remote_option.required_minimum_utc_offset_minutes IS NULL",
+    );
+    expect(sql).toContain(
+      "cardinality(remote_option.residency_requirements) = 0",
+    );
+    expect(sql).not.toContain("job_has_work_location_mode(job.job_node_id");
+    expect(parameters).toEqual([1, 2, 60]);
+  });
+
   it("matches collaboration-hour pillars against team-level UTC bands", async () => {
     const query = jest.fn().mockResolvedValue([]);
     const repository = new SearchRepository({
