@@ -1,7 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import * as Sentry from "@sentry/node";
 import { go } from "fuzzysort";
-import { endOfDay, startOfDay, subDays } from "date-fns";
 import { capitalize, lowerCase } from "lodash";
 import { toHeaderCase } from "js-convert-case";
 import {
@@ -29,7 +28,12 @@ import {
   SearchResultNav,
   SingleSelectFilter,
 } from "src/shared/interfaces";
-import { isValidFilterConfig, paginate, slugify } from "src/shared/helpers";
+import {
+  isValidFilterConfig,
+  paginate,
+  publicationDateRangeGenerator,
+  slugify,
+} from "src/shared/helpers";
 import {
   FILTER_CONFIG_PRESETS,
   FILTER_PARAM_KEY_PRESETS,
@@ -1961,9 +1965,7 @@ export class SearchService {
     }));
   }
 
-  // Pillar pages are SEO/AEO landing pages: a 90-day window keeps them
-  // populated (and thus renderable/indexable) even when a niche sees no
-  // postings for a few weeks.
+  // Pillar pages and /jobs/list must interpret "past 3 months" identically.
   private formatCollaborationHour(key: string): string | null {
     const match = key.match(/^utc-(\d{2})$/);
     if (!match) return null;
@@ -1972,11 +1974,7 @@ export class SearchService {
   }
 
   private getPillarDateRange(): { startDate: number; endDate: number } {
-    const now = Date.now();
-    return {
-      startDate: startOfDay(subDays(now, 90)).getTime(),
-      endDate: endOfDay(now).getTime(),
-    };
+    return publicationDateRangeGenerator("past-3-months");
   }
 
   private marketApiSlug(slug: string): string {

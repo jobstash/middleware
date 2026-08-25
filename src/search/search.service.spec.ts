@@ -1,4 +1,5 @@
 import { SearchRepository } from "src/postgres/search.repository";
+import { publicationDateRangeGenerator } from "src/shared/helpers";
 import { SearchService } from "./search.service";
 
 describe("SearchService organization intelligence filters", () => {
@@ -24,7 +25,10 @@ describe("SearchService organization intelligence filters", () => {
       },
     });
     expect(getPillarJobs).toHaveBeenCalledWith(
-      expect.objectContaining({ limit: 100 }),
+      expect.objectContaining({
+        ...publicationDateRangeGenerator("past-3-months"),
+        limit: 100,
+      }),
     );
   });
 
