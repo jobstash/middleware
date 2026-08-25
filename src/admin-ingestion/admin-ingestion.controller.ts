@@ -28,6 +28,7 @@ import {
   InferenceRunTelemetryDto,
   PublishStructuredRefreshDto,
   ResolveCollisionDto,
+  TriggerJobpostSourcesDto,
 } from "./admin-ingestion.dto";
 import { AdminIngestionService } from "./admin-ingestion.service";
 
@@ -72,6 +73,20 @@ export class AdminIngestionController {
     @Body(strictBody) input: CreateImportRunDto,
   ): Promise<unknown> {
     return this.ingestion.createImportRun(input);
+  }
+
+  @Post("jobposts/sources")
+  @HttpCode(HttpStatus.ACCEPTED)
+  triggerJobpostSources(
+    @Body(strictBody) input: TriggerJobpostSourcesDto,
+  ): Promise<unknown> {
+    return this.ingestion.triggerJobpostSources(input.sources);
+  }
+
+  @Post("jobposts/publish/telegram")
+  @HttpCode(HttpStatus.ACCEPTED)
+  publishJobpostsToTelegram(): Promise<unknown> {
+    return this.ingestion.publishJobpostsToTelegram();
   }
 
   @Get("import-runs/:id")

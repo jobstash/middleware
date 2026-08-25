@@ -88,6 +88,28 @@ describe("AdminIngestionService", () => {
     );
   });
 
+  it("forwards selected job sources and Telegram publishing to ETL", async () => {
+    await service.triggerJobpostSources(["greenhouse", "lever"]);
+    await service.publishJobpostsToTelegram();
+
+    expect(request).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        method: "POST",
+        url: "https://etl.internal/jobposts/sources",
+        params: { sources: ["greenhouse", "lever"] },
+      }),
+    );
+    expect(request).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        method: "POST",
+        url: "https://etl.internal/jobposts/publish",
+        params: { channelName: "telegram" },
+      }),
+    );
+  });
+
   it("finds exact collision evidence through the bounded upstream collection", async () => {
     request.mockResolvedValue({
       data: [

@@ -37,6 +37,12 @@ const IMPORT_SOURCES = [
   "pillar",
 ] as const;
 const JOBPOST_SCOPES = ["all", "sources", "organization", "jobsite"] as const;
+const JOBPOST_SOURCE_NAMES = [
+  "greenhouse",
+  "lever",
+  "workable",
+  "custom",
+] as const;
 const SOURCE_SECTIONS = [
   "all",
   "organizations",
@@ -168,6 +174,15 @@ export class CreateImportRunDto {
   @IsOptional()
   @IsUrl({ require_protocol: true })
   jobsiteUrl?: string;
+}
+
+export class TriggerJobpostSourcesDto {
+  @IsArray()
+  @ArrayNotEmpty()
+  @ArrayMaxSize(JOBPOST_SOURCE_NAMES.length)
+  @ArrayUnique()
+  @IsIn(JOBPOST_SOURCE_NAMES, { each: true })
+  sources: (typeof JOBPOST_SOURCE_NAMES)[number][];
 }
 
 export class StructuredRefreshScopeDto {

@@ -30,6 +30,18 @@ describe("admin ingestion contracts", () => {
     expect(
       Reflect.getMetadata(
         PATH_METADATA,
+        AdminIngestionController.prototype.triggerJobpostSources,
+      ),
+    ).toBe("jobposts/sources");
+    expect(
+      Reflect.getMetadata(
+        PATH_METADATA,
+        AdminIngestionController.prototype.publishJobpostsToTelegram,
+      ),
+    ).toBe("jobposts/publish/telegram");
+    expect(
+      Reflect.getMetadata(
+        PATH_METADATA,
         AdminIngestionController.prototype.publishStructuredRefresh,
       ),
     ).toBe("structured-refresh-runs/:id/publish");

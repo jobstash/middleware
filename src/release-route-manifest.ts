@@ -171,6 +171,20 @@ export const RELEASE_ROUTE_MANIFEST = [
   ],
   [
     "AdminIngestionController",
+    "publishJobpostsToTelegram",
+    "POST",
+    "admin/ingestion/jobposts/publish/telegram",
+    "active",
+  ],
+  [
+    "AdminIngestionController",
+    "triggerJobpostSources",
+    "POST",
+    "admin/ingestion/jobposts/sources",
+    "active",
+  ],
+  [
+    "AdminIngestionController",
     "reviewInferenceCanaryCampaign",
     "POST",
     "admin/ingestion/inference/canary-campaigns/:id/review",

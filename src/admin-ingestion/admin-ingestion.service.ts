@@ -44,6 +44,16 @@ export class AdminIngestionService {
     return this.request("POST", "/imports/runs", input);
   }
 
+  triggerJobpostSources(sources: string[]): Promise<unknown> {
+    return this.request("POST", "/jobposts/sources", undefined, { sources });
+  }
+
+  publishJobpostsToTelegram(): Promise<unknown> {
+    return this.request("POST", "/jobposts/publish", undefined, {
+      channelName: "telegram",
+    });
+  }
+
   getImportRun(id: string): Promise<unknown> {
     return this.request("GET", `/imports/runs/${id}`);
   }
@@ -362,7 +372,9 @@ export class AdminIngestionService {
       headers: { Authorization: `Bearer ${token}` },
       timeout: 120_000,
       ...(data === undefined ? {} : { data }),
-      ...(params === undefined ? {} : { params }),
+      ...(params === undefined
+        ? {}
+        : { params, paramsSerializer: { indexes: null } }),
     };
     try {
       const response = await axios.request<T>(config);
@@ -376,9 +388,7 @@ export class AdminIngestionService {
       }
       const upstreamStatus = error.response?.status;
       const responseData = error.response?.data as
-        | { message?: unknown }
-        | string
-        | undefined;
+        { message?: unknown } | string | undefined;
       const rawMessage =
         typeof responseData === "string" ? responseData : responseData?.message;
       const message = Array.isArray(rawMessage)
