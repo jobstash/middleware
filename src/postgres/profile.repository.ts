@@ -67,6 +67,218 @@ const queryRows = async <T>(
 export class ProfileRepository {
   constructor(private readonly postgres: PostgresService) {}
 
+  async getEntityProfilesForAdminGrid(options: {
+    limit: number;
+    offset: number;
+    query?: string;
+    childId?: string;
+    childType?: "Organization" | "Project";
+  }): Promise<{ data: Record<string, unknown>[]; total: number }> {
+    const rows = await queryRows<{
+      profile: Record<string, unknown>;
+      totalCount: string | number;
+    }>(
+      this.postgres,
+      `
+        WITH matching_profiles AS MATERIALIZED (
+          SELECT
+            profile.id AS profile_node_id,
+            profile.properties AS profile_properties,
+            info.id AS profile_info_node_id,
+            info.properties AS profile_info_properties
+          FROM graph_nodes profile
+          JOIN graph_relationships profile_info
+            ON profile_info.source_id = profile.id
+           AND profile_info.type = 'HAS_PROFILE_INFO'
+          JOIN graph_nodes info
+            ON info.id = profile_info.target_id
+           AND info.label = 'ProfileInfo'
+          WHERE profile.label = 'EntityProfile'
+            AND NOT entity_property_is_banned(profile.properties)
+            AND (
+              $3::text IS NULL
+              OR lower(COALESCE(profile.properties ->> 'slug', ''))
+                   LIKE '%' || lower($3) || '%'
+              OR lower(COALESCE(info.properties ->> 'displayName', ''))
+                   LIKE '%' || lower($3) || '%'
+              OR lower(COALESCE(info.properties ->> 'name', ''))
+                   LIKE '%' || lower($3) || '%'
+              OR EXISTS (
+                SELECT 1
+                FROM graph_relationships membership
+                JOIN graph_nodes child ON child.id = membership.target_id
+                WHERE membership.source_id = profile.id
+                  AND membership.type IN (
+                    'PROFILE_HAS_ORGANIZATION', 'PROFILE_HAS_PROJECT'
+                  )
+                  AND child.label IN ('Organization', 'Project')
+                  AND (
+                    lower(COALESCE(child.properties ->> 'name', ''))
+                      LIKE '%' || lower($3) || '%'
+                    OR lower(COALESCE(
+                      child.properties ->> 'orgId',
+                      child.properties ->> 'id',
+                      ''
+                    )) LIKE '%' || lower($3) || '%'
+                  )
+              )
+            )
+            AND (
+              $4::text IS NULL
+              OR EXISTS (
+                SELECT 1
+                FROM graph_relationships exact_membership
+                JOIN graph_nodes exact_child
+                  ON exact_child.id = exact_membership.target_id
+                WHERE exact_membership.source_id = profile.id
+                  AND exact_membership.type IN (
+                    'PROFILE_HAS_ORGANIZATION', 'PROFILE_HAS_PROJECT'
+                  )
+                  AND exact_child.label IN ('Organization', 'Project')
+                  AND COALESCE(
+                    exact_child.properties ->> 'orgId',
+                    exact_child.properties ->> 'id'
+                  ) = $4
+                  AND ($5::text IS NULL OR exact_child.label = $5)
+              )
+            )
+        ), paged_profiles AS MATERIALIZED (
+          SELECT matching_profiles.*, count(*) OVER () AS total_count
+          FROM matching_profiles
+          ORDER BY
+            lower(COALESCE(
+              profile_info_properties ->> 'displayName',
+              profile_info_properties ->> 'name',
+              profile_properties ->> 'slug',
+              ''
+            )),
+            profile_node_id
+          LIMIT $1 OFFSET $2
+        )
+        SELECT
+          jsonb_build_object(
+            'id', COALESCE(
+              page.profile_properties ->> 'id',
+              page.profile_node_id::text
+            ),
+            'nodeId', page.profile_node_id::text,
+            'slug', page.profile_properties ->> 'slug',
+            'canonicalSlug', page.profile_properties ->> 'slug',
+            'category', page.profile_properties ->> 'category',
+            'aliases', COALESCE(
+              page.profile_properties -> 'aliases',
+              '[]'::jsonb
+            ),
+            'createdTimestamp', page.profile_properties -> 'createdTimestamp',
+            'updatedTimestamp', page.profile_properties -> 'updatedTimestamp',
+            'info', jsonb_strip_nulls(jsonb_build_object(
+              'id', COALESCE(
+                page.profile_info_properties ->> 'id',
+                page.profile_info_node_id::text
+              ),
+              'nodeId', page.profile_info_node_id::text,
+              'displayName', COALESCE(
+                page.profile_info_properties ->> 'displayName',
+                page.profile_info_properties ->> 'name'
+              ),
+              'summary',
+                page.profile_info_properties ->> 'summary',
+              'description',
+                page.profile_info_properties ->> 'description',
+              'logo', COALESCE(
+                page.profile_info_properties ->> 'logo',
+                page.profile_info_properties ->> 'icon'
+              ),
+              'canonicalSite',
+                page.profile_info_properties ->> 'canonicalSite',
+              'tagline', COALESCE(
+                page.profile_info_properties ->> 'tagline',
+                page.profile_info_properties ->> 'tagLine'
+              ),
+              'foundingDate',
+                page.profile_info_properties ->> 'foundingDate',
+              'profileType', page.profile_info_properties -> 'profileType',
+              'profileSector', page.profile_info_properties -> 'profileSector',
+              'profileStatus', page.profile_info_properties -> 'profileStatus',
+              'createdTimestamp',
+                page.profile_info_properties -> 'createdTimestamp',
+              'updatedTimestamp',
+                page.profile_info_properties -> 'updatedTimestamp'
+            )),
+            'organizations', COALESCE(
+              children.organizations,
+              '[]'::jsonb
+            ),
+            'projects', COALESCE(children.projects, '[]'::jsonb)
+          ) AS profile,
+          page.total_count AS "totalCount"
+        FROM paged_profiles page
+        LEFT JOIN LATERAL (
+          SELECT
+            jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
+              'id', COALESCE(
+                child.properties ->> 'orgId',
+                child.properties ->> 'id'
+              ),
+              'nodeId', child.id::text,
+              'name', child.properties ->> 'name',
+              'slug', COALESCE(
+                child.properties ->> 'slug',
+                child.properties ->> 'normalizedName'
+              ),
+              'logo', COALESCE(
+                child.properties ->> 'logoUrl',
+                child.properties ->> 'logo'
+              ),
+              'summary', COALESCE(
+                child.properties ->> 'summary',
+                child.properties ->> 'description'
+              )
+            )) ORDER BY child.properties ->> 'name', child.id)
+              FILTER (WHERE child.label = 'Organization') AS organizations,
+            jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
+              'id', child.properties ->> 'id',
+              'nodeId', child.id::text,
+              'name', child.properties ->> 'name',
+              'slug', COALESCE(
+                child.properties ->> 'slug',
+                child.properties ->> 'normalizedName'
+              ),
+              'logo', COALESCE(
+                child.properties ->> 'logoUrl',
+                child.properties ->> 'logo'
+              ),
+              'summary', COALESCE(
+                child.properties ->> 'summary',
+                child.properties ->> 'description'
+              )
+            )) ORDER BY child.properties ->> 'name', child.id)
+              FILTER (WHERE child.label = 'Project') AS projects
+          FROM graph_relationships membership
+          JOIN graph_nodes child ON child.id = membership.target_id
+          WHERE membership.source_id = page.profile_node_id
+            AND membership.type IN (
+              'PROFILE_HAS_ORGANIZATION', 'PROFILE_HAS_PROJECT'
+            )
+            AND child.label IN ('Organization', 'Project')
+            AND NOT entity_property_is_banned(child.properties)
+        ) children ON true
+      `,
+      [
+        options.limit,
+        options.offset,
+        options.query?.trim() || null,
+        options.childId?.trim() || null,
+        options.childType ?? null,
+      ],
+    );
+
+    return {
+      data: rows.map(row => row.profile),
+      total: Number(rows[0]?.totalCount ?? 0),
+    };
+  }
+
   async getJobPreferences(
     wallet: string,
   ): Promise<Record<string, unknown> | null> {
@@ -320,10 +532,8 @@ export class ProfileRepository {
               info.properties ->> 'displayName',
               info.properties ->> 'name'
             ),
-            'description', COALESCE(
-              info.properties ->> 'description',
-              info.properties ->> 'descriptionShort'
-            ),
+            'summary', info.properties ->> 'summary',
+            'description', info.properties ->> 'description',
             'logo', COALESCE(
               info.properties ->> 'logo',
               info.properties ->> 'icon'

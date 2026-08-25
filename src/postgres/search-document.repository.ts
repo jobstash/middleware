@@ -231,6 +231,116 @@ class SqlPredicateBuilder {
 const normalizeList = (values?: string[] | null): string[] | null =>
   values?.map(value => slugify(value)).filter(Boolean) ?? null;
 
+const restrictedRemoteOption = (optionAlias: string): string => `(
+  ${optionAlias}.mode = 'remote'
+  AND ${optionAlias}.arrangement_confidence IN ('source_stated', 'parsed')
+  AND ${optionAlias}.employer_authored_remote_evidence
+  AND (
+    ${optionAlias}.scope IN ('region', 'country_list')
+    OR cardinality(${optionAlias}.countries) > 0
+    OR cardinality(${optionAlias}.excluded_countries) > 0
+    OR cardinality(${optionAlias}.regions) > 0
+    OR cardinality(${optionAlias}.excluded_regions) > 0
+    OR ${optionAlias}.required_minimum_utc_offset_minutes IS NOT NULL
+    OR ${optionAlias}.required_maximum_utc_offset_minutes IS NOT NULL
+    OR ${optionAlias}.timezone_preference_strength = 'required'
+    OR (
+      (
+        ${optionAlias}.minimum_utc_offset_minutes IS NOT NULL
+        OR ${optionAlias}.maximum_utc_offset_minutes IS NOT NULL
+      )
+      AND ${optionAlias}.timezone_preference_strength <> 'preferred'
+    )
+    OR cardinality(${optionAlias}.residency_requirements) > 0
+    OR NULLIF(btrim(${optionAlias}.residency_requirement), '') IS NOT NULL
+    OR cardinality(${optionAlias}.work_authorizations) > 0
+    OR NULLIF(btrim(${optionAlias}.work_authorization), '') IS NOT NULL
+    OR NULLIF(btrim(${optionAlias}.attendance_cadence), '') IS NOT NULL
+    OR NULLIF(btrim(${optionAlias}.travel_requirement), '') IS NOT NULL
+  )
+)`;
+
+/**
+ * A job is 100% Remote only when the current LLM extraction contains a clean
+ * global remote option and the StructuredJobpost classification agrees that
+ * it is fully remote. A hard restriction on any remote option disqualifies
+ * the job. Onsite and hybrid options remain independent, so an employer can
+ * still offer a separately located office arm.
+ *
+ * Read only committed extraction tables. Import staging data is unfinished
+ * and must never change a public search result.
+ */
+const strictFullyRemotePredicate = (columnPrefix = ""): string => `(
+  ${columnPrefix}work_arrangement ->> 'version' = 'WorkArrangementV1'
+  AND ${columnPrefix}work_arrangement ->> 'classification' = 'verified_remote'
+  AND ${columnPrefix}work_arrangement ->> 'fullyRemote' = 'true'
+  AND EXISTS (
+  SELECT 1
+  FROM (
+    SELECT DISTINCT ON (
+      extraction.raw_job_node_id,
+      extraction.jobsite_node_id
+    )
+      extraction.raw_job_node_id,
+      extraction.jobsite_node_id,
+      extraction.extractor_version
+    FROM graph_relationships structured_job
+    JOIN job_availability_extractions extraction
+      ON extraction.raw_job_node_id = structured_job.source_id
+    WHERE structured_job.target_id = ${columnPrefix}job_node_id
+      AND structured_job.type = 'HAS_STRUCTURED_JOBPOST'
+    ORDER BY
+      extraction.raw_job_node_id,
+      extraction.jobsite_node_id,
+      extraction.extracted_at DESC,
+      extraction.extractor_version DESC
+  ) latest_extraction
+  JOIN job_work_location_options remote_option USING (
+    raw_job_node_id,
+    jobsite_node_id,
+    extractor_version
+  )
+  HAVING bool_or(
+    remote_option.mode = 'remote'
+    AND remote_option.scope = 'global'
+    AND remote_option.arrangement_confidence IN ('source_stated', 'parsed')
+    AND remote_option.employer_authored_remote_evidence
+    AND cardinality(remote_option.countries) = 0
+    AND cardinality(remote_option.excluded_countries) = 0
+    AND cardinality(remote_option.regions) = 0
+    AND cardinality(remote_option.excluded_regions) = 0
+    AND remote_option.required_minimum_utc_offset_minutes IS NULL
+    AND remote_option.required_maximum_utc_offset_minutes IS NULL
+    AND remote_option.timezone_preference_strength <> 'required'
+    AND (
+      (
+        remote_option.minimum_utc_offset_minutes IS NULL
+        AND remote_option.maximum_utc_offset_minutes IS NULL
+      )
+      OR remote_option.timezone_preference_strength = 'preferred'
+    )
+    AND cardinality(remote_option.residency_requirements) = 0
+    AND NULLIF(btrim(remote_option.residency_requirement), '') IS NULL
+    AND cardinality(remote_option.work_authorizations) = 0
+    AND NULLIF(btrim(remote_option.work_authorization), '') IS NULL
+    AND NULLIF(btrim(remote_option.attendance_cadence), '') IS NULL
+    AND NULLIF(btrim(remote_option.travel_requirement), '') IS NULL
+  )
+  AND NOT COALESCE(bool_or(
+    ${restrictedRemoteOption("remote_option")}
+  ), false)
+  )
+)`;
+
+const projectedWorkModes = (columnPrefix = ""): string => `array_cat(
+  COALESCE(${columnPrefix}location_types, ARRAY[]::text[]),
+  CASE
+    WHEN ${strictFullyRemotePredicate(columnPrefix)}
+      THEN ARRAY['fully_remote']::text[]
+    ELSE ARRAY[]::text[]
+  END
+)`;
+
 const activeRangeBound = (value?: number | null): boolean =>
   value !== null && value !== undefined && value !== 0;
 
@@ -905,7 +1015,17 @@ export class SearchDocumentRepository {
       where.add(`EXISTS (
         SELECT 1
         FROM unnest(${requestedModes}::text[]) requested(mode)
-        WHERE job_has_work_location_mode(job_node_id, requested.mode)
+        WHERE CASE replace(requested.mode, '_', '-')
+          WHEN 'remote' THEN
+            'remote' = ANY(COALESCE(location_types, ARRAY[]::text[]))
+            OR ${strictFullyRemotePredicate()}
+          WHEN 'fully-remote' THEN ${strictFullyRemotePredicate()}
+          WHEN 'hybrid' THEN
+            'hybrid' = ANY(COALESCE(location_types, ARRAY[]::text[]))
+          WHEN 'onsite' THEN
+            'onsite' = ANY(COALESCE(location_types, ARRAY[]::text[]))
+          ELSE false
+        END
       )`);
     }
     const addGeographyFacet = (
@@ -1313,14 +1433,11 @@ export class SearchDocumentRepository {
             job.tags,
             job.classifications,
             job.commitments,
-            structured_job_work_location_modes(job.job_node_id) AS work_modes,
+            ${projectedWorkModes("job.")} AS work_modes,
             job.availability_keys,
-            job_team_collaboration_hour_keys(
-              job.organization_id,
-              job.project_id
-            ) AS collaboration_hours,
             job.seniority,
             job.filter_labels,
+            job.organization_id AS job_organization_id,
             job.project_id AS job_project_id,
             job.project_names AS job_project_names,
             job.organization_name AS job_organization_name,
@@ -1354,9 +1471,9 @@ export class SearchDocumentRepository {
             commitments,
             work_modes,
             availability_keys,
-            collaboration_hours,
             seniority,
             filter_labels,
+            job_organization_id,
             job_project_id,
             job_project_names,
             job_organization_name,
@@ -1367,6 +1484,129 @@ export class SearchDocumentRepository {
             job_ecosystems
           FROM scoped_jobs
           ORDER BY job_node_id
+        ), scoped_filter_keys AS MATERIALIZED (
+          SELECT
+            category,
+            array_agg(filter_key ORDER BY filter_key) AS filter_keys
+          FROM (
+            SELECT category, filter_key
+            FROM (
+              SELECT facet.category, filter_key
+              FROM scoped_job_documents filter_doc
+              CROSS JOIN LATERAL (
+                VALUES
+                  ('tags', filter_doc.tags),
+                  ('projects', filter_doc.job_project_names),
+                  (
+                    'organizations',
+                    ARRAY[slugify_text(filter_doc.job_organization_name)]
+                  ),
+                  ('investors', filter_doc.job_investor_names),
+                  ('fundingRounds', filter_doc.job_funding_round_names),
+                  (
+                    'fundingStages',
+                    ARRAY[slugify_text(filter_doc.job_current_funding_stage)]
+                  ),
+                  ('chains', filter_doc.job_chain_names),
+                  ('ecosystems', filter_doc.job_ecosystems),
+                  ('classifications', filter_doc.classifications),
+                  ('commitments', filter_doc.commitments),
+                  ('workModes', filter_doc.work_modes),
+                  ('availability', filter_doc.availability_keys)
+              ) facet(category, filter_values)
+              CROSS JOIN LATERAL unnest(facet.filter_values) filter_key
+              WHERE filter_key IS NOT NULL AND filter_key <> ''
+              UNION ALL
+              SELECT geography.category, availability_key
+              FROM scoped_job_documents filter_doc
+              CROSS JOIN LATERAL (
+                VALUES
+                  ('cities', filter_doc.filter_labels -> 'cities'),
+                  ('regions', filter_doc.filter_labels -> 'regions'),
+                  ('countries', filter_doc.filter_labels -> 'countries'),
+                  ('continents', filter_doc.filter_labels -> 'continents'),
+                  ('timezones', filter_doc.filter_labels -> 'timezones')
+              ) geography(category, labels)
+              CROSS JOIN LATERAL unnest(
+                filter_doc.availability_keys
+              ) availability_key
+              WHERE COALESCE(geography.labels, '{}'::jsonb)
+                ? availability_key
+            ) expanded_keys
+            GROUP BY category, filter_key
+          ) distinct_keys
+          GROUP BY category
+        ), scoped_filter_label_maps AS MATERIALIZED (
+          SELECT
+            category,
+            jsonb_object_agg(slug, label ORDER BY slug) AS label_map
+          FROM (
+            SELECT
+              category,
+              slug,
+              min(label) AS label
+            FROM scoped_job_documents label_doc
+            CROSS JOIN LATERAL jsonb_each(
+              COALESCE(label_doc.filter_labels, '{}'::jsonb)
+            ) category_labels(category, labels)
+            CROSS JOIN LATERAL jsonb_each_text(
+              CASE jsonb_typeof(category_labels.labels)
+                WHEN 'object' THEN category_labels.labels
+                ELSE '{}'::jsonb
+              END
+            ) labels(slug, label)
+            GROUP BY category, slug
+          ) distinct_labels
+          GROUP BY category
+        ), scoped_team_children AS MATERIALIZED (
+          SELECT
+            'Organization'::text AS child_label,
+            job_organization_id AS child_public_id
+          FROM scoped_job_documents
+          WHERE job_organization_id IS NOT NULL
+          UNION
+          SELECT
+            'Project'::text AS child_label,
+            job_project_id AS child_public_id
+          FROM scoped_job_documents
+          WHERE job_project_id IS NOT NULL
+        ), scoped_collaboration_hours AS MATERIALIZED (
+          SELECT DISTINCT
+            'utc-' || lpad(hour_value::text, 2, '0') AS hour_key
+          FROM team_collaboration_bands band
+          JOIN graph_nodes profile
+            ON profile.id = band.profile_node_id
+           AND profile.label = 'EntityProfile'
+          JOIN graph_relationships membership
+            ON membership.source_id = profile.id
+           AND membership.type IN (
+             'PROFILE_HAS_ORGANIZATION',
+             'PROFILE_HAS_PROJECT'
+           )
+          JOIN graph_nodes child ON child.id = membership.target_id
+          JOIN scoped_team_children scoped_child
+            ON scoped_child.child_label = child.label
+           AND scoped_child.child_public_id = CASE child.label
+             WHEN 'Organization' THEN child.properties ->> 'orgId'
+             WHEN 'Project' THEN child.properties ->> 'id'
+           END
+          CROSS JOIN LATERAL generate_series(0, 23) AS hours(hour_value)
+          WHERE NOT entity_property_is_banned(profile.properties)
+            AND NOT entity_property_is_banned(child.properties)
+            AND (
+              (
+                band.minimum_utc_minute <= band.maximum_utc_minute
+                AND band.minimum_utc_minute <= hour_value * 60 + 59
+                AND band.maximum_utc_minute >= hour_value * 60
+              )
+              OR (
+                band.minimum_utc_minute > band.maximum_utc_minute
+                AND (
+                  band.minimum_utc_minute <= hour_value * 60 + 59
+                  OR band.maximum_utc_minute >= hour_value * 60
+                )
+              )
+            )
         ), scoped_organizations AS MATERIALIZED (
           SELECT DISTINCT ON (owner_organization_id)
             owner_organization_id,
@@ -1426,51 +1666,52 @@ export class SearchDocumentRepository {
           (SELECT max(monthly_revenue)::float8 FROM eligible_projects) AS "maxMonthlyRevenue",
           (SELECT min(owner_headcount_estimate) FROM scoped_organizations) AS "minHeadCount",
           (SELECT max(owner_headcount_estimate) FROM scoped_organizations) AS "maxHeadCount",
-          ${filterKeys("tags", "scoped_job_documents")} AS tags,
-          ${filterLabelMap("tags", "scoped_job_documents")} AS "tagLabels",
-          ${filterKeys("job_project_names", "scoped_job_documents")} AS projects,
-          ${filterLabelMap("projects", "scoped_job_documents")} AS "projectLabels",
-          ${filterKeys("ARRAY[slugify_text(job_organization_name)]", "scoped_job_documents")} AS organizations,
-          ${filterLabelMap("organizations", "scoped_job_documents")} AS "organizationLabels",
-          ${filterKeys("job_investor_names", "scoped_job_documents")} AS investors,
-          ${filterLabelMap("investors", "scoped_job_documents")} AS "investorLabels",
-          ${filterKeys("job_funding_round_names", "scoped_job_documents")} AS "fundingRounds",
-          ${filterLabelMap("fundingRounds", "scoped_job_documents")} AS "fundingRoundLabels",
-          ${filterKeys("ARRAY[slugify_text(job_current_funding_stage)]", "scoped_job_documents")} AS "fundingStages",
-          ${filterLabelMap("fundingStages", "scoped_job_documents")} AS "fundingStageLabels",
-          ${filterKeys("job_chain_names", "scoped_job_documents")} AS chains,
-          ${filterLabelMap("chains", "scoped_job_documents")} AS "chainLabels",
-          ${filterKeys("job_ecosystems", "scoped_job_documents")} AS ecosystems,
-          ${filterLabelMap("ecosystems", "scoped_job_documents")} AS "ecosystemLabels",
-          ${filterKeys("classifications", "scoped_job_documents")} AS classifications,
-          ${filterLabelMap("classifications", "scoped_job_documents")} AS "classificationLabels",
-          ${filterKeys("commitments", "scoped_job_documents")} AS commitments,
-          ${filterLabelMap("commitments", "scoped_job_documents")} AS "commitmentLabels",
-          ${filterKeys("work_modes", "scoped_job_documents")} AS "workModes",
-          ${filterLabelMap("workModes", "scoped_job_documents")} AS "workModeLabels",
-          ${filterKeys("availability_keys", "scoped_job_documents")} AS availability,
-          ${filterLabelMap("availability", "scoped_job_documents")} AS "availabilityLabels",
-          ${filterKeys(filterLabelKeysPresentInAvailability("cities"), "scoped_job_documents")} AS cities,
-          ${filterLabelMap("cities", "scoped_job_documents")} AS "cityLabels",
-          ${filterKeys(filterLabelKeysPresentInAvailability("regions"), "scoped_job_documents")} AS regions,
-          ${filterLabelMap("regions", "scoped_job_documents")} AS "regionLabels",
-          ${filterKeys(filterLabelKeysPresentInAvailability("countries"), "scoped_job_documents")} AS countries,
-          ${filterLabelMap("countries", "scoped_job_documents")} AS "countryLabels",
-          ${filterKeys(filterLabelKeysPresentInAvailability("continents"), "scoped_job_documents")} AS continents,
-          ${filterLabelMap("continents", "scoped_job_documents")} AS "continentLabels",
-          ${filterKeys(filterLabelKeysPresentInAvailability("timezones"), "scoped_job_documents")} AS timezones,
-          ${filterLabelMap("timezones", "scoped_job_documents")} AS "timezoneLabels",
-          ${filterKeys("collaboration_hours", "scoped_job_documents")} AS "collaborationHours",
+          ${filterKeys("tags")} AS tags,
+          ${filterLabelMap("tags")} AS "tagLabels",
+          ${filterKeys("projects")} AS projects,
+          ${filterLabelMap("projects")} AS "projectLabels",
+          ${filterKeys("organizations")} AS organizations,
+          ${filterLabelMap("organizations")} AS "organizationLabels",
+          ${filterKeys("investors")} AS investors,
+          ${filterLabelMap("investors")} AS "investorLabels",
+          ${filterKeys("fundingRounds")} AS "fundingRounds",
+          ${filterLabelMap("fundingRounds")} AS "fundingRoundLabels",
+          ${filterKeys("fundingStages")} AS "fundingStages",
+          ${filterLabelMap("fundingStages")} AS "fundingStageLabels",
+          ${filterKeys("chains")} AS chains,
+          ${filterLabelMap("chains")} AS "chainLabels",
+          ${filterKeys("ecosystems")} AS ecosystems,
+          ${filterLabelMap("ecosystems")} AS "ecosystemLabels",
+          ${filterKeys("classifications")} AS classifications,
+          ${filterLabelMap("classifications")} AS "classificationLabels",
+          ${filterKeys("commitments")} AS commitments,
+          ${filterLabelMap("commitments")} AS "commitmentLabels",
+          ${filterKeys("workModes")} AS "workModes",
+          ${filterLabelMap("workModes")} AS "workModeLabels",
+          ${filterKeys("availability")} AS availability,
+          ${filterLabelMap("availability")} AS "availabilityLabels",
+          ${filterKeys("cities")} AS cities,
+          ${filterLabelMap("cities")} AS "cityLabels",
+          ${filterKeys("regions")} AS regions,
+          ${filterLabelMap("regions")} AS "regionLabels",
+          ${filterKeys("countries")} AS countries,
+          ${filterLabelMap("countries")} AS "countryLabels",
+          ${filterKeys("continents")} AS continents,
+          ${filterLabelMap("continents")} AS "continentLabels",
+          ${filterKeys("timezones")} AS timezones,
+          ${filterLabelMap("timezones")} AS "timezoneLabels",
+          COALESCE(
+            (SELECT array_agg(hour_key ORDER BY hour_key)
+             FROM scoped_collaboration_hours),
+            ARRAY[]::text[]
+          ) AS "collaborationHours",
           COALESCE((
             SELECT jsonb_object_agg(
               hour_key,
               substring(hour_key FROM 5 FOR 2) || ':00 UTC'
               ORDER BY hour_key
             )
-            FROM (
-              SELECT DISTINCT unnest(collaboration_hours) AS hour_key
-              FROM scoped_job_documents
-            ) collaboration
+            FROM scoped_collaboration_hours
           ), '{}'::jsonb) AS "collaborationHourLabels",
           (SELECT array_remove(array_agg(DISTINCT seniority), NULL)
             FROM scoped_job_documents) AS seniority
@@ -2910,47 +3151,20 @@ const filterLabels = (
   )
 `;
 
-const filterKeys = (
-  fallbackExpression: string,
-  fallbackSource = "docs",
-): string => `
+const filterKeys = (category: string): string => `
   COALESCE(
-    (
-      SELECT array_agg(DISTINCT fallback ORDER BY fallback)
-      FROM ${fallbackSource} fallback_doc
-      CROSS JOIN LATERAL unnest(${fallbackExpression}) fallback
-      WHERE fallback IS NOT NULL AND fallback <> ''
-    ),
+    (SELECT filter_keys
+     FROM scoped_filter_keys
+     WHERE category = '${category}'),
     ARRAY[]::text[]
   )
 `;
 
-const filterLabelKeysPresentInAvailability = (category: string): string => `
-  ARRAY(
-    SELECT availability_key
-    FROM unnest(availability_keys) availability_key
-    WHERE COALESCE(filter_labels -> '${category}', '{}'::jsonb)
-      ? availability_key
-  )
-`;
-
-const filterLabelMap = (
-  category: string,
-  labelSource = "docs",
-  labelColumn = "filter_labels",
-): string => `
+const filterLabelMap = (category: string): string => `
   COALESCE(
-    (
-      SELECT jsonb_object_agg(label.slug, label.label ORDER BY label.slug)
-      FROM (
-        SELECT DISTINCT ON (labels.slug) labels.slug, labels.label
-        FROM ${labelSource} label_doc
-        CROSS JOIN LATERAL jsonb_each_text(
-          COALESCE(label_doc.${labelColumn} -> '${category}', '{}'::jsonb)
-        ) labels(slug, label)
-        ORDER BY labels.slug, labels.label
-      ) label
-    ),
+    (SELECT label_map
+     FROM scoped_filter_label_maps
+     WHERE category = '${category}'),
     '{}'::jsonb
   )
 `;

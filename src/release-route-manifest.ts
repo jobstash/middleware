@@ -206,6 +206,13 @@ export const RELEASE_ROUTE_MANIFEST = [
   ],
   [
     "AdminIngestionController",
+    "getCurrentStructuredRefresh",
+    "GET",
+    "admin/ingestion/structured-refresh-runs/current",
+    "active",
+  ],
+  [
+    "AdminIngestionController",
     "getStructuredRefresh",
     "GET",
     "admin/ingestion/structured-refresh-runs/:id",
@@ -930,6 +937,13 @@ export const RELEASE_ROUTE_MANIFEST = [
     "getUserVerificationStatus",
     "GET",
     "profile/verification/status",
+    "active",
+  ],
+  [
+    "PublicProfilesController",
+    "getProfilesForAdminGrid",
+    "GET",
+    "profiles/grid",
     "active",
   ],
   ["PublicProfilesController", "getProfile", "GET", "profiles/:slug", "active"],

@@ -2,6 +2,7 @@ import { NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import axios from "axios";
 import { Auth0Service } from "src/auth0/auth0.service";
+import { PostgresService } from "src/postgres/postgres.service";
 import { AdminIngestionService } from "./admin-ingestion.service";
 
 describe("AdminIngestionService", () => {
@@ -13,13 +14,57 @@ describe("AdminIngestionService", () => {
   const auth0 = {
     getETLToken: jest.fn().mockResolvedValue("server-token"),
   } as unknown as Auth0Service;
+  const postgres = {
+    query: jest.fn(),
+  } as unknown as PostgresService;
   let service: AdminIngestionService;
   let request: jest.SpyInstance;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    service = new AdminIngestionService(config, auth0);
+    service = new AdminIngestionService(config, auth0, postgres);
     request = jest.spyOn(axios, "request").mockResolvedValue({ data: {} });
+  });
+
+  it("reads StructuredJobpost refresh progress directly from PostgreSQL", async () => {
+    const runId = "f9500341-2ccd-4a1b-909a-853f66c41285";
+    (postgres.query as jest.Mock).mockResolvedValueOnce([
+      {
+        id: runId,
+        status: "running",
+        scheduledCount: 33732,
+        processedCount: 28,
+        succeededCount: 28,
+        failedCount: 0,
+        callsStarted: 28,
+        successfulResults: 28,
+      },
+    ]);
+
+    await expect(service.getStructuredRefresh(runId)).resolves.toMatchObject({
+      id: runId,
+      status: "running",
+      processedCount: 28,
+    });
+    expect(postgres.query).toHaveBeenCalledWith(
+      expect.stringContaining("FROM structured_job_refresh_runs refresh"),
+      [runId],
+    );
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it("selects the current active StructuredJobpost refresh without a fixed run id", async () => {
+    (postgres.query as jest.Mock).mockResolvedValueOnce([
+      { id: "f9500341-2ccd-4a1b-909a-853f66c41285", status: "running" },
+    ]);
+
+    await expect(service.getCurrentStructuredRefresh()).resolves.toMatchObject({
+      status: "running",
+    });
+    expect(postgres.query).toHaveBeenCalledWith(
+      expect.stringContaining("refresh.created_at DESC"),
+      [null],
+    );
   });
 
   afterEach(() => jest.restoreAllMocks());

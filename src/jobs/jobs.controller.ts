@@ -182,7 +182,9 @@ export class JobsController {
   }
 
   @Get("/filters")
-  @UseInterceptors(new CacheHeaderInterceptor({ mode: "revalidate-always" }))
+  @UseInterceptors(
+    new CacheHeaderInterceptor(CACHE_DURATION_15_MINUTES, [ECOSYSTEM_HEADER]),
+  )
   @ApiOkResponse({
     description: "Returns the configuration data for the ui filters",
     schema: {

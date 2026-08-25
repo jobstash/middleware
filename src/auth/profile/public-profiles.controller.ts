@@ -6,6 +6,7 @@ import {
   NotFoundException,
   Param,
   Post,
+  Query,
   UseGuards,
 } from "@nestjs/common";
 import { ApiCreatedResponse, ApiOkResponse } from "@nestjs/swagger";
@@ -28,6 +29,57 @@ type PublicProfileMutationResponse = {
 @Controller("profiles")
 export class PublicProfilesController {
   constructor(private readonly profiles: ProfileRepository) {}
+
+  @Get("grid")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
+  @ApiOkResponse({
+    description:
+      "A paginated admin Profile list with linked ProfileInfo, Organizations, and Projects",
+  })
+  async getProfilesForAdminGrid(
+    @Query("limit") rawLimit?: string,
+    @Query("offset") rawOffset?: string,
+    @Query("query") rawQuery?: string,
+    @Query("childId") rawChildId?: string,
+    @Query("childType") rawChildType?: string,
+  ): Promise<{
+    success: true;
+    message: string;
+    data: Record<string, unknown>[];
+    total: number;
+  }> {
+    const limit = Math.max(1, Math.min(Number(rawLimit) || 100, 500));
+    const offset = Math.max(0, Number(rawOffset) || 0);
+    const query = rawQuery?.trim().slice(0, 200) || undefined;
+    const childId = rawChildId?.trim() || undefined;
+    if (
+      rawChildType &&
+      rawChildType !== "Organization" &&
+      rawChildType !== "Project"
+    ) {
+      throw new BadRequestException(
+        "childType must be Organization or Project",
+      );
+    }
+    const childType =
+      rawChildType === "Organization" || rawChildType === "Project"
+        ? rawChildType
+        : undefined;
+    const result = await this.profiles.getEntityProfilesForAdminGrid({
+      limit,
+      offset,
+      query,
+      childId,
+      childType,
+    });
+    return {
+      success: true,
+      message: "Retrieved the Profile grid successfully",
+      data: result.data,
+      total: result.total,
+    };
+  }
 
   @Get(":slug")
   @ApiOkResponse({

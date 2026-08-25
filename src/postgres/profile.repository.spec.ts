@@ -2,6 +2,79 @@ import { PostgresService } from "./postgres.service";
 import { ProfileRepository } from "./profile.repository";
 
 describe("ProfileRepository", () => {
+  it("lists canonical Profiles with their ProfileInfo and exact child links", async () => {
+    const query = jest.fn().mockResolvedValue([
+      {
+        profile: {
+          id: "profile-one",
+          info: { id: "profile-info-one", displayName: "Acme" },
+          organizations: [{ id: "org-one" }],
+          projects: [{ id: "project-one" }],
+        },
+        totalCount: "1",
+      },
+    ]);
+    const repository = new ProfileRepository({ query } as never);
+
+    await expect(
+      repository.getEntityProfilesForAdminGrid({
+        limit: 25,
+        offset: 50,
+        query: " acme ",
+        childId: " org-one ",
+        childType: "Organization",
+      }),
+    ).resolves.toEqual({
+      data: [
+        expect.objectContaining({
+          id: "profile-one",
+          organizations: [{ id: "org-one" }],
+          projects: [{ id: "project-one" }],
+        }),
+      ],
+      total: 1,
+    });
+    const [sql, parameters] = query.mock.calls[0];
+    expect(sql).toContain("HAS_PROFILE_INFO");
+    expect(sql).toContain("'canonicalSlug'");
+    expect(sql).toContain("'summary'");
+    expect(sql).toContain("profile_info_properties ->> 'description'");
+    expect(sql).not.toContain("descriptionShort");
+    expect(sql).toContain("PROFILE_HAS_ORGANIZATION");
+    expect(sql).toContain("PROFILE_HAS_PROJECT");
+    expect(parameters).toEqual([25, 50, "acme", "org-one", "Organization"]);
+  });
+
+  it("falls back to the canonical id for Organizations without orgId", async () => {
+    const query = jest.fn().mockResolvedValue([
+      {
+        profile: {
+          id: "profile-homeward",
+          info: { id: "profile-info-homeward", displayName: "Homeward" },
+          organizations: [{ id: "organization-homeward" }],
+          projects: [],
+        },
+        totalCount: "1",
+      },
+    ]);
+    const repository = new ProfileRepository({ query } as never);
+
+    await expect(
+      repository.getEntityProfilesForAdminGrid({ limit: 1, offset: 0 }),
+    ).resolves.toEqual({
+      data: [
+        expect.objectContaining({
+          organizations: [{ id: "organization-homeward" }],
+        }),
+      ],
+      total: 1,
+    });
+    const [sql] = query.mock.calls[0] as [string, unknown[]];
+    expect(sql).toContain(
+      "'id', COALESCE(\n                child.properties ->> 'orgId',\n                child.properties ->> 'id'\n              )",
+    );
+  });
+
   it("serializes work-location exclusions for Jobs for me", async () => {
     const query = jest.fn().mockResolvedValue([]);
     const repository = new ProfileRepository({
@@ -78,6 +151,9 @@ describe("ProfileRepository", () => {
     expect(sql).toContain("notice.status = 'decided'");
     expect(sql).toContain("notice.redacted_public_text");
     expect(sql).toContain("FROM profile_reviews review");
+    expect(sql).toContain("'summary'");
+    expect(sql).toContain("info.properties ->> 'description'");
+    expect(sql).not.toContain("descriptionShort");
     expect(sql).toContain("review.status IN ('published', 'redacted')");
     expect(sql).toContain(
       "review.status IN ('pending', 'published', 'redacted')",

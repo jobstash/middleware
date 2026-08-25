@@ -1,4 +1,6 @@
-import { Injectable } from "@nestjs/common";
+import { CACHE_MANAGER } from "@nestjs/cache-manager";
+import { Inject, Injectable, Optional } from "@nestjs/common";
+import { Cache } from "cache-manager";
 import * as Sentry from "@sentry/node";
 import { addDays, differenceInHours } from "date-fns";
 import { sort } from "fast-sort";
@@ -40,6 +42,7 @@ import {
   ResponseWithNoData,
   ResponseWithOptionalData,
 } from "src/shared/types";
+import { CACHE_DURATION_15_MINUTES } from "src/shared/constants/cache-control";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { RpcService } from "src/user/rpc.service";
 import { AllJobsParams } from "./dto/all-jobs.input";
@@ -75,6 +78,10 @@ import {
 @Injectable()
 export class JobsService {
   private readonly logger = new CustomLogger(JobsService.name);
+  private readonly filterConfigLoads = new Map<
+    string,
+    Promise<JobFilterConfigs>
+  >();
   constructor(
     private readonly rpcService: RpcService,
     private readonly scorerService: ScorerService,
@@ -84,6 +91,9 @@ export class JobsService {
     private readonly jobGraph: JobGraphRepository,
     private readonly tagsService: TagsService,
     private readonly teamIntelligence: TeamIntelligenceService,
+    @Optional()
+    @Inject(CACHE_MANAGER)
+    private readonly cacheManager?: Cache,
   ) {}
 
   getJobsListResults = async (
@@ -189,14 +199,35 @@ export class JobsService {
   async getFilterConfigs(
     ecosystem: string | null = null,
   ): Promise<JobFilterConfigs> {
-    const [values, popularTags] = await Promise.all([
-      this.searchDocuments.getJobFilterValues(ecosystem ?? undefined),
-      this.tagsService.getPopularTags(100),
-    ]);
-    return new JobFilterConfigsEntity({
-      ...(await this.addTeamRange(values)),
-      tags: popularTags.map(tag => tag.name),
-    }).getProperties();
+    const cacheKey = `jobs:filter-configs:${slugify(ecosystem ?? "global")}`;
+    const cached = await this.cacheManager?.get<JobFilterConfigs>(cacheKey);
+    if (cached) return cached;
+
+    const existingLoad = this.filterConfigLoads.get(cacheKey);
+    if (existingLoad) return existingLoad;
+
+    const load = (async (): Promise<JobFilterConfigs> => {
+      const [values, popularTags] = await Promise.all([
+        this.searchDocuments.getJobFilterValues(ecosystem ?? undefined),
+        this.tagsService.getPopularTags(100),
+      ]);
+      const configs = new JobFilterConfigsEntity({
+        ...(await this.addTeamRange(values)),
+        tags: popularTags.map(tag => tag.name),
+      }).getProperties();
+      await this.cacheManager?.set(
+        cacheKey,
+        configs,
+        CACHE_DURATION_15_MINUTES * 1_000,
+      );
+      return configs;
+    })();
+    this.filterConfigLoads.set(cacheKey, load);
+    try {
+      return await load;
+    } finally {
+      this.filterConfigLoads.delete(cacheKey);
+    }
   }
 
   async getFeaturedJobs(

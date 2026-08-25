@@ -114,6 +114,11 @@ export class AdminIngestionController {
     return this.ingestion.createStructuredRefresh(input);
   }
 
+  @Get("structured-refresh-runs/current")
+  getCurrentStructuredRefresh(): Promise<unknown> {
+    return this.ingestion.getCurrentStructuredRefresh();
+  }
+
   @Get("structured-refresh-runs/:id")
   getStructuredRefresh(
     @Param("id", new ParseUUIDPipe()) id: string,
