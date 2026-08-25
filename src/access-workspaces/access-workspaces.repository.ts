@@ -611,7 +611,9 @@ export class AccessWorkspacesRepository {
             actorUserId: options.actorUserId,
             profileNodeId: profile.profileNodeId,
             action,
-            fields: [...(options.revealedFields ?? [])].sort(),
+            fields: [...(options.revealedFields ?? [])].sort((left, right) =>
+              left.localeCompare(right),
+            ),
           }),
         )
         .digest("hex");

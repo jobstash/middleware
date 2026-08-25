@@ -298,7 +298,9 @@ export const suppressDeveloperReportK5 = (
     privacy: {
       minimumAggregateSize: 5,
       suppressedValue: 0,
-      suppressedFields: [...new Set(suppressedFields)].sort(),
+      suppressedFields: [...new Set(suppressedFields)].sort((left, right) =>
+        left.localeCompare(right),
+      ),
       omittedRows,
     },
     summary,
