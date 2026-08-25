@@ -317,7 +317,7 @@ describePostgres("UserRepository PostgreSQL integration", () => {
     ).resolves.toBe(true);
   });
 
-  it("returns an opted-in safe Signals profile without notes or legacy org exclusions", async () => {
+  it("returns an opted-in safe Talent Pool profile without notes or legacy org exclusions", async () => {
     await seedRichProfile();
     await expect(
       repository.setRecruiterNote("0xUserOne", "Strong fit", "acme-org"),

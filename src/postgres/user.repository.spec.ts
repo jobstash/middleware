@@ -1,7 +1,7 @@
 import { PostgresService } from "./postgres.service";
 import { UserRepository } from "./user.repository";
 
-describe("UserRepository Agency Signals query", () => {
+describe("UserRepository Agency Talent Pool query", () => {
   it("uses a positive candidate allowlist with one contact email and no application data", async () => {
     const query = jest.fn().mockResolvedValue([]);
     const repository = new UserRepository({

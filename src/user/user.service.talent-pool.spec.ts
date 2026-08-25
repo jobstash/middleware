@@ -1,8 +1,8 @@
-import { toAgencyCandidateReport, toSignalCandidate } from "./user.service";
+import { toAgencyCandidateReport, toTalentPoolCandidate } from "./user.service";
 
-describe("Signals Agency candidate projection", () => {
+describe("Talent Pool Agency candidate projection", () => {
   it("exposes one contact email without leaking account/application fields or untyped nested extras", () => {
-    const result = toSignalCandidate({
+    const result = toTalentPoolCandidate({
       wallet: "0xPublicOptIn",
       name: "Public Candidate",
       email: "contact@example.com",
@@ -71,7 +71,7 @@ describe("Signals Agency candidate projection", () => {
   });
 
   it("strips email-like values even when stored in an allowlisted field", () => {
-    const result = toSignalCandidate({
+    const result = toTalentPoolCandidate({
       wallet: "candidate@example.com",
       name: "candidate@example.com",
       githubAvatar: null,
@@ -88,8 +88,8 @@ describe("Signals Agency candidate projection", () => {
     expect(result.email).toBeNull();
   });
 
-  it("normalizes missing work-history timestamps for the Signals contract", () => {
-    const result = toSignalCandidate({
+  it("normalizes missing work-history timestamps for the Talent Pool contract", () => {
+    const result = toTalentPoolCandidate({
       wallet: "0x123",
       availableForWork: true,
       workHistory: [
@@ -111,8 +111,8 @@ describe("Signals Agency candidate projection", () => {
     expect(result.workHistory[0].repositories[0].updatedAt).toBeNull();
   });
 
-  it("builds a candidate report from the Agency Signals fields", () => {
-    const candidate = toSignalCandidate({
+  it("builds a candidate report from the Agency Talent Pool fields", () => {
+    const candidate = toTalentPoolCandidate({
       wallet: "0xCandidate",
       name: "Ada",
       githubAvatar: null,

@@ -12,9 +12,9 @@ import {
   UserProfileEntity,
   data,
   UserPermission,
-  SignalCandidate,
+  TalentPoolCandidate,
   AgencyCandidateReport,
-  SignalsData,
+  TalentPoolData,
   TalentListWithUsers,
   TalentListWithUsersEntity,
 } from "src/shared/types";
@@ -64,11 +64,11 @@ const finiteNumber = (value: unknown): number =>
 const nullableFiniteNumber = (value: unknown): number | null =>
   typeof value === "number" && Number.isFinite(value) ? value : null;
 
-/** Defense in depth: repository extras can never become Signals response keys. */
-export const toSignalCandidate = (
+/** Defense in depth: repository extras can never become Talent Pool response keys. */
+export const toTalentPoolCandidate = (
   profile: Record<string, unknown>,
-): SignalCandidate => {
-  const input = profile as unknown as SignalCandidate;
+): TalentPoolCandidate => {
+  const input = profile as unknown as TalentPoolCandidate;
   const location = input.location ?? { city: null, country: null };
   return {
     wallet: publicString(input.wallet) ?? "",
@@ -137,7 +137,7 @@ export const toSignalCandidate = (
 };
 
 const workHistoryCommits = (
-  history: SignalCandidate["workHistory"][number],
+  history: TalentPoolCandidate["workHistory"][number],
 ): number =>
   finiteNumber(history.commitsCount) ||
   history.repositories.reduce(
@@ -146,7 +146,7 @@ const workHistoryCommits = (
   );
 
 export const toAgencyCandidateReport = (
-  candidate: SignalCandidate,
+  candidate: TalentPoolCandidate,
 ): AgencyCandidateReport => {
   const workHistory = candidate.workHistory;
   const repositories = workHistory.flatMap(history => history.repositories);
@@ -1161,7 +1161,7 @@ export class UserService {
 
   async getUsersAvailableForWork(
     params: Pick<GetAvailableUsersInput, "city" | "country" | "page" | "limit">,
-  ): Promise<ResponseWithOptionalData<SignalsData>> {
+  ): Promise<ResponseWithOptionalData<TalentPoolData>> {
     try {
       const paramsPassed = {
         city: params.city ? new RegExp(params.city, "i") : null,
@@ -1170,7 +1170,7 @@ export class UserService {
 
       const { city, country } = paramsPassed;
 
-      const locationFilter = (dev: SignalCandidate): boolean => {
+      const locationFilter = (dev: TalentPoolCandidate): boolean => {
         const cityMatch = city ? city.test(dev.location?.city) : true;
         const countryMatch = country
           ? country.test(dev.location?.country)
@@ -1182,7 +1182,7 @@ export class UserService {
         .getAvailableUsers()
         .then(profiles =>
           profiles
-            .map(toSignalCandidate)
+            .map(toTalentPoolCandidate)
             .filter(candidate => candidate.wallet.length > 0)
             .filter(locationFilter),
         )
@@ -1243,11 +1243,11 @@ export class UserService {
     return {
       success: true,
       message: "Candidate report retrieved successfully",
-      data: toAgencyCandidateReport(toSignalCandidate(stored)),
+      data: toAgencyCandidateReport(toTalentPoolCandidate(stored)),
     };
   }
 
-  async getTopUsers(): Promise<ResponseWithOptionalData<SignalsData>> {
+  async getTopUsers(): Promise<ResponseWithOptionalData<TalentPoolData>> {
     try {
       const base = await this.getUsersAvailableForWork({
         city: null,
@@ -1258,8 +1258,8 @@ export class UserService {
       if (!base.success) {
         return base;
       }
-      const signals = data(base);
-      const topUsers = sort(signals.candidates).by([
+      const talentPool = data(base);
+      const topUsers = sort(talentPool.candidates).by([
         { desc: (user): boolean => user.cryptoNative },
         { desc: (user): boolean => user.cryptoAdjacent },
         { desc: (user): number => user.workHistory.length ?? 0 },

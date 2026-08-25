@@ -8,7 +8,7 @@ import { UserWorkHistory } from "./user-work-history.interface";
  * who opted in to availability. Only one verified contact email is exposed;
  * linked accounts, linked wallets, notes, and application history stay private.
  */
-export class SignalCandidate {
+export class TalentPoolCandidate {
   @ApiProperty({ description: "The opted-in user's public primary wallet." })
   wallet: string;
 
@@ -76,8 +76,8 @@ export class AgencyCandidateReportSummary {
 }
 
 export class AgencyCandidateReport {
-  @ApiProperty({ type: () => SignalCandidate })
-  candidate: SignalCandidate;
+  @ApiProperty({ type: () => TalentPoolCandidate })
+  candidate: TalentPoolCandidate;
 
   @ApiProperty({ type: () => AgencyCandidateReportSummary })
   summary: AgencyCandidateReportSummary;
@@ -89,7 +89,7 @@ export class AgencyCandidateReport {
   workHistory: UserWorkHistory[];
 }
 
-export class SignalsData {
-  @ApiProperty({ type: [SignalCandidate] })
-  candidates: SignalCandidate[];
+export class TalentPoolData {
+  @ApiProperty({ type: [TalentPoolCandidate] })
+  candidates: TalentPoolCandidate[];
 }

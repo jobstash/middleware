@@ -10,7 +10,7 @@ import { PermissionService } from "./permission.service";
 import { UserController } from "./user.controller";
 import { UserService } from "./user.service";
 
-describe("UserController Agency Signals entitlement", () => {
+describe("UserController Agency Talent Pool entitlement", () => {
   const workspaceId = "f9500341-2ccd-4a1b-909a-853f66c41285";
   const build = (
     entitled: boolean,
