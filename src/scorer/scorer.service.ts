@@ -4,6 +4,7 @@ import { AxiosError } from "axios";
 import { catchError, firstValueFrom, map, of } from "rxjs";
 import {
   AdjacentRepo,
+  CandidateReport,
   EcosystemActivation,
   ResponseWithOptionalData,
   UserWorkHistory,
@@ -74,6 +75,34 @@ export class ScorerService {
         ),
     );
     return res;
+  };
+
+  getCandidateReport = async (
+    user: string,
+    wallet?: string,
+  ): Promise<ResponseWithOptionalData<CandidateReport>> => {
+    try {
+      const response = await firstValueFrom(
+        this.httpService
+          .get<
+            ResponseWithOptionalData<CandidateReport>
+          >("/scorer/users/report", { params: { user, ...(wallet ? { wallet } : {}) } })
+          .pipe(map(result => result.data)),
+      );
+      return response;
+    } catch (error) {
+      const err = error as AxiosError;
+      Sentry.withScope(scope => {
+        scope.setTags({ action: "proxy-call", source: "scorer.service" });
+        scope.setExtra("input", { user, hasWallet: Boolean(wallet) });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ScorerService::getCandidateReport ${err.message}`);
+      return {
+        success: false,
+        message: "Error generating candidate report",
+      };
+    }
   };
 
   getEcosystemActivationsForWallets = async (

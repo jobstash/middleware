@@ -36,6 +36,7 @@ import {
   SignalTagInterest,
   AgencyCandidateReport,
   AgencyCandidateReportSummary,
+  CandidateReport,
 } from "src/shared/interfaces";
 import {
   GetAvailableUsersAdminInput,
@@ -288,6 +289,37 @@ export class UserController {
     }
     await this.accessWorkspaces.requireAgencyEntitlement(workspaceId, address);
     return this.userService.getAgencyCandidateReport(wallet);
+  }
+
+  @Get("admin/candidate-report/:github")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
+  @UseInterceptors(new CacheHeaderInterceptor({ mode: "no-store" }))
+  async getCandidateReportAsSuperadmin(
+    @Param("github") github: string,
+    @Query("wallet") wallet?: string,
+  ): Promise<ResponseWithOptionalData<CandidateReport>> {
+    return this.scorerService.getCandidateReport(github, wallet);
+  }
+
+  @Get("candidate-report/:github")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
+  @UseInterceptors(new CacheHeaderInterceptor({ mode: "no-store" }))
+  async getCandidateReport(
+    @Session() { address }: SessionObject,
+    @Param("github") github: string,
+    @Query("workspaceId", new ParseUUIDPipe()) workspaceId: string,
+    @Query("wallet") wallet?: string,
+  ): Promise<ResponseWithOptionalData<CandidateReport>> {
+    if (!address) {
+      throw new ForbiddenException({
+        success: false,
+        message: "Access denied",
+      });
+    }
+    await this.accessWorkspaces.requireAgencyEntitlement(workspaceId, address);
+    return this.scorerService.getCandidateReport(github, wallet);
   }
 
   @Get("/org/:id/talent-lists")
