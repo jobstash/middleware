@@ -4,9 +4,9 @@ import { UserSkill } from "./user-skill.interface";
 import { UserWorkHistory } from "./user-work-history.interface";
 
 /**
- * Explicitly public fields from a user who opted in to availability. Email,
- * linked-account, linked-wallet, note, and application-history fields are not
- * part of this contract.
+ * Fields available to an entitled Agency workspace or a superuser for a user
+ * who opted in to availability. Only one verified contact email is exposed;
+ * linked accounts, linked wallets, notes, and application history stay private.
  */
 export class SignalCandidate {
   @ApiProperty({ description: "The opted-in user's public primary wallet." })
@@ -20,6 +20,9 @@ export class SignalCandidate {
 
   @ApiPropertyOptional({ nullable: true })
   github: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  email: string | null;
 
   @ApiProperty({
     type: "object",
@@ -86,37 +89,7 @@ export class AgencyCandidateReport {
   workHistory: UserWorkHistory[];
 }
 
-export class SignalClassificationInterest {
-  @ApiProperty()
-  classification: string;
-
-  @ApiProperty({ minimum: 5 })
-  interestedCandidates: number;
-}
-
-export class SignalTagInterest {
-  @ApiProperty()
-  tag: string;
-
-  @ApiProperty({ minimum: 5 })
-  interestedCandidates: number;
-}
-
-export class SignalsAggregateInterests {
-  @ApiProperty({ enum: [5] })
-  minimumAggregateSize: 5;
-
-  @ApiProperty({ type: [SignalClassificationInterest] })
-  jobClassifications: SignalClassificationInterest[];
-
-  @ApiProperty({ type: [SignalTagInterest] })
-  tags: SignalTagInterest[];
-}
-
 export class SignalsData {
   @ApiProperty({ type: [SignalCandidate] })
   candidates: SignalCandidate[];
-
-  @ApiProperty({ type: () => SignalsAggregateInterests })
-  aggregateInterests: SignalsAggregateInterests;
 }

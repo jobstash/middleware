@@ -55,6 +55,9 @@ const EMAIL_LIKE = /\b[^\s@]+@[^\s@]+\.[^\s@]+\b/i;
 const publicString = (value: unknown): string | null =>
   typeof value === "string" && !EMAIL_LIKE.test(value) ? value : null;
 
+const contactEmail = (value: unknown): string | null =>
+  typeof value === "string" && EMAIL_LIKE.test(value) ? value : null;
+
 const finiteNumber = (value: unknown): number =>
   typeof value === "number" && Number.isFinite(value) ? value : 0;
 
@@ -72,6 +75,7 @@ export const toSignalCandidate = (
     name: publicString(input.name),
     githubAvatar: publicString(input.githubAvatar),
     github: publicString(input.github),
+    email: contactEmail(input.email),
     location: {
       city: publicString(location.city),
       country: publicString(location.country),
@@ -1174,19 +1178,13 @@ export class UserService {
         return cityMatch && countryMatch;
       };
 
-      const [users, interestRows] = await Promise.all([
-        this.users.getAvailableUsers(),
-        this.users.getAvailableUserAggregateInterests(),
-      ])
-        .then(
-          ([profiles, interests]) =>
-            [
-              profiles
-                .map(toSignalCandidate)
-                .filter(candidate => candidate.wallet.length > 0)
-                .filter(locationFilter),
-              interests,
-            ] as const,
+      const users = await this.users
+        .getAvailableUsers()
+        .then(profiles =>
+          profiles
+            .map(toSignalCandidate)
+            .filter(candidate => candidate.wallet.length > 0)
+            .filter(locationFilter),
         )
         .catch(err => {
           Sentry.withScope(scope => {
@@ -1199,7 +1197,7 @@ export class UserService {
           this.logger.error(
             `UserService::getDevsAvailableForWork ${err.message}`,
           );
-          return [[], []] as const;
+          return [];
         });
 
       const candidates = sort(users).by([
@@ -1213,21 +1211,6 @@ export class UserService {
         message: "Users available for work retrieved successfully",
         data: {
           candidates,
-          aggregateInterests: {
-            minimumAggregateSize: 5,
-            jobClassifications: interestRows
-              .filter(row => row.kind === "classification")
-              .map(row => ({
-                classification: row.label,
-                interestedCandidates: row.interestedCandidates,
-              })),
-            tags: interestRows
-              .filter(row => row.kind === "tag")
-              .map(row => ({
-                tag: row.label,
-                interestedCandidates: row.interestedCandidates,
-              })),
-          },
         },
       };
     } catch (err) {
@@ -1286,7 +1269,6 @@ export class UserService {
         message: "Top users retrieved successfully",
         data: {
           candidates: topUsers.slice(0, 50),
-          aggregateInterests: signals.aggregateInterests,
         },
       };
     } catch (err) {

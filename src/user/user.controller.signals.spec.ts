@@ -27,11 +27,6 @@ describe("UserController Agency Signals entitlement", () => {
         message: "Users available for work retrieved successfully",
         data: {
           candidates: [{ wallet: "public-opt-in" }],
-          aggregateInterests: {
-            minimumAggregateSize: 5,
-            jobClassifications: [],
-            tags: [],
-          },
         },
       }),
       getTopUsers: jest.fn().mockResolvedValue({
@@ -39,11 +34,6 @@ describe("UserController Agency Signals entitlement", () => {
         message: "Top users retrieved successfully",
         data: {
           candidates: [{ wallet: "public-opt-in" }],
-          aggregateInterests: {
-            minimumAggregateSize: 5,
-            jobClassifications: [],
-            tags: [],
-          },
         },
       }),
       getAgencyCandidateReport: jest.fn().mockResolvedValue({

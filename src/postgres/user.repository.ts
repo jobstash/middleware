@@ -244,6 +244,33 @@ const signalCandidatePayload = (): string => `
       ORDER BY github.id
       LIMIT 1
     ),
+    'email', COALESCE(
+      (
+        SELECT NULLIF(email.properties ->> 'email', '')
+        FROM graph_relationships relationship
+        JOIN graph_nodes email ON email.id = relationship.target_id
+        WHERE relationship.source_id = user.id
+          AND relationship.type = 'HAS_EMAIL'
+          AND email.label = 'UserEmail'
+        ORDER BY COALESCE(
+          jsonb_boolean_value(email.properties, 'main'), false
+        ) DESC, email.id
+        LIMIT 1
+      ),
+      (
+        SELECT COALESCE(
+          NULLIF(account.properties ->> 'email', ''),
+          NULLIF(account.properties ->> 'google', '')
+        )
+        FROM graph_relationships relationship
+        JOIN graph_nodes account ON account.id = relationship.target_id
+        WHERE relationship.source_id = user.id
+          AND relationship.type = 'HAS_LINKED_ACCOUNT'
+          AND account.label = 'LinkedAccount'
+        ORDER BY account.id
+        LIMIT 1
+      )
+    ),
     'name', NULLIF(user.properties ->> 'name', ''),
     'location', COALESCE((
       SELECT jsonb_build_object(
@@ -302,12 +329,6 @@ const signalCandidatePayload = (): string => `
     ), '[]'::jsonb)
   )
 `;
-
-export interface SignalsInterestRow {
-  kind: "classification" | "tag";
-  label: string;
-  interestedCandidates: number;
-}
 
 @Injectable()
 export class UserRepository {
@@ -1272,49 +1293,6 @@ export class UserRepository {
       [wallet],
     );
     return row?.profile;
-  }
-
-  async getAvailableUserAggregateInterests(): Promise<SignalsInterestRow[]> {
-    return queryRows<SignalsInterestRow>(
-      this.postgres,
-      `
-        WITH opted_in_applications AS (
-          SELECT DISTINCT application.source_id AS user_id,
-            application.target_id AS job_id
-          FROM graph_nodes user
-          JOIN graph_relationships application
-            ON application.source_id = user.id
-           AND application.type = 'APPLIED_TO'
-          WHERE user.label = 'User'
-            AND NULLIF(btrim(user.properties ->> 'wallet'), '') IS NOT NULL
-            AND COALESCE(
-              jsonb_boolean_value(user.properties, 'available'), false
-            )
-        ), interests AS (
-          SELECT applications.user_id, 'classification'::text AS kind,
-            entry.value AS label
-          FROM opted_in_applications applications
-          JOIN job_search_documents job ON job.job_node_id = applications.job_id
-          CROSS JOIN LATERAL jsonb_each_text(
-            COALESCE(job.filter_labels -> 'classifications', '{}'::jsonb)
-          ) entry
-          UNION
-          SELECT applications.user_id, 'tag'::text AS kind, entry.value AS label
-          FROM opted_in_applications applications
-          JOIN job_search_documents job ON job.job_node_id = applications.job_id
-          CROSS JOIN LATERAL jsonb_each_text(
-            COALESCE(job.filter_labels -> 'tags', '{}'::jsonb)
-          ) entry
-        )
-        SELECT kind, label,
-          count(DISTINCT user_id)::int AS "interestedCandidates"
-        FROM interests
-        WHERE NULLIF(btrim(label), '') IS NOT NULL
-        GROUP BY kind, label
-        HAVING count(DISTINCT user_id) >= 5
-        ORDER BY kind, "interestedCandidates" DESC, label
-      `,
-    );
   }
 
   async setRecruiterNote(
