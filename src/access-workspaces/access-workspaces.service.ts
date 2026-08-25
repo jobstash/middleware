@@ -41,6 +41,11 @@ const valueAtPath = (source: Record<string, unknown>, path: string): unknown =>
     return (value as Record<string, unknown>)[part];
   }, source);
 
+const bountyOpportunityLimit = (requestedLimit: number): number =>
+  Number.isSafeInteger(requestedLimit)
+    ? Math.max(1, Math.min(requestedLimit, 100))
+    : 50;
+
 @Injectable()
 export class AccessWorkspacesService {
   constructor(private readonly repository: AccessWorkspacesRepository) {}
@@ -125,10 +130,17 @@ export class AccessWorkspacesService {
     requestedLimit: number,
   ): Promise<AgencyBountyOpportunities> {
     await this.requireAgencyEntitlement(workspaceId, actorUserId);
-    const limit = Number.isSafeInteger(requestedLimit)
-      ? Math.max(1, Math.min(requestedLimit, 100))
-      : 50;
-    return this.repository.listBountyOpportunities(limit);
+    return this.repository.listBountyOpportunities(
+      bountyOpportunityLimit(requestedLimit),
+    );
+  }
+
+  async listBountyOpportunitiesForSuperadmin(
+    requestedLimit: number,
+  ): Promise<AgencyBountyOpportunities> {
+    return this.repository.listBountyOpportunities(
+      bountyOpportunityLimit(requestedLimit),
+    );
   }
 
   async transferDomain(

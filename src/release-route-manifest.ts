@@ -10,6 +10,13 @@ export const RELEASE_ROUTE_MANIFEST = [
   ["AccessWorkspacesController", "list", "GET", "access-workspaces", "active"],
   [
     "AccessWorkspacesController",
+    "listBountyOpportunitiesForSuperadmin",
+    "GET",
+    "access-workspaces/admin/bounty-opportunities",
+    "active",
+  ],
+  [
+    "AccessWorkspacesController",
     "get",
     "GET",
     "access-workspaces/:workspaceId",
@@ -1392,6 +1399,20 @@ export const RELEASE_ROUTE_MANIFEST = [
     "active",
   ],
   ["UserController", "getAllUsers", "GET", "users", "active"],
+  [
+    "UserController",
+    "getUsersAvailableForWorkAsSuperadmin",
+    "GET",
+    "users/admin/available",
+    "active",
+  ],
+  [
+    "UserController",
+    "getAgencyCandidateReportAsSuperadmin",
+    "GET",
+    "users/admin/available/:wallet/report",
+    "active",
+  ],
   [
     "UserController",
     "getUsersAvailableForWork",

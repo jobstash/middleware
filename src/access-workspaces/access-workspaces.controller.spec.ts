@@ -122,6 +122,48 @@ describe("AccessWorkspace and Inspect route contracts", () => {
     );
   });
 
+  it("gives superusers a separate no-store bounty route without a workspace", async () => {
+    const data = {
+      summary: { openJobCount: 1, companyCount: 1, disclosedAmountCount: 0 },
+      companies: [],
+      jobs: [],
+    };
+    const workspaces = {
+      listBountyOpportunitiesForSuperadmin: jest.fn().mockResolvedValue(data),
+    } as unknown as AccessWorkspacesService;
+    const controller = new AccessWorkspacesController(workspaces);
+    const method =
+      AccessWorkspacesController.prototype.listBountyOpportunitiesForSuperadmin;
+
+    expect(Reflect.getMetadata(METHOD_METADATA, method)).toBe(
+      RequestMethod.GET,
+    );
+    expect(Reflect.getMetadata(PATH_METADATA, method)).toBe(
+      "admin/bounty-opportunities",
+    );
+    expect(Reflect.getMetadata("permissions", method)).toEqual([
+      CheckWalletPermissions.SUPER_ADMIN,
+    ]);
+    expect(Reflect.getMetadata(HEADERS_METADATA, method)).toEqual(
+      expect.arrayContaining([
+        {
+          name: "Cache-Control",
+          value: "no-cache, private, no-store, must-revalidate",
+        },
+      ]),
+    );
+    await expect(
+      controller.listBountyOpportunitiesForSuperadmin("25"),
+    ).resolves.toEqual({
+      success: true,
+      message: "Bounty opportunities retrieved successfully",
+      data,
+    });
+    expect(
+      workspaces.listBountyOpportunitiesForSuperadmin,
+    ).toHaveBeenCalledWith(25);
+  });
+
   it("keeps both Inspect operations POST-only and no-store", () => {
     expect(Reflect.getMetadata(PATH_METADATA, InspectController)).toBe(
       "inspect",

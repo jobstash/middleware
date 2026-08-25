@@ -125,6 +125,21 @@ describe("AccessWorkspacesService", () => {
     expect(repo.listBountyOpportunities).toHaveBeenCalledWith(100);
   });
 
+  it("lets a superuser load bounty opportunities without workspace authorization", async () => {
+    const repo = repository();
+    const service = new AccessWorkspacesService(repo);
+    repo.listBountyOpportunities.mockResolvedValue({
+      summary: { openJobCount: 0, companyCount: 0, disclosedAmountCount: 0 },
+      companies: [],
+      jobs: [],
+    });
+
+    await service.listBountyOpportunitiesForSuperadmin(25);
+
+    expect(repo.authorize).not.toHaveBeenCalled();
+    expect(repo.listBountyOpportunities).toHaveBeenCalledWith(25);
+  });
+
   it("normalizes explicit audited domain transfers and requires bypass", async () => {
     const repo = repository();
     const service = new AccessWorkspacesService(repo);

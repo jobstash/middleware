@@ -80,6 +80,29 @@ export class AccessWorkspacesController {
     );
   }
 
+  @Get("admin/bounty-opportunities")
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
+  @Header("Cache-Control", "no-cache, private, no-store, must-revalidate")
+  @Header("Pragma", "no-cache")
+  @Header("Expires", "0")
+  @ApiOkResponse({
+    description:
+      "Returns placement-bounty companies and current jobs to a superuser",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(AgencyBountyOpportunities),
+    }),
+  })
+  async listBountyOpportunitiesForSuperadmin(
+    @Query("limit") rawLimit = "50",
+  ): Promise<SuccessResponse> {
+    return success(
+      "Bounty opportunities retrieved successfully",
+      await this.workspaces.listBountyOpportunitiesForSuperadmin(
+        Number(rawLimit),
+      ),
+    );
+  }
+
   @Get(":workspaceId")
   async get(
     @Session() session: SessionObject,
