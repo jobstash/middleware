@@ -1415,6 +1415,13 @@ export const RELEASE_ROUTE_MANIFEST = [
   ],
   [
     "UserController",
+    "getCandidateReportAsSuperadmin",
+    "GET",
+    "users/admin/candidate-report/:github",
+    "active",
+  ],
+  [
+    "UserController",
     "getUsersAvailableForWork",
     "GET",
     "users/available",
@@ -1426,6 +1433,13 @@ export const RELEASE_ROUTE_MANIFEST = [
     "getAgencyCandidateReport",
     "GET",
     "users/available/:wallet/report",
+    "active",
+  ],
+  [
+    "UserController",
+    "getCandidateReport",
+    "GET",
+    "users/candidate-report/:github",
     "active",
   ],
   [

@@ -1,6 +1,7 @@
 export * from "./user";
 export * from "./hack.interface";
 export * from "./chain.interface";
+export * from "./candidate-report.interface";
 export * from "./audit.interface";
 export * from "./grant.interface";
 export * from "./auditor.interface";

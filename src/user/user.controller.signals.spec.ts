@@ -19,6 +19,7 @@ describe("UserController Agency Signals entitlement", () => {
     users: Record<string, jest.Mock>;
     subscriptions: { getSubscriptionInfoByOrgId: jest.Mock };
     access: { requireAgencyEntitlement: jest.Mock };
+    scorer: { getCandidateReport: jest.Mock };
   } => {
     const users = {
       getUsersAvailableForWork: jest.fn().mockResolvedValue({
@@ -71,16 +72,23 @@ describe("UserController Agency Signals entitlement", () => {
               ),
             ),
     };
+    const scorer = {
+      getCandidateReport: jest.fn().mockResolvedValue({
+        success: true,
+        message: "Candidate report generated successfully",
+        data: { user: { github: "light-fury" } },
+      }),
+    };
     const controller = new UserController(
       users as unknown as UserService,
       {} as ProfileService,
-      {} as ScorerService,
+      scorer as unknown as ScorerService,
       {} as StripeService,
       subscriptions as unknown as SubscriptionsService,
       {} as PermissionService,
       access as unknown as AccessWorkspacesService,
     );
-    return { controller, users, subscriptions, access };
+    return { controller, users, subscriptions, access, scorer };
   };
 
   it("denies a legacy stashPool subscription without Agency entitlement", async () => {
@@ -97,6 +105,46 @@ describe("UserController Agency Signals entitlement", () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(subscriptions.getSubscriptionInfoByOrgId).not.toHaveBeenCalled();
     expect(users.getUsersAvailableForWork).not.toHaveBeenCalled();
+  });
+
+  it("allows arbitrary GitHub candidate reports only through Agency or superuser access", async () => {
+    const { controller, access, scorer } = build(true);
+
+    await expect(
+      controller.getCandidateReport(
+        { address: "analyst" } as never,
+        "light-fury",
+        workspaceId,
+      ),
+    ).resolves.toMatchObject({ success: true });
+    expect(access.requireAgencyEntitlement).toHaveBeenCalledWith(
+      workspaceId,
+      "analyst",
+    );
+    expect(scorer.getCandidateReport).toHaveBeenCalledWith(
+      "light-fury",
+      undefined,
+    );
+
+    const normalMethod = UserController.prototype.getCandidateReport;
+    const superuserMethod =
+      UserController.prototype.getCandidateReportAsSuperadmin;
+    expect(Reflect.getMetadata(PATH_METADATA, normalMethod)).toBe(
+      "candidate-report/:github",
+    );
+    expect(Reflect.getMetadata(PATH_METADATA, superuserMethod)).toBe(
+      "admin/candidate-report/:github",
+    );
+
+    const superuser = build(false);
+    await expect(
+      superuser.controller.getCandidateReportAsSuperadmin("duckdegen"),
+    ).resolves.toMatchObject({ success: true });
+    expect(superuser.access.requireAgencyEntitlement).not.toHaveBeenCalled();
+    expect(superuser.scorer.getCandidateReport).toHaveBeenCalledWith(
+      "duckdegen",
+      undefined,
+    );
   });
 
   it("allows an entitled workspace member without consulting legacy access", async () => {
