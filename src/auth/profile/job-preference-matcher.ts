@@ -108,7 +108,9 @@ const disallowsRequiredAttendance = (preference: string | null): boolean =>
   /^(?:remote[_ -]?only|no[_ -]?required[_ -]?attendance)$/i.test(preference);
 
 export type JobForMeGroup =
-  "confirmedMatches" | "timezoneNearMisses" | "needsChecking";
+  | "confirmedMatches"
+  | "timezoneNearMisses"
+  | "needsChecking";
 
 export interface CategorizedJobForMe<TJob extends object> {
   group: JobForMeGroup;

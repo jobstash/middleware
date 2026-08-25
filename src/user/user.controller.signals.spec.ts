@@ -10,7 +10,14 @@ import { UserService } from "./user.service";
 
 describe("UserController Agency Signals entitlement", () => {
   const workspaceId = "f9500341-2ccd-4a1b-909a-853f66c41285";
-  const build = (entitled: boolean) => {
+  const build = (
+    entitled: boolean,
+  ): {
+    controller: UserController;
+    users: Record<string, jest.Mock>;
+    subscriptions: { getSubscriptionInfoByOrgId: jest.Mock };
+    access: { requireAgencyEntitlement: jest.Mock };
+  } => {
     const users = {
       getUsersAvailableForWork: jest.fn().mockResolvedValue({
         success: true,

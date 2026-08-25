@@ -1,7 +1,7 @@
 import { PostgresService } from "src/postgres/postgres.service";
 import { AccessWorkspacesRepository } from "./access-workspaces.repository";
 
-const transactionalPostgres = (query: jest.Mock) =>
+const transactionalPostgres = (query: jest.Mock): PostgresService =>
   ({
     transaction: jest.fn(async callback => callback({ query })),
   }) as unknown as PostgresService;

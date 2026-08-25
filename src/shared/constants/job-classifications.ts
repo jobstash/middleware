@@ -55,8 +55,16 @@ export const CANONICAL_JOB_CLASSIFICATIONS = Object.freeze([
   classification("PARTNERSHIPS", "Partnerships", "partnerships"),
   classification("PEOPLE", "People", "people"),
   classification("PRODUCT", "Product", "product"),
-  classification("PRODUCT_MANAGEMENT", "Product Management", "product-management"),
-  classification("PROJECT_MANAGEMENT", "Project Management", "project-management"),
+  classification(
+    "PRODUCT_MANAGEMENT",
+    "Product Management",
+    "product-management",
+  ),
+  classification(
+    "PROJECT_MANAGEMENT",
+    "Project Management",
+    "project-management",
+  ),
   classification("RESEARCH", "Research", "research"),
   classification("SALES", "Sales", "sales"),
   classification("SMART_CONTRACTS", "Smart Contracts", "smart-contracts"),

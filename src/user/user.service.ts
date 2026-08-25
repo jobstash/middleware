@@ -129,7 +129,9 @@ export const toSignalCandidate = (
 const finiteNumber = (value: unknown): number =>
   typeof value === "number" && Number.isFinite(value) ? value : 0;
 
-const workHistoryCommits = (history: SignalCandidate["workHistory"][number]) =>
+const workHistoryCommits = (
+  history: SignalCandidate["workHistory"][number],
+): number =>
   finiteNumber(history.commitsCount) ||
   history.repositories.reduce(
     (total, repository) => total + finiteNumber(repository.commitsCount),

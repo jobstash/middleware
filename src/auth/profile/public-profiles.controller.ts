@@ -19,6 +19,12 @@ import {
   CreateRecruiterCaseInput,
 } from "./dto/create-profile-review.input";
 
+type PublicProfileMutationResponse = {
+  success: true;
+  message: string;
+  data: Record<string, unknown>;
+};
+
 @Controller("profiles")
 export class PublicProfilesController {
   constructor(private readonly profiles: ProfileRepository) {}
@@ -58,7 +64,7 @@ export class PublicProfilesController {
     @Session() session: SessionObject,
     @Param("slug") slug: string,
     @Body() input: CreateProfileReviewInput,
-  ) {
+  ): Promise<PublicProfileMutationResponse> {
     const review = await this.profiles.createProfileReview(
       session.address!,
       slug,
@@ -87,7 +93,7 @@ export class PublicProfilesController {
     @Session() session: SessionObject,
     @Param("slug") slug: string,
     @Body() input: CreateRecruiterCaseInput,
-  ) {
+  ): Promise<PublicProfileMutationResponse> {
     const recruiterCase = await this.profiles.createRecruiterCase(
       session.address!,
       slug,

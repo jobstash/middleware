@@ -7,7 +7,7 @@ import {
 import { AccessWorkspacesRepository } from "./access-workspaces.repository";
 import { AccessWorkspacesService } from "./access-workspaces.service";
 
-const repository = () =>
+const repository = (): jest.Mocked<AccessWorkspacesRepository> =>
   ({
     create: jest.fn(),
     getForMember: jest.fn(),

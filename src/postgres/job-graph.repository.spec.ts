@@ -54,7 +54,9 @@ describe("JobGraphRepository manual replacement safety", () => {
     const postgres = {
       transaction: jest.fn(async callback => callback(manager)),
     };
-    const repository = new JobGraphRepository(postgres as unknown as PostgresService);
+    const repository = new JobGraphRepository(
+      postgres as unknown as PostgresService,
+    );
 
     await expect(
       repository.replaceJobRelationships({
@@ -70,9 +72,9 @@ describe("JobGraphRepository manual replacement safety", () => {
     ).resolves.toBe(0);
 
     expect(manager.query).toHaveBeenCalledTimes(2);
-    expect(manager.query.mock.calls.some(([sql]) => /DELETE FROM/.test(sql))).toBe(
-      false,
-    );
+    expect(
+      manager.query.mock.calls.some(([sql]) => /DELETE FROM/.test(sql)),
+    ).toBe(false);
     expect(manager.query.mock.calls[0][0]).toContain("FOR UPDATE");
     expect(manager.query.mock.calls[1][0]).toContain("FOR SHARE");
   });

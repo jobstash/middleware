@@ -90,7 +90,9 @@ describe("AccessWorkspace and Inspect route contracts", () => {
     const controller = new AccessWorkspacesController(workspaces);
     const method = AccessWorkspacesController.prototype.listBountyOpportunities;
 
-    expect(Reflect.getMetadata(METHOD_METADATA, method)).toBe(RequestMethod.GET);
+    expect(Reflect.getMetadata(METHOD_METADATA, method)).toBe(
+      RequestMethod.GET,
+    );
     expect(Reflect.getMetadata(PATH_METADATA, method)).toBe(
       ":workspaceId/bounty-opportunities",
     );
