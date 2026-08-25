@@ -213,7 +213,7 @@ const richUserPayload = (orgParameter: string): string => `
   )
 `;
 
-/** Signals is intentionally not built by subtracting from the rich profile. */
+/** Talent Pool is intentionally not built by subtracting from the rich profile. */
 const signalCandidatePayload = (): string => `
   jsonb_build_object(
     'wallet', user.properties ->> 'wallet',

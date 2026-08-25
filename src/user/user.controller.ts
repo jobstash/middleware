@@ -29,8 +29,8 @@ import {
   data,
   TalentList,
   TalentListWithUsers,
-  SignalCandidate,
-  SignalsData,
+  TalentPoolCandidate,
+  TalentPoolData,
   AgencyCandidateReport,
   AgencyCandidateReportSummary,
   CandidateReport,
@@ -59,8 +59,8 @@ import { responseSchemaWrapper } from "src/shared/helpers";
 
 @Controller("users")
 @ApiExtraModels(
-  SignalsData,
-  SignalCandidate,
+  TalentPoolData,
+  TalentPoolCandidate,
   AgencyCandidateReport,
   AgencyCandidateReportSummary,
 )
@@ -182,12 +182,12 @@ export class UserController {
   @ApiOkResponse({
     description:
       "Returns opted-in candidates with one verified contact email to a superuser",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(SignalsData) }),
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(TalentPoolData) }),
   })
   async getUsersAvailableForWorkAsSuperadmin(
     @Query(new ValidationPipe({ transform: true }))
     params: GetAvailableUsersAdminInput,
-  ): Promise<ResponseWithOptionalData<SignalsData>> {
+  ): Promise<ResponseWithOptionalData<TalentPoolData>> {
     return this.userService.getUsersAvailableForWork(params);
   }
 
@@ -214,13 +214,13 @@ export class UserController {
   @ApiOkResponse({
     description:
       "Returns opted-in candidates with one verified contact email to an entitled Agency workspace",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(SignalsData) }),
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(TalentPoolData) }),
   })
   async getUsersAvailableForWork(
     @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true }))
     params: GetAvailableUsersInput,
-  ): Promise<ResponseWithOptionalData<SignalsData>> {
+  ): Promise<ResponseWithOptionalData<TalentPoolData>> {
     if (!address) {
       throw new ForbiddenException({
         success: false,
@@ -242,12 +242,12 @@ export class UserController {
   @ApiOkResponse({
     description:
       "Returns up to 50 opted-in candidates with one verified contact email to an entitled Agency workspace",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(SignalsData) }),
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(TalentPoolData) }),
   })
   async getTopUsers(
     @Session() { address }: SessionObject,
     @Query("workspaceId", new ParseUUIDPipe()) workspaceId: string,
-  ): Promise<ResponseWithOptionalData<SignalsData>> {
+  ): Promise<ResponseWithOptionalData<TalentPoolData>> {
     if (!address) {
       throw new ForbiddenException({
         success: false,
