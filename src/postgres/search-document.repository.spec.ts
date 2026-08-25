@@ -388,6 +388,14 @@ describe("SearchDocumentRepository", () => {
     );
     expect(sql).toContain("work_arrangement ->> 'fullyRemote' = 'true'");
     expect(sql).not.toContain("required_availability_keys");
+    expect(sql).toContain("payload -> 'availability'");
+    expect(sql).toContain("required_remote_availability.item ->> 'workMode'");
+    expect(sql).toContain(
+      "required_remote_availability.item ->> 'requirement'",
+    );
+    expect(sql).toContain("jsonb_typeof(payload -> 'availability') = 'array'");
+    expect(sql).toContain("jsonb_typeof(availability_item.item) <> 'object'");
+    expect(sql).toContain("'remote-any-location', 'remote-worldwide'");
     expect(sql).not.toContain("lower(COALESCE(location, ''))");
     expect(sql).not.toContain("lower(COALESCE(title, ''))");
     expect(sql).toContain("NOT COALESCE(bool_or");

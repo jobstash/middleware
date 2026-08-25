@@ -260,6 +260,46 @@ const restrictedRemoteOption = (optionAlias: string): string => `(
   )
 )`;
 
+const safeAvailability = (columnPrefix = ""): string => `(CASE
+  WHEN jsonb_typeof(${columnPrefix}payload -> 'availability') = 'array'
+    THEN ${columnPrefix}payload -> 'availability'
+  ELSE '[]'::jsonb
+END)`;
+
+const structuredGeographyIsWellFormed = (columnPrefix = ""): string => `(
+  (
+    ${columnPrefix}payload -> 'availability' IS NULL
+    OR jsonb_typeof(${columnPrefix}payload -> 'availability') = 'array'
+  )
+  AND NOT EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(${safeAvailability(columnPrefix)})
+      availability_item(item)
+    WHERE jsonb_typeof(availability_item.item) <> 'object'
+  )
+)`;
+
+const requiredRemoteAvailability = (columnPrefix = ""): string => `EXISTS (
+  SELECT 1
+  FROM jsonb_array_elements(${safeAvailability(columnPrefix)})
+    required_remote_availability(item)
+  WHERE required_remote_availability.item ->> 'workMode' = 'remote'
+    AND COALESCE(
+      required_remote_availability.item ->> 'requirement',
+      'required'
+    ) = 'required'
+    AND slugify_text(COALESCE(
+      required_remote_availability.item ->> 'placeName',
+      required_remote_availability.item ->> 'placeText',
+      required_remote_availability.item ->> 'rawText',
+      ''
+    )) NOT IN (
+      '', 'remote', 'global', 'worldwide', 'anywhere',
+      'any-location', 'remote-any-location', 'remote-worldwide',
+      'anywhere-on-earth'
+    )
+)`;
+
 /**
  * A job is 100% Remote only when the current LLM extraction contains a clean
  * global remote option and the StructuredJobpost classification agrees that
@@ -274,6 +314,8 @@ export const strictFullyRemotePredicate = (columnPrefix = ""): string => `(
   ${columnPrefix}work_arrangement ->> 'version' = 'WorkArrangementV1'
   AND ${columnPrefix}work_arrangement ->> 'classification' = 'verified_remote'
   AND ${columnPrefix}work_arrangement ->> 'fullyRemote' = 'true'
+  AND ${structuredGeographyIsWellFormed(columnPrefix)}
+  AND NOT ${requiredRemoteAvailability(columnPrefix)}
   AND EXISTS (
   SELECT 1
   FROM (

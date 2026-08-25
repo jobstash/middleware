@@ -8,6 +8,7 @@ import {
 } from "./postgres.integration-fixtures";
 import { SearchDocumentRepository } from "./search-document.repository";
 import { PostgresService } from "./postgres.service";
+import { SearchRepository } from "./search.repository";
 
 type JobSearchParams = Parameters<SearchDocumentRepository["searchJobs"]>[0];
 type OrganizationSearchParams = Parameters<
@@ -47,6 +48,7 @@ const describePostgres =
 describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
   let postgres: PostgresService;
   let repository: SearchDocumentRepository;
+  let pillarRepository: SearchRepository;
   let workLocationExtractionSequence = 0;
 
   beforeAll(async () => {
@@ -60,6 +62,7 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
     });
     await postgres.onModuleInit();
     repository = new SearchDocumentRepository(postgres);
+    pillarRepository = new SearchRepository(postgres);
   });
 
   afterAll(async () => {
@@ -575,6 +578,95 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
       expect(fullyRemote).toMatchObject({ count: 1, total: 1 });
       expect(fullyRemote.data.map(job => job.id)).toEqual(["job-public-beta"]);
       expect(fullyRemote.data).toHaveLength(fullyRemote.count);
+    });
+
+    it("keeps the public list and fully-remote pillar aligned on explicit remote requirements", async () => {
+      for (const jobId of [
+        "job-protected",
+        "job-public-acme",
+        "job-public-beta",
+      ]) {
+        await publishWorkLocationOptions(jobId, [
+          { optionKey: `${jobId}-global-remote` },
+        ]);
+        await setWorkArrangementConclusion(jobId, "verified_remote", true);
+      }
+      await postgres.query(`
+      UPDATE job_search_documents
+      SET organization_has_expert_jobs = false,
+          payload = CASE structured_jobpost_id
+            WHEN 'job-protected' THEN jsonb_set(
+              payload,
+              '{availability}',
+              '[{
+                "workMode":"remote",
+                "requirement":"required",
+                "placeName":"United States"
+              }]'::jsonb,
+              true
+            )
+            WHEN 'job-public-acme' THEN jsonb_set(
+              payload,
+              '{availability}',
+              '[{
+                "workMode":"remote",
+                "requirement":"required",
+                "placeName":"Worldwide"
+              }]'::jsonb,
+              true
+            )
+            ELSE payload - 'availability'
+          END
+      WHERE structured_jobpost_id IN (
+        'job-protected', 'job-public-acme', 'job-public-beta'
+      )
+    `);
+
+      const list = await repository.searchJobs({
+        suppressPublicForExpertOrganizations: false,
+        workModes: ["fully-remote"],
+        limit: 100,
+      });
+      const pillar = await pillarRepository.getPillarJobs({
+        pillarType: "locationTypes",
+        value: "fully-remote",
+        startDate: 0,
+        endDate: 1_000,
+        limit: 100,
+      });
+      const expected = ["job-public-acme", "job-public-beta"];
+
+      expect(list.data.map(job => job.id).sort()).toEqual(expected);
+      expect(pillar.map(job => job.id).sort()).toEqual(expected);
+
+      await postgres.query(`
+      UPDATE job_search_documents
+      SET payload = jsonb_set(
+        payload,
+        '{availability}',
+        '{"malformed":true}'::jsonb,
+        true
+      )
+      WHERE structured_jobpost_id = 'job-public-beta'
+    `);
+
+      const malformedList = await repository.searchJobs({
+        suppressPublicForExpertOrganizations: false,
+        workModes: ["fully-remote"],
+        limit: 100,
+      });
+      const malformedPillar = await pillarRepository.getPillarJobs({
+        pillarType: "locationTypes",
+        value: "fully-remote",
+        startDate: 0,
+        endDate: 1_000,
+        limit: 100,
+      });
+
+      expect(malformedList.data.map(job => job.id)).toEqual([
+        "job-public-acme",
+      ]);
+      expect(malformedPillar.map(job => job.id)).toEqual(["job-public-acme"]);
     });
 
     it("rejects a fully-remote boolean paired with a hybrid classification", async () => {
