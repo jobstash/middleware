@@ -55,6 +55,12 @@ const EMAIL_LIKE = /\b[^\s@]+@[^\s@]+\.[^\s@]+\b/i;
 const publicString = (value: unknown): string | null =>
   typeof value === "string" && !EMAIL_LIKE.test(value) ? value : null;
 
+const finiteNumber = (value: unknown): number =>
+  typeof value === "number" && Number.isFinite(value) ? value : 0;
+
+const nullableFiniteNumber = (value: unknown): number | null =>
+  typeof value === "number" && Number.isFinite(value) ? value : null;
+
 /** Defense in depth: repository extras can never become Signals response keys. */
 export const toSignalCandidate = (
   profile: Record<string, unknown>,
@@ -95,10 +101,10 @@ export const toSignalCandidate = (
       logoUrl: publicString(history.logoUrl),
       description: publicString(history.description),
       url: publicString(history.url),
-      firstContributedAt: history.firstContributedAt,
-      lastContributedAt: history.lastContributedAt,
-      commitsCount: history.commitsCount,
-      tenure: history.tenure,
+      firstContributedAt: nullableFiniteNumber(history.firstContributedAt),
+      lastContributedAt: nullableFiniteNumber(history.lastContributedAt),
+      commitsCount: nullableFiniteNumber(history.commitsCount),
+      tenure: finiteNumber(history.tenure),
       cryptoNative: history.cryptoNative === true,
       repositories: (Array.isArray(history.repositories)
         ? history.repositories
@@ -107,27 +113,24 @@ export const toSignalCandidate = (
         name: publicString(repository.name) ?? "",
         url: publicString(repository.url) ?? "",
         description: publicString(repository.description),
-        commitsCount: repository.commitsCount,
-        firstContributedAt: repository.firstContributedAt,
-        lastContributedAt: repository.lastContributedAt,
+        commitsCount: nullableFiniteNumber(repository.commitsCount),
+        firstContributedAt: nullableFiniteNumber(repository.firstContributedAt),
+        lastContributedAt: nullableFiniteNumber(repository.lastContributedAt),
         skills: (Array.isArray(repository.skills)
           ? repository.skills
           : []
         ).filter(skill => !EMAIL_LIKE.test(skill)),
-        tenure: repository.tenure,
-        stars: repository.stars,
+        tenure: finiteNumber(repository.tenure),
+        stars: finiteNumber(repository.stars),
         cryptoNative: repository.cryptoNative === true,
-        createdAt: repository.createdAt,
-        updatedAt: repository.updatedAt,
+        createdAt: finiteNumber(repository.createdAt),
+        updatedAt: nullableFiniteNumber(repository.updatedAt),
       })),
-      createdAt: history.createdAt,
-      updatedAt: history.updatedAt,
+      createdAt: finiteNumber(history.createdAt),
+      updatedAt: nullableFiniteNumber(history.updatedAt),
     })),
   };
 };
-
-const finiteNumber = (value: unknown): number =>
-  typeof value === "number" && Number.isFinite(value) ? value : 0;
 
 const workHistoryCommits = (
   history: SignalCandidate["workHistory"][number],
