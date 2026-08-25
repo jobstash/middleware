@@ -114,7 +114,12 @@ describe("AccessWorkspacesService", () => {
       entitled: true,
     });
     repo.listBountyOpportunities.mockResolvedValue({
-      summary: { openJobCount: 0, companyCount: 0, disclosedAmountCount: 0 },
+      summary: {
+        openJobCount: 0,
+        companyCount: 0,
+        disclosedAmountCount: 0,
+        knownTotals: [],
+      },
       companies: [],
       jobs: [],
     });
@@ -129,7 +134,12 @@ describe("AccessWorkspacesService", () => {
     const repo = repository();
     const service = new AccessWorkspacesService(repo);
     repo.listBountyOpportunities.mockResolvedValue({
-      summary: { openJobCount: 0, companyCount: 0, disclosedAmountCount: 0 },
+      summary: {
+        openJobCount: 0,
+        companyCount: 0,
+        disclosedAmountCount: 0,
+        knownTotals: [],
+      },
       companies: [],
       jobs: [],
     });
