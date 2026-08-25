@@ -204,7 +204,7 @@ export class JobsService {
     if (cached) return cached;
 
     const existingLoad = this.filterConfigLoads.get(cacheKey);
-    if (existingLoad) return existingLoad;
+    if (existingLoad !== undefined) return existingLoad;
 
     const load = (async (): Promise<JobFilterConfigs> => {
       const [values, popularTags] = await Promise.all([

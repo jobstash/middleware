@@ -10,7 +10,14 @@ import { UserService } from "./user.service";
 
 describe("UserController Agency Signals entitlement", () => {
   const workspaceId = "f9500341-2ccd-4a1b-909a-853f66c41285";
-  const build = (entitled: boolean) => {
+  const build = (
+    entitled: boolean,
+  ): {
+    controller: UserController;
+    users: Record<string, jest.Mock>;
+    subscriptions: { getSubscriptionInfoByOrgId: jest.Mock };
+    access: { requireAgencyEntitlement: jest.Mock };
+  } => {
     const users = {
       getUsersAvailableForWork: jest.fn().mockResolvedValue({
         success: true,
@@ -35,6 +42,11 @@ describe("UserController Agency Signals entitlement", () => {
             tags: [],
           },
         },
+      }),
+      getAgencyCandidateReport: jest.fn().mockResolvedValue({
+        success: true,
+        message: "Candidate report retrieved successfully",
+        data: { candidate: { wallet: "public-opt-in" } },
       }),
     };
     const subscriptions = {
@@ -112,5 +124,20 @@ describe("UserController Agency Signals entitlement", () => {
       controller.getTopUsers({ address: "viewer" } as never, workspaceId),
     ).resolves.toMatchObject({ success: true });
     expect(users.getTopUsers).toHaveBeenCalledWith();
+
+    await expect(
+      controller.getAgencyCandidateReport(
+        { address: "analyst" } as never,
+        "public-opt-in",
+        workspaceId,
+      ),
+    ).resolves.toMatchObject({ success: true });
+    expect(access.requireAgencyEntitlement).toHaveBeenLastCalledWith(
+      workspaceId,
+      "analyst",
+    );
+    expect(users.getAgencyCandidateReport).toHaveBeenCalledWith(
+      "public-opt-in",
+    );
   });
 });

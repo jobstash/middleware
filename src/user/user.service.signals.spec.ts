@@ -1,4 +1,4 @@
-import { toSignalCandidate } from "./user.service";
+import { toAgencyCandidateReport, toSignalCandidate } from "./user.service";
 
 describe("Signals safe candidate projection", () => {
   it("cannot leak private/email/account/application fields or untyped nested extras", () => {
@@ -42,6 +42,7 @@ describe("Signals safe candidate projection", () => {
       wallet: "0xPublicOptIn",
       name: "Public Candidate",
       githubAvatar: null,
+      github: null,
       location: { city: "Amsterdam", country: "NL" },
       availableForWork: true,
       cryptoNative: true,
@@ -73,6 +74,7 @@ describe("Signals safe candidate projection", () => {
       wallet: "candidate@example.com",
       name: "candidate@example.com",
       githubAvatar: null,
+      github: "candidate@example.com",
       location: { city: "candidate@example.com", country: "NL" },
       cryptoNative: false,
       cryptoAdjacent: false,
@@ -82,5 +84,98 @@ describe("Signals safe candidate projection", () => {
     });
 
     expect(JSON.stringify(result)).not.toContain("candidate@example.com");
+  });
+
+  it("builds a candidate report from the public Signals fields", () => {
+    const candidate = toSignalCandidate({
+      wallet: "0xCandidate",
+      name: "Ada",
+      githubAvatar: null,
+      github: "ada",
+      location: { city: "Amsterdam", country: "NL" },
+      cryptoNative: true,
+      cryptoAdjacent: false,
+      skills: [],
+      showcases: [],
+      workHistory: [
+        {
+          login: "second",
+          name: "Second",
+          logoUrl: null,
+          description: null,
+          url: "https://github.com/second",
+          firstContributedAt: 20,
+          lastContributedAt: 40,
+          commitsCount: 2,
+          tenure: 20,
+          cryptoNative: false,
+          repositories: [
+            {
+              name: "two",
+              url: "https://github.com/second/two",
+              description: null,
+              commitsCount: 2,
+              firstContributedAt: 20,
+              lastContributedAt: 40,
+              skills: [],
+              tenure: 20,
+              stars: 3,
+              cryptoNative: false,
+              createdAt: 20,
+              updatedAt: null,
+            },
+          ],
+          createdAt: 20,
+          updatedAt: null,
+        },
+        {
+          login: "first",
+          name: "First",
+          logoUrl: null,
+          description: null,
+          url: "https://github.com/first",
+          firstContributedAt: 10,
+          lastContributedAt: 50,
+          commitsCount: 10,
+          tenure: 40,
+          cryptoNative: true,
+          repositories: [
+            {
+              name: "one",
+              url: "https://github.com/first/one",
+              description: null,
+              commitsCount: 10,
+              firstContributedAt: 10,
+              lastContributedAt: 50,
+              skills: ["TypeScript"],
+              tenure: 40,
+              stars: 7,
+              cryptoNative: true,
+              createdAt: 10,
+              updatedAt: null,
+            },
+          ],
+          createdAt: 10,
+          updatedAt: null,
+        },
+      ],
+    });
+
+    const report = toAgencyCandidateReport(candidate);
+
+    expect(report.summary).toEqual({
+      organizationCount: 2,
+      repositoryCount: 2,
+      totalCommits: 12,
+      totalStars: 10,
+      averageTenure: 30,
+      firstContributedAt: 10,
+      lastContributedAt: 50,
+    });
+    expect(report.topOrganizations.map(({ login }) => login)).toEqual([
+      "first",
+      "second",
+    ]);
+    expect(JSON.stringify(report)).not.toMatch(/email|note|application/i);
   });
 });

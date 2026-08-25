@@ -14,15 +14,23 @@ import {
   CollisionListQueryDto,
   CreateEntityReconciliationRunDto,
   CreateImportRunDto,
-  CreateKimiCanaryCampaignDto,
+  CreateInferenceCanaryCampaignDto,
   CreateStructuredRefreshDto,
-  ExecuteKimiBatchDto,
+  ExecuteInferenceBatchDto,
   PublishStructuredRefreshDto,
-  ReviewKimiCanaryCampaignDto,
+  ReviewInferenceCanaryCampaignDto,
   ResolveCollisionDto,
 } from "./admin-ingestion.dto";
 
 type UpstreamMethod = "GET" | "POST";
+type InferenceMetadataEnvelope = {
+  inference?: {
+    provider?: unknown;
+    accessMode?: unknown;
+    launcher?: unknown;
+    model?: unknown;
+  };
+};
 
 @Injectable()
 export class AdminIngestionService {
@@ -170,7 +178,7 @@ export class AdminIngestionService {
 
   executeNextStructuredRefreshItems(
     id: string,
-    input: ExecuteKimiBatchDto,
+    input: ExecuteInferenceBatchDto,
   ): Promise<unknown> {
     return this.request(
       "POST",
@@ -265,33 +273,64 @@ export class AdminIngestionService {
     );
   }
 
-  kimiCapabilityPreflight(): Promise<unknown> {
-    return this.request("POST", "/kimi/capability-preflight");
+  inferenceCapabilityPreflight(): Promise<unknown> {
+    return this.requestInferenceTelemetry(
+      "POST",
+      "/inference/capability-preflight",
+    );
   }
 
-  getKimiRun(id: string): Promise<unknown> {
-    return this.request("GET", `/kimi/runs/${id}`);
+  getInferenceRun(id: string): Promise<unknown> {
+    return this.requestInferenceTelemetry("GET", `/inference/runs/${id}`);
   }
 
-  getKimiRunItems(id: string): Promise<unknown> {
-    return this.request("GET", `/kimi/runs/${id}/items`);
+  getInferenceRunItems(id: string): Promise<unknown> {
+    return this.request("GET", `/inference/runs/${id}/items`);
   }
 
-  resumeKimiRun(id: string): Promise<unknown> {
-    return this.request("POST", `/kimi/runs/${id}/resume`);
+  resumeInferenceRun(id: string): Promise<unknown> {
+    return this.request("POST", `/inference/runs/${id}/resume`);
   }
 
-  createKimiCanaryCampaign(
-    input: CreateKimiCanaryCampaignDto,
+  createInferenceCanaryCampaign(
+    input: CreateInferenceCanaryCampaignDto,
   ): Promise<unknown> {
-    return this.request("POST", "/kimi/canary-campaigns", input);
+    return this.request("POST", "/inference/canary-campaigns", input);
   }
 
-  reviewKimiCanaryCampaign(
+  reviewInferenceCanaryCampaign(
     id: string,
-    input: ReviewKimiCanaryCampaignDto,
+    input: ReviewInferenceCanaryCampaignDto,
   ): Promise<unknown> {
-    return this.request("POST", `/kimi/canary-campaigns/${id}/review`, input);
+    return this.request(
+      "POST",
+      `/inference/canary-campaigns/${id}/review`,
+      input,
+    );
+  }
+
+  private async requestInferenceTelemetry(
+    method: UpstreamMethod,
+    path: string,
+  ): Promise<unknown> {
+    const response = (await this.request(
+      method,
+      path,
+    )) as InferenceMetadataEnvelope | null;
+    const inference = response?.inference;
+    if (
+      inference?.provider !== "openai" ||
+      inference.accessMode !== "chatgpt_subscription" ||
+      inference.launcher !== "codex_exec" ||
+      typeof inference.model !== "string" ||
+      inference.model.trim().length === 0
+    ) {
+      throw new BadGatewayException({
+        success: false,
+        message: "Ingestion service returned invalid inference metadata",
+      });
+    }
+    return response;
   }
 
   private async request<T = unknown>(

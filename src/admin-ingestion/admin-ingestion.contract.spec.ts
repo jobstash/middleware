@@ -1,13 +1,13 @@
-import { BadRequestException } from "@nestjs/common";
+import { BadRequestException, GoneException } from "@nestjs/common";
 import { PATH_METADATA } from "@nestjs/common/constants";
 import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
 import { CheckWalletPermissions } from "src/shared/constants";
 import { AdminIngestionController } from "./admin-ingestion.controller";
 import {
-  CreateKimiCanaryCampaignDto,
+  CreateInferenceCanaryCampaignDto,
   CreateStructuredRefreshDto,
-  ExecuteKimiBatchDto,
+  ExecuteInferenceBatchDto,
   PublishStructuredRefreshDto,
   ResolveCollisionDto,
 } from "./admin-ingestion.dto";
@@ -53,6 +53,15 @@ describe("admin ingestion contracts", () => {
     ).toBe("entity-reconciliation/runs");
   });
 
+  it.each([
+    "resumeInferenceRun",
+    "createInferenceCanaryCampaign",
+    "reviewInferenceCanaryCampaign",
+  ] as const)("denies retired auxiliary operation %s with 410", handler => {
+    const controller = new AdminIngestionController({} as never);
+    expect(() => controller[handler]()).toThrow(GoneException);
+  });
+
   it("requires an exact diff and per-item approval manifest for publishing", async () => {
     const invalid = plainToInstance(PublishStructuredRefreshDto, {
       expectedDiffFingerprint: "not-reviewed",
@@ -74,9 +83,9 @@ describe("admin ingestion contracts", () => {
 
   it("enforces the shared live canary's 20 + 30 item ceiling", async () => {
     const runId = "f9500341-2ccd-4a1b-909a-853f66c41285";
-    const itemId = (index: number) =>
+    const itemId = (index: number): string =>
       `f9500341-2ccd-4a1b-909a-${String(index).padStart(12, "0")}`;
-    const valid = plainToInstance(CreateKimiCanaryCampaignDto, {
+    const valid = plainToInstance(CreateInferenceCanaryCampaignDto, {
       entityReconciliationRunId: runId,
       structuredJobpostRunId: runId,
       entityReconciliationItemIds: Array.from({ length: 20 }, (_, index) =>
@@ -86,7 +95,7 @@ describe("admin ingestion contracts", () => {
         itemId(index + 20),
       ),
     });
-    const invalid = plainToInstance(CreateKimiCanaryCampaignDto, {
+    const invalid = plainToInstance(CreateInferenceCanaryCampaignDto, {
       ...valid,
       structuredJobpostItemIds: Array.from({ length: 31 }, (_, index) =>
         itemId(index + 20),
@@ -96,15 +105,23 @@ describe("admin ingestion contracts", () => {
     expect(await validate(invalid)).not.toHaveLength(0);
   });
 
-  it("defaults continuation to two and rejects execution above the hard five limit", async () => {
-    const defaultBatch = plainToInstance(ExecuteKimiBatchDto, {});
-    const maximumBatch = plainToInstance(ExecuteKimiBatchDto, { limit: 5 });
-    const overLimit = plainToInstance(ExecuteKimiBatchDto, { limit: 6 });
+  it("accepts a positive configured batch without claiming a provider-specific maximum", async () => {
+    const defaultBatch = plainToInstance(ExecuteInferenceBatchDto, {});
+    const configuredBatch = plainToInstance(ExecuteInferenceBatchDto, {
+      limit: 64,
+    });
+    const invalidBatch = plainToInstance(ExecuteInferenceBatchDto, {
+      limit: 0,
+    });
+    const unsafeBatch = plainToInstance(ExecuteInferenceBatchDto, {
+      limit: Number.MAX_SAFE_INTEGER + 1,
+    });
 
-    expect(defaultBatch.limit).toBe(2);
+    expect(defaultBatch.limit).toBeUndefined();
     expect(await validate(defaultBatch)).toHaveLength(0);
-    expect(await validate(maximumBatch)).toHaveLength(0);
-    expect(await validate(overLimit)).not.toHaveLength(0);
+    expect(await validate(configuredBatch)).toHaveLength(0);
+    expect(await validate(invalidBatch)).not.toHaveLength(0);
+    expect(await validate(unsafeBatch)).not.toHaveLength(0);
   });
 
   it.each([31, 50])(

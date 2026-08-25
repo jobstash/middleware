@@ -7,7 +7,7 @@ import {
 import { AccessWorkspacesRepository } from "./access-workspaces.repository";
 import { AccessWorkspacesService } from "./access-workspaces.service";
 
-const repository = () =>
+const repository = (): jest.Mocked<AccessWorkspacesRepository> =>
   ({
     create: jest.fn(),
     getForMember: jest.fn(),
@@ -16,9 +16,24 @@ const repository = () =>
     authorize: jest.fn(),
     transferDomain: jest.fn(),
     inspectProfile: jest.fn(),
+    listForMember: jest.fn(),
+    listBountyOpportunities: jest.fn(),
   }) as unknown as jest.Mocked<AccessWorkspacesRepository>;
 
 describe("AccessWorkspacesService", () => {
+  it("lists workspaces through signed-in membership only", async () => {
+    const repo = repository();
+    repo.listForMember.mockResolvedValue([
+      { id: "workspace", currentRole: "analyst" },
+    ]);
+    const service = new AccessWorkspacesService(repo);
+
+    await expect(service.list("signed-in-user")).resolves.toEqual([
+      { id: "workspace", currentRole: "analyst" },
+    ]);
+    expect(repo.listForMember).toHaveBeenCalledWith("signed-in-user");
+  });
+
   it("normalizes a registrable domain and creates with entitlements off", async () => {
     const repo = repository();
     repo.create.mockResolvedValue({
@@ -88,6 +103,26 @@ describe("AccessWorkspacesService", () => {
     await expect(
       service.requireAgencyEntitlement("workspace", "viewer"),
     ).resolves.toMatchObject({ role: "viewer", entitled: true });
+  });
+
+  it("checks Agency entitlement before loading bounty opportunities and caps the limit", async () => {
+    const repo = repository();
+    const service = new AccessWorkspacesService(repo);
+    repo.authorize.mockResolvedValue({
+      workspaceId: "workspace",
+      role: "viewer",
+      entitled: true,
+    });
+    repo.listBountyOpportunities.mockResolvedValue({
+      summary: { openJobCount: 0, companyCount: 0, disclosedAmountCount: 0 },
+      companies: [],
+      jobs: [],
+    });
+
+    await service.listBountyOpportunities("workspace", "viewer", 500);
+
+    expect(repo.authorize).toHaveBeenCalledWith("workspace", "viewer");
+    expect(repo.listBountyOpportunities).toHaveBeenCalledWith(100);
   });
 
   it("normalizes explicit audited domain transfers and requires bypass", async () => {

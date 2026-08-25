@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  GoneException,
   HttpCode,
   HttpStatus,
   Param,
@@ -12,6 +13,7 @@ import {
   UseGuards,
   ValidationPipe,
 } from "@nestjs/common";
+import { ApiOkResponse, ApiOperation } from "@nestjs/swagger";
 import { PBACGuard } from "src/auth/pbac.guard";
 import { CheckWalletPermissions } from "src/shared/constants";
 import { Permissions } from "src/shared/decorators";
@@ -20,11 +22,11 @@ import {
   CollisionListQueryDto,
   CreateEntityReconciliationRunDto,
   CreateImportRunDto,
-  CreateKimiCanaryCampaignDto,
   CreateStructuredRefreshDto,
-  ExecuteKimiBatchDto,
+  ExecuteInferenceBatchDto,
+  InferenceCapabilityPreflightDto,
+  InferenceRunTelemetryDto,
   PublishStructuredRefreshDto,
-  ReviewKimiCanaryCampaignDto,
   ResolveCollisionDto,
 } from "./admin-ingestion.dto";
 import { AdminIngestionService } from "./admin-ingestion.service";
@@ -154,9 +156,13 @@ export class AdminIngestionController {
   }
 
   @Post("structured-refresh-runs/:id/execute-next")
+  @ApiOperation({
+    summary:
+      "Launch the next durable inference batch once, without middleware retries",
+  })
   executeNextStructuredRefreshItems(
     @Param("id", new ParseUUIDPipe()) id: string,
-    @Body(strictBody) input: ExecuteKimiBatchDto,
+    @Body(strictBody) input: ExecuteInferenceBatchDto,
   ): Promise<unknown> {
     return this.ingestion.executeNextStructuredRefreshItems(id, input);
   }
@@ -266,52 +272,48 @@ export class AdminIngestionController {
     return this.ingestion.getEntityReconciliationDecision(id, itemId);
   }
 
-  @Post("kimi/capability-preflight")
-  kimiCapabilityPreflight(): Promise<unknown> {
-    return this.ingestion.kimiCapabilityPreflight();
+  @Post("inference/capability-preflight")
+  @ApiOkResponse({ type: InferenceCapabilityPreflightDto })
+  inferenceCapabilityPreflight(): Promise<unknown> {
+    return this.ingestion.inferenceCapabilityPreflight();
   }
 
-  @Get("kimi/runs/:id")
-  getKimiRun(@Param("id", new ParseUUIDPipe()) id: string): Promise<unknown> {
-    return this.ingestion.getKimiRun(id);
-  }
-
-  @Get("kimi/runs/:id/items")
-  getKimiRunItems(
+  @Get("inference/runs/:id")
+  @ApiOkResponse({ type: InferenceRunTelemetryDto })
+  getInferenceRun(
     @Param("id", new ParseUUIDPipe()) id: string,
   ): Promise<unknown> {
-    return this.ingestion.getKimiRunItems(id);
+    return this.ingestion.getInferenceRun(id);
   }
 
-  @Post("kimi/runs/:id/resume")
-  resumeKimiRun(
+  @Get("inference/runs/:id/items")
+  getInferenceRunItems(
     @Param("id", new ParseUUIDPipe()) id: string,
   ): Promise<unknown> {
-    return this.ingestion.resumeKimiRun(id);
+    return this.ingestion.getInferenceRunItems(id);
   }
 
-  @Post("kimi/canary-campaigns")
-  createKimiCanaryCampaign(
-    @Body(strictBody) input: CreateKimiCanaryCampaignDto,
-  ): Promise<unknown> {
-    if (
-      input.entityReconciliationItemIds.length +
-        input.structuredJobpostItemIds.length ===
-      0
-    ) {
-      throw new BadRequestException({
-        success: false,
-        message: "The shared Kimi canary inventory cannot be empty",
-      });
-    }
-    return this.ingestion.createKimiCanaryCampaign(input);
+  @Post("inference/runs/:id/resume")
+  resumeInferenceRun(): never {
+    return this.retiredInferenceAuxiliaryRoute();
   }
 
-  @Post("kimi/canary-campaigns/:id/review")
-  reviewKimiCanaryCampaign(
-    @Param("id", new ParseUUIDPipe()) id: string,
-    @Body(strictBody) input: ReviewKimiCanaryCampaignDto,
-  ): Promise<unknown> {
-    return this.ingestion.reviewKimiCanaryCampaign(id, input);
+  @Post("inference/canary-campaigns")
+  createInferenceCanaryCampaign(): never {
+    return this.retiredInferenceAuxiliaryRoute();
+  }
+
+  @Post("inference/canary-campaigns/:id/review")
+  reviewInferenceCanaryCampaign(): never {
+    return this.retiredInferenceAuxiliaryRoute();
+  }
+
+  private retiredInferenceAuxiliaryRoute(): never {
+    throw new GoneException({
+      statusCode: 410,
+      message:
+        "Inference canary review and rate-limit resume are internal to the autonomous durable run",
+      error: "Gone",
+    });
   }
 }

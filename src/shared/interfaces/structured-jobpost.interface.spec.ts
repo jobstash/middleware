@@ -80,4 +80,15 @@ describe("StructuredJobpost WorkArrangementV1", () => {
       onsiteOptions: [],
     });
   });
+
+  it("never emits restricted bounty fields through the public job DTO", () => {
+    const result = new StructuredJobpost({
+      ...baseJob,
+      paysBounty: true,
+      bountyAmount: "USD 5,000",
+    } as unknown as StructuredJobpost);
+
+    expect(result).not.toHaveProperty("paysBounty");
+    expect(result).not.toHaveProperty("bountyAmount");
+  });
 });

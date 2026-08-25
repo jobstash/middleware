@@ -1,9 +1,11 @@
 import {
+  GUARDS_METADATA,
   HEADERS_METADATA,
   METHOD_METADATA,
   PATH_METADATA,
 } from "@nestjs/common/constants";
 import { RequestMethod } from "@nestjs/common";
+import { ThrottlerGuard } from "@nestjs/throttler";
 import { CheckWalletPermissions } from "src/shared/constants";
 import {
   AccessWorkspacesController,
@@ -35,9 +37,97 @@ describe("AccessWorkspace and Inspect route contracts", () => {
     }
   });
 
+  it("lists only the signed-in user's workspaces", async () => {
+    const workspaces = {
+      list: jest.fn().mockResolvedValue([{ id: "workspace" }]),
+    } as unknown as AccessWorkspacesService;
+    const controller = new AccessWorkspacesController(workspaces);
+
+    expect(
+      Reflect.getMetadata(
+        METHOD_METADATA,
+        AccessWorkspacesController.prototype.list,
+      ),
+    ).toBe(RequestMethod.GET);
+    expect(
+      Reflect.getMetadata(
+        PATH_METADATA,
+        AccessWorkspacesController.prototype.list,
+      ),
+    ).toBe("/");
+    expect(
+      Reflect.getMetadata(
+        HEADERS_METADATA,
+        AccessWorkspacesController.prototype.list,
+      ),
+    ).toEqual(
+      expect.arrayContaining([
+        {
+          name: "Cache-Control",
+          value: "no-cache, private, no-store, must-revalidate",
+        },
+      ]),
+    );
+    await expect(
+      controller.list({ address: "signed-in-user" } as never),
+    ).resolves.toEqual({
+      success: true,
+      message: "Workspaces retrieved successfully",
+      data: [{ id: "workspace" }],
+    });
+    expect(workspaces.list).toHaveBeenCalledWith("signed-in-user");
+  });
+
+  it("returns bounty opportunities only through the workspace service and disables caching", async () => {
+    const data = {
+      summary: { openJobCount: 1, companyCount: 1, disclosedAmountCount: 1 },
+      companies: [],
+      jobs: [],
+    };
+    const workspaces = {
+      listBountyOpportunities: jest.fn().mockResolvedValue(data),
+    } as unknown as AccessWorkspacesService;
+    const controller = new AccessWorkspacesController(workspaces);
+    const method = AccessWorkspacesController.prototype.listBountyOpportunities;
+
+    expect(Reflect.getMetadata(METHOD_METADATA, method)).toBe(
+      RequestMethod.GET,
+    );
+    expect(Reflect.getMetadata(PATH_METADATA, method)).toBe(
+      ":workspaceId/bounty-opportunities",
+    );
+    expect(Reflect.getMetadata(HEADERS_METADATA, method)).toEqual(
+      expect.arrayContaining([
+        {
+          name: "Cache-Control",
+          value: "no-cache, private, no-store, must-revalidate",
+        },
+      ]),
+    );
+    await expect(
+      controller.listBountyOpportunities(
+        { address: "viewer" } as never,
+        "workspace",
+        "25",
+      ),
+    ).resolves.toEqual({
+      success: true,
+      message: "Bounty opportunities retrieved successfully",
+      data,
+    });
+    expect(workspaces.listBountyOpportunities).toHaveBeenCalledWith(
+      "workspace",
+      "viewer",
+      25,
+    );
+  });
+
   it("keeps both Inspect operations POST-only and no-store", () => {
     expect(Reflect.getMetadata(PATH_METADATA, InspectController)).toBe(
       "inspect",
+    );
+    expect(Reflect.getMetadata(GUARDS_METADATA, InspectController)).toContain(
+      ThrottlerGuard,
     );
     for (const method of [
       InspectController.prototype.inspect,

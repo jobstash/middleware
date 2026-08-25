@@ -1070,7 +1070,9 @@ export class SearchService {
         ),
       ];
       const filters: (
-        SearchRangeFilter | SingleSelectFilter | MultiSelectFilter
+        | SearchRangeFilter
+        | SingleSelectFilter
+        | MultiSelectFilter
       )[] = [];
       for (const filter of filterNames) {
         const configs = this.filterConfigs(allConfigs, params, filter);

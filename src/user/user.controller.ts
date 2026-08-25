@@ -34,6 +34,8 @@ import {
   SignalsAggregateInterests,
   SignalsData,
   SignalTagInterest,
+  AgencyCandidateReport,
+  AgencyCandidateReportSummary,
 } from "src/shared/interfaces";
 import { GetAvailableUsersInput } from "./dto/get-available-users.input";
 import { ApiKeyGuard } from "src/auth/api-key.guard";
@@ -61,6 +63,8 @@ import { responseSchemaWrapper } from "src/shared/helpers";
   SignalCandidate,
   SignalClassificationInterest,
   SignalTagInterest,
+  AgencyCandidateReport,
+  AgencyCandidateReportSummary,
 )
 export class UserController {
   private logger = new CustomLogger(UserController.name);
@@ -223,6 +227,32 @@ export class UserController {
     await this.accessWorkspaces.requireAgencyEntitlement(workspaceId, address);
     this.logger.log(`/users/available/top`);
     return this.userService.getTopUsers();
+  }
+
+  @Get("available/:wallet/report")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
+  @UseInterceptors(new CacheHeaderInterceptor({ mode: "no-store" }))
+  @ApiOkResponse({
+    description:
+      "Returns a candidate report for an opted-in candidate to an entitled Agency workspace member",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(AgencyCandidateReport),
+    }),
+  })
+  async getAgencyCandidateReport(
+    @Session() { address }: SessionObject,
+    @Param("wallet") wallet: string,
+    @Query("workspaceId", new ParseUUIDPipe()) workspaceId: string,
+  ): Promise<ResponseWithOptionalData<AgencyCandidateReport>> {
+    if (!address) {
+      throw new ForbiddenException({
+        success: false,
+        message: "Access denied",
+      });
+    }
+    await this.accessWorkspaces.requireAgencyEntitlement(workspaceId, address);
+    return this.userService.getAgencyCandidateReport(wallet);
   }
 
   @Get("/org/:id/talent-lists")

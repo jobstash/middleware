@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { createHash } from "node:crypto";
 import { EntityManager } from "typeorm";
 import { PostgresService } from "src/postgres/postgres.service";
+import { AgencyBountyOpportunities } from "./access-workspaces.dto";
 
 type Executor = PostgresService | EntityManager;
 
@@ -95,6 +96,7 @@ export class AccessWorkspacesRepository {
           'stripeQuantity', workspace.stripe_quantity,
           'unlimitedSeats', true,
           'entitlementEnabled', workspace.entitlement_enabled,
+          'currentRole', requester.role,
           'members', COALESCE((
             SELECT jsonb_agg(jsonb_build_object(
               'userId', member.user_id,
@@ -111,15 +113,197 @@ export class AccessWorkspacesRepository {
         JOIN graph_nodes profile
           ON profile.id = workspace.primary_profile_node_id
          AND profile.label = 'EntityProfile'
+        JOIN access_workspace_members requester
+          ON requester.workspace_id = workspace.id
+         AND requester.user_id = $2
         WHERE workspace.id = $1::uuid
-          AND EXISTS (
-            SELECT 1 FROM access_workspace_members member
-            WHERE member.workspace_id = workspace.id AND member.user_id = $2
-          )
       `,
       [workspaceId, userId],
     );
     return result?.value ?? null;
+  }
+
+  async listForMember(userId: string): Promise<Record<string, unknown>[]> {
+    const result = await rows<{ value: Record<string, unknown> }>(
+      this.postgres,
+      `
+        SELECT jsonb_build_object(
+          'id', workspace.id::text,
+          'primaryProfileId', profile.properties ->> 'id',
+          'domain', workspace.normalized_registrable_domain,
+          'status', workspace.status,
+          'planCode', workspace.plan_code,
+          'monthlyPriceCents', workspace.monthly_price_cents,
+          'stripeQuantity', workspace.stripe_quantity,
+          'unlimitedSeats', true,
+          'entitlementEnabled', workspace.entitlement_enabled,
+          'currentRole', requester.role
+        ) AS value
+        FROM access_workspaces workspace
+        JOIN graph_nodes profile
+          ON profile.id = workspace.primary_profile_node_id
+         AND profile.label = 'EntityProfile'
+        JOIN access_workspace_members requester
+          ON requester.workspace_id = workspace.id
+         AND requester.user_id = $1
+        ORDER BY
+          (workspace.status = 'active' AND workspace.entitlement_enabled) DESC,
+          workspace.normalized_registrable_domain,
+          workspace.id
+      `,
+      [userId],
+    );
+    return result.map(row => row.value);
+  }
+
+  async listBountyOpportunities(
+    limit: number,
+  ): Promise<AgencyBountyOpportunities> {
+    const [result] = await rows<{ value: AgencyBountyOpportunities }>(
+      this.postgres,
+      `
+        WITH bounty_jobs AS MATERIALIZED (
+          SELECT job.job_node_id, job.short_uuid, job.title, job.location,
+            job.published_timestamp,
+            NULLIF(job.payload ->> 'summary', '') AS summary,
+            NULLIF(job.payload ->> 'url', '') AS url,
+            NULLIF(job.payload ->> 'classification', '') AS classification,
+            CASE WHEN COALESCE(
+              jsonb_boolean_value(structured.properties, 'paysBounty'), false
+            ) THEN NULLIF(structured.properties ->> 'bountyAmount', '')
+              ELSE NULLIF(site.properties ->> 'bountyAmount', '')
+            END AS bounty_amount,
+            CASE WHEN COALESCE(
+              jsonb_boolean_value(structured.properties, 'paysBounty'), false
+            ) THEN 'job_posting' ELSE 'career_page' END AS bounty_source,
+            COALESCE(
+              direct_organization.organization_id, owner.organization_id,
+              project.project_id, 'job:' || job.job_node_id::text
+            ) AS company_id,
+            CASE WHEN COALESCE(
+              direct_organization.organization_id, owner.organization_id
+            ) IS NOT NULL THEN 'organization' ELSE 'project' END
+              AS company_type,
+            COALESCE(
+              direct_organization.name, owner.name, project.name, 'Unknown'
+            ) AS company_name,
+            COALESCE(
+              direct_organization.slug, owner.slug, project.slug
+            ) AS company_slug,
+            COALESCE(
+              direct_organization.payload ->> 'logoUrl', owner.logo_url,
+              project.payload ->> 'logoUrl'
+            ) AS company_logo_url
+          FROM job_search_documents job
+          JOIN graph_nodes structured
+            ON structured.id = job.job_node_id
+           AND structured.label = 'StructuredJobpost'
+          LEFT JOIN graph_relationships raw_job_edge
+            ON raw_job_edge.target_id = structured.id
+           AND raw_job_edge.type = 'HAS_STRUCTURED_JOBPOST'
+          LEFT JOIN LATERAL (
+            SELECT jobsite.properties
+            FROM graph_relationships jobsite_job
+            JOIN graph_nodes jobsite
+              ON jobsite.id = jobsite_job.source_id
+             AND jobsite.label IN ('Jobsite', 'DetectedJobsite')
+            WHERE jobsite_job.target_id = raw_job_edge.source_id
+              AND jobsite_job.type = 'HAS_JOBPOST'
+            ORDER BY CASE jobsite.label WHEN 'Jobsite' THEN 0 ELSE 1 END,
+              jobsite.id
+            LIMIT 1
+          ) site ON true
+          LEFT JOIN organization_search_documents direct_organization
+            ON direct_organization.organization_id = job.organization_id
+          LEFT JOIN project_search_documents project
+            ON project.project_id = job.project_id
+          LEFT JOIN LATERAL (
+            SELECT organization.organization_id, organization.name,
+              organization.slug,
+              organization.payload ->> 'logoUrl' AS logo_url
+            FROM job_search_owners ownership
+            JOIN organization_search_documents organization
+              ON organization.organization_node_id = ownership.organization_node_id
+            WHERE ownership.job_node_id = job.job_node_id
+            ORDER BY organization.name, organization.organization_node_id
+            LIMIT 1
+          ) owner ON true
+          WHERE job.online AND NOT job.blocked
+            AND (
+              COALESCE(
+                jsonb_boolean_value(structured.properties, 'paysBounty'), false
+              )
+              OR COALESCE(
+                jsonb_boolean_value(site.properties, 'paysBounty'), false
+              )
+            )
+        ), companies AS (
+          SELECT company_id, company_type, company_name, company_slug,
+            company_logo_url, count(*)::int AS open_job_count,
+            max(published_timestamp) AS latest_published_timestamp
+          FROM bounty_jobs
+          GROUP BY company_id, company_type, company_name, company_slug,
+            company_logo_url
+        )
+        SELECT jsonb_build_object(
+          'summary', jsonb_build_object(
+            'openJobCount', (SELECT count(*)::int FROM bounty_jobs),
+            'companyCount', (SELECT count(*)::int FROM companies),
+            'disclosedAmountCount', (SELECT count(*)::int FROM bounty_jobs
+              WHERE bounty_amount IS NOT NULL)
+          ),
+          'companies', COALESCE((
+            SELECT jsonb_agg(jsonb_build_object(
+              'id', company_id,
+              'type', company_type,
+              'name', company_name,
+              'slug', company_slug,
+              'logoUrl', company_logo_url,
+              'openBountyJobCount', open_job_count,
+              'latestPublishedTimestamp', latest_published_timestamp
+            ) ORDER BY open_job_count DESC, latest_published_timestamp DESC
+              NULLS LAST, company_name)
+            FROM companies
+          ), '[]'::jsonb),
+          'jobs', COALESCE((
+            SELECT jsonb_agg(jsonb_build_object(
+              'shortUUID', latest.short_uuid,
+              'title', latest.title,
+              'summary', latest.summary,
+              'url', latest.url,
+              'location', latest.location,
+              'classification', latest.classification,
+              'publishedTimestamp', latest.published_timestamp,
+              'bountyAmount', latest.bounty_amount,
+              'bountySource', latest.bounty_source,
+              'companyId', latest.company_id,
+              'companyType', latest.company_type,
+              'companyName', latest.company_name,
+              'companySlug', latest.company_slug,
+              'companyLogoUrl', latest.company_logo_url
+            ) ORDER BY latest.published_timestamp DESC NULLS LAST,
+              latest.job_node_id DESC)
+            FROM (
+              SELECT * FROM bounty_jobs
+              ORDER BY published_timestamp DESC NULLS LAST, job_node_id DESC
+              LIMIT $1::int
+            ) latest
+          ), '[]'::jsonb)
+        ) AS value
+      `,
+      [limit],
+    );
+    return (
+      result?.value ?? {
+        summary: {
+          openJobCount: 0,
+          companyCount: 0,
+          disclosedAmountCount: 0,
+        },
+        companies: [],
+        jobs: [],
+      }
+    );
   }
 
   async authorize(
@@ -427,7 +611,9 @@ export class AccessWorkspacesRepository {
             actorUserId: options.actorUserId,
             profileNodeId: profile.profileNodeId,
             action,
-            fields: [...(options.revealedFields ?? [])].sort(),
+            fields: [...(options.revealedFields ?? [])].sort((left, right) =>
+              left.localeCompare(right),
+            ),
           }),
         )
         .digest("hex");

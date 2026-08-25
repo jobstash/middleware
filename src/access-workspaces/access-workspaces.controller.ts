@@ -7,9 +7,10 @@ import {
   Param,
   Post,
   Put,
+  Query,
   UseGuards,
 } from "@nestjs/common";
-import { Throttle } from "@nestjs/throttler";
+import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
 import { PBACGuard } from "src/auth/pbac.guard";
 import { CheckWalletPermissions } from "src/shared/constants";
 import { Permissions, Session } from "src/shared/decorators";
@@ -20,10 +21,22 @@ import {
   PutAccessWorkspaceMemberInput,
   RevealInspectProfileInput,
   TransferAccessWorkspaceDomainInput,
+  AgencyBountyOpportunities,
+  AgencyBountySummary,
+  AgencyBountyCompany,
+  AgencyBountyJob,
 } from "./access-workspaces.dto";
+import { ApiExtraModels, ApiOkResponse, getSchemaPath } from "@nestjs/swagger";
+import { responseSchemaWrapper } from "src/shared/helpers";
 import { AccessWorkspacesService } from "./access-workspaces.service";
 
-const success = <T>(message: string, data: T) => ({
+type SuccessResponse<T = unknown> = {
+  success: true;
+  message: string;
+  data: T;
+};
+
+const success = <T>(message: string, data: T): SuccessResponse<T> => ({
   success: true as const,
   message,
   data,
@@ -32,6 +45,12 @@ const success = <T>(message: string, data: T) => ({
 @Controller("access-workspaces")
 @UseGuards(PBACGuard)
 @Permissions(CheckWalletPermissions.USER)
+@ApiExtraModels(
+  AgencyBountyOpportunities,
+  AgencyBountySummary,
+  AgencyBountyCompany,
+  AgencyBountyJob,
+)
 export class AccessWorkspacesController {
   constructor(private readonly workspaces: AccessWorkspacesService) {}
 
@@ -39,7 +58,7 @@ export class AccessWorkspacesController {
   async create(
     @Session() session: SessionObject,
     @Body() input: CreateAccessWorkspaceInput,
-  ) {
+  ): Promise<SuccessResponse> {
     return success(
       "Workspace created successfully",
       await this.workspaces.create(
@@ -50,14 +69,51 @@ export class AccessWorkspacesController {
     );
   }
 
+  @Get()
+  @Header("Cache-Control", "no-cache, private, no-store, must-revalidate")
+  @Header("Pragma", "no-cache")
+  @Header("Expires", "0")
+  async list(@Session() session: SessionObject): Promise<SuccessResponse> {
+    return success(
+      "Workspaces retrieved successfully",
+      await this.workspaces.list(session.address!),
+    );
+  }
+
   @Get(":workspaceId")
   async get(
     @Session() session: SessionObject,
     @Param("workspaceId") workspaceId: string,
-  ) {
+  ): Promise<SuccessResponse> {
     return success(
       "Workspace retrieved successfully",
       await this.workspaces.get(workspaceId, session.address!),
+    );
+  }
+
+  @Get(":workspaceId/bounty-opportunities")
+  @Header("Cache-Control", "no-cache, private, no-store, must-revalidate")
+  @Header("Pragma", "no-cache")
+  @Header("Expires", "0")
+  @ApiOkResponse({
+    description:
+      "Returns placement-bounty companies and current jobs to an entitled Agency workspace member",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(AgencyBountyOpportunities),
+    }),
+  })
+  async listBountyOpportunities(
+    @Session() session: SessionObject,
+    @Param("workspaceId") workspaceId: string,
+    @Query("limit") rawLimit = "50",
+  ): Promise<SuccessResponse> {
+    return success(
+      "Bounty opportunities retrieved successfully",
+      await this.workspaces.listBountyOpportunities(
+        workspaceId,
+        session.address!,
+        Number(rawLimit),
+      ),
     );
   }
 
@@ -66,7 +122,7 @@ export class AccessWorkspacesController {
     @Session() session: SessionObject,
     @Param("workspaceId") workspaceId: string,
     @Body() input: PutAccessWorkspaceMemberInput,
-  ) {
+  ): Promise<SuccessResponse> {
     await this.workspaces.putMember(
       workspaceId,
       session.address!,
@@ -81,7 +137,7 @@ export class AccessWorkspacesController {
     @Session() session: SessionObject,
     @Param("workspaceId") workspaceId: string,
     @Param("userId") userId: string,
-  ) {
+  ): Promise<SuccessResponse> {
     await this.workspaces.removeMember(workspaceId, session.address!, userId);
     return success("Workspace member removed successfully", null);
   }
@@ -92,7 +148,7 @@ export class AccessWorkspacesController {
     @Session() session: SessionObject,
     @Param("workspaceId") workspaceId: string,
     @Body() input: TransferAccessWorkspaceDomainInput,
-  ) {
+  ): Promise<SuccessResponse> {
     return success(
       "Workspace domain transferred successfully",
       await this.workspaces.transferDomain(
@@ -107,7 +163,7 @@ export class AccessWorkspacesController {
 }
 
 @Controller("inspect")
-@UseGuards(PBACGuard)
+@UseGuards(PBACGuard, ThrottlerGuard)
 @Permissions(CheckWalletPermissions.USER)
 export class InspectController {
   constructor(private readonly workspaces: AccessWorkspacesService) {}
@@ -121,7 +177,7 @@ export class InspectController {
     @Session() session: SessionObject,
     @Param("slug") slug: string,
     @Body() input: InspectProfileInput,
-  ) {
+  ): Promise<SuccessResponse> {
     return success(
       "Profile inspected successfully",
       await this.workspaces.inspect(input.workspaceId, session.address!, slug),
@@ -137,7 +193,7 @@ export class InspectController {
     @Session() session: SessionObject,
     @Param("slug") slug: string,
     @Body() input: RevealInspectProfileInput,
-  ) {
+  ): Promise<SuccessResponse> {
     return success(
       "Profile fields revealed successfully",
       await this.workspaces.reveal(

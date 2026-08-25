@@ -18,6 +18,9 @@ export class SignalCandidate {
   @ApiPropertyOptional({ nullable: true })
   githubAvatar: string | null;
 
+  @ApiPropertyOptional({ nullable: true })
+  github: string | null;
+
   @ApiProperty({
     type: "object",
     properties: {
@@ -41,6 +44,43 @@ export class SignalCandidate {
 
   @ApiProperty({ type: [UserShowCase] })
   showcases: UserShowCase[];
+
+  @ApiProperty({ type: [UserWorkHistory] })
+  workHistory: UserWorkHistory[];
+}
+
+export class AgencyCandidateReportSummary {
+  @ApiProperty()
+  organizationCount: number;
+
+  @ApiProperty()
+  repositoryCount: number;
+
+  @ApiProperty()
+  totalCommits: number;
+
+  @ApiProperty()
+  totalStars: number;
+
+  @ApiPropertyOptional({ nullable: true })
+  averageTenure: number | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  firstContributedAt: number | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  lastContributedAt: number | null;
+}
+
+export class AgencyCandidateReport {
+  @ApiProperty({ type: () => SignalCandidate })
+  candidate: SignalCandidate;
+
+  @ApiProperty({ type: () => AgencyCandidateReportSummary })
+  summary: AgencyCandidateReportSummary;
+
+  @ApiProperty({ type: [UserWorkHistory] })
+  topOrganizations: UserWorkHistory[];
 
   @ApiProperty({ type: [UserWorkHistory] })
   workHistory: UserWorkHistory[];

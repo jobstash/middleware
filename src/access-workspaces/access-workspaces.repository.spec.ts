@@ -1,12 +1,56 @@
 import { PostgresService } from "src/postgres/postgres.service";
 import { AccessWorkspacesRepository } from "./access-workspaces.repository";
 
-const transactionalPostgres = (query: jest.Mock) =>
+const transactionalPostgres = (query: jest.Mock): PostgresService =>
   ({
     transaction: jest.fn(async callback => callback({ query })),
   }) as unknown as PostgresService;
 
 describe("AccessWorkspacesRepository", () => {
+  it("loads only current bounty jobs and supports career-page fallback", async () => {
+    const value = {
+      summary: { openJobCount: 1, companyCount: 1, disclosedAmountCount: 1 },
+      companies: [],
+      jobs: [],
+    };
+    const query = jest.fn().mockResolvedValue([{ value }]);
+    const repository = new AccessWorkspacesRepository({
+      query,
+    } as unknown as PostgresService);
+
+    await expect(repository.listBountyOpportunities(25)).resolves.toEqual(
+      value,
+    );
+
+    const [sql, parameters] = query.mock.calls[0] as [string, unknown[]];
+    expect(sql).toContain("WHERE job.online AND NOT job.blocked");
+    expect(sql).toContain("structured.properties, 'paysBounty'");
+    expect(sql).toContain("site.properties, 'paysBounty'");
+    expect(sql).toContain("'job_posting' ELSE 'career_page'");
+    expect(parameters).toEqual([25]);
+  });
+
+  it("lists only memberships for the signed-in user", async () => {
+    const values = [
+      { id: "active", currentRole: "analyst", entitlementEnabled: true },
+      { id: "inactive", currentRole: "viewer", entitlementEnabled: false },
+    ];
+    const query = jest.fn().mockResolvedValue(values.map(value => ({ value })));
+    const repository = new AccessWorkspacesRepository({
+      query,
+    } as unknown as PostgresService);
+
+    await expect(repository.listForMember("signed-in-user")).resolves.toEqual(
+      values,
+    );
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining("requester.user_id = $1"),
+      ["signed-in-user"],
+    );
+    expect(query.mock.calls[0][0]).toContain("'currentRole', requester.role");
+    expect(query.mock.calls[0][0]).not.toContain("owner_user_id = $1");
+  });
+
   it("creates one owner membership and returns the unlimited-seat receipt", async () => {
     const value = {
       id: "workspace",
@@ -40,6 +84,7 @@ describe("AccessWorkspacesRepository", () => {
     expect(query.mock.calls[3][0]).toContain(
       "'stripeQuantity', workspace.stripe_quantity",
     );
+    expect(query.mock.calls[3][0]).toContain("'currentRole', requester.role");
     expect(query.mock.calls[3][0]).not.toContain(
       "normalized_registrable_domain = $2",
     );

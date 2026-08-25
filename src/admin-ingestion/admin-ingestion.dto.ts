@@ -1,4 +1,5 @@
 import { Type } from "class-transformer";
+import { ApiProperty } from "@nestjs/swagger";
 import {
   ArrayNotEmpty,
   ArrayMaxSize,
@@ -64,6 +65,59 @@ const STRUCTURED_REVIEW_REQUIREMENTS = [
   "adjacent_title_fde",
   "classification_review_reason",
 ] as const;
+
+export class InferenceSubscriptionMetadataDto {
+  @ApiProperty({ enum: ["openai"] })
+  provider: "openai";
+
+  @ApiProperty({ enum: ["chatgpt_subscription"] })
+  accessMode: "chatgpt_subscription";
+
+  @ApiProperty({ enum: ["codex_exec"] })
+  launcher: "codex_exec";
+
+  @ApiProperty({
+    description: "Exact OpenAI model catalog slug configured by the launcher",
+  })
+  model: string;
+}
+
+export class InferenceCapabilityPreflightDto {
+  @ApiProperty({ type: InferenceSubscriptionMetadataDto })
+  inference: InferenceSubscriptionMetadataDto;
+
+  @ApiProperty({ description: "Installed Codex CLI version" })
+  version: string;
+}
+
+export class InferenceRunTelemetryDto {
+  @ApiProperty({ type: InferenceSubscriptionMetadataDto })
+  inference: InferenceSubscriptionMetadataDto;
+
+  @ApiProperty({ minimum: 0 })
+  uniqueInventoryCount: number;
+
+  @ApiProperty({ minimum: 0 })
+  alreadyCompletedCanaryCount: number;
+
+  @ApiProperty({ minimum: 0 })
+  maximumRemainingCalls: number;
+
+  @ApiProperty({ minimum: 0, description: "Durable calls launched once" })
+  callsStarted: number;
+
+  @ApiProperty({ minimum: 0 })
+  successfulResults: number;
+
+  @ApiProperty({ minimum: 0 })
+  callOutcomeUnknown: number;
+
+  @ApiProperty({ minimum: 0 })
+  prelaunchFailures: number;
+
+  @ApiProperty({ minimum: 0, description: "Must remain zero" })
+  paidFallbackCount: number;
+}
 
 @ValidatorConstraint({ name: "structuredRefreshScopeShape", async: false })
 class StructuredRefreshScopeShape implements ValidatorConstraintInterface {
@@ -182,15 +236,15 @@ export class CreateEntityReconciliationRunDto {
   idempotencyKey: string;
 }
 
-export class ExecuteKimiBatchDto {
+export class ExecuteInferenceBatchDto {
   @IsOptional()
   @IsInt()
   @Min(1)
-  @Max(5)
-  limit?: number = 2;
+  @Max(Number.MAX_SAFE_INTEGER)
+  limit?: number;
 }
 
-export class CreateKimiCanaryCampaignDto {
+export class CreateInferenceCanaryCampaignDto {
   @IsUUID()
   entityReconciliationRunId: string;
 
@@ -210,7 +264,7 @@ export class CreateKimiCanaryCampaignDto {
   structuredJobpostItemIds: string[];
 }
 
-export class ReviewKimiCanaryCampaignDto {
+export class ReviewInferenceCanaryCampaignDto {
   @IsBoolean()
   approve: boolean;
 }

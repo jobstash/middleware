@@ -17,6 +17,95 @@ export const ACCESS_WORKSPACE_MEMBER_ROLES = [
   "viewer",
 ] as const;
 
+export class AgencyBountySummary {
+  @ApiProperty()
+  openJobCount: number;
+
+  @ApiProperty()
+  companyCount: number;
+
+  @ApiProperty()
+  disclosedAmountCount: number;
+}
+
+export class AgencyBountyCompany {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  type: "organization" | "project";
+
+  @ApiProperty()
+  name: string;
+
+  @ApiProperty({ nullable: true })
+  slug: string | null;
+
+  @ApiProperty({ nullable: true })
+  logoUrl: string | null;
+
+  @ApiProperty()
+  openBountyJobCount: number;
+
+  @ApiProperty({ nullable: true })
+  latestPublishedTimestamp: number | null;
+}
+
+export class AgencyBountyJob {
+  @ApiProperty()
+  shortUUID: string;
+
+  @ApiProperty()
+  title: string;
+
+  @ApiProperty({ nullable: true })
+  summary: string | null;
+
+  @ApiProperty({ nullable: true })
+  url: string | null;
+
+  @ApiProperty({ nullable: true })
+  location: string | null;
+
+  @ApiProperty({ nullable: true })
+  classification: string | null;
+
+  @ApiProperty({ nullable: true })
+  publishedTimestamp: number | null;
+
+  @ApiProperty({ nullable: true })
+  bountyAmount: string | null;
+
+  @ApiProperty({ enum: ["job_posting", "career_page"] })
+  bountySource: "job_posting" | "career_page";
+
+  @ApiProperty()
+  companyId: string;
+
+  @ApiProperty()
+  companyType: "organization" | "project";
+
+  @ApiProperty()
+  companyName: string;
+
+  @ApiProperty({ nullable: true })
+  companySlug: string | null;
+
+  @ApiProperty({ nullable: true })
+  companyLogoUrl: string | null;
+}
+
+export class AgencyBountyOpportunities {
+  @ApiProperty({ type: () => AgencyBountySummary })
+  summary: AgencyBountySummary;
+
+  @ApiProperty({ type: [AgencyBountyCompany] })
+  companies: AgencyBountyCompany[];
+
+  @ApiProperty({ type: [AgencyBountyJob] })
+  jobs: AgencyBountyJob[];
+}
+
 export class CreateAccessWorkspaceInput {
   @ApiProperty()
   @IsString()

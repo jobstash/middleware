@@ -11,6 +11,7 @@ import { domainToASCII } from "node:url";
 import * as psl from "psl";
 import { AccessWorkspacesRepository } from "./access-workspaces.repository";
 import { WorkspaceAuthorization } from "./access-workspaces.repository";
+import { AgencyBountyOpportunities } from "./access-workspaces.dto";
 
 const EMAIL_LIKE_KEY =
   /(?:^|[_-])(?:e-?mail|contact(?:e-?mail)?|worke-?mail)(?:$|[_-])/i;
@@ -100,6 +101,10 @@ export class AccessWorkspacesService {
     return workspace;
   }
 
+  async list(actorUserId: string): Promise<Record<string, unknown>[]> {
+    return this.repository.listForMember(actorUserId);
+  }
+
   async requireAgencyEntitlement(
     workspaceId: string,
     actorUserId: string,
@@ -112,6 +117,18 @@ export class AccessWorkspacesService {
       throw new ForbiddenException("An active Agency entitlement is required");
     }
     return authorization;
+  }
+
+  async listBountyOpportunities(
+    workspaceId: string,
+    actorUserId: string,
+    requestedLimit: number,
+  ): Promise<AgencyBountyOpportunities> {
+    await this.requireAgencyEntitlement(workspaceId, actorUserId);
+    const limit = Number.isSafeInteger(requestedLimit)
+      ? Math.max(1, Math.min(requestedLimit, 100))
+      : 50;
+    return this.repository.listBountyOpportunities(limit);
   }
 
   async transferDomain(
