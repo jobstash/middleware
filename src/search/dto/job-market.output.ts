@@ -231,7 +231,7 @@ export interface JobMarketTopPayingJob {
 
 export interface JobMarketTopPayingData {
   asOf: string;
-  methodologyVersion: "market-top-pay-v1";
+  methodologyVersion: "market-top-pay-v2";
   scope: {
     classification: string;
     classificationLabel: string;

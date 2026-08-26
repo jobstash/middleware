@@ -108,6 +108,10 @@ describe("JobMarketRepository", () => {
     expect(sql).toContain("project.name");
     expect(sql).toContain("banned_employer.label = 'Project'");
     expect(sql).toContain(
+      "abs(\n                document.maximum_salary - document.minimum_salary",
+    );
+    expect(sql).toContain("/ NULLIF(document.salary, 0) <= $6::numeric");
+    expect(sql).toContain(
       "num_nonnulls(\n              document.organization_id,\n              document.project_id",
     );
     expect(parameters).toEqual([
@@ -116,6 +120,7 @@ describe("JobMarketRepository", () => {
       "geonames:2759794",
       "cities",
       "amsterdam",
+      200_000,
     ]);
   });
 });

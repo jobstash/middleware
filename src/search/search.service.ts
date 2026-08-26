@@ -548,7 +548,7 @@ export class SearchService {
         message: "Retrieved top-paying opportunities",
         data: {
           asOf: rows[0]?.asOfDate ?? selectedGeography.asOfDate,
-          methodologyVersion: "market-top-pay-v1",
+          methodologyVersion: "market-top-pay-v2",
           scope: {
             classification,
             classificationLabel,

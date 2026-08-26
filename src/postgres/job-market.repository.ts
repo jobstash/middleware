@@ -1,6 +1,8 @@
 import { Injectable } from "@nestjs/common";
 import { PostgresService } from "./postgres.service";
 
+const MAX_ANNUAL_SALARY_RANGE_USD = 200_000;
+
 export interface JobMarketMetricRow extends Record<string, unknown> {
   kind: string;
   slug: string;
@@ -562,6 +564,14 @@ export class JobMarketRepository {
             ) = 1
             AND NOT (document.access = 'public'
               AND document.organization_has_expert_jobs)
+            AND (
+              document.minimum_salary IS NULL
+              OR document.maximum_salary IS NULL
+              OR abs(
+                document.maximum_salary - document.minimum_salary
+              ) * observation.salary_monthly_usd * 12
+                / NULLIF(document.salary, 0) <= $6::numeric
+            )
             AND NOT EXISTS (
               SELECT 1 FROM graph_nodes banned_employer
               WHERE (
@@ -666,7 +676,14 @@ export class JobMarketRepository {
         ORDER BY top_decile.salary_monthly_usd DESC,
           top_decile.job_node_id
       `,
-      [classificationSlug, segment, regionKey, filterKey, filterValue],
+      [
+        classificationSlug,
+        segment,
+        regionKey,
+        filterKey,
+        filterValue,
+        MAX_ANNUAL_SALARY_RANGE_USD,
+      ],
     );
   }
 

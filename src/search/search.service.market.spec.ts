@@ -538,7 +538,7 @@ describe("SearchService job-market intelligence", () => {
     );
     expect(result).toMatchObject({
       data: {
-        methodologyVersion: "market-top-pay-v1",
+        methodologyVersion: "market-top-pay-v2",
         scope: {
           classification: "cl-backend",
           classificationLabel: "Backend",
