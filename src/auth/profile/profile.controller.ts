@@ -60,6 +60,7 @@ import { CheckWalletPermissions } from "src/shared/constants";
 import { Throttle } from "@nestjs/throttler";
 import { StripeService } from "src/stripe/stripe.service";
 import { UpdateJobPreferencesInput } from "./dto/update-job-preferences.input";
+import { RecordJobActivityInput } from "./dto/record-job-activity.input";
 import { PrivyService } from "../privy/privy.service";
 
 const SOCIAL_LABELS = [
@@ -701,6 +702,17 @@ export class ProfileController {
       });
     }
     return this.profileService.logViewDetailsInteraction(address, shortUUID);
+  }
+
+  @Post("jobs/activity")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
+  recordJobActivity(
+    @Session() { address }: SessionObject,
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    body: RecordJobActivityInput,
+  ): Promise<ResponseWithNoData> {
+    return this.profileService.recordJobActivity(address, body);
   }
 
   @Post("jobs/bookmark")

@@ -6,6 +6,7 @@ import { ProfileRepository } from "src/postgres/profile.repository";
 import { UserRepository } from "src/postgres/user.repository";
 import { ScorerService } from "src/scorer/scorer.service";
 import {
+  JobListResultEntity,
   UserOrgEntity,
   UserProfileEntity,
   UserRepoEntity,
@@ -33,6 +34,9 @@ import {
   UserWorkHistory,
   JobPreferences,
   JobsForMeResponse,
+  RecommendedJobsResponse,
+  WorkArrangementClassification,
+  WorkLocationOption,
   data,
 } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
@@ -133,6 +137,120 @@ export class ProfileService {
         groups.needsChecking.length,
     };
     return { ...groups, summary, appliedPreferences: preferences };
+  }
+
+  async getRecommendedJobs(
+    wallet: string,
+    limit = 30,
+  ): Promise<RecommendedJobsResponse> {
+    const requestedLimit = Math.max(1, Math.min(limit, 50));
+    const [candidates, hasPreferences, preferences] = await Promise.all([
+      this.profiles.getRecommendedJobCandidates(
+        wallet,
+        Math.min(100, requestedLimit * 3),
+      ),
+      this.profiles.hasJobPreferences(wallet),
+      this.getJobPreferences(wallet),
+    ]);
+
+    const jobs: RecommendedJobsResponse["jobs"] = [];
+    for (const candidate of candidates) {
+      if (jobs.length >= requestedLimit) break;
+      try {
+        const job = new JobListResultEntity(candidate.job).getProperties();
+        if (hasPreferences && preferences) {
+          const arrangement = job.workArrangement as unknown as {
+            classification?: WorkArrangementClassification;
+            remoteOptions?: WorkLocationOption[];
+            hybridOptions?: WorkLocationOption[];
+            onsiteOptions?: WorkLocationOption[];
+          };
+          const options = [
+            ...(arrangement?.remoteOptions ?? []),
+            ...(arrangement?.hybridOptions ?? []),
+            ...(arrangement?.onsiteOptions ?? []),
+          ];
+          if (
+            !matchWorkLocationOptions(
+              job,
+              options,
+              preferences,
+              arrangement?.classification ?? "unstated",
+            )
+          ) {
+            continue;
+          }
+        }
+        jobs.push({
+          job,
+          reason: this.recommendationReason(candidate.reasonLabels),
+        });
+      } catch (error) {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "entity-mapping",
+            source: "profile.service.recommended-jobs",
+          });
+          scope.setExtra("failed_result", {
+            id: candidate.job?.id,
+            shortUUID: candidate.job?.shortUUID,
+          });
+          Sentry.captureException(error);
+        });
+      }
+    }
+    return { jobs, total: jobs.length };
+  }
+
+  private recommendationReason(labels: string[]): string {
+    const readable = labels
+      .filter(Boolean)
+      .map(label =>
+        label === "Matches your search"
+          ? label
+          : label
+              .replace(/[_-]+/g, " ")
+              .replace(/\b\w/g, letter => letter.toUpperCase()),
+      )
+      .filter((label, index, values) => values.indexOf(label) === index)
+      .slice(0, 2);
+    return readable.length > 0 ? readable.join(" · ") : "Fresh role";
+  }
+
+  async recordJobActivity(
+    wallet: string,
+    input: {
+      shortUUID: string;
+      eventType: "job_impression" | "job_view" | "job_dismiss";
+      eventId: string;
+      surface?: string;
+      position?: number;
+      dwellMs?: number;
+      metadata?: Record<string, unknown>;
+    },
+  ): Promise<ResponseWithNoData> {
+    try {
+      const recorded = await this.profiles.recordJobActivity(
+        wallet,
+        input.shortUUID,
+        {
+          eventType: input.eventType,
+          eventKey: input.eventId,
+          surface: input.surface,
+          position: input.position,
+          dwellMs: input.dwellMs,
+          metadata: input.metadata,
+        },
+      );
+      return {
+        success: recorded,
+        message: recorded ? "Activity recorded" : "User or job not found",
+      };
+    } catch (err) {
+      Sentry.captureException(err);
+      this.logger.error(`ProfileService::recordJobActivity ${err.message}`);
+      return { success: false, message: "Failed to record activity" };
+    }
   }
 
   async getUserProfile(

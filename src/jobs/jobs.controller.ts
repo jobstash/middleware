@@ -45,6 +45,7 @@ import {
   JobFilterConfigs,
   JobForMe,
   JobsForMeResponse,
+  RecommendedJobsResponse,
   JobListResult,
   JobMatchResult,
   JobpostFolder,
@@ -119,6 +120,20 @@ export class JobsController {
     return this.profileService.getJobsForMe(address, Number(limit) || 100);
   }
 
+  @Get("recommended")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
+  @ApiOkResponse({
+    description: "Returns fresh jobs ranked from the user's activity",
+    type: RecommendedJobsResponse,
+  })
+  getRecommendedJobs(
+    @Session() { address }: SessionObject,
+    @Query("limit") limit = "30",
+  ): Promise<RecommendedJobsResponse> {
+    return this.profileService.getRecommendedJobs(address, Number(limit) || 30);
+  }
+
   @Get("/list")
   @UseGuards(PBACGuard)
   @UseInterceptors(new CacheHeaderInterceptor({ mode: "revalidate-always" }))
@@ -176,7 +191,21 @@ export class JobsController {
     };
     const queryString = JSON.stringify(enrichedParams);
     this.logger.log(`/jobs/list ${queryString}`);
-    if (address) {
+    const isFirstPage =
+      params.page === null || params.page === undefined || params.page === 1;
+    const hasUserCriteria = Object.entries(params).some(([key, value]) => {
+      if (["page", "limit", "order", "orderBy"].includes(key)) return false;
+      if (
+        value === null ||
+        value === undefined ||
+        value === false ||
+        value === ""
+      ) {
+        return false;
+      }
+      return !Array.isArray(value) || value.length > 0;
+    });
+    if (address && isFirstPage && hasUserCriteria) {
       await this.profileService.logSearchInteraction(address, queryString);
     }
     return this.jobsService.getJobsListWithSearch(enrichedParams);

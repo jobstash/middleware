@@ -11,6 +11,7 @@ import {
   jobEmployerJoins,
   jobEmployerPayload,
 } from "./sql/job-employer-payload.sql";
+import { recommendedJobsSql } from "./sql/recommended-jobs.sql";
 
 type QueryExecutor = PostgresService | EntityManager;
 
@@ -308,6 +309,40 @@ export class ProfileRepository {
       [wallet],
     );
     return (row?.preferences as Record<string, unknown> | undefined) ?? null;
+  }
+
+  async hasJobPreferences(wallet: string): Promise<boolean> {
+    const [row] = await queryRows<{ found: boolean }>(
+      this.postgres,
+      `
+        SELECT EXISTS (
+          SELECT 1
+          FROM graph_nodes account
+          JOIN user_job_preferences preferences
+            ON preferences.user_node_id = account.id
+          WHERE account.label = 'User'
+            AND lower(account.properties ->> 'wallet') = lower($1)
+        ) AS found
+      `,
+      [wallet],
+    );
+    return row?.found ?? false;
+  }
+
+  async getRecommendedJobCandidates(
+    wallet: string,
+    limit = 60,
+  ): Promise<
+    Array<{
+      job: JobListResult;
+      score: number;
+      reasonLabels: string[];
+    }>
+  > {
+    return queryRows(this.postgres, recommendedJobsSql, [
+      wallet,
+      Math.max(1, Math.min(limit, 100)),
+    ]);
   }
 
   async updateJobPreferences(
@@ -2352,22 +2387,132 @@ export class ProfileRepository {
     wallet: string,
     shortUuid: string,
     type: "APPLIED_TO" | "BOOKMARKED" | "VIEWED_DETAILS",
+    activity?: {
+      eventKey?: string;
+      surface?: string;
+      position?: number;
+      dwellMs?: number;
+      metadata?: Record<string, unknown>;
+    },
   ): Promise<boolean> {
-    const account = await this.findNode("User", { wallet });
-    const [job] = await queryRows<{ nodeId: string }>(
-      this.postgres,
-      `SELECT job_node_id::text AS "nodeId" FROM job_search_documents WHERE short_uuid = $1`,
-      [shortUuid],
+    return this.postgres.transaction(async manager => {
+      const account = await this.findNode("User", { wallet }, manager);
+      const [job] = await queryRows<{ nodeId: string }>(
+        manager,
+        `SELECT job_node_id::text AS "nodeId" FROM job_search_documents WHERE short_uuid = $1`,
+        [shortUuid],
+      );
+      if (!account || !job) return false;
+      await this.insertRelationship(manager, account.nodeId, job.nodeId, type, {
+        createdTimestamp: Date.now(),
+      });
+      const eventType =
+        type === "APPLIED_TO"
+          ? "job_apply"
+          : type === "BOOKMARKED"
+            ? "job_bookmark"
+            : "job_view";
+      await this.insertActivityEvent(manager, {
+        userNodeId: account.nodeId,
+        jobNodeId: job.nodeId,
+        eventType,
+        eventKey: activity?.eventKey ?? randomUUID(),
+        surface: activity?.surface,
+        position: activity?.position,
+        dwellMs: activity?.dwellMs,
+        metadata: activity?.metadata,
+      });
+      return true;
+    });
+  }
+
+  async recordJobActivity(
+    wallet: string,
+    shortUuid: string,
+    activity: {
+      eventType: "job_impression" | "job_view" | "job_dismiss";
+      eventKey: string;
+      surface?: string;
+      position?: number;
+      dwellMs?: number;
+      metadata?: Record<string, unknown>;
+    },
+  ): Promise<boolean> {
+    return this.postgres.transaction(async manager => {
+      const account = await this.findNode("User", { wallet }, manager);
+      const [job] = await queryRows<{ nodeId: string }>(
+        manager,
+        `SELECT job_node_id::text AS "nodeId" FROM job_search_documents WHERE short_uuid = $1`,
+        [shortUuid],
+      );
+      if (!account || !job) return false;
+      await this.insertActivityEvent(manager, {
+        userNodeId: account.nodeId,
+        jobNodeId: job.nodeId,
+        eventType: activity.eventType,
+        eventKey: activity.eventKey,
+        surface: activity.surface,
+        position: activity.position,
+        dwellMs: activity.dwellMs,
+        metadata: activity.metadata,
+      });
+      if (activity.eventType === "job_view") {
+        await this.insertRelationship(
+          manager,
+          account.nodeId,
+          job.nodeId,
+          "VIEWED_DETAILS",
+          { createdTimestamp: Date.now() },
+        );
+      }
+      return true;
+    });
+  }
+
+  private async insertActivityEvent(
+    executor: QueryExecutor,
+    activity: {
+      userNodeId: string;
+      jobNodeId?: string;
+      eventType:
+        | "job_impression"
+        | "job_view"
+        | "job_apply"
+        | "job_bookmark"
+        | "job_unbookmark"
+        | "job_dismiss"
+        | "search";
+      eventKey: string;
+      surface?: string;
+      position?: number;
+      dwellMs?: number;
+      query?: string;
+      filters?: Record<string, unknown>;
+      metadata?: Record<string, unknown>;
+    },
+  ): Promise<void> {
+    await queryRows(
+      executor,
+      `
+        INSERT INTO user_activity_events (
+          user_node_id, job_node_id, event_type, event_key,
+          surface, position, dwell_ms, query, filters, metadata
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb)
+        ON CONFLICT (user_node_id, event_key) DO NOTHING
+      `,
+      [
+        activity.userNodeId,
+        activity.jobNodeId ?? null,
+        activity.eventType,
+        activity.eventKey,
+        activity.surface ?? null,
+        activity.position ?? null,
+        activity.dwellMs ?? null,
+        activity.query ?? null,
+        activity.filters ? JSON.stringify(activity.filters) : null,
+        JSON.stringify(activity.metadata ?? {}),
+      ],
     );
-    if (!account || !job) return false;
-    await this.insertRelationship(
-      this.postgres,
-      account.nodeId,
-      job.nodeId,
-      type,
-      { createdTimestamp: Date.now() },
-    );
-    return true;
   }
 
   async hasJobInteraction(
@@ -2400,22 +2545,40 @@ export class ProfileRepository {
     shortUuid: string,
     type: "APPLIED_TO" | "BOOKMARKED" | "VIEWED_DETAILS",
   ): Promise<boolean> {
-    const rows = await queryRows<{ id: string }>(
-      this.postgres,
-      `
-        DELETE FROM graph_relationships relationship
-        USING graph_nodes account, job_search_documents job
-        WHERE relationship.source_id = account.id
-          AND relationship.target_id = job.job_node_id
-          AND relationship.type = $3
-          AND account.label = 'User'
-          AND lower(account.properties ->> 'wallet') = lower($1)
-          AND job.short_uuid = $2
-        RETURNING relationship.id::text AS id
-      `,
-      [wallet, shortUuid, type],
-    );
-    return rows.length > 0;
+    return this.postgres.transaction(async manager => {
+      const rows = await queryRows<{
+        id: string;
+        userNodeId: string;
+        jobNodeId: string;
+      }>(
+        manager,
+        `
+          DELETE FROM graph_relationships relationship
+          USING graph_nodes account, job_search_documents job
+          WHERE relationship.source_id = account.id
+            AND relationship.target_id = job.job_node_id
+            AND relationship.type = $3
+            AND account.label = 'User'
+            AND lower(account.properties ->> 'wallet') = lower($1)
+            AND job.short_uuid = $2
+          RETURNING relationship.id::text AS id,
+            account.id::text AS "userNodeId",
+            job.job_node_id::text AS "jobNodeId"
+        `,
+        [wallet, shortUuid, type],
+      );
+      if (rows.length === 0) return false;
+      if (type === "BOOKMARKED") {
+        await this.insertActivityEvent(manager, {
+          userNodeId: rows[0].userNodeId,
+          jobNodeId: rows[0].jobNodeId,
+          eventType: "job_unbookmark",
+          eventKey: randomUUID(),
+          surface: "job_details",
+        });
+      }
+      return true;
+    });
   }
 
   async logSearch(wallet: string, query: string): Promise<boolean> {
@@ -2451,6 +2614,23 @@ export class ProfileRepository {
         "DID_SEARCH",
         { createdTimestamp: Date.now() },
       );
+      let filters: Record<string, unknown> | undefined;
+      try {
+        const parsed = JSON.parse(query) as unknown;
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          filters = parsed as Record<string, unknown>;
+        }
+      } catch {
+        filters = undefined;
+      }
+      await this.insertActivityEvent(manager, {
+        userNodeId: account.nodeId,
+        eventType: "search",
+        eventKey: randomUUID(),
+        surface: "job_search",
+        query,
+        filters,
+      });
       return true;
     });
   }

@@ -19,3 +19,4 @@ export * from "./user-permission.interface";
 export * from "./user-org-affiliation-request.interface";
 export * from "./job-preferences.interface";
 export * from "./talent-pool.interface";
+export * from "./recommended-jobs.interface";
