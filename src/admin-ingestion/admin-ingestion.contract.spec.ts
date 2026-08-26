@@ -175,6 +175,19 @@ describe("admin ingestion contracts", () => {
     expect(await validate(input)).toHaveLength(0);
   });
 
+  it("accepts existing opaque collision fingerprints and rejects empty values", async () => {
+    const existing = plainToInstance(ResolveCollisionDto, {
+      expectedFingerprint: "profile-merge-review-fingerprint",
+      resolution: "keep_separate",
+    });
+    const empty = plainToInstance(ResolveCollisionDto, {
+      expectedFingerprint: "",
+      resolution: "keep_separate",
+    });
+    expect(await validate(existing)).toHaveLength(0);
+    expect(await validate(empty)).not.toHaveLength(0);
+  });
+
   it("rejects a reassignment decision without exact reassignment details", () => {
     const ingestion = {
       resolveEntityCollision: jest.fn(),

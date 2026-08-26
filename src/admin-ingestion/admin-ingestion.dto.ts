@@ -377,7 +377,8 @@ export class CollisionSameItemDto {
 
 export class ResolveCollisionDto {
   @IsString()
-  @Matches(/^[a-f0-9]{64}$/)
+  @Length(1, 512)
+  @Matches(/\S/)
   expectedFingerprint: string;
 
   @IsIn(COLLISION_RESOLUTIONS)
