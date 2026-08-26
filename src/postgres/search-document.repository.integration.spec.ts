@@ -1999,6 +1999,49 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
     );
   });
 
+  it("uses the job hiring process before the employer careers-page process", async () => {
+    const [owner] = await postgres.query<{ organizationNodeId: string }>(
+      `
+        SELECT organization_node_id::text AS "organizationNodeId"
+        FROM organization_search_documents
+        WHERE organization_id = 'org-acme'
+      `,
+    );
+    await createOwnedJobsiteFixture(
+      postgres,
+      owner.organizationNodeId,
+      "jobsite-acme-hiring-process",
+      {
+        id: "jobsite-acme-hiring-process",
+        url: "https://acme.example/careers",
+        type: "custom",
+        hiringProcess: "Application, team interview, offer",
+        lastHiringProcessCheckTimestamp: 1_780_000_000_000,
+      },
+    );
+
+    await expect(
+      repository.getJobByShortUuid("job-protected"),
+    ).resolves.toMatchObject({
+      hiringProcess: "Application, team interview, offer",
+    });
+
+    await postgres.query(`
+      UPDATE job_search_documents
+      SET payload = payload || jsonb_build_object(
+            'hiringProcess',
+            'Recruiter call, technical exercise, final interview'
+          )
+      WHERE structured_jobpost_id = 'job-protected'
+    `);
+
+    await expect(
+      repository.getJobByShortUuid("job-protected"),
+    ).resolves.toMatchObject({
+      hiringProcess: "Recruiter call, technical exercise, final interview",
+    });
+  });
+
   it("serves durable manual-review state to the admin organization and project lists", async () => {
     await postgres.query(
       `

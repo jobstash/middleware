@@ -859,6 +859,10 @@ describe("SearchDocumentRepository", () => {
     expect(sql).toContain(
       "COALESCE(job.detail_payload, '{}'::jsonb) || job.payload",
     );
+    expect(sql).toContain("'hiringProcess', COALESCE(");
+    expect(sql).toContain("employer_hiring_process.hiring_process");
+    expect(sql).toContain("ownership.type = 'HAS_JOBSITE'");
+    expect(sql).toContain("jobsite.label = 'Jobsite'");
     expect(sql).toContain("ORDER BY job.online DESC");
     expect(sql).not.toContain("job-1' OR true --");
     expect(parameters).toEqual(["job-1' OR true --", true, "ethereum"]);

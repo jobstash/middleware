@@ -1851,6 +1851,14 @@ export class SearchDocumentRepository {
             "COALESCE(job.detail_payload, '{}'::jsonb) || job.payload",
           )}
           || jsonb_build_object(
+            'hiringProcess', COALESCE(
+              NULLIF(btrim((
+                COALESCE(job.detail_payload, '{}'::jsonb) || job.payload
+              ) ->> 'hiringProcess'), ''),
+              employer_hiring_process.hiring_process
+            )
+          )
+          || jsonb_build_object(
             'online', job.online,
             'blocked', job.blocked,
             'applications', (
@@ -1868,6 +1876,35 @@ export class SearchDocumentRepository {
           ) AS payload
         FROM job_search_documents job
         ${jobEmployerJoins()}
+        LEFT JOIN LATERAL (
+          SELECT NULLIF(
+            btrim(jobsite.properties ->> 'hiringProcess'),
+            ''
+          ) AS hiring_process
+          FROM graph_relationships ownership
+          JOIN graph_nodes jobsite
+            ON jobsite.id = ownership.target_id
+           AND jobsite.label = 'Jobsite'
+          WHERE ownership.source_id = COALESCE(
+                  organization.organization_node_id,
+                  project.project_node_id
+                )
+            AND ownership.type = 'HAS_JOBSITE'
+            AND NULLIF(
+                  btrim(jobsite.properties ->> 'hiringProcess'),
+                  ''
+                ) IS NOT NULL
+          ORDER BY
+            COALESCE(
+              jsonb_numeric_value(
+                jobsite.properties,
+                'lastHiringProcessCheckTimestamp'
+              ),
+              0
+            ) DESC,
+            jobsite.id DESC
+          LIMIT 1
+        ) employer_hiring_process ON TRUE
         WHERE job.short_uuid = $1
           AND cardinality(job.tags) > 0
           AND num_nonnulls(job.organization_id, job.project_id) = 1
