@@ -7,9 +7,14 @@ const transactionalPostgres = (query: jest.Mock): PostgresService =>
   }) as unknown as PostgresService;
 
 describe("AccessWorkspacesRepository", () => {
-  it("loads only current bounty jobs and supports career-page fallback", async () => {
+  it("loads bounty jobs in the requested status scope and supports career-page fallback", async () => {
     const value = {
-      summary: { openJobCount: 1, companyCount: 1, disclosedAmountCount: 1 },
+      summary: {
+        bountyJobCount: 1,
+        publishedJobCount: 12,
+        companyCount: 1,
+        disclosedAmountCount: 1,
+      },
       companies: [
         {
           id: "moonpay",
@@ -17,8 +22,9 @@ describe("AccessWorkspacesRepository", () => {
           name: "MoonPay",
           slug: "moonpay",
           logoUrl: null,
-          openBountyJobCount: 1,
-          latestPublishedTimestamp: 1,
+          bountyJobCount: 1,
+          publishedJobCount: 12,
+          lastBountySeenTimestamp: 2,
         },
       ],
       jobs: [],
@@ -33,26 +39,31 @@ describe("AccessWorkspacesRepository", () => {
       query,
     } as unknown as PostgresService);
 
-    await expect(repository.listBountyOpportunities(25)).resolves.toEqual({
-      ...value,
-      summary: {
-        ...value.summary,
-        knownTotals: [{ currency: "USDC", amount: 10000, jobCount: 1 }],
-      },
-      companies: [
-        {
-          ...value.companies[0],
+    await expect(repository.listBountyOpportunities(25, true)).resolves.toEqual(
+      {
+        ...value,
+        summary: {
+          ...value.summary,
           knownTotals: [{ currency: "USDC", amount: 10000, jobCount: 1 }],
         },
-      ],
-    });
+        companies: [
+          {
+            ...value.companies[0],
+            knownTotals: [{ currency: "USDC", amount: 10000, jobCount: 1 }],
+          },
+        ],
+      },
+    );
 
     const [sql, parameters] = query.mock.calls[0] as [string, unknown[]];
-    expect(sql).toContain("WHERE job.online AND NOT job.blocked");
-    expect(sql).toContain("structured.properties, 'paysBounty'");
-    expect(sql).toContain("site.properties, 'paysBounty'");
+    expect(sql).toContain("AND ($2::boolean OR job.online)");
+    expect(sql).toContain("raw_job.properties, 'lastSeenTimestamp'");
+    expect(sql).toContain("'lastSeenTimestamp', latest.last_seen_timestamp");
+    expect(sql).toContain("'publishedJobCount', published_job_count");
+    expect(sql).toContain("structured_properties, 'paysBounty'");
+    expect(sql).toContain("site_properties, 'paysBounty'");
     expect(sql).toContain("'job_posting' ELSE 'career_page'");
-    expect(parameters).toEqual([25]);
+    expect(parameters).toEqual([25, true]);
   });
 
   it("lists only memberships for the signed-in user", async () => {

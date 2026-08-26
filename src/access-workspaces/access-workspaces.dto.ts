@@ -23,6 +23,12 @@ export class AgencyBountySummary {
   openJobCount: number;
 
   @ApiProperty()
+  bountyJobCount: number;
+
+  @ApiProperty()
+  publishedJobCount: number;
+
+  @ApiProperty()
   companyCount: number;
 
   @ApiProperty()
@@ -62,11 +68,20 @@ export class AgencyBountyCompany {
   @ApiProperty()
   openBountyJobCount: number;
 
+  @ApiProperty()
+  bountyJobCount: number;
+
+  @ApiProperty()
+  publishedJobCount: number;
+
   @ApiProperty({ type: () => [AgencyKnownBountyTotal] })
   knownTotals: AgencyKnownBountyTotal[];
 
   @ApiProperty({ nullable: true })
   latestPublishedTimestamp: number | null;
+
+  @ApiProperty({ nullable: true })
+  lastBountySeenTimestamp: number | null;
 }
 
 export class AgencyBountyJob {
@@ -90,6 +105,12 @@ export class AgencyBountyJob {
 
   @ApiProperty({ nullable: true })
   publishedTimestamp: number | null;
+
+  @ApiProperty({ nullable: true })
+  lastSeenTimestamp: number | null;
+
+  @ApiProperty()
+  online: boolean;
 
   @ApiProperty({ nullable: true })
   bountyAmount: string | null;

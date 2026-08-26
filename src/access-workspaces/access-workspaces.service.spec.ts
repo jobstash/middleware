@@ -116,6 +116,8 @@ describe("AccessWorkspacesService", () => {
     repo.listBountyOpportunities.mockResolvedValue({
       summary: {
         openJobCount: 0,
+        bountyJobCount: 0,
+        publishedJobCount: 0,
         companyCount: 0,
         disclosedAmountCount: 0,
         knownTotals: [],
@@ -127,7 +129,7 @@ describe("AccessWorkspacesService", () => {
     await service.listBountyOpportunities("workspace", "viewer", 500);
 
     expect(repo.authorize).toHaveBeenCalledWith("workspace", "viewer");
-    expect(repo.listBountyOpportunities).toHaveBeenCalledWith(100);
+    expect(repo.listBountyOpportunities).toHaveBeenCalledWith(100, false);
   });
 
   it("lets a superuser load bounty opportunities without workspace authorization", async () => {
@@ -136,6 +138,8 @@ describe("AccessWorkspacesService", () => {
     repo.listBountyOpportunities.mockResolvedValue({
       summary: {
         openJobCount: 0,
+        bountyJobCount: 0,
+        publishedJobCount: 0,
         companyCount: 0,
         disclosedAmountCount: 0,
         knownTotals: [],
@@ -144,10 +148,10 @@ describe("AccessWorkspacesService", () => {
       jobs: [],
     });
 
-    await service.listBountyOpportunitiesForSuperadmin(25);
+    await service.listBountyOpportunitiesForSuperadmin(25, true);
 
     expect(repo.authorize).not.toHaveBeenCalled();
-    expect(repo.listBountyOpportunities).toHaveBeenCalledWith(25);
+    expect(repo.listBountyOpportunities).toHaveBeenCalledWith(25, true);
   });
 
   it("normalizes explicit audited domain transfers and requires bypass", async () => {

@@ -94,11 +94,13 @@ export class AccessWorkspacesController {
   })
   async listBountyOpportunitiesForSuperadmin(
     @Query("limit") rawLimit = "50",
+    @Query("includeOffline") rawIncludeOffline = "false",
   ): Promise<SuccessResponse> {
     return success(
       "Bounty opportunities retrieved successfully",
       await this.workspaces.listBountyOpportunitiesForSuperadmin(
         Number(rawLimit),
+        rawIncludeOffline === "true",
       ),
     );
   }
@@ -129,6 +131,7 @@ export class AccessWorkspacesController {
     @Session() session: SessionObject,
     @Param("workspaceId") workspaceId: string,
     @Query("limit") rawLimit = "50",
+    @Query("includeOffline") rawIncludeOffline = "false",
   ): Promise<SuccessResponse> {
     return success(
       "Bounty opportunities retrieved successfully",
@@ -136,6 +139,7 @@ export class AccessWorkspacesController {
         workspaceId,
         session.address!,
         Number(rawLimit),
+        rawIncludeOffline === "true",
       ),
     );
   }

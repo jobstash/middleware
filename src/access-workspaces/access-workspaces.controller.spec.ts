@@ -81,7 +81,8 @@ describe("AccessWorkspace and Inspect route contracts", () => {
   it("returns bounty opportunities only through the workspace service and disables caching", async () => {
     const data = {
       summary: {
-        openJobCount: 1,
+        bountyJobCount: 1,
+        publishedJobCount: 4,
         companyCount: 1,
         disclosedAmountCount: 1,
         knownTotals: [],
@@ -124,13 +125,15 @@ describe("AccessWorkspace and Inspect route contracts", () => {
       "workspace",
       "viewer",
       25,
+      false,
     );
   });
 
   it("gives superusers a separate no-store bounty route without a workspace", async () => {
     const data = {
       summary: {
-        openJobCount: 1,
+        bountyJobCount: 1,
+        publishedJobCount: 4,
         companyCount: 1,
         disclosedAmountCount: 0,
         knownTotals: [],
@@ -171,7 +174,7 @@ describe("AccessWorkspace and Inspect route contracts", () => {
     });
     expect(
       workspaces.listBountyOpportunitiesForSuperadmin,
-    ).toHaveBeenCalledWith(25);
+    ).toHaveBeenCalledWith(25, false);
   });
 
   it("keeps both Inspect operations POST-only and no-store", () => {

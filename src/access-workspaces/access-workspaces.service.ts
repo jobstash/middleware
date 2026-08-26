@@ -128,18 +128,22 @@ export class AccessWorkspacesService {
     workspaceId: string,
     actorUserId: string,
     requestedLimit: number,
+    includeOffline = false,
   ): Promise<AgencyBountyOpportunities> {
     await this.requireAgencyEntitlement(workspaceId, actorUserId);
     return this.repository.listBountyOpportunities(
       bountyOpportunityLimit(requestedLimit),
+      includeOffline,
     );
   }
 
   async listBountyOpportunitiesForSuperadmin(
     requestedLimit: number,
+    includeOffline = false,
   ): Promise<AgencyBountyOpportunities> {
     return this.repository.listBountyOpportunities(
       bountyOpportunityLimit(requestedLimit),
+      includeOffline,
     );
   }
 

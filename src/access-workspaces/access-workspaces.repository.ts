@@ -162,6 +162,7 @@ export class AccessWorkspacesRepository {
 
   async listBountyOpportunities(
     limit: number,
+    includeOffline = false,
   ): Promise<AgencyBountyOpportunities> {
     const [result] = await rows<{
       value: Omit<AgencyBountyOpportunities, "summary" | "companies"> & {
@@ -175,20 +176,19 @@ export class AccessWorkspacesRepository {
     }>(
       this.postgres,
       `
-        WITH bounty_jobs AS MATERIALIZED (
+        WITH scoped_jobs AS MATERIALIZED (
           SELECT job.job_node_id, job.short_uuid, job.title, job.location,
-            job.published_timestamp,
+            job.published_timestamp, job.online,
+            COALESCE(
+              raw_seen.last_seen_timestamp,
+              jsonb_numeric_value(job.payload, 'lastSeenTimestamp'),
+              job.published_timestamp
+            ) AS last_seen_timestamp,
             NULLIF(job.payload ->> 'summary', '') AS summary,
             NULLIF(job.payload ->> 'url', '') AS url,
             NULLIF(job.payload ->> 'classification', '') AS classification,
-            CASE WHEN COALESCE(
-              jsonb_boolean_value(structured.properties, 'paysBounty'), false
-            ) THEN NULLIF(structured.properties ->> 'bountyAmount', '')
-              ELSE NULLIF(site.properties ->> 'bountyAmount', '')
-            END AS bounty_amount,
-            CASE WHEN COALESCE(
-              jsonb_boolean_value(structured.properties, 'paysBounty'), false
-            ) THEN 'job_posting' ELSE 'career_page' END AS bounty_source,
+            structured.properties AS structured_properties,
+            site.properties AS site_properties,
             COALESCE(
               direct_organization.organization_id, owner.organization_id,
               project.project_id, 'job:' || job.job_node_id::text
@@ -211,18 +211,38 @@ export class AccessWorkspacesRepository {
           JOIN graph_nodes structured
             ON structured.id = job.job_node_id
            AND structured.label = 'StructuredJobpost'
-          LEFT JOIN graph_relationships raw_job_edge
-            ON raw_job_edge.target_id = structured.id
-           AND raw_job_edge.type = 'HAS_STRUCTURED_JOBPOST'
+          LEFT JOIN LATERAL (
+            SELECT max(jsonb_numeric_value(
+              raw_job.properties, 'lastSeenTimestamp'
+            )) AS last_seen_timestamp
+            FROM graph_relationships raw_job_edge
+            JOIN graph_nodes raw_job
+              ON raw_job.id = raw_job_edge.source_id
+             AND raw_job.label = 'Jobpost'
+            WHERE raw_job_edge.target_id = structured.id
+              AND raw_job_edge.type = 'HAS_STRUCTURED_JOBPOST'
+          ) raw_seen ON true
           LEFT JOIN LATERAL (
             SELECT jobsite.properties
-            FROM graph_relationships jobsite_job
+            FROM graph_relationships raw_job_edge
+            JOIN graph_nodes raw_job
+              ON raw_job.id = raw_job_edge.source_id
+             AND raw_job.label = 'Jobpost'
+            JOIN graph_relationships jobsite_job
+              ON jobsite_job.target_id = raw_job.id
+             AND jobsite_job.type = 'HAS_JOBPOST'
             JOIN graph_nodes jobsite
               ON jobsite.id = jobsite_job.source_id
              AND jobsite.label IN ('Jobsite', 'DetectedJobsite')
-            WHERE jobsite_job.target_id = raw_job_edge.source_id
-              AND jobsite_job.type = 'HAS_JOBPOST'
-            ORDER BY CASE jobsite.label WHEN 'Jobsite' THEN 0 ELSE 1 END,
+            WHERE raw_job_edge.target_id = structured.id
+              AND raw_job_edge.type = 'HAS_STRUCTURED_JOBPOST'
+            ORDER BY COALESCE(
+                jsonb_boolean_value(jobsite.properties, 'paysBounty'), false
+              ) DESC,
+              jsonb_numeric_value(
+                raw_job.properties, 'lastSeenTimestamp'
+              ) DESC NULLS LAST,
+              CASE jobsite.label WHEN 'Jobsite' THEN 0 ELSE 1 END,
               jobsite.id
             LIMIT 1
           ) site ON true
@@ -241,26 +261,55 @@ export class AccessWorkspacesRepository {
             ORDER BY organization.name, organization.organization_node_id
             LIMIT 1
           ) owner ON true
-          WHERE job.online AND NOT job.blocked
-            AND (
-              COALESCE(
-                jsonb_boolean_value(structured.properties, 'paysBounty'), false
-              )
-              OR COALESCE(
-                jsonb_boolean_value(site.properties, 'paysBounty'), false
-              )
+          WHERE NOT job.blocked
+            AND ($2::boolean OR job.online)
+        ), bounty_jobs AS MATERIALIZED (
+          SELECT scoped_jobs.*,
+            CASE WHEN COALESCE(
+              jsonb_boolean_value(
+                scoped_jobs.structured_properties, 'paysBounty'
+              ), false
+            ) THEN NULLIF(
+              scoped_jobs.structured_properties ->> 'bountyAmount', ''
+            ) ELSE NULLIF(
+              scoped_jobs.site_properties ->> 'bountyAmount', ''
+            ) END AS bounty_amount,
+            CASE WHEN COALESCE(
+              jsonb_boolean_value(
+                scoped_jobs.structured_properties, 'paysBounty'
+              ), false
+            ) THEN 'job_posting' ELSE 'career_page' END AS bounty_source
+          FROM scoped_jobs
+          WHERE COALESCE(
+              jsonb_boolean_value(structured_properties, 'paysBounty'), false
+            ) OR COALESCE(
+              jsonb_boolean_value(site_properties, 'paysBounty'), false
             )
+        ), published_counts AS (
+          SELECT company_id, count(*)::int AS published_job_count
+          FROM scoped_jobs
+          GROUP BY company_id
         ), companies AS (
-          SELECT company_id, company_type, company_name, company_slug,
-            company_logo_url, count(*)::int AS open_job_count,
-            max(published_timestamp) AS latest_published_timestamp
-          FROM bounty_jobs
-          GROUP BY company_id, company_type, company_name, company_slug,
-            company_logo_url
+          SELECT bounty.company_id, bounty.company_type, bounty.company_name,
+            bounty.company_slug, bounty.company_logo_url,
+            count(*)::int AS bounty_job_count,
+            published.published_job_count,
+            max(bounty.published_timestamp) AS latest_published_timestamp,
+            max(bounty.last_seen_timestamp) AS last_bounty_seen_timestamp
+          FROM bounty_jobs bounty
+          JOIN published_counts published USING (company_id)
+          GROUP BY bounty.company_id, bounty.company_type,
+            bounty.company_name, bounty.company_slug,
+            bounty.company_logo_url, published.published_job_count
         )
         SELECT jsonb_build_object(
           'summary', jsonb_build_object(
             'openJobCount', (SELECT count(*)::int FROM bounty_jobs),
+            'bountyJobCount', (SELECT count(*)::int FROM bounty_jobs),
+            'publishedJobCount', (
+              SELECT COALESCE(sum(published_job_count), 0)::int
+              FROM companies
+            ),
             'companyCount', (SELECT count(*)::int FROM companies),
             'disclosedAmountCount', (SELECT count(*)::int FROM bounty_jobs
               WHERE bounty_amount IS NOT NULL)
@@ -272,10 +321,13 @@ export class AccessWorkspacesRepository {
               'name', company_name,
               'slug', company_slug,
               'logoUrl', company_logo_url,
-              'openBountyJobCount', open_job_count,
-              'latestPublishedTimestamp', latest_published_timestamp
-            ) ORDER BY open_job_count DESC, latest_published_timestamp DESC
-              NULLS LAST, company_name)
+              'openBountyJobCount', bounty_job_count,
+              'bountyJobCount', bounty_job_count,
+              'publishedJobCount', published_job_count,
+              'latestPublishedTimestamp', latest_published_timestamp,
+              'lastBountySeenTimestamp', last_bounty_seen_timestamp
+            ) ORDER BY bounty_job_count DESC,
+              last_bounty_seen_timestamp DESC NULLS LAST, company_name)
             FROM companies
           ), '[]'::jsonb),
           'jobs', COALESCE((
@@ -287,6 +339,8 @@ export class AccessWorkspacesRepository {
               'location', latest.location,
               'classification', latest.classification,
               'publishedTimestamp', latest.published_timestamp,
+              'lastSeenTimestamp', latest.last_seen_timestamp,
+              'online', latest.online,
               'bountyAmount', latest.bounty_amount,
               'bountySource', latest.bounty_source,
               'companyId', latest.company_id,
@@ -312,12 +366,14 @@ export class AccessWorkspacesRepository {
           WHERE bounty_amount IS NOT NULL
         ), '[]'::jsonb) AS "amountRows"
       `,
-      [limit],
+      [limit, includeOffline],
     );
     if (!result?.value) {
       return {
         summary: {
           openJobCount: 0,
+          bountyJobCount: 0,
+          publishedJobCount: 0,
           companyCount: 0,
           disclosedAmountCount: 0,
           knownTotals: [],
