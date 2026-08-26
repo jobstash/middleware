@@ -165,6 +165,7 @@ export interface JobMarketTicker {
   slug: string;
   label: string;
   current: JobMarketPoint;
+  history: JobMarketPoint[];
   momentum: JobMarketMomentum;
   activity: JobMarketActivity;
   eligibleMover: boolean;

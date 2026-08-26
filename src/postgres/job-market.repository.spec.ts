@@ -2,6 +2,18 @@ import { PostgresService } from "./postgres.service";
 import { JobMarketRepository } from "./job-market.repository";
 
 describe("JobMarketRepository", () => {
+  it("loads a bounded overview history for sparklines", async () => {
+    const query = jest.fn().mockResolvedValue([]);
+    const repository = new JobMarketRepository({ query } as never);
+
+    await repository.getOverviewHistory();
+
+    const [sql, parameters] = query.mock.calls[0];
+    expect(sql).toContain("kind IN ('market', 'classifications')");
+    expect(sql).toContain("LEFT JOIN job_market_daily_metrics metric");
+    expect(parameters).toEqual([35]);
+  });
+
   it("keeps the market sample calendar while filling absent pillar dates", async () => {
     const query = jest.fn().mockResolvedValue([]);
     const repository = new JobMarketRepository({

@@ -153,6 +153,54 @@ export interface JobMarketTopPayingRow extends Record<string, unknown> {
 export class JobMarketRepository {
   constructor(private readonly postgres: PostgresService) {}
 
+  getOverviewHistory(days = 35): Promise<JobMarketMetricRow[]> {
+    return this.postgres.query<JobMarketMetricRow>(
+      `
+        WITH market_pillar AS (
+          SELECT id FROM job_market_pillars WHERE slug = 'market'
+        ), target_pillars AS (
+          SELECT id, kind, slug, label
+          FROM job_market_pillars
+          WHERE kind IN ('market', 'classifications')
+        ), latest AS (
+          SELECT max(metric.sample_date) AS sample_date
+          FROM job_market_daily_metrics metric
+          JOIN market_pillar pillar ON pillar.id = metric.pillar_id
+        ), sample_dates AS (
+          SELECT metric.sample_date, metric.source, metric.sampled_at
+          FROM job_market_daily_metrics metric
+          JOIN market_pillar pillar ON pillar.id = metric.pillar_id
+          CROSS JOIN latest
+          WHERE metric.sample_date >= latest.sample_date - ($1::int - 1)
+        )
+        SELECT target.kind, target.slug, target.label,
+          dates.sample_date::text AS "sampleDate",
+          COALESCE(metric.active_jobs, 0)::text AS "activeJobs",
+          COALESCE(metric.hiring_companies, 0)::text AS "hiringCompanies",
+          COALESCE(metric.new_jobs, 0)::text AS "newJobs",
+          metric.salary_median_monthly_usd::text
+            AS "salaryMedianMonthlyUsd",
+          metric.salary_mean_monthly_usd::text AS "salaryMeanMonthlyUsd",
+          metric.salary_p25_monthly_usd::text AS "salaryP25MonthlyUsd",
+          metric.salary_p75_monthly_usd::text AS "salaryP75MonthlyUsd",
+          COALESCE(metric.salary_sample_count, 0)::text
+            AS "salarySampleCount",
+          COALESCE(metric.salary_employer_count, 0)::text
+            AS "salaryEmployerCount",
+          COALESCE(metric.salary_coverage, 0)::text AS "salaryCoverage",
+          COALESCE(metric.source, dates.source) AS source,
+          COALESCE(metric.sampled_at, dates.sampled_at) AS "sampledAt"
+        FROM sample_dates dates
+        CROSS JOIN target_pillars target
+        LEFT JOIN job_market_daily_metrics metric
+          ON metric.sample_date = dates.sample_date
+         AND metric.pillar_id = target.id
+        ORDER BY target.slug, dates.sample_date
+      `,
+      [days],
+    );
+  }
+
   getPillarHistory(
     slug: string,
     days: number | null,

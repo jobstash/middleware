@@ -129,6 +129,7 @@ describe("SearchService job-market intelligence", () => {
         getGeography: jest.fn().mockResolvedValue([]),
         getClassificationCompensationBands: jest.fn().mockResolvedValue([]),
         getLatestSkillSignals: jest.fn().mockResolvedValue([]),
+        getOverviewHistory: jest.fn().mockResolvedValue([]),
         ...repository,
       } as JobMarketRepository,
     );
@@ -320,6 +321,40 @@ describe("SearchService job-market intelligence", () => {
           bullish: [{ slug: "cl-backend" }],
           cooling: [{ slug: "cl-frontend" }],
         },
+      },
+    });
+  });
+
+  it("includes recent open-vacancy history in overview tickers", async () => {
+    const history = [
+      metric({ sampleDate: "2026-08-11", activeJobs: "110" }),
+      metric({ sampleDate: "2026-08-12", activeJobs: "120" }),
+    ];
+    const service = createService({
+      getOverview: jest.fn().mockResolvedValue([
+        metric({
+          kind: "market",
+          slug: "market",
+          label: "Crypto Job Market",
+        }),
+        metric(),
+      ]),
+      getOverviewHistory: jest.fn().mockResolvedValue(history),
+    });
+
+    const result = await service.getMarketOverview();
+
+    expect(result).toMatchObject({
+      data: {
+        classifications: [
+          {
+            slug: "cl-backend",
+            history: [
+              { date: "2026-08-11", activeJobs: 110 },
+              { date: "2026-08-12", activeJobs: 120 },
+            ],
+          },
+        ],
       },
     });
   });

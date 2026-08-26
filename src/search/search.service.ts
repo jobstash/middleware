@@ -259,9 +259,20 @@ export class SearchService {
     ResponseWithOptionalData<JobMarketOverviewData>
   > {
     try {
-      const rows = await this.jobMarketRepository.getOverview();
+      const [rows, historyRows] = await Promise.all([
+        this.jobMarketRepository.getOverview(),
+        this.jobMarketRepository.getOverviewHistory(),
+      ]);
+      const historyBySlug = new Map<string, JobMarketPoint[]>();
+      for (const row of historyRows) {
+        const history = historyBySlug.get(row.slug) ?? [];
+        history.push(this.marketPoint(row));
+        historyBySlug.set(row.slug, history);
+      }
       const marketRow = rows.find(row => row.slug === "market");
-      const tickers = rows.map(row => this.marketTicker(row, marketRow));
+      const tickers = rows.map(row =>
+        this.marketTicker(row, marketRow, historyBySlug.get(row.slug) ?? []),
+      );
       const market = tickers.find(ticker => ticker.slug === "market");
       if (!market) {
         return { success: true, message: "Job market not ready", data: null };
@@ -2118,6 +2129,7 @@ export class SearchService {
   private marketTicker(
     row: JobMarketMetricRow,
     marketRow?: JobMarketMetricRow,
+    history: JobMarketPoint[] = [],
   ): JobMarketTicker {
     const current = this.marketPoint(row);
     const currentJobs = Number(row.currentWindowJobs ?? 0);
@@ -2145,6 +2157,7 @@ export class SearchService {
       slug: row.slug,
       label: this.marketLabel(row.kind, row.label),
       current,
+      history,
       momentum,
       activity: this.marketActivity(row, marketRow),
       eligibleMover:
