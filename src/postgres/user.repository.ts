@@ -449,6 +449,108 @@ export class UserRepository {
     );
   }
 
+  async ensureVerifiedEmail(
+    wallet: string,
+    email: string,
+    normalizedEmail: string,
+  ): Promise<boolean> {
+    return this.postgres.transaction(async manager => {
+      const account = await this.findNode("User", { wallet }, manager);
+      if (!account) return false;
+
+      const [existing] = await queryRows<{
+        nodeId: string;
+        ownerNodeId: string | null;
+      }>(
+        manager,
+        `
+          SELECT
+            email.id::text AS "nodeId",
+            relationship.source_id::text AS "ownerNodeId"
+          FROM graph_nodes email
+          LEFT JOIN graph_relationships relationship
+            ON relationship.target_id = email.id
+           AND relationship.type = 'HAS_EMAIL'
+          WHERE email.label IN ('UserEmail', 'UserUnverifiedEmail')
+            AND email.properties ->> 'normalized' = $1
+          FOR UPDATE OF email
+        `,
+        [normalizedEmail],
+      );
+
+      if (existing?.ownerNodeId && existing.ownerNodeId !== account.nodeId) {
+        return false;
+      }
+
+      const [mainEmail] = await queryRows<{ nodeId: string }>(
+        manager,
+        `
+          SELECT verified_email.id::text AS "nodeId"
+          FROM graph_relationships relationship
+          JOIN graph_nodes verified_email
+            ON verified_email.id = relationship.target_id
+           AND verified_email.label = 'UserEmail'
+          WHERE relationship.source_id = $1
+            AND relationship.type = 'HAS_EMAIL'
+            AND COALESCE(
+              jsonb_boolean_value(verified_email.properties, 'main'), false
+            )
+          LIMIT 1
+        `,
+        [account.nodeId],
+      );
+      const shouldBeMain = !mainEmail;
+
+      if (existing) {
+        await queryRows(
+          manager,
+          `
+            UPDATE graph_nodes
+            SET label = 'UserEmail',
+                labels = ARRAY['UserEmail']::text[],
+                properties = properties || jsonb_build_object(
+                  'email', $2::text,
+                  'normalized', $3::text,
+                  'main', COALESCE(
+                    jsonb_boolean_value(properties, 'main'), $4::boolean
+                  ),
+                  'verifiedTimestamp',
+                    (extract(epoch FROM clock_timestamp()) * 1000)::bigint
+                ),
+                updated_at = now()
+            WHERE id = $1
+          `,
+          [existing.nodeId, email, normalizedEmail, shouldBeMain],
+        );
+        if (!existing.ownerNodeId) {
+          await this.insertRelationship(
+            manager,
+            account.nodeId,
+            existing.nodeId,
+            "HAS_EMAIL",
+          );
+        }
+        return true;
+      }
+
+      const emailNode = await this.insertNode(manager, "UserEmail", {
+        id: randomUUID(),
+        email,
+        normalized: normalizedEmail,
+        main: shouldBeMain,
+        createdTimestamp: Date.now(),
+        verifiedTimestamp: Date.now(),
+      });
+      await this.insertRelationship(
+        manager,
+        account.nodeId,
+        emailNode,
+        "HAS_EMAIL",
+      );
+      return true;
+    });
+  }
+
   async emailExists(normalizedEmail: string): Promise<boolean> {
     const [row] = await queryRows<{ found: boolean }>(
       this.postgres,
@@ -460,6 +562,29 @@ export class UserRepository {
         ) AS found
       `,
       [normalizedEmail],
+    );
+    return row?.found ?? false;
+  }
+
+  async hasVerifiedEmail(wallet: string): Promise<boolean> {
+    const [row] = await queryRows<{ found: boolean }>(
+      this.postgres,
+      `
+        SELECT EXISTS (
+          SELECT 1
+          FROM graph_nodes account
+          JOIN graph_relationships relationship
+            ON relationship.source_id = account.id
+           AND relationship.type = 'HAS_EMAIL'
+          JOIN graph_nodes email
+            ON email.id = relationship.target_id
+           AND email.label = 'UserEmail'
+          WHERE account.label = 'User'
+            AND lower(account.properties ->> 'wallet') = lower($1)
+            AND NULLIF(email.properties ->> 'email', '') IS NOT NULL
+        ) AS found
+      `,
+      [wallet],
     );
     return row?.found ?? false;
   }

@@ -298,10 +298,50 @@ export class UserService {
     return this.users.getUserEmails(wallet);
   }
 
+  async syncPrivyEmails(wallet: string, privyUser: PrivyUser): Promise<void> {
+    const candidates = [
+      privyUser.email?.address,
+      privyUser.google?.email,
+      privyUser.apple?.email,
+      privyUser.github?.email,
+      ...(privyUser.linkedAccounts ?? []).flatMap(account => {
+        if (account.type === "email") return [account.address];
+        if (
+          account.type === "google_oauth" ||
+          account.type === "apple_oauth" ||
+          account.type === "github_oauth"
+        ) {
+          return [account.email];
+        }
+        return [];
+      }),
+    ]
+      .map(value => value?.trim())
+      .filter((value): value is string => Boolean(value));
+
+    for (const email of [...new Set(candidates)]) {
+      const normalized = this.normalizeEmail(email);
+      if (!normalized) continue;
+      try {
+        await this.users.ensureVerifiedEmail(wallet, email, normalized);
+      } catch (error) {
+        this.logger.error(
+          `UserService::syncPrivyEmails ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+  }
+
   async userHasEmail(email: string): Promise<boolean> {
     const normalizedEmail = this.normalizeEmail(email);
 
     return this.users.emailExists(normalizedEmail);
+  }
+
+  hasVerifiedEmail(wallet: string): Promise<boolean> {
+    return this.users.hasVerifiedEmail(wallet);
   }
 
   async isOrgMember(wallet: string, orgId: string): Promise<boolean> {
@@ -1312,6 +1352,7 @@ export class UserService {
     embeddedWallet: string,
   ): Promise<void> {
     const user = dto.user;
+    await this.syncPrivyEmails(embeddedWallet, user);
     this.logger.log(`Syncing linked accounts for ${embeddedWallet}`);
     const account = (
       type: LinkedAccountWithMetadata["type"],

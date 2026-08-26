@@ -62,6 +62,8 @@ import { StripeService } from "src/stripe/stripe.service";
 import { UpdateJobPreferencesInput } from "./dto/update-job-preferences.input";
 import { RecordJobActivityInput } from "./dto/record-job-activity.input";
 import { PrivyService } from "../privy/privy.service";
+import { EmailDigestService } from "./email-digest.service";
+import { EmailDigestTokenInput } from "./dto/email-digest-token.input";
 
 const SOCIAL_LABELS = [
   "Website",
@@ -100,13 +102,54 @@ export class ProfileController {
     private readonly jobsService: JobsService,
     private readonly stripeService: StripeService,
     private readonly privyService: PrivyService,
+    private readonly emailDigestService: EmailDigestService,
   ) {}
+
+  @Get("email-digest")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
+  getEmailDigestState(@Session() { address }: SessionObject) {
+    return this.emailDigestService.getState(address);
+  }
+
+  @Post("email-digest/request")
+  @Throttle({ default: { limit: 3, ttl: 15 * 60_000 } })
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
+  requestEmailDigest(@Session() { address }: SessionObject) {
+    return this.emailDigestService.requestConfirmation(address);
+  }
+
+  @Delete("email-digest")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
+  unsubscribeEmailDigest(@Session() { address }: SessionObject) {
+    return this.emailDigestService.unsubscribeWallet(address);
+  }
+
+  @Post("email-digest/confirm")
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  confirmEmailDigest(
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    body: EmailDigestTokenInput,
+  ) {
+    return this.emailDigestService.confirm(body.token);
+  }
+
+  @Post("email-digest/unsubscribe")
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  unsubscribeEmailDigestToken(
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    body: EmailDigestTokenInput,
+  ) {
+    return this.emailDigestService.unsubscribeToken(body.token);
+  }
 
   private async getEligibilityMissing(address: string): Promise<string[]> {
     const showcase = data(await this.profileService.getUserShowCase(address));
     const missing: string[] = [];
     if (!showcase?.some(item => item.label === "CV")) missing.push("resume");
-    const hasEmail = showcase?.some(item => item.label === "Email");
+    const hasEmail = await this.userService.hasVerifiedEmail(address);
     const hasSocial = showcase?.some(item =>
       SOCIAL_LABELS.includes(item.label),
     );

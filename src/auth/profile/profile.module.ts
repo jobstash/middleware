@@ -22,6 +22,7 @@ import { TagsService } from "src/tags/tags.service";
 import { StripeModule } from "src/stripe/stripe.module";
 import { PublicProfilesController } from "./public-profiles.controller";
 import { ProfileModerationController } from "./profile-moderation.controller";
+import { EmailDigestService } from "./email-digest.service";
 
 @Module({
   imports: [
@@ -63,6 +64,7 @@ import { ProfileModerationController } from "./profile-moderation.controller";
     ScorerService,
     JobsService,
     TagsService,
+    EmailDigestService,
   ],
   exports: [ProfileService],
 })

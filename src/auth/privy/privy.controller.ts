@@ -65,7 +65,7 @@ export class PrivyController {
   @HttpCode(HttpStatus.OK)
   async checkWallet(
     @PrivySession() user: User,
-  ): Promise<SessionObject & { token: string }> {
+  ): Promise<SessionObject & { token: string; hasVerifiedEmail: boolean }> {
     await this.threatSync.syncUser(user);
     const embeddedWallet =
       await this.privyService.getOrCreateUserEmbeddedWallet(user);
@@ -75,6 +75,7 @@ export class PrivyController {
         embeddedWallet,
       );
       if (result.success) {
+        await this.userService.syncPrivyEmails(embeddedWallet, user);
         // The pre-auth pass admits the public GitHub login immediately. Run a
         // second pass after profile creation so the threat record can attach
         // the new internal user node and correlate this session's job intent.
@@ -99,10 +100,13 @@ export class PrivyController {
           permissions,
           cryptoNative,
         });
+        const hasVerifiedEmail =
+          await this.userService.hasVerifiedEmail(embeddedWallet);
         return {
           token,
           cryptoNative,
           permissions,
+          hasVerifiedEmail,
         };
       } else {
         throw new BadRequestException({
@@ -119,6 +123,7 @@ export class PrivyController {
         }),
         cryptoNative: false,
         permissions: [],
+        hasVerifiedEmail: false,
       };
     }
   }
