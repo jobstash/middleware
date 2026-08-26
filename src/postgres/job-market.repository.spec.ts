@@ -98,6 +98,18 @@ describe("JobMarketRepository", () => {
     const [sql, parameters] = query.mock.calls[0];
     expect(sql).toContain("observation.salary_monthly_usd");
     expect(sql).toContain("percentile_cont(0.9)");
+    expect(sql).toContain(
+      "work_arrangement ->> 'classification' = 'verified_remote'",
+    );
+    expect(sql).toContain("$2 = 'remote' AND COALESCE");
+    expect(sql).toContain("$2 = 'local' AND NOT COALESCE");
+    expect(sql).toContain("observation.segment IN ('local', 'remote')");
+    expect(sql).toContain("INNER JOIN scope_jobs scope");
+    expect(sql).toContain("SELECT DISTINCT ON (job_node_id)");
+    expect(sql).toContain("'local', 'onsite', 'hybrid', 'remote'");
+    expect(sql).toContain(
+      'statistics.open_jobs_in_scope::text AS "openJobsInScope"',
+    );
     expect(sql).toContain("document.online");
     expect(sql).toContain("NOT document.blocked");
     expect(sql).toContain("target.place_id = regexp_replace($3");

@@ -534,7 +534,9 @@ export class SearchService {
           salary,
         }));
       });
-      const openJobsInScope = Number(selectedGeography.regionalActiveJobs ?? 0);
+      const openJobsInScope = Number(
+        rows[0]?.openJobsInScope ?? selectedGeography.regionalActiveJobs ?? 0,
+      );
       const salaryJobCount = Number(rows[0]?.salaryJobCount ?? 0);
       const classificationLabel =
         classification === "market"

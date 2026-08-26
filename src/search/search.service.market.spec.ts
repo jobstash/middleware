@@ -93,6 +93,7 @@ const topPaying = (
   overrides: Partial<JobMarketTopPayingRow> = {},
 ): JobMarketTopPayingRow => ({
   asOfDate: "2026-08-12",
+  openJobsInScope: "42",
   salaryJobCount: "20",
   topDecileThresholdMonthlyUsd: "15000",
   topDecileJobCount: "2",
@@ -479,7 +480,7 @@ describe("SearchService job-market intelligence", () => {
 
   it("describes and links the top salary decile for a selected city", async () => {
     const getTopPayingJobs = jest.fn().mockResolvedValue([
-      topPaying(),
+      topPaying({ openJobsInScope: "35" }),
       topPaying({
         jobNodeId: "102",
         shortUuid: "def456",
@@ -547,9 +548,9 @@ describe("SearchService job-market intelligence", () => {
           regionLabel: "Amsterdam",
           regionType: "city",
         },
-        openJobsInScope: 42,
+        openJobsInScope: 35,
         salaryJobCount: 20,
-        salaryCoveragePercent: 47.6,
+        salaryCoveragePercent: 57.1,
         topDecileThresholdMonthlyUsd: 15000,
         topDecileJobCount: 2,
         medianTopDecileMonthlyUsd: 19000,

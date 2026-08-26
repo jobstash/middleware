@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { PostgresService } from "./postgres.service";
+import { strictFullyRemotePredicate } from "./search-document.repository";
 
 const MAX_ANNUAL_SALARY_RANGE_USD = 200_000;
 
@@ -37,12 +38,7 @@ export interface JobMarketGeographyRow extends Record<string, unknown> {
   regionSlug: string;
   regionLabel: string;
   regionType:
-    | "remote"
-    | "aggregate"
-    | "continent"
-    | "country"
-    | "region"
-    | "city";
+    "remote" | "aggregate" | "continent" | "country" | "region" | "city";
   filterKey: "cities" | "regions" | "countries" | "continents" | null;
   filterValue: string | null;
   countryCode: string | null;
@@ -130,6 +126,7 @@ export interface JobMarketTopPayingTag {
 
 export interface JobMarketTopPayingRow extends Record<string, unknown> {
   asOfDate: string;
+  openJobsInScope: string;
   salaryJobCount: string;
   topDecileThresholdMonthlyUsd: string;
   topDecileJobCount: string;
@@ -496,13 +493,104 @@ export class JobMarketRepository {
     filterKey: JobMarketGeographyRow["filterKey"],
     filterValue: string | null,
   ): Promise<JobMarketTopPayingRow[]> {
+    const fullyRemote = strictFullyRemotePredicate("document.");
+    const regionMatches = `(
+      $3::text IS NULL
+      OR EXISTS (
+        SELECT 1
+        FROM jsonb_array_elements(
+          COALESCE(document.payload -> 'availability', '[]'::jsonb)
+        ) item
+        JOIN place_reference place
+          ON place.place_id = regexp_replace(
+            COALESCE(item ->> 'placeId', ''), '^place:', ''
+          )
+        JOIN place_reference target
+          ON target.place_id = place.place_id
+          OR target.place_id = ANY(place.ancestor_place_ids)
+        WHERE COALESCE(item ->> 'workMode', 'local') IN (
+          'local', 'onsite', 'hybrid', 'remote'
+        )
+          AND target.place_id = regexp_replace($3, '^place:', '')
+      )
+      OR (
+        NOT EXISTS (
+          SELECT 1
+          FROM jsonb_array_elements(
+            COALESCE(document.payload -> 'availability', '[]'::jsonb)
+          ) item
+          JOIN place_reference place
+            ON place.place_id = regexp_replace(
+              COALESCE(item ->> 'placeId', ''), '^place:', ''
+            )
+          WHERE COALESCE(item ->> 'workMode', 'local') IN (
+            'local', 'onsite', 'hybrid', 'remote'
+          )
+        )
+        AND (
+          document.availability_keys && ARRAY[$5]::text[]
+          OR EXISTS (
+            SELECT 1
+            FROM jsonb_each_text(
+              COALESCE(document.filter_labels -> $4, '{}'::jsonb)
+            ) geography(internal_key, public_label)
+            WHERE geography.internal_key = $5
+               OR slugify_text(geography.public_label) = $5
+          )
+        )
+      )
+    )`;
     return this.postgres.query<JobMarketTopPayingRow>(
       `
         WITH latest AS (
           SELECT max(sample_date) AS as_of_date
           FROM job_market_daily_metrics
-        ), eligible AS MATERIALIZED (
+        ), scope_jobs AS MATERIALIZED (
+          SELECT document.job_node_id
+          FROM job_search_documents document
+          WHERE document.online
+            AND NOT document.blocked
+            AND document.legacy_list_eligible
+            AND cardinality(document.tags) > 0
+            AND document.short_uuid IS NOT NULL
+            AND num_nonnulls(
+              document.organization_id,
+              document.project_id
+            ) = 1
+            AND NOT (document.access = 'public'
+              AND document.organization_has_expert_jobs)
+            AND ($1 = 'market' OR EXISTS (
+              SELECT 1
+              FROM job_market_job_pillars membership
+              WHERE membership.job_node_id = document.job_node_id
+                AND membership.kind = 'classifications'
+                AND membership.slug = $1
+            ))
+            AND (
+              ($2 = 'remote' AND COALESCE((${fullyRemote}), false))
+              OR ($2 = 'local' AND NOT COALESCE((${fullyRemote}), false))
+            )
+            AND NOT EXISTS (
+              SELECT 1 FROM graph_nodes banned_employer
+              WHERE (
+                (
+                    banned_employer.label = 'Organization'
+                    AND banned_employer.properties ->> 'orgId' =
+                      document.organization_id
+                  ) OR (
+                    banned_employer.label = 'Project'
+                    AND banned_employer.properties ->> 'id' =
+                      document.project_id
+                  )
+                )
+                AND entity_property_is_banned(
+                  banned_employer.properties
+                )
+            )
+            AND ${regionMatches}
+        ), eligible_candidates AS MATERIALIZED (
           SELECT observation.job_node_id, observation.salary_monthly_usd,
+            observation.segment AS salary_segment,
             observation.classification_slug, observation.seniority,
             observation.onsite, observation.hybrid, observation.remote,
             document.short_uuid, document.title, document.location,
@@ -536,6 +624,8 @@ export class JobMarketRepository {
           FROM job_market_salary_observations observation
           INNER JOIN job_search_documents document
             ON document.job_node_id = observation.job_node_id
+          INNER JOIN scope_jobs scope
+            ON scope.job_node_id = document.job_node_id
           LEFT JOIN organization_search_documents organization
             ON organization.organization_id = document.organization_id
            AND document.project_id IS NULL
@@ -549,21 +639,14 @@ export class JobMarketRepository {
               AND membership.kind = 'classifications'
               AND membership.slug = observation.classification_slug
           ) classification ON true
-          WHERE observation.segment = $2
-            AND observation.continent_slug = 'all'
+          WHERE observation.continent_slug = 'all'
+            AND (
+              ($2 = 'remote' AND observation.segment = 'remote')
+              OR ($2 = 'local'
+                AND observation.segment IN ('local', 'remote'))
+            )
             AND ($1 = 'market'
               OR observation.classification_slug = $1)
-            AND document.online
-            AND NOT document.blocked
-            AND document.legacy_list_eligible
-            AND cardinality(document.tags) > 0
-            AND document.short_uuid IS NOT NULL
-            AND num_nonnulls(
-              document.organization_id,
-              document.project_id
-            ) = 1
-            AND NOT (document.access = 'public'
-              AND document.organization_has_expert_jobs)
             AND (
               document.minimum_salary IS NULL
               OR document.maximum_salary IS NULL
@@ -572,74 +655,16 @@ export class JobMarketRepository {
               ) * observation.salary_monthly_usd * 12
                 / NULLIF(document.salary, 0) <= $6::numeric
             )
-            AND NOT EXISTS (
-              SELECT 1 FROM graph_nodes banned_employer
-              WHERE (
-                (
-                    banned_employer.label = 'Organization'
-                    AND banned_employer.properties ->> 'orgId' =
-                      document.organization_id
-                  ) OR (
-                    banned_employer.label = 'Project'
-                    AND banned_employer.properties ->> 'id' =
-                      document.project_id
-                  )
-                )
-                AND entity_property_is_banned(
-                  banned_employer.properties
-                )
-            )
-            AND (
-              $3::text IS NULL
-              OR EXISTS (
-                SELECT 1
-                FROM jsonb_array_elements(
-                  COALESCE(document.payload -> 'availability', '[]'::jsonb)
-                ) item
-                JOIN place_reference place
-                  ON place.place_id = regexp_replace(
-                    COALESCE(item ->> 'placeId', ''), '^place:', ''
-                  )
-                JOIN place_reference target
-                  ON target.place_id = place.place_id
-                  OR target.place_id = ANY(place.ancestor_place_ids)
-                WHERE COALESCE(item ->> 'workMode', 'local') IN (
-                  'local', 'onsite', 'hybrid'
-                )
-                  AND target.place_id = regexp_replace($3, '^place:', '')
-              )
-              OR (
-                NOT EXISTS (
-                  SELECT 1
-                  FROM jsonb_array_elements(
-                    COALESCE(
-                      document.payload -> 'availability',
-                      '[]'::jsonb
-                    )
-                  ) item
-                  JOIN place_reference place
-                    ON place.place_id = regexp_replace(
-                      COALESCE(item ->> 'placeId', ''), '^place:', ''
-                    )
-                  WHERE COALESCE(item ->> 'workMode', 'local') IN (
-                    'local', 'onsite', 'hybrid'
-                  )
-                )
-                AND (
-                  document.availability_keys && ARRAY[$5]::text[]
-                  OR EXISTS (
-                    SELECT 1
-                    FROM jsonb_each_text(
-                      COALESCE(document.filter_labels -> $4, '{}'::jsonb)
-                    ) geography(internal_key, public_label)
-                    WHERE geography.internal_key = $5
-                       OR slugify_text(geography.public_label) = $5
-                  )
-                )
-              )
-            )
+        ), eligible AS MATERIALIZED (
+          SELECT DISTINCT ON (job_node_id) *
+          FROM eligible_candidates
+          ORDER BY job_node_id,
+            CASE WHEN salary_segment = $2 THEN 0 ELSE 1 END,
+            salary_monthly_usd DESC,
+            classification_slug
         ), statistics AS (
           SELECT count(*)::int AS salary_job_count,
+            (SELECT count(*) FROM scope_jobs)::int AS open_jobs_in_scope,
             percentile_cont(0.9) WITHIN GROUP (
               ORDER BY salary_monthly_usd
             ) AS top_decile_threshold
@@ -652,6 +677,7 @@ export class JobMarketRepository {
             statistics.top_decile_threshold
         )
         SELECT latest.as_of_date::text AS "asOfDate",
+          statistics.open_jobs_in_scope::text AS "openJobsInScope",
           statistics.salary_job_count::text AS "salaryJobCount",
           statistics.top_decile_threshold::text
             AS "topDecileThresholdMonthlyUsd",
