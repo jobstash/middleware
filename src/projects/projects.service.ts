@@ -624,13 +624,18 @@ export class ProjectsService {
     try {
       const url = this.configService.get<string>("ETL_DOMAIN");
       const authToken = await this.auth0Service.getETLToken();
-      const response2 = await axios.get(
-        `${url}/project-importer/import-project-by-url?url=${dto.url}&name=${
-          dto.name
-        }&orgId=${dto.orgId ?? ""}&defiLlamaSlug=${dto.defiLlamaSlug ?? ""}`,
+      const response2 = await axios.post(
+        `${url}/project-importer/import-project-by-url`,
+        undefined,
         {
           headers: {
             Authorization: authToken ? `Bearer ${authToken}` : undefined,
+          },
+          params: {
+            url: dto.url,
+            name: dto.name,
+            orgId: dto.orgId ?? "",
+            defiLlamaSlug: dto.defiLlamaSlug ?? "",
           },
         },
       );

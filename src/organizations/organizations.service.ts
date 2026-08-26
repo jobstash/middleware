@@ -1086,11 +1086,16 @@ export class OrganizationsService {
     try {
       const url = this.configService.get<string>("ETL_DOMAIN");
       const authToken = await this.auth0Service.getETLToken();
-      const response2 = await axios.get(
-        `${url}/organization-importer/import-organization-by-url?url=${dto.url}&name=${dto.name}`,
+      const response2 = await axios.post(
+        `${url}/organization-importer/import-organization-by-url`,
+        undefined,
         {
           headers: {
             Authorization: authToken ? `Bearer ${authToken}` : undefined,
+          },
+          params: {
+            url: dto.url,
+            name: dto.name,
           },
         },
       );
