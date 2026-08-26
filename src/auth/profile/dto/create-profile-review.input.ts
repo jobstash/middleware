@@ -5,11 +5,13 @@ import {
   IsNumber,
   IsObject,
   IsNotEmptyObject,
+  IsIn,
   IsOptional,
   IsString,
   Length,
   Matches,
   Max,
+  MaxLength,
   Min,
   MinLength,
   ValidateIf,
@@ -61,4 +63,62 @@ export class CreateRecruiterCaseInput {
   @IsObject()
   @IsNotEmptyObject()
   allegation: Record<string, unknown>;
+}
+
+export class CreateProfileAppealInput {
+  @ApiProperty()
+  @IsString()
+  @MinLength(10)
+  @MaxLength(4000)
+  appealText: string;
+}
+
+export class ModerateProfileReviewInput {
+  @ApiProperty({ enum: ["published", "redacted", "removed"] })
+  @IsIn(["published", "redacted", "removed"])
+  status: "published" | "redacted" | "removed";
+
+  @ApiPropertyOptional({ nullable: true })
+  @ValidateIf(input => input.status === "redacted")
+  @IsString()
+  @MinLength(1)
+  @MaxLength(2000)
+  redactedPublicText?: string | null;
+}
+
+export class ModerateRecruiterCaseInput {
+  @ApiProperty({ enum: ["investigating", "decided", "dismissed"] })
+  @IsIn(["investigating", "decided", "dismissed"])
+  status: "investigating" | "decided" | "dismissed";
+
+  @ApiPropertyOptional({ nullable: true })
+  @ValidateIf(input => input.status !== "investigating")
+  @IsString()
+  @MinLength(1)
+  @MaxLength(4000)
+  decisionText?: string | null;
+
+  @ApiPropertyOptional({ default: false })
+  @IsOptional()
+  @IsBoolean()
+  publishWarning?: boolean;
+
+  @ApiPropertyOptional({ nullable: true })
+  @ValidateIf(input => input.publishWarning === true)
+  @IsString()
+  @MinLength(1)
+  @MaxLength(2000)
+  warningText?: string | null;
+}
+
+export class ModerateProfileAppealInput {
+  @ApiProperty({ enum: ["upheld", "granted"] })
+  @IsIn(["upheld", "granted"])
+  status: "upheld" | "granted";
+
+  @ApiProperty()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(4000)
+  decisionText: string;
 }

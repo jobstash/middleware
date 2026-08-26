@@ -17,6 +17,7 @@ import { Permissions, Session } from "src/shared/decorators";
 import { SessionObject } from "src/shared/interfaces";
 import {
   CreateProfileReviewInput,
+  CreateProfileAppealInput,
   CreateRecruiterCaseInput,
 } from "./dto/create-profile-review.input";
 
@@ -29,6 +30,34 @@ type PublicProfileMutationResponse = {
 @Controller("profiles")
 export class PublicProfilesController {
   constructor(private readonly profiles: ProfileRepository) {}
+
+  @Post("notices/:noticeId/appeals")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
+  @ApiCreatedResponse({
+    description: "Creates an appeal against a decided public Profile notice",
+  })
+  async createAppeal(
+    @Session() session: SessionObject,
+    @Param("noticeId") noticeId: string,
+    @Body() input: CreateProfileAppealInput,
+  ): Promise<PublicProfileMutationResponse> {
+    const appeal = await this.profiles.createProfileAppeal(
+      session.address!,
+      noticeId,
+      input.appealText,
+    );
+    if (!appeal) {
+      throw new BadRequestException(
+        "Decided notice not found or an appeal is already pending",
+      );
+    }
+    return {
+      success: true as const,
+      message: "Profile notice appeal submitted for review",
+      data: appeal,
+    };
+  }
 
   @Get("grid")
   @UseGuards(PBACGuard)
@@ -124,7 +153,7 @@ export class PublicProfilesController {
     );
     if (!review) {
       throw new BadRequestException(
-        "Profile or exact child context was not found",
+        "Profile, organization, or verified employment evidence was not found",
       );
     }
     return {

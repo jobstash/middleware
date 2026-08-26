@@ -715,7 +715,7 @@ export class ProfileRepository {
           ORDER BY profile.id
           LIMIT 1
         ), target_child AS MATERIALIZED (
-          SELECT child.id
+          SELECT child.id, child.label
           FROM target_profile profile
           JOIN graph_relationships membership
             ON membership.source_id = profile.id
@@ -733,6 +733,49 @@ export class ProfileRepository {
             AND NOT entity_property_is_banned(child.properties)
           ORDER BY child.id
           LIMIT 1
+        ), reviewer_verification AS MATERIALIZED (
+          SELECT account.id AS account_id,
+            verification.properties AS verification_payload,
+            COALESCE(
+              NULLIF(lower(split_part(
+                verification.properties ->> 'account', '@', 2
+              )), ''),
+              normalized_url_host(graph_first_related_text(
+                child.id, 'HAS_WEBSITE', 'url'
+              ))
+            ) AS verified_domain
+          FROM target_child child
+          JOIN graph_nodes account
+            ON account.label = 'User'
+           AND lower(account.properties ->> 'wallet') = lower($1)
+          JOIN graph_relationships verification
+            ON verification.source_id = account.id
+           AND verification.target_id = child.id
+           AND verification.type = 'VERIFIED_FOR_ORG'
+          WHERE child.label = 'Organization'
+          LIMIT 1
+        ), domain_evidence AS (
+          INSERT INTO profile_verified_domain_evidence (
+            profile_node_id, normalized_registrable_domain,
+            evidence_source, evidence_payload, verified_by
+          )
+          SELECT profile.id, verification.verified_domain,
+            'verified_for_org_relationship',
+            verification.verification_payload || jsonb_build_object(
+              'childNodeId', child.id::text
+            ), $1
+          FROM target_profile profile
+          JOIN target_child child ON true
+          JOIN reviewer_verification verification ON true
+          WHERE NULLIF(btrim(verification.verified_domain), '') IS NOT NULL
+          ON CONFLICT (
+            profile_node_id, normalized_registrable_domain, evidence_source
+          ) DO UPDATE SET
+            evidence_payload = EXCLUDED.evidence_payload,
+            verified_by = EXCLUDED.verified_by,
+            verified_at = now(),
+            revoked_at = NULL
+          RETURNING id
         ), inserted AS (
           INSERT INTO profile_reviews (
             profile_node_id, child_node_id, author_user_id, rating,
@@ -748,7 +791,10 @@ export class ProfileRepository {
             ), 'sha256'), 'hex')
           FROM target_profile profile
           LEFT JOIN target_child child ON true
-          WHERE $3::text IS NULL OR child.id IS NOT NULL
+          LEFT JOIN reviewer_verification verification ON true
+          WHERE $3::text IS NULL OR (
+            child.id IS NOT NULL AND verification.account_id IS NOT NULL
+          )
           ON CONFLICT (profile_node_id, child_node_id, author_user_id)
             WHERE legacy_review_node_id IS NULL
           DO UPDATE SET
@@ -848,6 +894,393 @@ export class ProfileRepository {
       ],
     );
     return row?.value ?? null;
+  }
+
+  async createProfileAppeal(
+    appellantUserId: string,
+    noticeId: string,
+    appealText: string,
+  ): Promise<Record<string, unknown> | null> {
+    const [row] = await queryRows<{ value: Record<string, unknown> }>(
+      this.postgres,
+      `
+        WITH locked_notice AS MATERIALIZED (
+          SELECT notice.id
+          FROM profile_notices notice
+          WHERE notice.id = $2::uuid
+            AND notice.status = 'decided'
+          FOR UPDATE
+        ), inserted AS (
+          INSERT INTO profile_appeals (
+            notice_id, appellant_user_id, status, appeal_text
+          )
+          SELECT notice.id, $1, 'pending', btrim($3)
+          FROM locked_notice notice
+          WHERE NOT EXISTS (
+            SELECT 1
+            FROM profile_appeals existing
+            WHERE existing.notice_id = notice.id
+              AND lower(existing.appellant_user_id) = lower($1)
+              AND existing.status = 'pending'
+          )
+          RETURNING id, status, created_at
+        )
+        SELECT jsonb_build_object(
+          'id', id::text,
+          'status', status,
+          'createdAt', created_at
+        ) AS value
+        FROM inserted
+      `,
+      [appellantUserId, noticeId, appealText],
+    );
+    return row?.value ?? null;
+  }
+
+  async getProfileModerationQueue(
+    limit: number,
+  ): Promise<Record<string, unknown>> {
+    const [reviews, cases, appeals, counts] = await Promise.all([
+      queryRows<{ value: Record<string, unknown> }>(
+        this.postgres,
+        `
+          SELECT jsonb_strip_nulls(jsonb_build_object(
+            'id', review.id::text,
+            'profileSlug', profile.properties ->> 'slug',
+            'profileName', COALESCE(
+              info.properties ->> 'displayName',
+              info.properties ->> 'name',
+              profile.properties ->> 'slug'
+            ),
+            'childId', COALESCE(
+              child.properties ->> 'orgId', child.properties ->> 'id'
+            ),
+            'childType', child.label,
+            'childName', child.properties ->> 'name',
+            'authorUserId', review.author_user_id,
+            'rating', review.rating,
+            'reviewText', review.review_text,
+            'salary', review.salary,
+            'currency', review.currency,
+            'offersTokenAllocation', review.offers_token_allocation,
+            'status', review.status,
+            'createdAt', review.created_at
+          )) AS value
+          FROM profile_reviews review
+          JOIN graph_nodes profile
+            ON profile.id = review.profile_node_id
+           AND profile.label = 'EntityProfile'
+          LEFT JOIN graph_nodes child ON child.id = review.child_node_id
+          LEFT JOIN graph_relationships profile_info
+            ON profile_info.source_id = profile.id
+           AND profile_info.type = 'HAS_PROFILE_INFO'
+          LEFT JOIN graph_nodes info
+            ON info.id = profile_info.target_id
+           AND info.label = 'ProfileInfo'
+          WHERE review.status = 'pending'
+          ORDER BY review.created_at, review.id
+          LIMIT $1
+        `,
+        [limit],
+      ),
+      queryRows<{ value: Record<string, unknown> }>(
+        this.postgres,
+        `
+          SELECT jsonb_strip_nulls(jsonb_build_object(
+            'id', recruiter_case.id::text,
+            'profileSlug', profile.properties ->> 'slug',
+            'profileName', COALESCE(
+              info.properties ->> 'displayName',
+              info.properties ->> 'name',
+              profile.properties ->> 'slug'
+            ),
+            'childId', COALESCE(
+              child.properties ->> 'orgId', child.properties ->> 'id'
+            ),
+            'childType', child.label,
+            'childName', child.properties ->> 'name',
+            'reporterUserId', recruiter_case.reporter_user_id,
+            'status', recruiter_case.status,
+            'allegation', recruiter_case.allegation,
+            'createdAt', recruiter_case.created_at
+          )) AS value
+          FROM recruiter_cases recruiter_case
+          JOIN graph_nodes profile
+            ON profile.id = recruiter_case.profile_node_id
+           AND profile.label = 'EntityProfile'
+          LEFT JOIN graph_nodes child ON child.id = recruiter_case.child_node_id
+          LEFT JOIN graph_relationships profile_info
+            ON profile_info.source_id = profile.id
+           AND profile_info.type = 'HAS_PROFILE_INFO'
+          LEFT JOIN graph_nodes info
+            ON info.id = profile_info.target_id
+           AND info.label = 'ProfileInfo'
+          WHERE recruiter_case.status IN ('pending', 'investigating')
+          ORDER BY recruiter_case.created_at, recruiter_case.id
+          LIMIT $1
+        `,
+        [limit],
+      ),
+      queryRows<{ value: Record<string, unknown> }>(
+        this.postgres,
+        `
+          SELECT jsonb_build_object(
+            'id', appeal.id::text,
+            'noticeId', notice.id::text,
+            'profileSlug', profile.properties ->> 'slug',
+            'profileName', COALESCE(
+              info.properties ->> 'displayName',
+              info.properties ->> 'name',
+              profile.properties ->> 'slug'
+            ),
+            'appellantUserId', appeal.appellant_user_id,
+            'appealText', appeal.appeal_text,
+            'noticeText', notice.redacted_public_text,
+            'status', appeal.status,
+            'createdAt', appeal.created_at
+          ) AS value
+          FROM profile_appeals appeal
+          JOIN profile_notices notice ON notice.id = appeal.notice_id
+          JOIN graph_nodes profile
+            ON profile.id = notice.profile_node_id
+           AND profile.label = 'EntityProfile'
+          LEFT JOIN graph_relationships profile_info
+            ON profile_info.source_id = profile.id
+           AND profile_info.type = 'HAS_PROFILE_INFO'
+          LEFT JOIN graph_nodes info
+            ON info.id = profile_info.target_id
+           AND info.label = 'ProfileInfo'
+          WHERE appeal.status = 'pending'
+          ORDER BY appeal.created_at, appeal.id
+          LIMIT $1
+        `,
+        [limit],
+      ),
+      queryRows<{
+        pendingReviews: string | number;
+        activeCases: string | number;
+        pendingAppeals: string | number;
+        decidedNotices: string | number;
+      }>(
+        this.postgres,
+        `
+          SELECT
+            (SELECT count(*) FROM profile_reviews
+              WHERE status = 'pending') AS "pendingReviews",
+            (SELECT count(*) FROM recruiter_cases
+              WHERE status IN ('pending', 'investigating')) AS "activeCases",
+            (SELECT count(*) FROM profile_appeals
+              WHERE status = 'pending') AS "pendingAppeals",
+            (SELECT count(*) FROM profile_notices
+              WHERE status = 'decided') AS "decidedNotices"
+        `,
+      ),
+    ]);
+    const count = counts[0];
+    return {
+      reviews: reviews.map(row => row.value),
+      cases: cases.map(row => row.value),
+      appeals: appeals.map(row => row.value),
+      counts: {
+        pendingReviews: Number(count?.pendingReviews ?? 0),
+        activeCases: Number(count?.activeCases ?? 0),
+        pendingAppeals: Number(count?.pendingAppeals ?? 0),
+        decidedNotices: Number(count?.decidedNotices ?? 0),
+      },
+    };
+  }
+
+  async moderateProfileReview(
+    reviewId: string,
+    actorUserId: string,
+    input: {
+      status: "published" | "redacted" | "removed";
+      redactedPublicText?: string | null;
+    },
+  ): Promise<Record<string, unknown> | null> {
+    const [row] = await queryRows<{ value: Record<string, unknown> }>(
+      this.postgres,
+      `
+        UPDATE profile_reviews
+        SET status = $3,
+            redacted_public_text = CASE WHEN $3 = 'redacted'
+              THEN btrim($4) ELSE NULL END,
+            decided_by = $2,
+            decided_at = now()
+        WHERE id = $1::uuid
+          AND status = 'pending'
+        RETURNING jsonb_build_object(
+          'id', id::text,
+          'status', status,
+          'decidedAt', decided_at
+        ) AS value
+      `,
+      [reviewId, actorUserId, input.status, input.redactedPublicText ?? null],
+    );
+    return row?.value ?? null;
+  }
+
+  async moderateRecruiterCase(
+    caseId: string,
+    actorUserId: string,
+    input: {
+      status: "investigating" | "decided" | "dismissed";
+      decisionText?: string | null;
+      publishWarning?: boolean;
+      warningText?: string | null;
+    },
+  ): Promise<Record<string, unknown> | null> {
+    return this.postgres.transaction(async manager => {
+      const [lockedCase] = await queryRows<{
+        id: string;
+        profileNodeId: string;
+        status: string;
+      }>(
+        manager,
+        `
+          SELECT id::text AS id,
+            profile_node_id::text AS "profileNodeId", status
+          FROM recruiter_cases
+          WHERE id = $1::uuid
+            AND status IN ('pending', 'investigating')
+          FOR UPDATE
+        `,
+        [caseId],
+      );
+      if (!lockedCase) return null;
+
+      const decision =
+        input.status === "investigating"
+          ? null
+          : {
+              summary: input.decisionText?.trim() ?? "",
+              warningPublished:
+                input.status === "decided" && input.publishWarning === true,
+            };
+      const [updated] = await queryRows<{ value: Record<string, unknown> }>(
+        manager,
+        `
+          UPDATE recruiter_cases
+          SET status = $2,
+              decision = $3::jsonb,
+              decided_by = CASE WHEN $2 = 'investigating' THEN NULL ELSE $4 END,
+              decided_at = CASE WHEN $2 = 'investigating' THEN NULL ELSE now() END
+          WHERE id = $1::uuid
+          RETURNING jsonb_build_object(
+            'id', id::text,
+            'status', status,
+            'decidedAt', decided_at
+          ) AS value
+        `,
+        [
+          caseId,
+          input.status,
+          decision ? JSON.stringify(decision) : null,
+          actorUserId,
+        ],
+      );
+
+      let notice: Record<string, unknown> | null = null;
+      if (input.status === "decided" && input.publishWarning) {
+        const existing = await queryRows<{ id: string }>(
+          manager,
+          "SELECT id::text AS id FROM profile_notices WHERE case_id = $1::uuid FOR UPDATE",
+          [caseId],
+        );
+        const noticeRows = existing[0]
+          ? await queryRows<{ value: Record<string, unknown> }>(
+              manager,
+              `
+                UPDATE profile_notices
+                SET status = 'decided', redacted_public_text = btrim($2),
+                    decided_by = $3, decided_at = now()
+                WHERE id = $1::uuid
+                RETURNING jsonb_build_object(
+                  'id', id::text, 'status', status,
+                  'text', redacted_public_text, 'decidedAt', decided_at
+                ) AS value
+              `,
+              [existing[0].id, input.warningText, actorUserId],
+            )
+          : await queryRows<{ value: Record<string, unknown> }>(
+              manager,
+              `
+                INSERT INTO profile_notices (
+                  profile_node_id, case_id, status, redacted_public_text,
+                  decided_by, decided_at
+                ) VALUES ($1::bigint, $2::uuid, 'decided', btrim($3), $4, now())
+                RETURNING jsonb_build_object(
+                  'id', id::text, 'status', status,
+                  'text', redacted_public_text, 'decidedAt', decided_at
+                ) AS value
+              `,
+              [
+                lockedCase.profileNodeId,
+                caseId,
+                input.warningText,
+                actorUserId,
+              ],
+            );
+        notice = noticeRows[0]?.value ?? null;
+      } else if (input.status !== "investigating") {
+        await queryRows(
+          manager,
+          `
+            UPDATE profile_notices
+            SET status = 'withdrawn'
+            WHERE case_id = $1::uuid AND status IN ('draft', 'decided')
+          `,
+          [caseId],
+        );
+      }
+      return { ...(updated?.value ?? {}), notice };
+    });
+  }
+
+  async moderateProfileAppeal(
+    appealId: string,
+    actorUserId: string,
+    input: { status: "upheld" | "granted"; decisionText: string },
+  ): Promise<Record<string, unknown> | null> {
+    return this.postgres.transaction(async manager => {
+      const [appeal] = await queryRows<{ noticeId: string }>(
+        manager,
+        `
+          SELECT notice_id::text AS "noticeId"
+          FROM profile_appeals
+          WHERE id = $1::uuid AND status = 'pending'
+          FOR UPDATE
+        `,
+        [appealId],
+      );
+      if (!appeal) return null;
+      const [updated] = await queryRows<{ value: Record<string, unknown> }>(
+        manager,
+        `
+          UPDATE profile_appeals
+          SET status = $2, decision_text = btrim($3), decided_by = $4,
+              decided_at = now()
+          WHERE id = $1::uuid
+          RETURNING jsonb_build_object(
+            'id', id::text, 'noticeId', notice_id::text,
+            'status', status, 'decidedAt', decided_at
+          ) AS value
+        `,
+        [appealId, input.status, input.decisionText, actorUserId],
+      );
+      if (input.status === "granted") {
+        await queryRows(
+          manager,
+          `
+            UPDATE profile_notices
+            SET status = 'withdrawn'
+            WHERE id = $1::uuid AND status = 'decided'
+          `,
+          [appeal.noticeId],
+        );
+      }
+      return updated?.value ?? null;
+    });
   }
 
   async getUserRepos(wallet: string): Promise<Record<string, unknown>[]> {

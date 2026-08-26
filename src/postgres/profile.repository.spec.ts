@@ -190,7 +190,11 @@ describe("ProfileRepository", () => {
     expect(sql).toContain("PROFILE_HAS_ORGANIZATION");
     expect(sql).toContain("PROFILE_HAS_PROJECT");
     expect(sql).toContain("INSERT INTO profile_reviews");
-    expect(sql).toContain("$3::text IS NULL OR child.id IS NOT NULL");
+    expect(sql).toContain("verification.type = 'VERIFIED_FOR_ORG'");
+    expect(sql).toContain("INSERT INTO profile_verified_domain_evidence");
+    expect(sql).toContain(
+      "child.id IS NOT NULL AND verification.account_id IS NOT NULL",
+    );
     expect(sql).toContain("'pending'");
     expect(parameters).toEqual([
       "actor",
@@ -223,6 +227,59 @@ describe("ProfileRepository", () => {
     expect(sql).not.toContain("UPDATE graph_nodes");
     expect(sql).not.toContain("banned', true");
     expect(sql).not.toContain("notification");
+  });
+
+  it("creates one pending appeal only for a decided notice", async () => {
+    const value = { id: "appeal", status: "pending" };
+    const query = jest.fn().mockResolvedValue([{ value }]);
+    const repository = new ProfileRepository({ query } as never);
+
+    await expect(
+      repository.createProfileAppeal(
+        "appellant",
+        "00000000-0000-0000-0000-000000000001",
+        "The evidence is not accurate.",
+      ),
+    ).resolves.toEqual(value);
+    const [sql] = query.mock.calls[0] as [string, unknown[]];
+    expect(sql).toContain("notice.status = 'decided'");
+    expect(sql).toContain("existing.status = 'pending'");
+    expect(sql).toContain("INSERT INTO profile_appeals");
+  });
+
+  it("loads all three actionable moderation queues and their counts", async () => {
+    const query = jest
+      .fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          pendingReviews: "2",
+          activeCases: "3",
+          pendingAppeals: "4",
+          decidedNotices: "5",
+        },
+      ]);
+    const repository = new ProfileRepository({ query } as never);
+
+    await expect(repository.getProfileModerationQueue(100)).resolves.toEqual({
+      reviews: [],
+      cases: [],
+      appeals: [],
+      counts: {
+        pendingReviews: 2,
+        activeCases: 3,
+        pendingAppeals: 4,
+        decidedNotices: 5,
+      },
+    });
+    const sql = query.mock.calls.map(call => String(call[0])).join("\n");
+    expect(sql).toContain("review.status = 'pending'");
+    expect(sql).toContain(
+      "recruiter_case.status IN ('pending', 'investigating')",
+    );
+    expect(sql).toContain("appeal.status = 'pending'");
   });
 
   it("upserts legacy review endpoints into one canonical pending Profile review", async () => {

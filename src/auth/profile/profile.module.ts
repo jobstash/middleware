@@ -21,6 +21,7 @@ import { Auth0Module } from "src/auth0/auth0.module";
 import { TagsService } from "src/tags/tags.service";
 import { StripeModule } from "src/stripe/stripe.module";
 import { PublicProfilesController } from "./public-profiles.controller";
+import { ProfileModerationController } from "./profile-moderation.controller";
 
 @Module({
   imports: [
@@ -48,7 +49,11 @@ import { PublicProfilesController } from "./public-profiles.controller";
     ThrottlerModule.forRoot(),
     StripeModule,
   ],
-  controllers: [ProfileController, PublicProfilesController],
+  controllers: [
+    ProfileController,
+    PublicProfilesController,
+    ProfileModerationController,
+  ],
   providers: [
     ProfileService,
     JwtService,

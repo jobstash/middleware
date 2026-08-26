@@ -157,4 +157,30 @@ describe("PublicProfilesController", () => {
       controller.createCase({ address: "reporter" } as never, "acme", input),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
+
+  it("submits an appeal against a decided public notice", async () => {
+    const repository = {
+      createProfileAppeal: jest.fn().mockResolvedValue({
+        id: "appeal",
+        status: "pending",
+      }),
+    };
+    const controller = new PublicProfilesController(
+      repository as unknown as ProfileRepository,
+    );
+
+    await expect(
+      controller.createAppeal({ address: "appellant" } as never, "notice", {
+        appealText: "This warning relies on incorrect evidence.",
+      }),
+    ).resolves.toMatchObject({
+      success: true,
+      data: { id: "appeal", status: "pending" },
+    });
+    expect(repository.createProfileAppeal).toHaveBeenCalledWith(
+      "appellant",
+      "notice",
+      "This warning relies on incorrect evidence.",
+    );
+  });
 });
