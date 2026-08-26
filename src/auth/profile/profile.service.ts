@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import * as Sentry from "@sentry/node";
 import axios from "axios";
 import { now, uniqBy } from "lodash";
@@ -19,6 +19,7 @@ import { paginate, slugify } from "src/shared/helpers";
 import {
   AdjacentRepo,
   EcosystemActivation,
+  EMPTY_RECOMMENDATION_PROFILE,
   OrgStaffReview,
   PaginatedData,
   ResponseWithNoData,
@@ -77,9 +78,24 @@ export class ProfileService {
     wallet: string,
     preferences: UpdateJobPreferencesInput,
   ): Promise<JobPreferences | null> {
+    const current = await this.getJobPreferences(wallet);
+    const mergedPreferences: JobPreferences = {
+      ...EMPTY_RECOMMENDATION_PROFILE,
+      ...current,
+      ...preferences,
+    };
+    if (
+      mergedPreferences.companySizeMin !== null &&
+      mergedPreferences.companySizeMax !== null &&
+      mergedPreferences.companySizeMax < mergedPreferences.companySizeMin
+    ) {
+      throw new BadRequestException(
+        "Maximum company size must be at least the minimum company size",
+      );
+    }
     const updated = await this.profiles.updateJobPreferences(
       wallet,
-      preferences,
+      mergedPreferences,
     );
     return updated ? this.getJobPreferences(wallet) : null;
   }
@@ -95,6 +111,7 @@ export class ProfileService {
         requiresSponsorship: null,
         attendancePreference: null,
         travelTolerance: null,
+        ...EMPTY_RECOMMENDATION_PROFILE,
       };
       return {
         confirmedMatches: [],

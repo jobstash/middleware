@@ -27,6 +27,44 @@ export const JOB_MATCH_RESOLUTION_CODES = [
 export type JobMatchResolutionCode =
   (typeof JOB_MATCH_RESOLUTION_CODES)[number];
 
+export const JOB_SEARCH_STATUSES = [
+  "not_looking",
+  "open",
+  "active",
+  "immediate",
+] as const;
+export type JobSearchStatus = (typeof JOB_SEARCH_STATUSES)[number];
+
+export const EDUCATION_LEVELS = [
+  "secondary",
+  "associate",
+  "bachelor",
+  "master",
+  "doctorate",
+  "other",
+] as const;
+export type EducationLevel = (typeof EDUCATION_LEVELS)[number];
+
+export const EMPTY_RECOMMENDATION_PROFILE = {
+  searchStatus: null,
+  rolePriorities: [] as string[],
+  targetOrganizations: [] as string[],
+  languages: [] as string[],
+  jobCategories: [] as string[],
+  seniorityLevels: [] as string[],
+  educationLevel: null,
+  companySizeMin: null,
+  companySizeMax: null,
+  industries: [] as string[],
+  preferredSkills: [] as string[],
+  minimumSalary: null,
+  salaryCurrency: null,
+  fundingStages: [] as string[],
+  paymentCurrencies: [] as string[],
+  commitments: [] as string[],
+  showcaseRepositories: [] as string[],
+};
+
 /**
  * The only public/saved Jobs For Me preference keys. Storage adapters may map
  * these names to database columns, but must never expose the retired aliases.
@@ -56,6 +94,57 @@ export class JobPreferences {
 
   @ApiPropertyOptional({ nullable: true })
   travelTolerance: string | null;
+
+  @ApiPropertyOptional({ enum: JOB_SEARCH_STATUSES, nullable: true })
+  searchStatus: JobSearchStatus | null;
+
+  @ApiProperty({ type: [String] })
+  rolePriorities: string[];
+
+  @ApiProperty({ type: [String] })
+  targetOrganizations: string[];
+
+  @ApiProperty({ type: [String] })
+  languages: string[];
+
+  @ApiProperty({ type: [String] })
+  jobCategories: string[];
+
+  @ApiProperty({ type: [String] })
+  seniorityLevels: string[];
+
+  @ApiPropertyOptional({ enum: EDUCATION_LEVELS, nullable: true })
+  educationLevel: EducationLevel | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  companySizeMin: number | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  companySizeMax: number | null;
+
+  @ApiProperty({ type: [String] })
+  industries: string[];
+
+  @ApiProperty({ type: [String] })
+  preferredSkills: string[];
+
+  @ApiPropertyOptional({ nullable: true })
+  minimumSalary: number | null;
+
+  @ApiPropertyOptional({ nullable: true, example: "USD" })
+  salaryCurrency: string | null;
+
+  @ApiProperty({ type: [String] })
+  fundingStages: string[];
+
+  @ApiProperty({ type: [String] })
+  paymentCurrencies: string[];
+
+  @ApiProperty({ type: [String] })
+  commitments: string[];
+
+  @ApiProperty({ type: [String] })
+  showcaseRepositories: string[];
 }
 
 export class JobMatchResolutionReason {

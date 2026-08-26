@@ -1,4 +1,5 @@
 import { JobListResultEntity } from "src/shared/entities";
+import { EMPTY_RECOMMENDATION_PROFILE } from "src/shared/interfaces";
 import { ProfileService } from "./profile.service";
 
 describe("ProfileService recommended jobs", () => {
@@ -77,5 +78,53 @@ describe("ProfileService recommended jobs", () => {
       dwellMs: undefined,
       metadata: undefined,
     });
+  });
+
+  it("keeps stored recommendation fields when an older client updates eligibility", async () => {
+    const existing = {
+      ...EMPTY_RECOMMENDATION_PROFILE,
+      workModes: ["remote"] as const,
+      residenceCountry: "NL",
+      utcOffset: 1,
+      workAuthorization: "EU",
+      requiresSponsorship: false,
+      attendancePreference: "remote_only",
+      travelTolerance: null,
+      preferredSkills: ["TypeScript"],
+      targetOrganizations: ["Protocol Labs"],
+    };
+    const profiles = {
+      getJobPreferences: jest
+        .fn()
+        .mockResolvedValueOnce(existing)
+        .mockResolvedValueOnce({ ...existing, utcOffset: 2 }),
+      updateJobPreferences: jest.fn().mockResolvedValue(true),
+    };
+    const service = new ProfileService(
+      profiles as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+
+    await service.updateJobPreferences("wallet", {
+      workModes: ["remote"],
+      residenceCountry: "NL",
+      utcOffset: 2,
+      workAuthorization: "EU",
+      requiresSponsorship: false,
+      attendancePreference: "remote_only",
+      travelTolerance: null,
+    });
+
+    expect(profiles.updateJobPreferences).toHaveBeenCalledWith(
+      "wallet",
+      expect.objectContaining({
+        utcOffset: 2,
+        preferredSkills: ["TypeScript"],
+        targetOrganizations: ["Protocol Labs"],
+      }),
+    );
   });
 });

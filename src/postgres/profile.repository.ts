@@ -296,7 +296,24 @@ export class ProfileRepository {
           'workAuthorization', preferences.work_authorization,
           'requiresSponsorship', preferences.requires_sponsorship,
           'attendancePreference', preferences.attendance_preference,
-          'travelTolerance', preferences.travel_tolerance
+          'travelTolerance', preferences.travel_tolerance,
+          'searchStatus', preferences.search_status,
+          'rolePriorities', COALESCE(preferences.role_priorities, ARRAY[]::text[]),
+          'targetOrganizations', COALESCE(preferences.target_organizations, ARRAY[]::text[]),
+          'languages', COALESCE(preferences.languages, ARRAY[]::text[]),
+          'jobCategories', COALESCE(preferences.job_categories, ARRAY[]::text[]),
+          'seniorityLevels', COALESCE(preferences.seniority_levels, ARRAY[]::text[]),
+          'educationLevel', preferences.education_level,
+          'companySizeMin', preferences.company_size_min,
+          'companySizeMax', preferences.company_size_max,
+          'industries', COALESCE(preferences.industries, ARRAY[]::text[]),
+          'preferredSkills', COALESCE(preferences.preferred_skills, ARRAY[]::text[]),
+          'minimumSalary', preferences.minimum_salary,
+          'salaryCurrency', preferences.salary_currency,
+          'fundingStages', COALESCE(preferences.funding_stages, ARRAY[]::text[]),
+          'paymentCurrencies', COALESCE(preferences.payment_currencies, ARRAY[]::text[]),
+          'commitments', COALESCE(preferences.commitments, ARRAY[]::text[]),
+          'showcaseRepositories', COALESCE(preferences.showcase_repositories, ARRAY[]::text[])
         ) AS preferences
         FROM graph_nodes account
         LEFT JOIN user_job_preferences preferences
@@ -355,6 +372,23 @@ export class ProfileRepository {
       requiresSponsorship: boolean | null;
       attendancePreference: string | null;
       travelTolerance: string | null;
+      searchStatus?: string | null;
+      rolePriorities?: string[];
+      targetOrganizations?: string[];
+      languages?: string[];
+      jobCategories?: string[];
+      seniorityLevels?: string[];
+      educationLevel?: string | null;
+      companySizeMin?: number | null;
+      companySizeMax?: number | null;
+      industries?: string[];
+      preferredSkills?: string[];
+      minimumSalary?: number | null;
+      salaryCurrency?: string | null;
+      fundingStages?: string[];
+      paymentCurrencies?: string[];
+      commitments?: string[];
+      showcaseRepositories?: string[];
     },
   ): Promise<boolean> {
     const rows = await queryRows<{ userNodeId: string }>(
@@ -363,11 +397,18 @@ export class ProfileRepository {
         INSERT INTO user_job_preferences (
           user_node_id, work_modes, residence_country, utc_offset_minutes,
           work_authorization, requires_sponsorship, attendance_preference,
-          travel_tolerance, updated_at
+          travel_tolerance, search_status, role_priorities,
+          target_organizations, languages, job_categories, seniority_levels,
+          education_level, company_size_min, company_size_max, industries,
+          preferred_skills, minimum_salary, salary_currency, funding_stages,
+          payment_currencies, commitments, showcase_repositories, updated_at
         )
         SELECT
           account.id, $2::text[], $3, $4::integer, $5, $6::boolean, $7,
-          $8, now()
+          $8, $9, $10::text[], $11::text[], $12::text[], $13::text[],
+          $14::text[], $15, $16::integer, $17::integer, $18::text[],
+          $19::text[], $20::numeric, $21, $22::text[], $23::text[],
+          $24::text[], $25::text[], now()
         FROM graph_nodes account
         WHERE account.label = 'User'
           AND lower(account.properties ->> 'wallet') = lower($1)
@@ -381,6 +422,23 @@ export class ProfileRepository {
           requires_sponsorship = EXCLUDED.requires_sponsorship,
           attendance_preference = EXCLUDED.attendance_preference,
           travel_tolerance = EXCLUDED.travel_tolerance,
+          search_status = EXCLUDED.search_status,
+          role_priorities = EXCLUDED.role_priorities,
+          target_organizations = EXCLUDED.target_organizations,
+          languages = EXCLUDED.languages,
+          job_categories = EXCLUDED.job_categories,
+          seniority_levels = EXCLUDED.seniority_levels,
+          education_level = EXCLUDED.education_level,
+          company_size_min = EXCLUDED.company_size_min,
+          company_size_max = EXCLUDED.company_size_max,
+          industries = EXCLUDED.industries,
+          preferred_skills = EXCLUDED.preferred_skills,
+          minimum_salary = EXCLUDED.minimum_salary,
+          salary_currency = EXCLUDED.salary_currency,
+          funding_stages = EXCLUDED.funding_stages,
+          payment_currencies = EXCLUDED.payment_currencies,
+          commitments = EXCLUDED.commitments,
+          showcase_repositories = EXCLUDED.showcase_repositories,
           updated_at = now()
         RETURNING user_node_id::text AS "userNodeId"
       `,
@@ -395,6 +453,23 @@ export class ProfileRepository {
         preferences.requiresSponsorship,
         preferences.attendancePreference,
         preferences.travelTolerance,
+        preferences.searchStatus ?? null,
+        preferences.rolePriorities ?? [],
+        preferences.targetOrganizations ?? [],
+        preferences.languages ?? [],
+        preferences.jobCategories ?? [],
+        preferences.seniorityLevels ?? [],
+        preferences.educationLevel ?? null,
+        preferences.companySizeMin ?? null,
+        preferences.companySizeMax ?? null,
+        preferences.industries ?? [],
+        preferences.preferredSkills ?? [],
+        preferences.minimumSalary ?? null,
+        preferences.salaryCurrency ?? null,
+        preferences.fundingStages ?? [],
+        preferences.paymentCurrencies ?? [],
+        preferences.commitments ?? [],
+        preferences.showcaseRepositories ?? [],
       ],
     );
     return rows.length === 1;

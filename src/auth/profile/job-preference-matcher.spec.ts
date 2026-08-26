@@ -1,4 +1,8 @@
-import { JobPreferences, WorkLocationOption } from "src/shared/interfaces";
+import {
+  EMPTY_RECOMMENDATION_PROFILE,
+  JobPreferences,
+  WorkLocationOption,
+} from "src/shared/interfaces";
 import { matchWorkLocationOptions } from "./job-preference-matcher";
 
 const option = (
@@ -24,6 +28,7 @@ const option = (
 });
 
 const preferences: JobPreferences = {
+  ...EMPTY_RECOMMENDATION_PROFILE,
   workModes: ["remote"],
   residenceCountry: "NL",
   utcOffset: 2,

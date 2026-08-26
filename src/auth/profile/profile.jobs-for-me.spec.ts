@@ -1,8 +1,10 @@
+import { EMPTY_RECOMMENDATION_PROFILE } from "src/shared/interfaces";
 import { ProfileService } from "./profile.service";
 
 describe("ProfileService Jobs For Me contract", () => {
   it("returns the canonical grouped response and preference receipt", async () => {
     const preferences = {
+      ...EMPTY_RECOMMENDATION_PROFILE,
       workModes: ["remote"] as const,
       residenceCountry: "NL",
       utcOffset: 2,
@@ -69,16 +71,6 @@ describe("ProfileService Jobs For Me contract", () => {
       appliedPreferences: preferences,
     });
     expect(result.confirmedMatches[0]).not.toHaveProperty("confirmed");
-    expect(Object.keys(result.appliedPreferences).sort()).toEqual(
-      [
-        "attendancePreference",
-        "requiresSponsorship",
-        "residenceCountry",
-        "travelTolerance",
-        "utcOffset",
-        "workAuthorization",
-        "workModes",
-      ].sort(),
-    );
+    expect(result.appliedPreferences).toEqual(preferences);
   });
 });

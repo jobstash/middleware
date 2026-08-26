@@ -126,6 +126,10 @@ describe("ProfileRepository", () => {
     expect(readSql).toContain("'utcOffset'");
     expect(readSql).toContain("preferences.utc_offset_minutes / 60.0");
     expect(readSql).toContain("preferences.travel_tolerance");
+    expect(readSql).toContain("preferences.role_priorities");
+    expect(readSql).toContain("preferences.preferred_skills");
+    expect(readSql).toContain("preferences.minimum_salary");
+    expect(readSql).toContain("preferences.showcase_repositories");
     for (const legacy of [
       "'acceptableWorkModes'",
       "'ianaTimezone'",
@@ -134,6 +138,48 @@ describe("ProfileRepository", () => {
     ]) {
       expect(readSql).not.toContain(legacy);
     }
+  });
+
+  it("writes the complete recommendation profile", async () => {
+    const query = jest.fn().mockResolvedValue([{ userNodeId: "1" }]);
+    const repository = new ProfileRepository({ query } as never);
+
+    await expect(
+      repository.updateJobPreferences("wallet", {
+        workModes: ["remote"],
+        residenceCountry: "NL",
+        utcOffset: 1,
+        workAuthorization: "EU",
+        requiresSponsorship: false,
+        attendancePreference: "remote_only",
+        travelTolerance: "one day per month",
+        searchStatus: "active",
+        rolePriorities: ["mission-driven"],
+        targetOrganizations: ["Protocol Labs"],
+        languages: ["English: native"],
+        jobCategories: ["Engineering"],
+        seniorityLevels: ["Senior"],
+        educationLevel: "bachelor",
+        companySizeMin: 20,
+        companySizeMax: 500,
+        industries: ["Infrastructure"],
+        preferredSkills: ["TypeScript"],
+        minimumSalary: 150000,
+        salaryCurrency: "USD",
+        fundingStages: ["Series A"],
+        paymentCurrencies: ["USD", "USDC"],
+        commitments: ["Full Time"],
+        showcaseRepositories: ["https://github.com/example/project"],
+      }),
+    ).resolves.toBe(true);
+
+    const [sql, parameters] = query.mock.calls[0] as [string, unknown[]];
+    expect(sql).toContain("target_organizations");
+    expect(sql).toContain("preferred_skills");
+    expect(sql).toContain("showcase_repositories");
+    expect(parameters).toHaveLength(25);
+    expect(parameters[18]).toEqual(["TypeScript"]);
+    expect(parameters[24]).toEqual(["https://github.com/example/project"]);
   });
 
   it("allow-lists public Profile fields and only returns decided notices", async () => {
