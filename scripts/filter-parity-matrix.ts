@@ -48,13 +48,7 @@ export type FilterMatrixCase = {
   headers: Record<string, string>;
   coveredParameters: string[];
   kind:
-    | "baseline"
-    | "single"
-    | "pair"
-    | "range"
-    | "sort"
-    | "header"
-    | "validation";
+    "baseline" | "single" | "pair" | "range" | "sort" | "header" | "validation";
   productionBaselineMayFail: boolean;
 };
 
@@ -135,6 +129,11 @@ const queryParameter = (): MatrixParameter => ({
     value("whitespace", "   "),
   ],
   pairValues: [value("exact", "engineer")],
+});
+
+const titleQueryParameter = (): MatrixParameter => ({
+  ...queryParameter(),
+  name: "titleQuery",
 });
 
 const paginationParameters = (): MatrixParameter[] => [
@@ -219,6 +218,7 @@ const jobParameters = (): MatrixParameter[] => [
   ]),
   ...paginationParameters(),
   queryParameter(),
+  titleQueryParameter(),
 ];
 
 const jobRanges: MatrixRange[] = [

@@ -453,5 +453,5 @@ export class JobListParams {
   @IsOptional()
   @IsString()
   @Type(() => String)
-  titleQuery: string | null = null;
+  titleQuery?: string | null = null;
 }
