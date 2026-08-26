@@ -176,19 +176,50 @@ export class AccessWorkspacesRepository {
     }>(
       this.postgres,
       `
-        WITH scoped_jobs AS MATERIALIZED (
+        WITH career_bounty_targets AS MATERIALIZED (
+          SELECT DISTINCT ON (structured_edge.target_id)
+            structured_edge.target_id AS job_node_id,
+            jobsite.properties AS site_properties
+          FROM graph_nodes jobsite
+          JOIN graph_relationships jobsite_job
+            ON jobsite_job.source_id = jobsite.id
+           AND jobsite_job.type = 'HAS_JOBPOST'
+          JOIN graph_nodes raw_job
+            ON raw_job.id = jobsite_job.target_id
+           AND raw_job.label = 'Jobpost'
+          JOIN graph_relationships structured_edge
+            ON structured_edge.source_id = raw_job.id
+           AND structured_edge.type = 'HAS_STRUCTURED_JOBPOST'
+          WHERE jobsite.label IN ('Jobsite', 'DetectedJobsite')
+            AND COALESCE(
+              jsonb_boolean_value(jobsite.properties, 'paysBounty'), false
+            )
+          ORDER BY structured_edge.target_id,
+            CASE jobsite.label WHEN 'Jobsite' THEN 0 ELSE 1 END,
+            jobsite.id
+        ), bounty_targets AS MATERIALIZED (
+          SELECT structured.id AS job_node_id,
+            structured.properties AS structured_properties,
+            career.site_properties
+          FROM graph_nodes structured
+          LEFT JOIN career_bounty_targets career
+            ON career.job_node_id = structured.id
+          WHERE structured.label = 'StructuredJobpost'
+            AND (
+              COALESCE(
+                jsonb_boolean_value(structured.properties, 'paysBounty'), false
+              )
+              OR career.job_node_id IS NOT NULL
+            )
+        ), scoped_jobs AS MATERIALIZED (
           SELECT job.job_node_id, job.short_uuid, job.title, job.location,
             job.published_timestamp, job.online,
-            COALESCE(
-              raw_seen.last_seen_timestamp,
-              jsonb_numeric_value(job.payload, 'lastSeenTimestamp'),
-              job.published_timestamp
-            ) AS last_seen_timestamp,
+            jsonb_numeric_value(
+              job.payload, 'lastSeenTimestamp'
+            ) AS document_last_seen_timestamp,
             NULLIF(job.payload ->> 'summary', '') AS summary,
             NULLIF(job.payload ->> 'url', '') AS url,
             NULLIF(job.payload ->> 'classification', '') AS classification,
-            structured.properties AS structured_properties,
-            site.properties AS site_properties,
             COALESCE(
               direct_organization.organization_id, owner.organization_id,
               project.project_id, 'job:' || job.job_node_id::text
@@ -208,44 +239,6 @@ export class AccessWorkspacesRepository {
               project.payload ->> 'logoUrl'
             ) AS company_logo_url
           FROM job_search_documents job
-          JOIN graph_nodes structured
-            ON structured.id = job.job_node_id
-           AND structured.label = 'StructuredJobpost'
-          LEFT JOIN LATERAL (
-            SELECT max(jsonb_numeric_value(
-              raw_job.properties, 'lastSeenTimestamp'
-            )) AS last_seen_timestamp
-            FROM graph_relationships raw_job_edge
-            JOIN graph_nodes raw_job
-              ON raw_job.id = raw_job_edge.source_id
-             AND raw_job.label = 'Jobpost'
-            WHERE raw_job_edge.target_id = structured.id
-              AND raw_job_edge.type = 'HAS_STRUCTURED_JOBPOST'
-          ) raw_seen ON true
-          LEFT JOIN LATERAL (
-            SELECT jobsite.properties
-            FROM graph_relationships raw_job_edge
-            JOIN graph_nodes raw_job
-              ON raw_job.id = raw_job_edge.source_id
-             AND raw_job.label = 'Jobpost'
-            JOIN graph_relationships jobsite_job
-              ON jobsite_job.target_id = raw_job.id
-             AND jobsite_job.type = 'HAS_JOBPOST'
-            JOIN graph_nodes jobsite
-              ON jobsite.id = jobsite_job.source_id
-             AND jobsite.label IN ('Jobsite', 'DetectedJobsite')
-            WHERE raw_job_edge.target_id = structured.id
-              AND raw_job_edge.type = 'HAS_STRUCTURED_JOBPOST'
-            ORDER BY COALESCE(
-                jsonb_boolean_value(jobsite.properties, 'paysBounty'), false
-              ) DESC,
-              jsonb_numeric_value(
-                raw_job.properties, 'lastSeenTimestamp'
-              ) DESC NULLS LAST,
-              CASE jobsite.label WHEN 'Jobsite' THEN 0 ELSE 1 END,
-              jobsite.id
-            LIMIT 1
-          ) site ON true
           LEFT JOIN organization_search_documents direct_organization
             ON direct_organization.organization_id = job.organization_id
           LEFT JOIN project_search_documents project
@@ -265,26 +258,39 @@ export class AccessWorkspacesRepository {
             AND ($2::boolean OR job.online)
         ), bounty_jobs AS MATERIALIZED (
           SELECT scoped_jobs.*,
+            COALESCE(
+              raw_seen.last_seen_timestamp,
+              scoped_jobs.document_last_seen_timestamp,
+              scoped_jobs.published_timestamp
+            ) AS last_seen_timestamp,
             CASE WHEN COALESCE(
               jsonb_boolean_value(
-                scoped_jobs.structured_properties, 'paysBounty'
+                target.structured_properties, 'paysBounty'
               ), false
             ) THEN NULLIF(
-              scoped_jobs.structured_properties ->> 'bountyAmount', ''
+              target.structured_properties ->> 'bountyAmount', ''
             ) ELSE NULLIF(
-              scoped_jobs.site_properties ->> 'bountyAmount', ''
+              target.site_properties ->> 'bountyAmount', ''
             ) END AS bounty_amount,
             CASE WHEN COALESCE(
               jsonb_boolean_value(
-                scoped_jobs.structured_properties, 'paysBounty'
+                target.structured_properties, 'paysBounty'
               ), false
             ) THEN 'job_posting' ELSE 'career_page' END AS bounty_source
           FROM scoped_jobs
-          WHERE COALESCE(
-              jsonb_boolean_value(structured_properties, 'paysBounty'), false
-            ) OR COALESCE(
-              jsonb_boolean_value(site_properties, 'paysBounty'), false
-            )
+          JOIN bounty_targets target
+            ON target.job_node_id = scoped_jobs.job_node_id
+          LEFT JOIN LATERAL (
+            SELECT max(jsonb_numeric_value(
+              raw_job.properties, 'lastSeenTimestamp'
+            )) AS last_seen_timestamp
+            FROM graph_relationships raw_job_edge
+            JOIN graph_nodes raw_job
+              ON raw_job.id = raw_job_edge.source_id
+             AND raw_job.label = 'Jobpost'
+            WHERE raw_job_edge.target_id = scoped_jobs.job_node_id
+              AND raw_job_edge.type = 'HAS_STRUCTURED_JOBPOST'
+          ) raw_seen ON true
         ), published_counts AS (
           SELECT company_id, count(*)::int AS published_job_count
           FROM scoped_jobs

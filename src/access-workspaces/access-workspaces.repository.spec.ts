@@ -57,11 +57,14 @@ describe("AccessWorkspacesRepository", () => {
 
     const [sql, parameters] = query.mock.calls[0] as [string, unknown[]];
     expect(sql).toContain("AND ($2::boolean OR job.online)");
+    expect(sql).toContain("WITH career_bounty_targets AS MATERIALIZED");
+    expect(sql).toContain("structured_edge.source_id = raw_job.id");
+    expect(sql).toContain("JOIN bounty_targets target");
     expect(sql).toContain("raw_job.properties, 'lastSeenTimestamp'");
     expect(sql).toContain("'lastSeenTimestamp', latest.last_seen_timestamp");
     expect(sql).toContain("'publishedJobCount', published_job_count");
     expect(sql).toContain("structured_properties, 'paysBounty'");
-    expect(sql).toContain("site_properties, 'paysBounty'");
+    expect(sql).toContain("jobsite.properties, 'paysBounty'");
     expect(sql).toContain("'job_posting' ELSE 'career_page'");
     expect(parameters).toEqual([25, true]);
   });
