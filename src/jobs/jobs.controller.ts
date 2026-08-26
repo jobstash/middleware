@@ -457,11 +457,18 @@ export class JobsController {
     },
   })
   async getOrgTopJobsList(
-    @Session() { address }: SessionObject,
+    @Session() { address, permissions }: SessionObject,
     @Param("id") id: string,
   ): Promise<ResponseWithOptionalData<EcosystemJobListResult[]>> {
     this.logger.log(`/jobs/org/${id}/top`);
     if (
+      id === "universe" &&
+      permissions.includes(CheckWalletPermissions.SUPER_ADMIN)
+    ) {
+      return this.jobsService.getUniverseTopJobs();
+    }
+    if (
+      permissions.includes(CheckWalletPermissions.SUPER_ADMIN) ||
       (await this.userService.isOrgMember(address, id)) ||
       (await this.userService.isOrgOwner(address, id))
     ) {

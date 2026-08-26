@@ -182,6 +182,13 @@ describePostgres("TelemetryRepository PostgreSQL integration", () => {
         applicationEpochStart: 0,
       }),
     ).resolves.toMatchObject({ totalJobCount: 2, totalApplications: 2 });
+    await expect(
+      repository.getDashboardJobStats({
+        type: "ecosystem",
+        id: "universe",
+        applicationEpochStart: 0,
+      }),
+    ).resolves.toMatchObject({ totalJobCount: 2, totalApplications: 2 });
   });
 
   it("returns a 13-month PostgreSQL-generated job series", async () => {
@@ -192,6 +199,26 @@ describePostgres("TelemetryRepository PostgreSQL integration", () => {
     expect(series.organization).toBe("Acme");
     expect(series.stats).toHaveLength(13);
     expect(series.stats.reduce((sum, point) => sum + point.count, 0)).toBe(2);
+
+    const [universe] = await repository.getDashboardJobStatsSeries({
+      type: "ecosystem",
+      id: "universe",
+    });
+    expect(universe.organization).toBe("Universe");
+    expect(universe.stats).toHaveLength(13);
+    expect(universe.stats.reduce((sum, point) => sum + point.count, 0)).toBe(2);
+  });
+
+  it("returns site-wide job performance without loading job payloads", async () => {
+    const performance = await repository.getDashboardJobPerformance({
+      type: "ecosystem",
+      id: "universe",
+    });
+    expect(performance).toHaveLength(13);
+    expect(
+      performance.reduce((sum, point) => sum + point.applications, 0),
+    ).toBe(2);
+    expect(performance.reduce((sum, point) => sum + point.views, 0)).toBe(1);
   });
 
   it("aggregates available talent and ranked application categories", async () => {

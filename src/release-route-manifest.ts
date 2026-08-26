@@ -1387,6 +1387,13 @@ export const RELEASE_ROUTE_MANIFEST = [
   ],
   [
     "TelemetryController",
+    "getDashboardJobPerformance",
+    "GET",
+    "telemetry/dashboard/stats/jobs/performance",
+    "active",
+  ],
+  [
+    "TelemetryController",
     "getDashboardJobStatsSeries",
     "GET",
     "telemetry/dashboard/stats/jobs/series",
@@ -1397,6 +1404,13 @@ export const RELEASE_ROUTE_MANIFEST = [
     "getDashboardTalentStats",
     "GET",
     "telemetry/dashboard/stats/talent",
+    "active",
+  ],
+  [
+    "TelemetryController",
+    "getDashboardCryptoDistribution",
+    "GET",
+    "telemetry/dashboard/stats/talent/crypto",
     "active",
   ],
   [
@@ -1419,6 +1433,13 @@ export const RELEASE_ROUTE_MANIFEST = [
     "getUsersAvailableForWorkAsSuperadmin",
     "GET",
     "users/admin/available",
+    "active",
+  ],
+  [
+    "UserController",
+    "getTopUsersAsSuperadmin",
+    "GET",
+    "users/admin/available/top",
     "active",
   ],
   [

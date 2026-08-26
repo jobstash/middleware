@@ -1249,26 +1249,14 @@ export class UserService {
 
   async getTopUsers(): Promise<ResponseWithOptionalData<TalentPoolData>> {
     try {
-      const base = await this.getUsersAvailableForWork({
-        city: null,
-        country: null,
-        page: null,
-        limit: null,
-      });
-      if (!base.success) {
-        return base;
-      }
-      const talentPool = data(base);
-      const topUsers = sort(talentPool.candidates).by([
-        { desc: (user): boolean => user.cryptoNative },
-        { desc: (user): boolean => user.cryptoAdjacent },
-        { desc: (user): number => user.workHistory.length ?? 0 },
-      ]);
+      const topUsers = (await this.users.getTopAvailableUsers(50)).map(
+        toTalentPoolCandidate,
+      );
       return {
         success: true,
         message: "Top users retrieved successfully",
         data: {
-          candidates: topUsers.slice(0, 50),
+          candidates: topUsers,
         },
       };
     } catch (err) {

@@ -470,6 +470,31 @@ export class JobsService {
     }
   }
 
+  async getUniverseTopJobs(): Promise<
+    ResponseWithOptionalData<EcosystemJobListResult[]>
+  > {
+    try {
+      const payloads = await this.searchDocuments.getUniverseTopJobPayloads(10);
+      const hydrated = await this.hydrateJobTeamSummaries(payloads);
+      return {
+        success: true,
+        message: "Top jobs retrieved successfully",
+        data: hydrated.map(payload =>
+          new EcosystemJobListResultEntity(
+            payload as EcosystemJobListResult,
+          ).getProperties(),
+        ),
+      };
+    } catch (err) {
+      Sentry.captureException(err);
+      this.logger.error(`JobsService::getUniverseTopJobs ${err.message}`);
+      return {
+        success: false,
+        message: "Error retrieving top jobs",
+      };
+    }
+  }
+
   async getAllJobsByOrgId(
     id: string,
     page: number,

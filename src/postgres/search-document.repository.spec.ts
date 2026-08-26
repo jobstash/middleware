@@ -78,6 +78,20 @@ describe("SearchDocumentRepository", () => {
     expect(pageParameters).toEqual([false, 100, 100]);
   });
 
+  it("ranks universe jobs in PostgreSQL and returns only ten", async () => {
+    query.mockResolvedValue([{ payload: { id: "job-1" } }]);
+
+    await expect(repository.getUniverseTopJobPayloads()).resolves.toEqual([
+      { id: "job-1" },
+    ]);
+
+    const [sql, parameters] = query.mock.calls[0];
+    expect(sql).toContain("metrics.applications DESC");
+    expect(sql).toContain("metrics.views DESC");
+    expect(sql).toContain("LIMIT $1");
+    expect(parameters).toEqual([10]);
+  });
+
   it.each([
     ["list", (): Promise<unknown> => repository.getJobPayloads()],
     [

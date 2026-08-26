@@ -163,4 +163,55 @@ describe("TelemetryRepository", () => {
 
     await expect(repository.getLastLoginAt("0xabc")).resolves.toBeNull();
   });
+
+  it("uses the reserved universe scope for site-wide job stats", async () => {
+    postgresQuery.mockResolvedValue([
+      {
+        active: "12",
+        inactive: "3",
+        expert: "2",
+        promoted: "1",
+        applicationsThisMonth: "4",
+        totalApplications: "18",
+        totalJobCount: "15",
+      },
+    ]);
+
+    await expect(
+      repository.getDashboardJobStats({
+        type: "ecosystem",
+        id: "universe",
+        applicationEpochStart: 1,
+      }),
+    ).resolves.toMatchObject({ totalJobCount: 15, totalApplications: 18 });
+
+    const [sql, parameters] = postgresQuery.mock.calls[0];
+    expect(sql).toContain("$1 = 'ecosystem' AND $2 = $4");
+    expect(parameters).toEqual(["ecosystem", "universe", 1, "universe"]);
+  });
+
+  it("aggregates job performance in PostgreSQL instead of loading jobs", async () => {
+    postgresQuery.mockResolvedValue([
+      { month: "Aug 2026", applications: "3", views: "12" },
+    ]);
+
+    await expect(
+      repository.getDashboardJobPerformance({
+        type: "ecosystem",
+        id: "universe",
+      }),
+    ).resolves.toEqual([
+      {
+        month: "Aug 2026",
+        applications: 3,
+        views: 12,
+        conversionRate: 25,
+      },
+    ]);
+
+    const [sql, parameters] = postgresQuery.mock.calls[0];
+    expect(sql).toContain("FROM job_search_documents job");
+    expect(sql).toContain("event.type IN ('APPLIED_TO', 'VIEWED_DETAILS')");
+    expect(parameters).toEqual(["ecosystem", "universe", "universe"]);
+  });
 });

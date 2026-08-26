@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
 import { EntityManager } from "typeorm";
 import { CustomLogger } from "src/shared/utils/custom-logger";
+import { DASHBOARD_UNIVERSE_ID } from "src/telemetry/telemetry.constants";
 import { PostgresService } from "./postgres.service";
 
 type DashboardJobStatsRow = {
@@ -262,6 +263,7 @@ export class TelemetryRepository {
           SELECT *
           FROM job_search_documents job
           WHERE CASE
+            WHEN $1 = 'ecosystem' AND $2 = $4 THEN true
             WHEN $1 = 'ecosystem' THEN $2 = ANY(job.managed_ecosystems)
             ELSE job.organization_id = $2
           END
@@ -294,7 +296,12 @@ export class TelemetryRepository {
         CROSS JOIN applications
         GROUP BY applications.recent, applications.total
       `,
-      [options.type, options.id, options.applicationEpochStart],
+      [
+        options.type,
+        options.id,
+        options.applicationEpochStart,
+        DASHBOARD_UNIVERSE_ID,
+      ],
     );
     return {
       jobCounts: {
@@ -315,6 +322,45 @@ export class TelemetryRepository {
   }): Promise<
     { organization: string; stats: { month: string; count: number }[] }[]
   > {
+    if (options.type === "ecosystem" && options.id === DASHBOARD_UNIVERSE_ID) {
+      const rows = await this.postgres.query<{
+        month: string;
+        count: string;
+        index: number;
+      }>(
+        `
+          WITH months AS MATERIALIZED (
+            SELECT
+              index,
+              date_trunc('month', current_timestamp)
+                - ((12 - index) * interval '1 month') AS month_start,
+              date_trunc('month', current_timestamp)
+                - ((11 - index) * interval '1 month') AS month_end
+            FROM generate_series(0, 12) AS index
+          )
+          SELECT
+            month.index,
+            to_char(month.month_start, 'Mon YYYY') AS month,
+            count(DISTINCT job.job_node_id)::text AS count
+          FROM months month
+          LEFT JOIN job_search_documents job
+            ON job.published_timestamp >= extract(epoch FROM month.month_start) * 1000
+           AND job.published_timestamp < extract(epoch FROM month.month_end) * 1000
+          GROUP BY month.index, month.month_start, month.month_end
+          ORDER BY month.index
+        `,
+      );
+      return [
+        {
+          organization: "Universe",
+          stats: rows.map(row => ({
+            month: row.month,
+            count: Number(row.count),
+          })),
+        },
+      ];
+    }
+
     const rows = await this.postgres.query<{
       organization: string;
       stats: Array<{ month: string; count: number | string }>;
@@ -331,16 +377,16 @@ export class TelemetryRepository {
           SELECT
             index,
             date_trunc('month', current_timestamp)
-              - (index * interval '1 month') AS month_end,
+              - ((12 - index) * interval '1 month') AS month_start,
             date_trunc('month', current_timestamp)
-              - ((index + 1) * interval '1 month') AS month_start
+              - ((11 - index) * interval '1 month') AS month_end
           FROM generate_series(0, 12) AS index
         ), counts AS (
           SELECT
             organization.organization_id,
             organization.name,
             month.index,
-            to_char(month.month_end, 'FMMonth') AS month,
+            to_char(month.month_start, 'Mon YYYY') AS month,
             count(DISTINCT job.job_node_id)::integer AS count
           FROM organizations organization
           CROSS JOIN months month
@@ -352,6 +398,7 @@ export class TelemetryRepository {
             organization.organization_id,
             organization.name,
             month.index,
+            month.month_start,
             month.month_end
         )
         SELECT
@@ -373,6 +420,80 @@ export class TelemetryRepository {
         count: Number(item.count),
       })),
     }));
+  }
+
+  async getDashboardJobPerformance(options: {
+    type: "ecosystem" | "organization";
+    id: string;
+  }): Promise<
+    {
+      month: string;
+      applications: number;
+      views: number;
+      conversionRate: number;
+    }[]
+  > {
+    const rows = await this.postgres.query<{
+      month: string;
+      applications: string;
+      views: string;
+    }>(
+      `
+        WITH months AS MATERIALIZED (
+          SELECT
+            index,
+            date_trunc('month', current_timestamp)
+              - ((12 - index) * interval '1 month') AS month_start
+          FROM generate_series(0, 12) AS index
+        ), jobs AS MATERIALIZED (
+          SELECT
+            job.job_node_id,
+            date_trunc(
+              'month',
+              to_timestamp(job.published_timestamp / 1000.0)
+            ) AS published_month
+          FROM job_search_documents job
+          WHERE job.published_timestamp >= extract(
+                  epoch FROM current_timestamp - interval '1 year'
+                ) * 1000
+            AND job.published_timestamp <= extract(epoch FROM current_timestamp) * 1000
+            AND CASE
+              WHEN $1 = 'ecosystem' AND $2 = $3 THEN true
+              WHEN $1 = 'ecosystem' THEN $2 = ANY(job.managed_ecosystems)
+              ELSE job.organization_id = $2
+            END
+        ), events AS MATERIALIZED (
+          SELECT
+            job.published_month,
+            count(*) FILTER (WHERE event.type = 'APPLIED_TO') AS applications,
+            count(*) FILTER (WHERE event.type = 'VIEWED_DETAILS') AS views
+          FROM jobs job
+          LEFT JOIN graph_relationships event
+            ON event.target_id = job.job_node_id
+           AND event.type IN ('APPLIED_TO', 'VIEWED_DETAILS')
+          GROUP BY job.published_month
+        )
+        SELECT
+          to_char(month.month_start, 'Mon YYYY') AS month,
+          COALESCE(event.applications, 0)::text AS applications,
+          COALESCE(event.views, 0)::text AS views
+        FROM months month
+        LEFT JOIN events event ON event.published_month = month.month_start
+        ORDER BY month.index
+      `,
+      [options.type, options.id, DASHBOARD_UNIVERSE_ID],
+    );
+    return rows.map(row => {
+      const applications = Number(row.applications);
+      const views = Number(row.views);
+      return {
+        month: row.month,
+        applications,
+        views,
+        conversionRate:
+          views === 0 ? 0 : Math.round((applications / views) * 10_000) / 100,
+      };
+    });
   }
 
   async getDashboardTalentStats(
@@ -451,6 +572,54 @@ export class TelemetryRepository {
         row?.recentApplication === null || row?.recentApplication === undefined
           ? null
           : Number(row.recentApplication),
+    };
+  }
+
+  async getDashboardCryptoDistribution(): Promise<{
+    cryptoNative: number;
+    upcomingTalent: number;
+    traditional: number;
+  }> {
+    const [row] = await this.postgres.query<{
+      cryptoNative: string;
+      upcomingTalent: string;
+      traditional: string;
+    }>(
+      `
+        SELECT
+          count(*) FILTER (
+            WHERE COALESCE(
+              jsonb_boolean_value(properties, 'cryptoNative'), false
+            )
+          )::text AS "cryptoNative",
+          count(*) FILTER (
+            WHERE NOT COALESCE(
+                    jsonb_boolean_value(properties, 'cryptoNative'), false
+                  )
+              AND COALESCE(
+                    jsonb_boolean_value(properties, 'cryptoAdjacent'), false
+                  )
+          )::text AS "upcomingTalent",
+          count(*) FILTER (
+            WHERE NOT COALESCE(
+                    jsonb_boolean_value(properties, 'cryptoNative'), false
+                  )
+              AND NOT COALESCE(
+                    jsonb_boolean_value(properties, 'cryptoAdjacent'), false
+                  )
+          )::text AS traditional
+        FROM graph_nodes
+        WHERE label = 'User'
+          AND NULLIF(btrim(properties ->> 'wallet'), '') IS NOT NULL
+          AND COALESCE(
+                jsonb_boolean_value(properties, 'available'), false
+              )
+      `,
+    );
+    return {
+      cryptoNative: Number(row?.cryptoNative ?? 0),
+      upcomingTalent: Number(row?.upcomingTalent ?? 0),
+      traditional: Number(row?.traditional ?? 0),
     };
   }
 }

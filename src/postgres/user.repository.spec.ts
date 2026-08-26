@@ -52,4 +52,21 @@ describe("UserRepository Agency Talent Pool query", () => {
     expect(sql).toContain("'github'");
     expect(parameters).toEqual(["0xCandidate"]);
   });
+
+  it("ranks and limits top candidates before building their full payloads", async () => {
+    const query = jest.fn().mockResolvedValue([]);
+    const repository = new UserRepository({
+      query,
+    } as unknown as PostgresService);
+
+    await repository.getTopAvailableUsers(50);
+
+    const [sql, parameters] = query.mock.calls[0] as [string, unknown[]];
+    expect(sql).toContain("WITH ranked_users AS MATERIALIZED");
+    expect(sql).toContain("LIMIT $1");
+    expect(sql.indexOf("LIMIT $1")).toBeLessThan(
+      sql.indexOf("SELECT jsonb_build_object("),
+    );
+    expect(parameters).toEqual([50]);
+  });
 });

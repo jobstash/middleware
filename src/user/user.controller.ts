@@ -191,6 +191,20 @@ export class UserController {
     return this.userService.getUsersAvailableForWork(params);
   }
 
+  @Get("admin/available/top")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
+  @UseInterceptors(new CacheHeaderInterceptor({ mode: "no-store" }))
+  @ApiOkResponse({
+    description: "Returns the top opted-in candidates to a superuser",
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(TalentPoolData) }),
+  })
+  async getTopUsersAsSuperadmin(): Promise<
+    ResponseWithOptionalData<TalentPoolData>
+  > {
+    return this.userService.getTopUsers();
+  }
+
   @Get("admin/available/:wallet/report")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.SUPER_ADMIN)

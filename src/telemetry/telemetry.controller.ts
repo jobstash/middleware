@@ -24,6 +24,7 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 // import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 import { UserService } from "src/user/user.service";
 import { GetDashboardJobStatsInput } from "./dto/get-dashboard-job-stats.input";
+import { DASHBOARD_UNIVERSE_ID } from "./telemetry.constants";
 
 @Controller("telemetry")
 export class TelemetryController {
@@ -81,15 +82,11 @@ export class TelemetryController {
     params: GetDashboardJobStatsInput,
   ): Promise<ResponseWithOptionalData<DashboardJobStats>> {
     this.logger.log(`/telemetry/dashboard/stats/jobs`);
-    const orgId = await this.userService.findOrgIdByMemberUserWallet(address);
+    const orgId = permissions.includes(CheckWalletPermissions.SUPER_ADMIN)
+      ? undefined
+      : await this.userService.findOrgIdByMemberUserWallet(address);
 
-    if (
-      (params.type === "ecosystem" &&
-        !permissions.includes(CheckWalletPermissions.ECOSYSTEM_MANAGER)) ||
-      (params.type === "organization" &&
-        params.id !== orgId &&
-        !permissions.includes(CheckWalletPermissions.ORG_MEMBER))
-    ) {
+    if (!this.canAccessJobDashboard(params, orgId, permissions)) {
       return {
         success: false,
         message: "You are not authorized to access this resource",
@@ -119,15 +116,11 @@ export class TelemetryController {
     >
   > {
     this.logger.log(`/telemetry/dashboard/stats/jobs`);
-    const orgId = await this.userService.findOrgIdByMemberUserWallet(address);
+    const orgId = permissions.includes(CheckWalletPermissions.SUPER_ADMIN)
+      ? undefined
+      : await this.userService.findOrgIdByMemberUserWallet(address);
 
-    if (
-      (params.type === "ecosystem" &&
-        !permissions.includes(CheckWalletPermissions.ECOSYSTEM_MANAGER)) ||
-      (params.type === "organization" &&
-        params.id !== orgId &&
-        !permissions.includes(CheckWalletPermissions.ORG_MEMBER))
-    ) {
+    if (!this.canAccessJobDashboard(params, orgId, permissions)) {
       return {
         success: false,
         message: "You are not authorized to access this resource",
@@ -140,6 +133,36 @@ export class TelemetryController {
     });
   }
 
+  @Get("dashboard/stats/jobs/performance")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
+  async getDashboardJobPerformance(
+    @Session() { address, permissions }: SessionObject,
+    @Query(new ValidationPipe({ transform: true }))
+    params: GetDashboardJobStatsInput,
+  ): Promise<
+    ResponseWithOptionalData<
+      {
+        month: string;
+        applications: number;
+        views: number;
+        conversionRate: number;
+      }[]
+    >
+  > {
+    this.logger.log(`/telemetry/dashboard/stats/jobs/performance`);
+    const orgId = permissions.includes(CheckWalletPermissions.SUPER_ADMIN)
+      ? undefined
+      : await this.userService.findOrgIdByMemberUserWallet(address);
+    if (!this.canAccessJobDashboard(params, orgId, permissions)) {
+      return {
+        success: false,
+        message: "You are not authorized to access this resource",
+      };
+    }
+    return this.telemetryService.getDashboardJobPerformance(params);
+  }
+
   @Get("dashboard/stats/talent")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
@@ -150,5 +173,36 @@ export class TelemetryController {
     this.logger.log(`/telemetry/dashboard/stats/talent`);
 
     return this.telemetryService.getDashboardTalentStats();
+  }
+
+  @Get("dashboard/stats/talent/crypto")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
+  async getDashboardCryptoDistribution(): Promise<
+    ResponseWithOptionalData<{
+      cryptoNative: number;
+      upcomingTalent: number;
+      traditional: number;
+    }>
+  > {
+    return this.telemetryService.getDashboardCryptoDistribution();
+  }
+
+  private canAccessJobDashboard(
+    params: GetDashboardJobStatsInput,
+    organizationId: string | undefined,
+    permissions: string[],
+  ): boolean {
+    const isSuperAdmin = permissions.includes(
+      CheckWalletPermissions.SUPER_ADMIN,
+    );
+    if (params.id === DASHBOARD_UNIVERSE_ID) {
+      return params.type === "ecosystem" && isSuperAdmin;
+    }
+    if (isSuperAdmin) return true;
+    if (params.type === "ecosystem") {
+      return permissions.includes(CheckWalletPermissions.ECOSYSTEM_MANAGER);
+    }
+    return params.id === organizationId;
   }
 }

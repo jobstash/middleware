@@ -92,6 +92,36 @@ export class TelemetryService {
     }
   }
 
+  async getDashboardJobPerformance(data: GetDashboardJobStatsInput): Promise<
+    ResponseWithOptionalData<
+      {
+        month: string;
+        applications: number;
+        views: number;
+        conversionRate: number;
+      }[]
+    >
+  > {
+    try {
+      const performance = await this.telemetry.getDashboardJobPerformance({
+        type: data.type,
+        id: data.id,
+      });
+      return {
+        success: true,
+        message: "Retrieved dashboard job performance successfully",
+        data: performance,
+      };
+    } catch (error) {
+      this.capture("getDashboardJobPerformance", error);
+      return {
+        success: false,
+        message: "Error retrieving dashboard job performance",
+        data: [],
+      };
+    }
+  }
+
   async getDashboardTalentStats(): Promise<
     ResponseWithOptionalData<DashboardTalentStats>
   > {
@@ -110,6 +140,29 @@ export class TelemetryService {
       return {
         success: false,
         message: "Error retrieving dashboard talent stats",
+        data: null,
+      };
+    }
+  }
+
+  async getDashboardCryptoDistribution(): Promise<
+    ResponseWithOptionalData<{
+      cryptoNative: number;
+      upcomingTalent: number;
+      traditional: number;
+    }>
+  > {
+    try {
+      return {
+        success: true,
+        message: "Retrieved dashboard crypto distribution successfully",
+        data: await this.telemetry.getDashboardCryptoDistribution(),
+      };
+    } catch (error) {
+      this.capture("getDashboardCryptoDistribution", error);
+      return {
+        success: false,
+        message: "Error retrieving dashboard crypto distribution",
         data: null,
       };
     }

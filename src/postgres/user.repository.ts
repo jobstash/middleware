@@ -1274,6 +1274,51 @@ export class UserRepository {
     return rows.map(row => row.profile);
   }
 
+  async getTopAvailableUsers(limit = 50): Promise<Record<string, unknown>[]> {
+    const rows = await queryRows<{ profile: Record<string, unknown> }>(
+      this.postgres,
+      `
+        WITH ranked_users AS MATERIALIZED (
+          SELECT user.id
+          FROM graph_nodes user
+          WHERE user.label = 'User'
+            AND NULLIF(btrim(user.properties ->> 'wallet'), '') IS NOT NULL
+            AND COALESCE(
+              jsonb_boolean_value(user.properties, 'available'), false
+            )
+          ORDER BY
+            COALESCE(
+              jsonb_boolean_value(user.properties, 'cryptoNative'), false
+            ) DESC,
+            COALESCE(
+              jsonb_boolean_value(user.properties, 'cryptoAdjacent'), false
+            ) DESC,
+            (
+              SELECT count(*)
+              FROM graph_relationships work_history
+              WHERE work_history.source_id = user.id
+                AND work_history.type = 'HAS_WORK_HISTORY'
+            ) DESC,
+            user.id
+          LIMIT $1
+        )
+        SELECT ${signalCandidatePayload()} AS profile
+        FROM ranked_users ranked
+        JOIN graph_nodes user ON user.id = ranked.id
+        ORDER BY
+          COALESCE(
+            jsonb_boolean_value(user.properties, 'cryptoNative'), false
+          ) DESC,
+          COALESCE(
+            jsonb_boolean_value(user.properties, 'cryptoAdjacent'), false
+          ) DESC,
+          user.id
+      `,
+      [limit],
+    );
+    return rows.map(row => row.profile);
+  }
+
   async getAvailableUser(
     wallet: string,
   ): Promise<Record<string, unknown> | undefined> {

@@ -185,6 +185,8 @@ describe("UserController Agency Talent Pool entitlement", () => {
     const { controller, users, access } = build(false);
     const candidatesMethod =
       UserController.prototype.getUsersAvailableForWorkAsSuperadmin;
+    const topCandidatesMethod =
+      UserController.prototype.getTopUsersAsSuperadmin;
     const reportMethod =
       UserController.prototype.getAgencyCandidateReportAsSuperadmin;
 
@@ -195,6 +197,12 @@ describe("UserController Agency Talent Pool entitlement", () => {
       "admin/available",
     );
     expect(Reflect.getMetadata("permissions", candidatesMethod)).toEqual([
+      CheckWalletPermissions.SUPER_ADMIN,
+    ]);
+    expect(Reflect.getMetadata(PATH_METADATA, topCandidatesMethod)).toBe(
+      "admin/available/top",
+    );
+    expect(Reflect.getMetadata("permissions", topCandidatesMethod)).toEqual([
       CheckWalletPermissions.SUPER_ADMIN,
     ]);
     expect(Reflect.getMetadata(PATH_METADATA, reportMethod)).toBe(
@@ -216,9 +224,13 @@ describe("UserController Agency Talent Pool entitlement", () => {
     await expect(
       controller.getAgencyCandidateReportAsSuperadmin("public-opt-in"),
     ).resolves.toMatchObject({ success: true });
+    await expect(controller.getTopUsersAsSuperadmin()).resolves.toMatchObject({
+      success: true,
+    });
 
     expect(access.requireAgencyEntitlement).not.toHaveBeenCalled();
     expect(users.getUsersAvailableForWork).toHaveBeenCalledWith(filters);
+    expect(users.getTopUsers).toHaveBeenCalledWith();
     expect(users.getAgencyCandidateReport).toHaveBeenCalledWith(
       "public-opt-in",
     );

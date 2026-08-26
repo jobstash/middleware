@@ -1064,6 +1064,45 @@ export class SearchDocumentRepository {
     return rows.map(row => row.payload);
   }
 
+  async getUniverseTopJobPayloads(limit = 10): Promise<JobListResult[]> {
+    const rows = await this.postgres.query<{ payload: JobListResult }>(
+      `
+        SELECT
+          ${jobEmployerPayload("job.payload")}
+          || jsonb_build_object(
+            'online', job.online,
+            'blocked', job.blocked,
+            'applications', metrics.applications,
+            'views', metrics.views
+          ) AS payload
+        FROM job_search_documents job
+        ${jobEmployerJoins()}
+        CROSS JOIN LATERAL (
+          SELECT
+            count(*) FILTER (
+              WHERE event.type = 'APPLIED_TO'
+            )::integer AS applications,
+            count(*) FILTER (
+              WHERE event.type = 'VIEWED_DETAILS'
+            )::integer AS views
+          FROM graph_relationships event
+          WHERE event.target_id = job.job_node_id
+            AND event.type IN ('APPLIED_TO', 'VIEWED_DETAILS')
+        ) metrics
+        WHERE cardinality(job.tags) > 0
+          AND num_nonnulls(job.organization_id, job.project_id) = 1
+        ORDER BY
+          metrics.applications DESC,
+          metrics.views DESC,
+          job.published_timestamp DESC NULLS LAST,
+          job.job_node_id
+        LIMIT $1
+      `,
+      [limit],
+    );
+    return rows.map(row => row.payload);
+  }
+
   async searchJobs(
     params: JobSearchParams,
   ): Promise<SearchPage<JobListResult>> {
