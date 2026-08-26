@@ -448,7 +448,7 @@ export class JobListParams {
   query: string | null = null;
 
   @ApiPropertyOptional({
-    description: "Matches job titles using the same rules as title suggestions",
+    description: "Full-text search against job titles only",
   })
   @IsOptional()
   @IsString()

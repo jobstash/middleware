@@ -1209,6 +1209,27 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
       expect(whitespace.total).toBe(0);
     });
 
+    it("requires every submitted term when searching job titles", async () => {
+      await postgres.query(`
+        UPDATE job_search_documents
+        SET title = CASE structured_jobpost_id
+          WHEN 'job-protected' THEN 'Engineering Manager'
+          WHEN 'job-public-beta' THEN 'Staff Engineer'
+          ELSE title
+        END
+        WHERE structured_jobpost_id IN ('job-protected', 'job-public-beta')
+      `);
+
+      const page = await repository.searchJobs({
+        titleQuery: "engineering manager",
+        suppressPublicForExpertOrganizations: false,
+        limit: 100,
+      });
+
+      expect(page.data.map(job => job.id)).toContain("job-protected");
+      expect(page.data.map(job => job.id)).not.toContain("job-public-beta");
+    });
+
     it("handles offline and blocked inclusion modes", async () => {
       await postgres.query(`
         UPDATE job_search_documents

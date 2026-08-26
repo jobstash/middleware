@@ -631,13 +631,14 @@ describe("SearchDocumentRepository", () => {
     expect(sql).toContain("NULL::text[] AS search_values");
   });
 
-  it("filters the complete job list by title with the suggestion matching rules", async () => {
+  it("uses full-text title search for a submitted job-title query", async () => {
     await repository.searchJobs({ titleQuery: "  technical clerk  " });
 
     expect(query).toHaveBeenCalledTimes(1);
     const [sql, parameters] = query.mock.calls[0];
-    expect(sql).toContain("lower(title) LIKE '%' || lower($1) || '%'");
-    expect(sql).toContain("lower(title) % lower($1)");
+    expect(sql).toContain("to_tsvector('simple', COALESCE(title, ''))");
+    expect(sql).toContain("websearch_to_tsquery('simple', $1)");
+    expect(sql).not.toContain("lower(title) % lower($1)");
     expect(sql).toContain("NULL::text[] AS search_values");
     expect(parameters).toEqual(["technical clerk"]);
   });

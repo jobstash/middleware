@@ -1128,10 +1128,10 @@ export class SearchDocumentRepository {
     const titleQuery = params.titleQuery?.trim();
     if (titleQuery) {
       const titleQueryParameter = where.bind(titleQuery);
-      where.add(`(
-        lower(title) LIKE '%' || lower(${titleQueryParameter}) || '%'
-        OR lower(title) % lower(${titleQueryParameter})
-      )`);
+      where.add(`
+        to_tsvector('simple', COALESCE(title, ''))
+          @@ websearch_to_tsquery('simple', ${titleQueryParameter})
+      `);
     }
 
     if (params.ecosystemHeader) {
