@@ -446,4 +446,12 @@ export class JobListParams {
   @IsString()
   @Type(() => String)
   query: string | null = null;
+
+  @ApiPropertyOptional({
+    description: "Matches job titles using the same rules as title suggestions",
+  })
+  @IsOptional()
+  @IsString()
+  @Type(() => String)
+  titleQuery: string | null = null;
 }

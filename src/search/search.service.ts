@@ -106,6 +106,13 @@ const TEAM_FILTER_FIELDS = new Set([
   "earlyLeadDepartures",
 ]);
 
+const JOB_CLASSIFICATION_LABELS = new Map(
+  CANONICAL_JOB_CLASSIFICATIONS.map(classification => [
+    classification.filterKey,
+    classification.label,
+  ]),
+);
+
 const navigationLinkSegments: Partial<
   Record<SearchNav, Record<string, string>>
 > = {
@@ -183,10 +190,10 @@ export class SearchService {
   private readonly logger = new CustomLogger(SearchService.name);
 
   private readonly groupLabels: Record<SuggestionGroupId, string> = {
-    jobs: "Jobs",
+    jobs: "Job Titles",
     organizations: "Organizations",
     tags: "Tags",
-    classifications: "Classifications",
+    classifications: "Job Category",
     workModes: "Work Mode",
     locations: "Locations",
     investors: "Investors",
@@ -1085,9 +1092,7 @@ export class SearchService {
         ),
       ];
       const filters: (
-        | SearchRangeFilter
-        | SingleSelectFilter
-        | MultiSelectFilter
+        SearchRangeFilter | SingleSelectFilter | MultiSelectFilter
       )[] = [];
       for (const filter of filterNames) {
         const configs = this.filterConfigs(allConfigs, params, filter);
@@ -1305,12 +1310,19 @@ export class SearchService {
         limit: limit + 1,
       });
       const unique = [...new Map(items.map(item => [item.id, item])).values()];
+      const normalized =
+        activeGroup === "classifications"
+          ? unique.map(item => ({
+              ...item,
+              label: JOB_CLASSIFICATION_LABELS.get(item.id) ?? item.label,
+            }))
+          : unique;
       return {
         groups,
         activeGroup,
-        items: unique.slice(0, limit),
+        items: normalized.slice(0, limit),
         page,
-        hasMore: unique.length > limit,
+        hasMore: normalized.length > limit,
       };
     } catch (error) {
       this.captureDatabaseError("getJobSuggestions", error);

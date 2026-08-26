@@ -3,6 +3,49 @@ import { publicationDateRangeGenerator } from "src/shared/helpers";
 import { SearchService } from "./search.service";
 
 describe("SearchService organization intelligence filters", () => {
+  it("names the job suggestion tabs clearly and returns canonical category labels", async () => {
+    const getSuggestionGroups = jest
+      .fn()
+      .mockResolvedValue(["jobs", "classifications"]);
+    const getSuggestionItems = jest.fn().mockResolvedValue([
+      {
+        id: "forward-deployed-engineer",
+        label: "FORWARD_DEPLOYED_ENGINEER",
+        href: "/cl-forward-deployed-engineer",
+      },
+    ]);
+    const service = new SearchService(
+      {
+        getSuggestionGroups,
+        getSuggestionItems,
+      } as unknown as SearchRepository,
+      {} as never,
+      {} as never,
+    );
+
+    await expect(
+      service.getJobSuggestions({
+        q: "forward",
+        group: "classifications",
+        page: 1,
+        limit: 5,
+      }),
+    ).resolves.toMatchObject({
+      groups: [
+        { id: "jobs", label: "Job Titles" },
+        { id: "classifications", label: "Job Category" },
+      ],
+      activeGroup: "classifications",
+      items: [
+        {
+          id: "forward-deployed-engineer",
+          label: "Forward Deployed Engineer",
+          href: "/cl-forward-deployed-engineer",
+        },
+      ],
+    });
+  });
+
   it("keeps the canonical zero-job FDE pillar available but noindex", async () => {
     const getPillarJobs = jest.fn().mockResolvedValue([]);
     const service = new SearchService(

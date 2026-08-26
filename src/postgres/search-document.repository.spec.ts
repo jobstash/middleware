@@ -617,6 +617,17 @@ describe("SearchDocumentRepository", () => {
     expect(sql).toContain("NULL::text[] AS search_values");
   });
 
+  it("filters the complete job list by title with the suggestion matching rules", async () => {
+    await repository.searchJobs({ titleQuery: "  technical clerk  " });
+
+    expect(query).toHaveBeenCalledTimes(1);
+    const [sql, parameters] = query.mock.calls[0];
+    expect(sql).toContain("lower(title) LIKE '%' || lower($1) || '%'");
+    expect(sql).toContain("lower(title) % lower($1)");
+    expect(sql).toContain("NULL::text[] AS search_values");
+    expect(parameters).toEqual(["technical clerk"]);
+  });
+
   it("uses the projected legacy fuzzysort targets", async () => {
     query
       .mockResolvedValueOnce([

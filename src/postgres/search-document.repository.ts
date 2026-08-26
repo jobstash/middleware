@@ -1086,6 +1086,14 @@ export class SearchDocumentRepository {
         `published_timestamp <= ${where.bind(params.publishedBeforeOrAt)}`,
       );
     }
+    const titleQuery = params.titleQuery?.trim();
+    if (titleQuery) {
+      const titleQueryParameter = where.bind(titleQuery);
+      where.add(`(
+        lower(title) LIKE '%' || lower(${titleQueryParameter}) || '%'
+        OR lower(title) % lower(${titleQueryParameter})
+      )`);
+    }
 
     if (params.ecosystemHeader) {
       where.add(
