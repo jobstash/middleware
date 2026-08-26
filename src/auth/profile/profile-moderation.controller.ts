@@ -20,6 +20,12 @@ import {
   ModerateRecruiterCaseInput,
 } from "./dto/create-profile-review.input";
 
+type ProfileModerationResponse = {
+  success: true;
+  message: string;
+  data: Record<string, unknown>;
+};
+
 @Controller("profile-moderation")
 @UseGuards(PBACGuard)
 @Permissions(CheckWalletPermissions.SUPER_ADMIN)
@@ -31,7 +37,9 @@ export class ProfileModerationController {
     description:
       "Pending Profile reviews, recruiter reports, public warnings, and appeals",
   })
-  async getQueue(@Query("limit") rawLimit?: string) {
+  async getQueue(
+    @Query("limit") rawLimit?: string,
+  ): Promise<ProfileModerationResponse> {
     const limit = Math.max(1, Math.min(Number(rawLimit) || 100, 250));
     return {
       success: true as const,
@@ -45,7 +53,7 @@ export class ProfileModerationController {
     @Session() session: SessionObject,
     @Param("reviewId") reviewId: string,
     @Body() input: ModerateProfileReviewInput,
-  ) {
+  ): Promise<ProfileModerationResponse> {
     const review = await this.profiles.moderateProfileReview(
       reviewId,
       session.address!,
@@ -64,7 +72,7 @@ export class ProfileModerationController {
     @Session() session: SessionObject,
     @Param("caseId") caseId: string,
     @Body() input: ModerateRecruiterCaseInput,
-  ) {
+  ): Promise<ProfileModerationResponse> {
     const recruiterCase = await this.profiles.moderateRecruiterCase(
       caseId,
       session.address!,
@@ -88,7 +96,7 @@ export class ProfileModerationController {
     @Session() session: SessionObject,
     @Param("appealId") appealId: string,
     @Body() input: ModerateProfileAppealInput,
-  ) {
+  ): Promise<ProfileModerationResponse> {
     const appeal = await this.profiles.moderateProfileAppeal(
       appealId,
       session.address!,
