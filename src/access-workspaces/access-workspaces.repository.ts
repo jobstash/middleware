@@ -211,6 +211,18 @@ export class AccessWorkspacesRepository {
               )
               OR career.job_node_id IS NOT NULL
             )
+        ), owner_by_job AS MATERIALIZED (
+          SELECT DISTINCT ON (ownership.job_node_id)
+            ownership.job_node_id,
+            organization.organization_id,
+            organization.name,
+            organization.slug,
+            organization.payload ->> 'logoUrl' AS logo_url
+          FROM job_search_owners ownership
+          JOIN organization_search_documents organization
+            ON organization.organization_node_id = ownership.organization_node_id
+          ORDER BY ownership.job_node_id, organization.name,
+            organization.organization_node_id
         ), scoped_jobs AS MATERIALIZED (
           SELECT job.job_node_id, job.short_uuid, job.title, job.location,
             job.published_timestamp, job.online,
@@ -243,17 +255,8 @@ export class AccessWorkspacesRepository {
             ON direct_organization.organization_id = job.organization_id
           LEFT JOIN project_search_documents project
             ON project.project_id = job.project_id
-          LEFT JOIN LATERAL (
-            SELECT organization.organization_id, organization.name,
-              organization.slug,
-              organization.payload ->> 'logoUrl' AS logo_url
-            FROM job_search_owners ownership
-            JOIN organization_search_documents organization
-              ON organization.organization_node_id = ownership.organization_node_id
-            WHERE ownership.job_node_id = job.job_node_id
-            ORDER BY organization.name, organization.organization_node_id
-            LIMIT 1
-          ) owner ON true
+          LEFT JOIN owner_by_job owner
+            ON owner.job_node_id = job.job_node_id
           WHERE NOT job.blocked
             AND ($2::boolean OR job.online)
         ), bounty_jobs AS MATERIALIZED (
