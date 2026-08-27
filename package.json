@@ -93,7 +93,7 @@
     "ts-morph": "^25.0.0",
     "typeorm": "^0.3.21",
     "uuid": "^11.0.4",
-    "viem": "^2.22.2"
+    "viem": "2.22.2"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
@@ -135,7 +135,7 @@
     "ts-loader": "^9.5.1",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "4.2.0",
-    "typescript": "^5.7.2",
+    "typescript": "5.7.2",
     "webpack": "^5.99.6"
   },
   "jest": {
@@ -162,7 +162,8 @@
       "<rootDir>/test/jest.setup.cjs"
     ],
     "roots": [
-      "<rootDir>"
+      "<rootDir>/src",
+      "<rootDir>/scripts"
     ],
     "modulePaths": [
       "<rootDir>"

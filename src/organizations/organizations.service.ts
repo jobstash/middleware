@@ -404,21 +404,7 @@ export class OrganizationsService {
              FROM graph_nodes
              WHERE label = 'CfImportRecord' AND properties ->> 'kind' = 'fund') AS "lastImportedTimestamp"
         `),
-      this.postgres.query<Record<string, unknown>>(`
-          SELECT
-            (SELECT count(*)::int FROM github_indexer_lifecycle_queue) AS "queueDepth",
-            (SELECT count(*)::int FROM github_indexer_lifecycle_queue
-             WHERE locked_at IS NOT NULL) AS "inProgress",
-            (SELECT count(*)::int FROM github_indexer_lifecycle_queue
-             WHERE last_error IS NOT NULL AND locked_at IS NULL) AS "retrying",
-            (SELECT count(*)::int FROM github_indexer_lifecycle_state
-             WHERE corpus_fingerprint IS NOT NULL) AS "reconciledCorpusFingerprints",
-            requested_revision::text AS "dbtRequestedRevision",
-            completed_revision::text AS "dbtCompletedRevision",
-            last_error AS "dbtLastError", completed_at AS "dbtCompletedAt"
-          FROM github_indexer_dbt_refresh_state
-          WHERE singleton = true
-        `),
+      this.getGithubIndexerLifecycleRows(),
       this.postgres.query<{
         organizationReviewPending: number;
         projectReviewPending: number;
@@ -540,6 +526,123 @@ export class OrganizationsService {
         ? { ...githubRows[0], runtime: githubIndexerRuntime }
         : null,
     };
+  }
+
+  async getGithubIngestionStatus(): Promise<Record<string, unknown>> {
+    const [lifecycleResult, runtimeResult] = await Promise.allSettled([
+      this.getGithubIndexerLifecycleRows(),
+      this.getGithubIndexerRuntimeStatus([]),
+    ]);
+    const lifecycleRows =
+      lifecycleResult.status === "fulfilled" ? lifecycleResult.value : [];
+    const lifecycle = lifecycleRows[0] ?? {
+      queueDepth: 0,
+      inProgress: 0,
+      retrying: 0,
+      reconciledCorpusFingerprints: 0,
+      dbtRequestedRevision: "0",
+      dbtCompletedRevision: "0",
+      dbtLastError: null,
+      dbtCompletedAt: null,
+    };
+    const runtime =
+      runtimeResult.status === "fulfilled" ? runtimeResult.value : null;
+
+    return {
+      generatedAt: new Date().toISOString(),
+      ...lifecycle,
+      lifecycleAvailable: lifecycleResult.status === "fulfilled",
+      lifecycleError:
+        lifecycleResult.status === "rejected"
+          ? lifecycleResult.reason instanceof Error
+            ? lifecycleResult.reason.message
+            : String(lifecycleResult.reason)
+          : null,
+      runtimeAvailable: runtime !== null,
+      runtime,
+    };
+  }
+
+  async getJobIngestionStatus(): Promise<Record<string, unknown>> {
+    const [catalogResult, etlResult] = await Promise.allSettled([
+      this.postgres.query<{
+        activeJobsites: number;
+        totalJobs: number;
+        dailyJobViewers: number;
+      }>(`
+        SELECT
+          (SELECT count(*)::int
+           FROM graph_nodes
+           WHERE label = 'Jobsite') AS "activeJobsites",
+          (SELECT count(*)::int
+           FROM graph_nodes
+           WHERE label = 'StructuredJobpost') AS "totalJobs",
+          (SELECT count(DISTINCT event.source_id)::int
+           FROM graph_relationships event
+           JOIN graph_nodes viewer
+             ON viewer.id = event.source_id AND viewer.label = 'User'
+           WHERE event.type = 'VIEWED_DETAILS'
+             AND NULLIF(
+                   event.properties ->> 'createdTimestamp',
+                   ''
+                 )::numeric >= extract(epoch FROM (
+                   date_trunc('day', now() AT TIME ZONE 'UTC')
+                   AT TIME ZONE 'UTC'
+                 )) * 1000) AS "dailyJobViewers"
+      `),
+      this.getJobpostImportMetrics(),
+    ]);
+    const catalogRows =
+      catalogResult.status === "fulfilled" ? catalogResult.value : [];
+    const catalog = catalogRows[0] ?? {
+      activeJobsites: 0,
+      totalJobs: 0,
+      dailyJobViewers: 0,
+    };
+    const etl =
+      etlResult.status === "fulfilled"
+        ? etlResult.value
+        : { available: false, error: String(etlResult.reason) };
+
+    return {
+      generatedAt: new Date().toISOString(),
+      catalogAvailable: catalogResult.status === "fulfilled",
+      catalogError:
+        catalogResult.status === "rejected"
+          ? catalogResult.reason instanceof Error
+            ? catalogResult.reason.message
+            : String(catalogResult.reason)
+          : null,
+      current: { totalJobs: 0, onlineJobs: 0, offlineJobs: 0 },
+      monthlySeries: [],
+      run: null,
+      ...catalog,
+      ...etl,
+      dailyJobViewers: Number(catalog.dailyJobViewers ?? 0),
+      totalJobs: Number(
+        (etl.current as { totalJobs?: unknown } | undefined)?.totalJobs ??
+          catalog.totalJobs ??
+          0,
+      ),
+    };
+  }
+
+  private getGithubIndexerLifecycleRows(): Promise<Record<string, unknown>[]> {
+    return this.postgres.query<Record<string, unknown>>(`
+      SELECT
+        (SELECT count(*)::int FROM github_indexer_lifecycle_queue) AS "queueDepth",
+        (SELECT count(*)::int FROM github_indexer_lifecycle_queue
+         WHERE locked_at IS NOT NULL) AS "inProgress",
+        (SELECT count(*)::int FROM github_indexer_lifecycle_queue
+         WHERE last_error IS NOT NULL AND locked_at IS NULL) AS "retrying",
+        (SELECT count(*)::int FROM github_indexer_lifecycle_state
+         WHERE corpus_fingerprint IS NOT NULL) AS "reconciledCorpusFingerprints",
+        requested_revision::text AS "dbtRequestedRevision",
+        completed_revision::text AS "dbtCompletedRevision",
+        last_error AS "dbtLastError", completed_at AS "dbtCompletedAt"
+      FROM github_indexer_dbt_refresh_state
+      WHERE singleton = true
+    `);
   }
 
   private async getJobpostImportMetrics(): Promise<Record<string, unknown>> {
@@ -1204,8 +1307,7 @@ export class OrganizationsService {
     } catch (error) {
       const response = axios.isAxiosError(error) ? error.response : undefined;
       const responseData = response?.data as
-        | { message?: string | string[] }
-        | undefined;
+        { message?: string | string[] } | undefined;
       const rawMessage = responseData?.message;
       const message = Array.isArray(rawMessage)
         ? rawMessage.join(", ")

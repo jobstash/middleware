@@ -21,6 +21,7 @@ import {
   CollisionDetailQueryDto,
   CollisionListQueryDto,
   CreateEntityReconciliationRunDto,
+  CreateEntityEnrichmentRunDto,
   CreateImportRunDto,
   CreateStructuredRefreshDto,
   ExecuteInferenceBatchDto,
@@ -28,7 +29,6 @@ import {
   InferenceRunTelemetryDto,
   PublishStructuredRefreshDto,
   ResolveCollisionDto,
-  TriggerJobpostSourcesDto,
 } from "./admin-ingestion.dto";
 import { AdminIngestionService } from "./admin-ingestion.service";
 
@@ -67,20 +67,78 @@ const hasQuotedEvidence = (value: unknown, key = ""): boolean => {
 export class AdminIngestionController {
   constructor(private readonly ingestion: AdminIngestionService) {}
 
+  @Post("entity-enrichment/runs")
+  @HttpCode(HttpStatus.ACCEPTED)
+  createEntityEnrichmentRun(
+    @Body(strictBody) input: CreateEntityEnrichmentRunDto,
+  ): Promise<unknown> {
+    return this.ingestion.createEntityEnrichmentRun(input);
+  }
+
+  @Get("entity-enrichment/runs")
+  listEntityEnrichmentRuns(
+    @Query("page") page = "1",
+    @Query("pageSize") pageSize = "20",
+  ): Promise<unknown> {
+    return this.ingestion.listEntityEnrichmentRuns(page, pageSize);
+  }
+
+  @Get("entity-enrichment/runs/:runId")
+  getEntityEnrichmentRun(
+    @Param("runId", new ParseUUIDPipe()) runId: string,
+  ): Promise<unknown> {
+    return this.ingestion.getEntityEnrichmentRun(runId);
+  }
+
+  @Get("entity-enrichment/runs/:runId/items")
+  getEntityEnrichmentItems(
+    @Param("runId", new ParseUUIDPipe()) runId: string,
+    @Query("page") page = "1",
+    @Query("pageSize") pageSize = "50",
+    @Query("status") status?: string,
+  ): Promise<unknown> {
+    return this.ingestion.getEntityEnrichmentItems(
+      runId,
+      page,
+      pageSize,
+      status,
+    );
+  }
+
+  @Post("entity-enrichment/runs/:runId/retry-failed")
+  retryFailedEntityEnrichmentItems(
+    @Param("runId", new ParseUUIDPipe()) runId: string,
+  ): Promise<unknown> {
+    return this.ingestion.retryFailedEntityEnrichmentItems(runId);
+  }
+
+  @Post("entity-enrichment/runs/:runId/rerun")
+  rerunEntityEnrichment(
+    @Param("runId", new ParseUUIDPipe()) runId: string,
+  ): Promise<unknown> {
+    return this.ingestion.rerunEntityEnrichment(runId);
+  }
+
+  @Post("entity-enrichment/items/:itemId/retry")
+  retryEntityEnrichmentItem(
+    @Param("itemId", new ParseUUIDPipe()) itemId: string,
+  ): Promise<unknown> {
+    return this.ingestion.retryEntityEnrichmentItem(itemId);
+  }
+
+  @Post("entity-enrichment/items/:itemId/rerun")
+  rerunEntityEnrichmentItem(
+    @Param("itemId", new ParseUUIDPipe()) itemId: string,
+  ): Promise<unknown> {
+    return this.ingestion.rerunEntityEnrichmentItem(itemId);
+  }
+
   @Post("import-runs")
   @HttpCode(HttpStatus.ACCEPTED)
   createImportRun(
     @Body(strictBody) input: CreateImportRunDto,
   ): Promise<unknown> {
     return this.ingestion.createImportRun(input);
-  }
-
-  @Post("jobposts/sources")
-  @HttpCode(HttpStatus.ACCEPTED)
-  triggerJobpostSources(
-    @Body(strictBody) input: TriggerJobpostSourcesDto,
-  ): Promise<unknown> {
-    return this.ingestion.triggerJobpostSources(input.sources);
   }
 
   @Post("jobposts/publish/telegram")

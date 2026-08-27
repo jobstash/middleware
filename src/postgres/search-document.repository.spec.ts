@@ -590,6 +590,17 @@ describe("SearchDocumentRepository", () => {
     expect(sql).toContain("(organization_id IS NOT NULL OR has_token)");
   });
 
+  it("never serves future-dated jobs while retaining protected-job sprinkling", async () => {
+    await repository.searchJobs({});
+
+    const [sql] = query.mock.calls[0];
+    expect(sql).toContain("published_timestamp IS NULL");
+    expect(sql).toContain(
+      "published_timestamp <=\n        (extract(epoch FROM statement_timestamp()) * 1000)::bigint",
+    );
+    expect(sql).toContain("access");
+  });
+
   it("activates false project booleans when another organization filter is truthy", async () => {
     await repository.searchJobs({
       minHeadCount: 10,

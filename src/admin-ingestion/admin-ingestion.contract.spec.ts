@@ -6,6 +6,7 @@ import { CheckWalletPermissions } from "src/shared/constants";
 import { AdminIngestionController } from "./admin-ingestion.controller";
 import {
   CreateInferenceCanaryCampaignDto,
+  CreateEntityEnrichmentRunDto,
   CreateStructuredRefreshDto,
   ExecuteInferenceBatchDto,
   PublishStructuredRefreshDto,
@@ -27,12 +28,6 @@ describe("admin ingestion contracts", () => {
         AdminIngestionController.prototype.createImportRun,
       ),
     ).toBe("import-runs");
-    expect(
-      Reflect.getMetadata(
-        PATH_METADATA,
-        AdminIngestionController.prototype.triggerJobpostSources,
-      ),
-    ).toBe("jobposts/sources");
     expect(
       Reflect.getMetadata(
         PATH_METADATA,
@@ -63,6 +58,37 @@ describe("admin ingestion contracts", () => {
         AdminIngestionController.prototype.reconcileEntityCorpus,
       ),
     ).toBe("entity-reconciliation/runs");
+    expect(
+      Reflect.getMetadata(
+        PATH_METADATA,
+        AdminIngestionController.prototype.createEntityEnrichmentRun,
+      ),
+    ).toBe("entity-enrichment/runs");
+    expect(
+      Reflect.getMetadata(
+        PATH_METADATA,
+        AdminIngestionController.prototype.retryEntityEnrichmentItem,
+      ),
+    ).toBe("entity-enrichment/items/:itemId/retry");
+  });
+
+  it("validates bounded entity enrichment operations", async () => {
+    const valid = plainToInstance(CreateEntityEnrichmentRunDto, {
+      operation: "all",
+      concurrency: 50,
+      fresh: true,
+    });
+    const invalidOperation = plainToInstance(CreateEntityEnrichmentRunDto, {
+      operation: "everything",
+      concurrency: 50,
+    });
+    const invalidConcurrency = plainToInstance(CreateEntityEnrichmentRunDto, {
+      operation: "sparse",
+      concurrency: 51,
+    });
+    expect(await validate(valid)).toHaveLength(0);
+    expect(await validate(invalidOperation)).not.toHaveLength(0);
+    expect(await validate(invalidConcurrency)).not.toHaveLength(0);
   });
 
   it.each([

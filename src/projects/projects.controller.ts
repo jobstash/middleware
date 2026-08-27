@@ -826,9 +826,13 @@ export class ProjectsController {
         file.originalname,
       );
       const type = file.mimetype;
-      const fileForUpload = new File([file.buffer], file.originalname, {
-        type,
-      });
+      const fileForUpload = new File(
+        [Uint8Array.from(file.buffer)],
+        file.originalname,
+        {
+          type,
+        },
+      );
 
       const storageResult = await this.nftStorageClient.store({
         image: fileForUpload,

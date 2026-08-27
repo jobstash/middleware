@@ -242,6 +242,20 @@ export class OrganizationsController {
     return this.organizationsService.getIngestionStatus();
   }
 
+  @Get("/ingestion-github-status")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
+  async getGithubIngestionStatus(): Promise<Record<string, unknown>> {
+    return this.organizationsService.getGithubIngestionStatus();
+  }
+
+  @Get("/ingestion-job-status")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
+  async getJobIngestionStatus(): Promise<Record<string, unknown>> {
+    return this.organizationsService.getJobIngestionStatus();
+  }
+
   @Get("/list")
   @UseInterceptors(new CacheHeaderInterceptor({ mode: "revalidate-always" }))
   @ApiHeader({
@@ -535,9 +549,13 @@ export class OrganizationsController {
         file.originalname,
       );
       const type = file.mimetype;
-      const fileForUpload = new File([file.buffer], file.originalname, {
-        type,
-      });
+      const fileForUpload = new File(
+        [Uint8Array.from(file.buffer)],
+        file.originalname,
+        {
+          type,
+        },
+      );
 
       const storageResult = await this.nftStorageClient.store({
         image: fileForUpload,

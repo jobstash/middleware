@@ -8,8 +8,6 @@ import {
 import { AxiosError } from "axios";
 import { TransformFnParams } from "class-transformer";
 import {
-  endOfDay,
-  endOfMonth,
   startOfDay,
   startOfMonth,
   subDays,
@@ -206,6 +204,9 @@ export const publicationDateRangeGenerator = (
 ): { startDate: number; endDate: number } => {
   const logger = new CustomLogger("PublicationDateRangeGenerator");
   const now = Date.now();
+  // End bounds are exclusive. Cap every range at the instant the request is
+  // evaluated so a future-dated source record can never enter a current feed.
+  const currentInstantExclusive = now + 1;
   if (dateRange === null) {
     logger.warn("No date range provided, returning null");
     return { startDate: null, endDate: null };
@@ -214,36 +215,36 @@ export const publicationDateRangeGenerator = (
     case "today":
       return {
         startDate: startOfDay(now).getTime(),
-        endDate: endOfDay(now).getTime(),
+        endDate: currentInstantExclusive,
       };
     case "this-week":
       const sevenDaysAgo = subDays(now, 7);
       return {
         startDate: startOfDay(sevenDaysAgo).getTime(),
-        endDate: endOfDay(now).getTime(),
+        endDate: currentInstantExclusive,
       };
     case "this-month":
       return {
         startDate: startOfMonth(now).getTime(),
-        endDate: endOfMonth(now).getTime(),
+        endDate: currentInstantExclusive,
       };
     case "past-2-weeks":
       const twoWeeksAgo = subWeeks(now, 2);
       return {
         startDate: startOfDay(twoWeeksAgo).getTime(),
-        endDate: endOfDay(now).getTime(),
+        endDate: currentInstantExclusive,
       };
     case "past-3-months":
       const threeMonthsAgo = subMonths(now, 3);
       return {
         startDate: startOfDay(threeMonthsAgo).getTime(),
-        endDate: endOfDay(now).getTime(),
+        endDate: currentInstantExclusive,
       };
     case "past-6-months":
       const sixMonthsAgo = subMonths(now, 6);
       return {
         startDate: startOfDay(sixMonthsAgo).getTime(),
-        endDate: endOfDay(now).getTime(),
+        endDate: currentInstantExclusive,
       };
     default:
       return { startDate: null, endDate: null };

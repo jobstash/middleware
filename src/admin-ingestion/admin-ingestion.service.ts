@@ -13,6 +13,7 @@ import { PostgresService } from "src/postgres/postgres.service";
 import {
   CollisionListQueryDto,
   CreateEntityReconciliationRunDto,
+  CreateEntityEnrichmentRunDto,
   CreateImportRunDto,
   CreateInferenceCanaryCampaignDto,
   CreateStructuredRefreshDto,
@@ -40,12 +41,58 @@ export class AdminIngestionService {
     private readonly postgres: PostgresService,
   ) {}
 
-  createImportRun(input: CreateImportRunDto): Promise<unknown> {
-    return this.request("POST", "/imports/runs", input);
+  createEntityEnrichmentRun(
+    input: CreateEntityEnrichmentRunDto,
+  ): Promise<unknown> {
+    return this.request("POST", "/entity-enrichment/runs", input);
   }
 
-  triggerJobpostSources(sources: string[]): Promise<unknown> {
-    return this.request("POST", "/jobposts/sources", undefined, { sources });
+  listEntityEnrichmentRuns(page: string, pageSize: string): Promise<unknown> {
+    return this.request("GET", "/entity-enrichment/runs", undefined, {
+      page,
+      pageSize,
+    });
+  }
+
+  getEntityEnrichmentRun(runId: string): Promise<unknown> {
+    return this.request("GET", `/entity-enrichment/runs/${runId}`);
+  }
+
+  getEntityEnrichmentItems(
+    runId: string,
+    page: string,
+    pageSize: string,
+    status?: string,
+  ): Promise<unknown> {
+    return this.request(
+      "GET",
+      `/entity-enrichment/runs/${runId}/items`,
+      undefined,
+      { page, pageSize, ...(status ? { status } : {}) },
+    );
+  }
+
+  retryFailedEntityEnrichmentItems(runId: string): Promise<unknown> {
+    return this.request(
+      "POST",
+      `/entity-enrichment/runs/${runId}/retry-failed`,
+    );
+  }
+
+  rerunEntityEnrichment(runId: string): Promise<unknown> {
+    return this.request("POST", `/entity-enrichment/runs/${runId}/rerun`);
+  }
+
+  retryEntityEnrichmentItem(itemId: string): Promise<unknown> {
+    return this.request("POST", `/entity-enrichment/items/${itemId}/retry`);
+  }
+
+  rerunEntityEnrichmentItem(itemId: string): Promise<unknown> {
+    return this.request("POST", `/entity-enrichment/items/${itemId}/rerun`);
+  }
+
+  createImportRun(input: CreateImportRunDto): Promise<unknown> {
+    return this.request("POST", "/imports/runs", input);
   }
 
   publishJobpostsToTelegram(): Promise<unknown> {

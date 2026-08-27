@@ -21,6 +21,26 @@ describe("filter service contracts", () => {
   });
 
   it.each([
+    ["today", new Date(2026, 6, 12)],
+    ["this-week", new Date(2026, 6, 5)],
+    ["this-month", new Date(2026, 6, 1)],
+    ["past-2-weeks", new Date(2026, 5, 28)],
+    ["past-3-months", new Date(2026, 3, 12)],
+    ["past-6-months", new Date(2026, 0, 12)],
+  ] as Array<[DateRange, Date]>)(
+    "maps publication range %s from its exact start through the current instant",
+    (range, expectedStart) => {
+      const now = new Date(2026, 6, 12, 14, 0, 0, 0);
+      jest.useFakeTimers().setSystemTime(now);
+
+      const result = publicationDateRangeGenerator(range);
+
+      expect(result.startDate).toBe(expectedStart.getTime());
+      expect(result.endDate).toBe(now.getTime() + 1);
+    },
+  );
+
+  it.each([
     "today",
     "this-week",
     "this-month",

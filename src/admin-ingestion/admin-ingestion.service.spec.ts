@@ -88,20 +88,45 @@ describe("AdminIngestionService", () => {
     );
   });
 
-  it("forwards selected job sources and Telegram publishing to ETL", async () => {
-    await service.triggerJobpostSources(["greenhouse", "lever"]);
-    await service.publishJobpostsToTelegram();
+  it("forwards entity enrichment runs, pagination, and item retries through the BFF", async () => {
+    const runId = "f9500341-2ccd-4a1b-909a-853f66c41285";
+    const itemId = "e9500341-2ccd-4a1b-909a-853f66c41285";
+    await service.createEntityEnrichmentRun({
+      operation: "sparse",
+      concurrency: 50,
+    });
+    await service.getEntityEnrichmentItems(runId, "2", "50", "failed");
+    await service.retryEntityEnrichmentItem(itemId);
 
     expect(request).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
         method: "POST",
-        url: "https://etl.internal/jobposts/sources",
-        params: { sources: ["greenhouse", "lever"] },
+        url: "https://etl.internal/entity-enrichment/runs",
+        data: { operation: "sparse", concurrency: 50 },
       }),
     );
     expect(request).toHaveBeenNthCalledWith(
       2,
+      expect.objectContaining({
+        method: "GET",
+        url: `https://etl.internal/entity-enrichment/runs/${runId}/items`,
+        params: { page: "2", pageSize: "50", status: "failed" },
+      }),
+    );
+    expect(request).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        method: "POST",
+        url: `https://etl.internal/entity-enrichment/items/${itemId}/retry`,
+      }),
+    );
+  });
+
+  it("forwards Telegram publishing to ETL", async () => {
+    await service.publishJobpostsToTelegram();
+
+    expect(request).toHaveBeenCalledWith(
       expect.objectContaining({
         method: "POST",
         url: "https://etl.internal/jobposts/publish",

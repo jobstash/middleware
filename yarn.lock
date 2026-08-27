@@ -9564,7 +9564,7 @@ typeorm@^0.3.21:
     uuid "^11.1.1"
     yargs "^17.7.2"
 
-typescript@5.7.2, typescript@^5.7.2:
+typescript@5.7.2:
   version "5.7.2"
   resolved "https://registry.yarnpkg.com/typescript/-/typescript-5.7.2.tgz#3169cf8c4c8a828cde53ba9ecb3d2b1d5dd67be6"
   integrity sha512-i5t66RHxDvVN40HfDd1PsEThGNnlMCMT3jMUuoh9/0TaqWevNontacunWyN02LA9/fIbEWlcHZcgTKb9QoaLfg==
@@ -9760,7 +9760,7 @@ viem@^2.14.1:
     webauthn-p256 "0.0.5"
     ws "8.17.1"
 
-viem@^2.22.2:
+viem@2.22.2:
   version "2.22.2"
   resolved "https://registry.yarnpkg.com/viem/-/viem-2.22.2.tgz#ec25affced2491ea3984cc8ce5d3d4b760ae85b1"
   integrity sha512-HNATy2rwkQcC1JRYBJJujJTtVtDkWlQEB7GvAtn4GBXdbBROnjs8pGXwJAWhb/crErVk5yJ/Fh50yGtA9VZh8A==

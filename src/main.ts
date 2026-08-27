@@ -6,8 +6,8 @@ import "@sentry/tracing";
 import helmet from "helmet";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import { ValidationPipe } from "@nestjs/common";
-import { ironSession } from "iron-session/express";
-import { IronSessionOptions } from "iron-session";
+import type { RequestHandler } from "express";
+import type { IronSessionOptions } from "iron-session";
 import * as dotenv from "dotenv";
 // import * as express from "express";
 import * as basicAuth from "express-basic-auth";
@@ -25,6 +25,13 @@ dotenv.config();
 // `.default` lookup at runtime.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const cluster = require("node:cluster") as Cluster;
+
+// iron-session 6 publishes runtime CommonJS files for this subpath, but its
+// package metadata points TypeScript at an unbuildable source entry.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { ironSession } = require("iron-session/express") as {
+  ironSession(options: IronSessionOptions): RequestHandler;
+};
 
 if (!process.env.SESSION_SECRET) throw new Error("SESSION_SECRET must be set");
 

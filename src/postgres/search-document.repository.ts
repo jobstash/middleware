@@ -1116,6 +1116,11 @@ export class SearchDocumentRepository {
     where.add("legacy_list_eligible");
     where.add("num_nonnulls(organization_id, project_id) = 1");
     where.add("cardinality(tags) > 0");
+    where.add(`(
+      published_timestamp IS NULL
+      OR published_timestamp <=
+        (extract(epoch FROM statement_timestamp()) * 1000)::bigint
+    )`);
     if (params.suppressPublicForExpertOrganizations !== false) {
       where.add("NOT (access = 'public' AND organization_has_expert_jobs)");
     }
