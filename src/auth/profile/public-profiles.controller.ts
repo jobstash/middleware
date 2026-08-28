@@ -1,10 +1,12 @@
 import {
   BadRequestException,
   Body,
+  ConflictException,
   Controller,
   Get,
   NotFoundException,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -20,6 +22,7 @@ import {
   CreateProfileAppealInput,
   CreateRecruiterCaseInput,
 } from "./dto/create-profile-review.input";
+import { UpdateEntityProfileInput } from "./dto/update-entity-profile.input";
 
 type PublicProfileMutationResponse = {
   success: true;
@@ -107,6 +110,32 @@ export class PublicProfilesController {
       message: "Retrieved the Profile grid successfully",
       data: result.data,
       total: result.total,
+    };
+  }
+
+  @Patch(":profileId")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
+  async updateProfile(
+    @Session() session: SessionObject,
+    @Param("profileId") profileId: string,
+    @Body() input: UpdateEntityProfileInput,
+  ): Promise<PublicProfileMutationResponse> {
+    const result = await this.profiles.updateEntityProfile(
+      profileId,
+      session.address!,
+      input,
+    );
+    if (result.outcome === "not_found") {
+      throw new NotFoundException("Profile not found");
+    }
+    if (result.outcome === "conflict") {
+      throw new ConflictException("Profile slug or alias is already in use");
+    }
+    return {
+      success: true,
+      message: "Profile updated successfully",
+      data: result.data,
     };
   }
 

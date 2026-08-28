@@ -280,6 +280,180 @@ export class ProfileRepository {
     };
   }
 
+  async updateEntityProfile(
+    profileId: string,
+    actorUserId: string,
+    input: {
+      slug: string;
+      category: string;
+      aliases: string[];
+      info: {
+        displayName: string;
+        summary?: string | null;
+        description?: string | null;
+        logo?: string | null;
+        canonicalSite?: string | null;
+        tagline?: string | null;
+        foundingDate?: string | null;
+        profileType?: string | null;
+        profileSector?: string | null;
+        profileStatus?: string | null;
+      };
+    },
+  ): Promise<
+    | { outcome: "not_found" }
+    | { outcome: "conflict" }
+    | { outcome: "updated"; data: Record<string, unknown> }
+  > {
+    return this.postgres.transaction(async manager => {
+      const [target] = await queryRows<{
+        profileNodeId: string;
+        profileProperties: Record<string, unknown>;
+        infoNodeId: string;
+        infoProperties: Record<string, unknown>;
+      }>(
+        manager,
+        `
+          SELECT profile.id::text AS "profileNodeId",
+            profile.properties AS "profileProperties",
+            info.id::text AS "infoNodeId",
+            info.properties AS "infoProperties"
+          FROM graph_nodes profile
+          JOIN graph_relationships profile_info
+            ON profile_info.source_id = profile.id
+           AND profile_info.type = 'HAS_PROFILE_INFO'
+          JOIN graph_nodes info
+            ON info.id = profile_info.target_id
+           AND info.label = 'ProfileInfo'
+          WHERE profile.label = 'EntityProfile'
+            AND (
+              profile.properties ->> 'id' = $1
+              OR profile.id::text = $1
+            )
+          ORDER BY profile.id
+          LIMIT 1
+          FOR UPDATE OF profile, info
+        `,
+        [profileId.trim()],
+      );
+      if (!target) return { outcome: "not_found" as const };
+
+      const slug = input.slug.trim().toLowerCase();
+      const aliases = [
+        ...new Set(input.aliases.map(value => value.trim().toLowerCase())),
+      ]
+        .filter(value => value && value !== slug)
+        .sort();
+      const [collision] = await queryRows<{ found: boolean }>(
+        manager,
+        `
+          SELECT EXISTS (
+            SELECT 1
+            FROM graph_nodes other
+            WHERE other.label = 'EntityProfile'
+              AND other.id <> $1::bigint
+              AND (
+                other.properties ->> 'slug' = $2
+                OR COALESCE(other.properties -> 'aliases', '[]'::jsonb) ? $2
+                OR other.properties ->> 'slug' = ANY($3::text[])
+                OR EXISTS (
+                  SELECT 1
+                  FROM jsonb_array_elements_text(COALESCE(
+                    other.properties -> 'aliases', '[]'::jsonb
+                  )) other_alias(value)
+                  WHERE other_alias.value = ANY($3::text[])
+                )
+              )
+          ) AS found
+        `,
+        [target.profileNodeId, slug, aliases],
+      );
+      if (collision?.found) return { outcome: "conflict" as const };
+
+      const applyManualValues = (
+        current: Record<string, unknown>,
+        values: Record<string, unknown>,
+      ): Record<string, unknown> => {
+        const next = { ...current };
+        for (const [field, value] of Object.entries(values)) {
+          if (value === null || value === "") delete next[field];
+          else next[field] = value;
+        }
+        const fields = Object.keys(values);
+        next.manualFields = [
+          ...new Set([
+            ...(Array.isArray(current.manualFields)
+              ? current.manualFields.filter(
+                  (value): value is string => typeof value === "string",
+                )
+              : []),
+            ...fields,
+          ]),
+        ].sort();
+        next.manualOverrides = {
+          ...(current.manualOverrides &&
+          typeof current.manualOverrides === "object" &&
+          !Array.isArray(current.manualOverrides)
+            ? current.manualOverrides
+            : {}),
+          ...values,
+        };
+        const provenance =
+          current.fieldProvenance &&
+          typeof current.fieldProvenance === "object" &&
+          !Array.isArray(current.fieldProvenance)
+            ? current.fieldProvenance
+            : {};
+        next.fieldProvenance = {
+          ...provenance,
+          ...Object.fromEntries(
+            fields.map(field => [
+              field,
+              { source: "manual", actor: actorUserId },
+            ]),
+          ),
+        };
+        return next;
+      };
+
+      const profileProperties = applyManualValues(target.profileProperties, {
+        slug,
+        category: input.category.trim(),
+        aliases,
+      });
+      const infoValues = Object.fromEntries(
+        Object.entries(input.info).map(([field, value]) => [
+          field,
+          typeof value === "string" ? value.trim() || null : (value ?? null),
+        ]),
+      );
+      const infoProperties = applyManualValues(
+        target.infoProperties,
+        infoValues,
+      );
+
+      await queryRows(
+        manager,
+        `UPDATE graph_nodes SET properties = $2::jsonb WHERE id = $1::bigint`,
+        [target.profileNodeId, JSON.stringify(profileProperties)],
+      );
+      await queryRows(
+        manager,
+        `UPDATE graph_nodes SET properties = $2::jsonb WHERE id = $1::bigint`,
+        [target.infoNodeId, JSON.stringify(infoProperties)],
+      );
+
+      return {
+        outcome: "updated" as const,
+        data: {
+          id: String(profileProperties.id ?? target.profileNodeId),
+          slug,
+          profileInfoId: String(infoProperties.id ?? target.infoNodeId),
+        },
+      };
+    });
+  }
+
   async getJobPreferences(
     wallet: string,
   ): Promise<Record<string, unknown> | null> {

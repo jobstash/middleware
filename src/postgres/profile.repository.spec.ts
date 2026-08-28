@@ -75,6 +75,84 @@ describe("ProfileRepository", () => {
     );
   });
 
+  it("updates Profile and ProfileInfo fields as protected manual values", async () => {
+    const query = jest
+      .fn()
+      .mockResolvedValueOnce([
+        {
+          profileNodeId: "11",
+          profileProperties: {
+            id: "profile-one",
+            slug: "old-acme",
+            createdTimestamp: 123,
+          },
+          infoNodeId: "12",
+          infoProperties: {
+            id: "profile-info-one",
+            displayName: "Old Acme",
+            summary: "Old summary",
+          },
+        },
+      ])
+      .mockResolvedValueOnce([{ found: false }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    const postgres = {
+      transaction: jest.fn(async callback => callback({ query })),
+    } as unknown as PostgresService;
+    const repository = new ProfileRepository(postgres);
+
+    await expect(
+      repository.updateEntityProfile("profile-one", "admin", {
+        slug: "acme",
+        category: "crypto",
+        aliases: ["old-acme", "old-acme", "acme"],
+        info: {
+          displayName: "Acme",
+          summary: null,
+          description: "A protocol.",
+        },
+      }),
+    ).resolves.toEqual({
+      outcome: "updated",
+      data: {
+        id: "profile-one",
+        slug: "acme",
+        profileInfoId: "profile-info-one",
+      },
+    });
+    const profileProperties = JSON.parse(String(query.mock.calls[2][1][1]));
+    const infoProperties = JSON.parse(String(query.mock.calls[3][1][1]));
+    expect(profileProperties).toMatchObject({
+      id: "profile-one",
+      slug: "acme",
+      category: "crypto",
+      aliases: ["old-acme"],
+      createdTimestamp: 123,
+      manualFields: ["aliases", "category", "slug"],
+      manualOverrides: {
+        slug: "acme",
+        category: "crypto",
+        aliases: ["old-acme"],
+      },
+      fieldProvenance: {
+        slug: { source: "manual", actor: "admin" },
+      },
+    });
+    expect(infoProperties.summary).toBeUndefined();
+    expect(infoProperties).toMatchObject({
+      id: "profile-info-one",
+      displayName: "Acme",
+      description: "A protocol.",
+      manualOverrides: { summary: null },
+      fieldProvenance: {
+        summary: { source: "manual", actor: "admin" },
+      },
+    });
+    expect(profileProperties).not.toHaveProperty("updatedTimestamp");
+    expect(infoProperties).not.toHaveProperty("updatedTimestamp");
+  });
+
   it("serializes work-location exclusions for Jobs for me", async () => {
     const query = jest.fn().mockResolvedValue([]);
     const repository = new ProfileRepository({

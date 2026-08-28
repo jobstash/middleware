@@ -1112,6 +1112,13 @@ export const RELEASE_ROUTE_MANIFEST = [
   ["PublicProfilesController", "getProfile", "GET", "profiles/:slug", "active"],
   [
     "PublicProfilesController",
+    "updateProfile",
+    "PATCH",
+    "profiles/:profileId",
+    "active",
+  ],
+  [
+    "PublicProfilesController",
     "createCase",
     "POST",
     "profiles/:slug/cases",

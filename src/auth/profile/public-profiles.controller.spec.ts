@@ -1,4 +1,8 @@
-import { BadRequestException, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from "@nestjs/common";
 import { ProfileRepository } from "src/postgres/profile.repository";
 import { PublicProfilesController } from "./public-profiles.controller";
 
@@ -53,6 +57,65 @@ describe("PublicProfilesController", () => {
       controller.getProfilesForAdminGrid("10", "0", "", "child-one", "Company"),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(repository.getEntityProfilesForAdminGrid).not.toHaveBeenCalled();
+  });
+
+  it("updates a Profile as the authenticated super-admin", async () => {
+    const repository = {
+      updateEntityProfile: jest.fn().mockResolvedValue({
+        outcome: "updated",
+        data: { id: "profile-one", slug: "acme" },
+      }),
+    };
+    const controller = new PublicProfilesController(
+      repository as unknown as ProfileRepository,
+    );
+    const input = {
+      slug: "acme",
+      category: "crypto",
+      aliases: ["acme-labs"],
+      info: { displayName: "Acme" },
+    };
+
+    await expect(
+      controller.updateProfile(
+        { address: "admin" } as never,
+        "profile-one",
+        input,
+      ),
+    ).resolves.toEqual({
+      success: true,
+      message: "Profile updated successfully",
+      data: { id: "profile-one", slug: "acme" },
+    });
+    expect(repository.updateEntityProfile).toHaveBeenCalledWith(
+      "profile-one",
+      "admin",
+      input,
+    );
+    expect(
+      Reflect.getMetadata(
+        "permissions",
+        PublicProfilesController.prototype.updateProfile,
+      ),
+    ).toEqual(["SUPER_ADMIN"]);
+  });
+
+  it("rejects a conflicting Profile slug", async () => {
+    const repository = {
+      updateEntityProfile: jest.fn().mockResolvedValue({ outcome: "conflict" }),
+    };
+    const controller = new PublicProfilesController(
+      repository as unknown as ProfileRepository,
+    );
+
+    await expect(
+      controller.updateProfile({ address: "admin" } as never, "profile-one", {
+        slug: "taken",
+        category: "crypto",
+        aliases: [],
+        info: { displayName: "Acme" },
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it("wraps the stable safe public Profile payload", async () => {
