@@ -84,9 +84,10 @@ export class ScorerService {
     try {
       const response = await firstValueFrom(
         this.httpService
-          .get<
-            ResponseWithOptionalData<CandidateReport>
-          >("/scorer/users/report", { params: { user, ...(wallet ? { wallet } : {}) } })
+          .get<ResponseWithOptionalData<CandidateReport>>(
+            "/scorer/users/report",
+            { params: { user, ...(wallet ? { wallet } : {}) } },
+          )
           .pipe(map(result => result.data)),
       );
       return response;

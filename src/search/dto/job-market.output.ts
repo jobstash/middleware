@@ -1,9 +1,5 @@
 export type JobMarketDirection =
-  | "up"
-  | "down"
-  | "flat"
-  | "new"
-  | "insufficient";
+  "up" | "down" | "flat" | "new" | "insufficient";
 
 export type JobMarketEvidenceLevel = "insufficient" | "limited" | "strong";
 
@@ -95,12 +91,7 @@ export interface JobMarketCompensation {
   regionSlug: string;
   regionLabel: string;
   regionType:
-    | "remote"
-    | "aggregate"
-    | "continent"
-    | "country"
-    | "region"
-    | "city";
+    "remote" | "aggregate" | "continent" | "country" | "region" | "city";
   filter: JobMarketFilter | null;
   countryCode: string | null;
   medianMonthlyUsd: number | null;
@@ -122,10 +113,7 @@ export interface JobMarketCompensation {
 }
 
 export type JobMarketSkillStatus =
-  | "rising"
-  | "falling"
-  | "stable"
-  | "insufficient";
+  "rising" | "falling" | "stable" | "insufficient";
 
 export interface JobMarketSkillSignal {
   asOf: string;

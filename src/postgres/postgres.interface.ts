@@ -8,5 +8,6 @@ export interface PostgresOptions {
 }
 
 export interface PostgresAsyncOptions
-  extends Pick<ModuleMetadata, "imports">,
+  extends
+    Pick<ModuleMetadata, "imports">,
     Pick<FactoryProvider<PostgresOptions>, "inject" | "useFactory"> {}

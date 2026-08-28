@@ -3,6 +3,8 @@ import { publicationDateRangeGenerator } from "src/shared/helpers";
 import { SearchService } from "./search.service";
 
 describe("SearchService organization intelligence filters", () => {
+  afterEach(() => jest.useRealTimers());
+
   it("names the job suggestion tabs clearly and returns canonical category labels", async () => {
     const getSuggestionGroups = jest
       .fn()
@@ -47,6 +49,7 @@ describe("SearchService organization intelligence filters", () => {
   });
 
   it("keeps the canonical zero-job FDE pillar available but noindex", async () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-08-28T12:00:00Z"));
     const getPillarJobs = jest.fn().mockResolvedValue([]);
     const service = new SearchService(
       {

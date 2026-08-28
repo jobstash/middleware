@@ -64,6 +64,7 @@ import { RecordJobActivityInput } from "./dto/record-job-activity.input";
 import { PrivyService } from "../privy/privy.service";
 import { EmailDigestService } from "./email-digest.service";
 import { EmailDigestTokenInput } from "./dto/email-digest-token.input";
+import { EmailDigestState } from "src/postgres/email-digest.repository";
 
 const SOCIAL_LABELS = [
   "Website",
@@ -108,7 +109,9 @@ export class ProfileController {
   @Get("email-digest")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER)
-  getEmailDigestState(@Session() { address }: SessionObject) {
+  getEmailDigestState(
+    @Session() { address }: SessionObject,
+  ): Promise<EmailDigestState> {
     return this.emailDigestService.getState(address);
   }
 
@@ -116,14 +119,18 @@ export class ProfileController {
   @Throttle({ default: { limit: 3, ttl: 15 * 60_000 } })
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER)
-  requestEmailDigest(@Session() { address }: SessionObject) {
+  requestEmailDigest(
+    @Session() { address }: SessionObject,
+  ): Promise<EmailDigestState> {
     return this.emailDigestService.requestConfirmation(address);
   }
 
   @Delete("email-digest")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER)
-  unsubscribeEmailDigest(@Session() { address }: SessionObject) {
+  unsubscribeEmailDigest(
+    @Session() { address }: SessionObject,
+  ): Promise<boolean> {
     return this.emailDigestService.unsubscribeWallet(address);
   }
 
@@ -132,7 +139,7 @@ export class ProfileController {
   confirmEmailDigest(
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
     body: EmailDigestTokenInput,
-  ) {
+  ): Promise<boolean> {
     return this.emailDigestService.confirm(body.token);
   }
 
@@ -141,7 +148,7 @@ export class ProfileController {
   unsubscribeEmailDigestToken(
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
     body: EmailDigestTokenInput,
-  ) {
+  ): Promise<boolean> {
     return this.emailDigestService.unsubscribeToken(body.token);
   }
 

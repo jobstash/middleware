@@ -368,8 +368,7 @@ export class SubscriptionsService {
     dto: SubscriptionMetadata,
     stripeSubscriptionId: string | undefined,
     pendingPayment:
-      | { nodeId: string; properties: Record<string, unknown> }
-      | undefined,
+      { nodeId: string; properties: Record<string, unknown> } | undefined,
     timestamp: number,
   ): Promise<boolean> {
     const quotaInfo = JOBSTASH_QUOTA[dto.jobstash];

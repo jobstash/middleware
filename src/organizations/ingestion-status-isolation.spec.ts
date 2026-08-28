@@ -20,7 +20,7 @@ describe("OrganizationsService ingestion status isolation", () => {
   } as unknown as Auth0Service;
   const postgres = { query: jest.fn() } as unknown as PostgresService;
 
-  const service = () =>
+  const service = (): OrganizationsService =>
     new OrganizationsService(
       config,
       auth0,

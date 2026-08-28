@@ -24,9 +24,7 @@ export interface PrivyCreateEventPayload {
 }
 
 export type PrivyWebhookPayload =
-  | PrivyUpdateEventPayload
-  | PrivyTransferEventPayload
-  | PrivyCreateEventPayload;
+  PrivyUpdateEventPayload | PrivyTransferEventPayload | PrivyCreateEventPayload;
 
 export interface PrivyTestPayload {
   type: "privy.test";

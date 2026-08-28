@@ -5,12 +5,7 @@ import { EntityManager } from "typeorm";
 import { PostgresService } from "./postgres.service";
 
 export type ApplicantList =
-  | "all"
-  | "shortlisted"
-  | "archived"
-  | "new"
-  | "interviewing"
-  | "hired";
+  "all" | "shortlisted" | "archived" | "new" | "interviewing" | "hired";
 
 export type JobTagMatchData = {
   jobTags: string[];
