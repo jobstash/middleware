@@ -72,6 +72,7 @@ import {
   OrganizationTeamSummary,
 } from "src/team-intelligence/team-intelligence.types";
 import { UpdateOrganizationClassificationInput } from "./dto/update-organization-classification.input";
+import { CreateOrgJobsiteInput } from "./dto/create-organization-jobsites.input";
 
 @Injectable()
 export class OrganizationsService {
@@ -1251,18 +1252,26 @@ export class OrganizationsService {
       | "detectedJobsites"
     >,
   ): Promise<OrganizationEntity> {
-    const [updated] = await this.graph.updateNodes<Organization>(
-      "Organization",
-      { orgId: id },
-      {
-        ...properties,
-        normalizedName: slugify(properties.name),
-        updatedTimestamp: Date.now(),
-      } as Partial<Organization>,
-    );
-    if (!updated) {
-      throw new Error("Organization " + id + " not found");
-    }
+    const updated = await this.graph.transaction(async manager => {
+      const [organization] = await this.graph.updateNodes<Organization>(
+        "Organization",
+        { orgId: id },
+        {
+          ...properties,
+          normalizedName: slugify(properties.name),
+          updatedTimestamp: Date.now(),
+        } as Partial<Organization>,
+        manager,
+      );
+      if (!organization) {
+        throw new Error("Organization " + id + " not found");
+      }
+      await this.graph.refreshOrganizationSearchDocuments(
+        [organization.nodeId],
+        manager,
+      );
+      return organization;
+    });
     return new OrganizationEntity(updated.properties);
   }
 
@@ -1582,6 +1591,15 @@ export class OrganizationsService {
           newLabel: "Jobsite",
         })
       ).map(jobsite => jobsite.properties);
+      const organization = await this.graph.findNode<Organization>(
+        "Organization",
+        { orgId: dto.orgId },
+      );
+      if (organization) {
+        await this.graph.refreshOrganizationSearchDocuments([
+          organization.nodeId,
+        ]);
+      }
       return {
         success: true,
         message: "Activated organization jobsites successfully",
@@ -1618,6 +1636,15 @@ export class OrganizationsService {
           newLabel: "DetectedJobsite",
         })
       ).map(jobsite => jobsite.properties);
+      const organization = await this.graph.findNode<Organization>(
+        "Organization",
+        { orgId: dto.orgId },
+      );
+      if (organization) {
+        await this.graph.refreshOrganizationSearchDocuments([
+          organization.nodeId,
+        ]);
+      }
       return {
         success: true,
         message: "Deactivated organization jobsites successfully",
@@ -1637,6 +1664,56 @@ export class OrganizationsService {
       );
       return { success: false, message: "Failed to deactivate org jobsites" };
     }
+  }
+
+  async createOrgJobsite(
+    dto: CreateOrgJobsiteInput,
+  ): Promise<ResponseWithOptionalData<Jobsite>> {
+    const jobsite = await this.graph.transaction(async manager => {
+      const organization = await this.graph.findNode<Organization>(
+        "Organization",
+        { orgId: dto.orgId },
+        manager,
+      );
+      if (!organization) {
+        throw new BadRequestException({
+          success: false,
+          message: "Organization not found",
+        });
+      }
+
+      const now = Date.now();
+      const properties: Jobsite = {
+        id: randomUUID(),
+        url: dto.url,
+        type: dto.type,
+        createdTimestamp: now,
+        updatedTimestamp: now,
+      };
+      const created = await this.graph.createNode(
+        "Jobsite",
+        properties,
+        `Organization:${organization.nodeId}:HAS_JOBSITE:${properties.id}`,
+        manager,
+      );
+      await this.graph.upsertRelationship({
+        sourceNodeId: organization.nodeId,
+        targetNodeId: created.nodeId,
+        type: "HAS_JOBSITE",
+        executor: manager,
+      });
+      await this.graph.refreshOrganizationSearchDocuments(
+        [organization.nodeId],
+        manager,
+      );
+      return created.properties;
+    });
+
+    return {
+      success: true,
+      message: "Jobsite created successfully",
+      data: jobsite,
+    };
   }
 
   async updateOrgProjects(

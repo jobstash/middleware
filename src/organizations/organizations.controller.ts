@@ -34,7 +34,6 @@ import { Response as ExpressResponse } from "express";
 import { PBACGuard } from "src/auth/pbac.guard";
 import { Permissions } from "src/shared/decorators/role.decorator";
 import {
-  nonZeroOrNull,
   normalizeAdminDirectoryQuery,
   parseAdminDirectoryPagination,
   responseSchemaWrapper,
@@ -76,7 +75,6 @@ import { ActivateOrgJobsiteInput } from "./dto/activate-organization-jobsites.in
 import { UpdateOrgProjectInput } from "./dto/update-organization-projects.input";
 import { AddOrganizationByUrlInput } from "./dto/add-organization-by-url.input";
 import { CreateOrgJobsiteInput } from "./dto/create-organization-jobsites.input";
-import { randomUUID } from "crypto";
 import { Session } from "src/shared/decorators";
 import { UserService } from "src/user/user.service";
 import { ImportOrgJobsiteInput } from "./dto/import-organization-jobsites.input";
@@ -1209,42 +1207,7 @@ export class OrganizationsController {
         body,
       )} from ${address}`,
     );
-    const { orgId, ...jobsite } = body;
-    const org = data(
-      await this.getOrgDetails({ ...EMPTY_SESSION_OBJECT, address }, orgId),
-    );
-    if (org) {
-      const id = randomUUID();
-      const result = await this.organizationsService.updateOrgDetectedJobsites({
-        orgId: body.orgId,
-        detectedJobsites: [...org.detectedJobsites, { id, ...jobsite }],
-      });
-      if (result.success) {
-        const final = data(
-          await this.organizationsService.activateOrgJobsites({
-            orgId: body.orgId,
-            jobsiteIds: [id],
-          }),
-        );
-        const result = final[0];
-        return {
-          success: true,
-          message: "Jobsite created successfully",
-          data: {
-            ...final[0],
-            createdTimestamp: nonZeroOrNull(result.createdTimestamp),
-            updatedTimestamp: nonZeroOrNull(result.updatedTimestamp),
-          },
-        };
-      } else {
-        return result;
-      }
-    } else {
-      throw new BadRequestException({
-        success: false,
-        message: "Organization not found",
-      });
-    }
+    return this.organizationsService.createOrgJobsite(body);
   }
 
   @Get("/repositories/:id")

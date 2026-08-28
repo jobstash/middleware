@@ -109,6 +109,15 @@ describe("GraphRepository", () => {
     ).resolves.toBe(2);
   });
 
+  it("refreshes only the changed organization search documents", async () => {
+    await repository.refreshOrganizationSearchDocuments(["42", "43"]);
+
+    expect(query).toHaveBeenCalledWith(
+      "SELECT refresh_organization_search_documents($1::bigint[])",
+      [["42", "43"]],
+    );
+  });
+
   it("upserts and selectively deletes relationships", async () => {
     await repository.upsertRelationship({
       sourceNodeId: "1",

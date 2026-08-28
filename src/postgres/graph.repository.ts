@@ -362,6 +362,18 @@ export class GraphRepository {
     );
   }
 
+  async refreshOrganizationSearchDocuments(
+    nodeIds: string[],
+    executor: QueryExecutor = this.postgres,
+  ): Promise<void> {
+    if (!nodeIds.length) return;
+    await executeQuery(
+      executor,
+      "SELECT refresh_organization_search_documents($1::bigint[])",
+      [nodeIds],
+    );
+  }
+
   async deleteNodes(
     label: string,
     where: Record<string, unknown>,
