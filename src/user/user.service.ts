@@ -83,6 +83,7 @@ export const toTalentPoolCandidate = (
     availableForWork: true,
     cryptoNative: input.cryptoNative === true,
     cryptoAdjacent: input.cryptoAdjacent === true,
+    lastActivityTimestamp: nullableFiniteNumber(input.lastActivityTimestamp),
     skills: (Array.isArray(input.skills) ? input.skills : []).map(skill => ({
       id: publicString(skill.id) ?? "",
       name: publicString(skill.name),

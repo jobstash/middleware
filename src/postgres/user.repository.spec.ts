@@ -2,7 +2,7 @@ import { PostgresService } from "./postgres.service";
 import { UserRepository } from "./user.repository";
 
 describe("UserRepository Agency Talent Pool query", () => {
-  it("uses a positive candidate allowlist with one contact email and no application data", async () => {
+  it("uses a positive candidate allowlist with one contact email and only a derived activity timestamp", async () => {
     const query = jest.fn().mockResolvedValue([]);
     const repository = new UserRepository({
       query,
@@ -31,6 +31,8 @@ describe("UserRepository Agency Talent Pool query", () => {
     expect(sql).toContain("'email'");
     expect(sql).toContain("HAS_EMAIL");
     expect(sql).toContain("HAS_LINKED_ACCOUNT");
+    expect(sql).toContain("'lastActivityTimestamp'");
+    expect(sql).toContain("activity.type IN ('APPLIED_TO', 'VIEWED_DETAILS')");
     expect(parameters).toEqual([]);
   });
 

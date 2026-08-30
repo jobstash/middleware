@@ -14,6 +14,7 @@ describe("Talent Pool Agency candidate projection", () => {
       note: "workspace private note",
       jobCategoryInterests: [{ classification: "ENGINEERING", frequency: 1 }],
       lastAppliedTimestamp: 42,
+      lastActivityTimestamp: 84,
       location: { city: "Amsterdam", country: "NL", email: "x@example.com" },
       availableForWork: true,
       cryptoNative: true,
@@ -48,6 +49,7 @@ describe("Talent Pool Agency candidate projection", () => {
       availableForWork: true,
       cryptoNative: true,
       cryptoAdjacent: false,
+      lastActivityTimestamp: 84,
       skills: [
         {
           id: "skill-1",

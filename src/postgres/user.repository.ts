@@ -326,7 +326,13 @@ const signalCandidatePayload = (): string => `
       WHERE relationship.source_id = user.id
         AND relationship.type = 'HAS_WORK_HISTORY'
         AND history.label = 'UserWorkHistory'
-    ), '[]'::jsonb)
+    ), '[]'::jsonb),
+    'lastActivityTimestamp', (
+      SELECT max(jsonb_numeric_value(activity.properties, 'createdTimestamp'))
+      FROM graph_relationships activity
+      WHERE activity.source_id = user.id
+        AND activity.type IN ('APPLIED_TO', 'VIEWED_DETAILS')
+    )
   )
 `;
 

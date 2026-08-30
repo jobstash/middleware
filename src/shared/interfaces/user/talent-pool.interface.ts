@@ -50,6 +50,12 @@ export class TalentPoolCandidate {
 
   @ApiProperty({ type: [UserWorkHistory] })
   workHistory: UserWorkHistory[];
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description: "Latest application or job-detail view timestamp.",
+  })
+  lastActivityTimestamp: number | null;
 }
 
 export class AgencyCandidateReportSummary {
