@@ -319,6 +319,9 @@ describePostgres("UserRepository PostgreSQL integration", () => {
 
   it("returns an opted-in safe Talent Pool profile without notes or legacy org exclusions", async () => {
     await seedRichProfile();
+    await createRelationship(userOneId, jobId, "VIEWED_DETAILS", {
+      createdTimestamp: now + 1,
+    });
     await expect(
       repository.setRecruiterNote("0xUserOne", "Strong fit", "acme-org"),
     ).resolves.toBe(true);
@@ -327,6 +330,7 @@ describePostgres("UserRepository PostgreSQL integration", () => {
       expect.objectContaining({
         wallet: "0xUserOne",
         email: "person@example.com",
+        lastActivityTimestamp: now + 1,
       }),
     ]);
     expect(users[0]).not.toHaveProperty("note");
