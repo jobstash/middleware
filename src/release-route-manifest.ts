@@ -157,27 +157,6 @@ export const RELEASE_ROUTE_MANIFEST = [
   ],
   [
     "AdminIngestionController",
-    "reconcileEntityCorpus",
-    "POST",
-    "admin/ingestion/entity-reconciliation/runs",
-    "active",
-  ],
-  [
-    "AdminIngestionController",
-    "getEntityReconciliationRun",
-    "GET",
-    "admin/ingestion/entity-reconciliation/runs/:id",
-    "active",
-  ],
-  [
-    "AdminIngestionController",
-    "getEntityReconciliationDecision",
-    "GET",
-    "admin/ingestion/entity-reconciliation/runs/:id/items/:itemId/decision",
-    "active",
-  ],
-  [
-    "AdminIngestionController",
     "createImportRun",
     "POST",
     "admin/ingestion/import-runs",
@@ -220,24 +199,10 @@ export const RELEASE_ROUTE_MANIFEST = [
   ],
   [
     "AdminIngestionController",
-    "createInferenceCanaryCampaign",
-    "POST",
-    "admin/ingestion/inference/canary-campaigns",
-    "gone",
-  ],
-  [
-    "AdminIngestionController",
     "publishJobpostsToTelegram",
     "POST",
     "admin/ingestion/jobposts/publish/telegram",
     "active",
-  ],
-  [
-    "AdminIngestionController",
-    "reviewInferenceCanaryCampaign",
-    "POST",
-    "admin/ingestion/inference/canary-campaigns/:id/review",
-    "gone",
   ],
   [
     "AdminIngestionController",
@@ -259,13 +224,6 @@ export const RELEASE_ROUTE_MANIFEST = [
     "GET",
     "admin/ingestion/inference/runs/:id/items",
     "active",
-  ],
-  [
-    "AdminIngestionController",
-    "resumeInferenceRun",
-    "POST",
-    "admin/ingestion/inference/runs/:id/resume",
-    "gone",
   ],
   [
     "AdminIngestionController",

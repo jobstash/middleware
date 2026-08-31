@@ -248,24 +248,6 @@ describe("reviewed route/OpenAPI manifest", () => {
       ),
     ).toEqual([
       [
-        "AdminIngestionController",
-        "createInferenceCanaryCampaign",
-        "POST",
-        "admin/ingestion/inference/canary-campaigns",
-      ],
-      [
-        "AdminIngestionController",
-        "reviewInferenceCanaryCampaign",
-        "POST",
-        "admin/ingestion/inference/canary-campaigns/:id/review",
-      ],
-      [
-        "AdminIngestionController",
-        "resumeInferenceRun",
-        "POST",
-        "admin/ingestion/inference/runs/:id/resume",
-      ],
-      [
         "OrganizationsController",
         "getOrgTeamBySlug",
         "GET",

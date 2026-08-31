@@ -3,7 +3,6 @@ import {
   Body,
   Controller,
   Get,
-  GoneException,
   HttpCode,
   HttpStatus,
   Param,
@@ -20,7 +19,6 @@ import { Permissions } from "src/shared/decorators";
 import {
   CollisionDetailQueryDto,
   CollisionListQueryDto,
-  CreateEntityReconciliationRunDto,
   CreateEntityEnrichmentRunDto,
   CreateImportRunDto,
   CreateStructuredRefreshDto,
@@ -323,28 +321,6 @@ export class AdminIngestionController {
     return this.ingestion.resolveEntityCollision(id, input);
   }
 
-  @Post("entity-reconciliation/runs")
-  reconcileEntityCorpus(
-    @Body(strictBody) input: CreateEntityReconciliationRunDto,
-  ): Promise<unknown> {
-    return this.ingestion.reconcileEntityCorpus(input);
-  }
-
-  @Get("entity-reconciliation/runs/:id")
-  getEntityReconciliationRun(
-    @Param("id", new ParseUUIDPipe()) id: string,
-  ): Promise<unknown> {
-    return this.ingestion.getEntityReconciliationRun(id);
-  }
-
-  @Get("entity-reconciliation/runs/:id/items/:itemId/decision")
-  getEntityReconciliationDecision(
-    @Param("id", new ParseUUIDPipe()) id: string,
-    @Param("itemId", new ParseUUIDPipe()) itemId: string,
-  ): Promise<unknown> {
-    return this.ingestion.getEntityReconciliationDecision(id, itemId);
-  }
-
   @Post("inference/capability-preflight")
   @ApiOkResponse({ type: InferenceCapabilityPreflightDto })
   inferenceCapabilityPreflight(): Promise<unknown> {
@@ -366,27 +342,4 @@ export class AdminIngestionController {
     return this.ingestion.getInferenceRunItems(id);
   }
 
-  @Post("inference/runs/:id/resume")
-  resumeInferenceRun(): never {
-    return this.retiredInferenceAuxiliaryRoute();
-  }
-
-  @Post("inference/canary-campaigns")
-  createInferenceCanaryCampaign(): never {
-    return this.retiredInferenceAuxiliaryRoute();
-  }
-
-  @Post("inference/canary-campaigns/:id/review")
-  reviewInferenceCanaryCampaign(): never {
-    return this.retiredInferenceAuxiliaryRoute();
-  }
-
-  private retiredInferenceAuxiliaryRoute(): never {
-    throw new GoneException({
-      statusCode: 410,
-      message:
-        "Inference canary review and rate-limit resume are internal to the autonomous durable run",
-      error: "Gone",
-    });
-  }
 }

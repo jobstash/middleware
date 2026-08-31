@@ -12,14 +12,11 @@ import { Auth0Service } from "src/auth0/auth0.service";
 import { PostgresService } from "src/postgres/postgres.service";
 import {
   CollisionListQueryDto,
-  CreateEntityReconciliationRunDto,
   CreateEntityEnrichmentRunDto,
   CreateImportRunDto,
-  CreateInferenceCanaryCampaignDto,
   CreateStructuredRefreshDto,
   ExecuteInferenceBatchDto,
   PublishStructuredRefreshDto,
-  ReviewInferenceCanaryCampaignDto,
   ResolveCollisionDto,
 } from "./admin-ingestion.dto";
 
@@ -310,26 +307,6 @@ export class AdminIngestionService {
     return this.request("POST", `/entity-collisions/${id}/resolve`, input);
   }
 
-  reconcileEntityCorpus(
-    input: CreateEntityReconciliationRunDto,
-  ): Promise<unknown> {
-    return this.request("POST", "/entity-reconciliation/runs", input);
-  }
-
-  getEntityReconciliationRun(id: string): Promise<unknown> {
-    return this.request("GET", `/entity-reconciliation/runs/${id}`);
-  }
-
-  getEntityReconciliationDecision(
-    id: string,
-    itemId: string,
-  ): Promise<unknown> {
-    return this.request(
-      "GET",
-      `/entity-reconciliation/runs/${id}/items/${itemId}/decision`,
-    );
-  }
-
   inferenceCapabilityPreflight(): Promise<unknown> {
     return this.requestInferenceTelemetry(
       "POST",
@@ -343,27 +320,6 @@ export class AdminIngestionService {
 
   getInferenceRunItems(id: string): Promise<unknown> {
     return this.request("GET", `/inference/runs/${id}/items`);
-  }
-
-  resumeInferenceRun(id: string): Promise<unknown> {
-    return this.request("POST", `/inference/runs/${id}/resume`);
-  }
-
-  createInferenceCanaryCampaign(
-    input: CreateInferenceCanaryCampaignDto,
-  ): Promise<unknown> {
-    return this.request("POST", "/inference/canary-campaigns", input);
-  }
-
-  reviewInferenceCanaryCampaign(
-    id: string,
-    input: ReviewInferenceCanaryCampaignDto,
-  ): Promise<unknown> {
-    return this.request(
-      "POST",
-      `/inference/canary-campaigns/${id}/review`,
-      input,
-    );
   }
 
   private async requestInferenceTelemetry(

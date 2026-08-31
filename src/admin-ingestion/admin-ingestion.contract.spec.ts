@@ -1,11 +1,10 @@
-import { BadRequestException, GoneException } from "@nestjs/common";
+import { BadRequestException } from "@nestjs/common";
 import { PATH_METADATA } from "@nestjs/common/constants";
 import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
 import { CheckWalletPermissions } from "src/shared/constants";
 import { AdminIngestionController } from "./admin-ingestion.controller";
 import {
-  CreateInferenceCanaryCampaignDto,
   CreateEntityEnrichmentRunDto,
   CreateStructuredRefreshDto,
   ExecuteInferenceBatchDto,
@@ -55,12 +54,6 @@ describe("admin ingestion contracts", () => {
     expect(
       Reflect.getMetadata(
         PATH_METADATA,
-        AdminIngestionController.prototype.reconcileEntityCorpus,
-      ),
-    ).toBe("entity-reconciliation/runs");
-    expect(
-      Reflect.getMetadata(
-        PATH_METADATA,
         AdminIngestionController.prototype.createEntityEnrichmentRun,
       ),
     ).toBe("entity-enrichment/runs");
@@ -91,15 +84,6 @@ describe("admin ingestion contracts", () => {
     expect(await validate(invalidConcurrency)).not.toHaveLength(0);
   });
 
-  it.each([
-    "resumeInferenceRun",
-    "createInferenceCanaryCampaign",
-    "reviewInferenceCanaryCampaign",
-  ] as const)("denies retired auxiliary operation %s with 410", handler => {
-    const controller = new AdminIngestionController({} as never);
-    expect(() => controller[handler]()).toThrow(GoneException);
-  });
-
   it("requires an exact diff and per-item approval manifest for publishing", async () => {
     const invalid = plainToInstance(PublishStructuredRefreshDto, {
       expectedDiffFingerprint: "not-reviewed",
@@ -117,30 +101,6 @@ describe("admin ingestion contracts", () => {
     });
     expect(await validate(invalid)).not.toHaveLength(0);
     expect(await validate(valid)).toHaveLength(0);
-  });
-
-  it("enforces the shared live canary's 20 + 30 item ceiling", async () => {
-    const runId = "f9500341-2ccd-4a1b-909a-853f66c41285";
-    const itemId = (index: number): string =>
-      `f9500341-2ccd-4a1b-909a-${String(index).padStart(12, "0")}`;
-    const valid = plainToInstance(CreateInferenceCanaryCampaignDto, {
-      entityReconciliationRunId: runId,
-      structuredJobpostRunId: runId,
-      entityReconciliationItemIds: Array.from({ length: 20 }, (_, index) =>
-        itemId(index),
-      ),
-      structuredJobpostItemIds: Array.from({ length: 30 }, (_, index) =>
-        itemId(index + 20),
-      ),
-    });
-    const invalid = plainToInstance(CreateInferenceCanaryCampaignDto, {
-      ...valid,
-      structuredJobpostItemIds: Array.from({ length: 31 }, (_, index) =>
-        itemId(index + 20),
-      ),
-    });
-    expect(await validate(valid)).toHaveLength(0);
-    expect(await validate(invalid)).not.toHaveLength(0);
   });
 
   it("accepts a positive configured batch without claiming a provider-specific maximum", async () => {

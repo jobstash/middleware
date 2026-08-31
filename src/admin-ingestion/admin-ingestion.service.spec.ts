@@ -228,25 +228,6 @@ describe("AdminIngestionService", () => {
     );
   });
 
-  it("forwards shared canary selection without expanding it", async () => {
-    const input = {
-      entityReconciliationRunId: "f9500341-2ccd-4a1b-909a-853f66c41285",
-      structuredJobpostRunId: "e9500341-2ccd-4a1b-909a-853f66c41285",
-      entityReconciliationItemIds: ["d9500341-2ccd-4a1b-909a-853f66c41285"],
-      structuredJobpostItemIds: ["c9500341-2ccd-4a1b-909a-853f66c41285"],
-    };
-
-    await service.createInferenceCanaryCampaign(input);
-
-    expect(request).toHaveBeenCalledWith(
-      expect.objectContaining({
-        method: "POST",
-        url: "https://etl.internal/inference/canary-campaigns",
-        data: input,
-      }),
-    );
-  });
-
   it("preserves canonical Codex subscription run telemetry without rewriting counts", async () => {
     const runId = "f9500341-2ccd-4a1b-909a-853f66c41285";
     const telemetry = {
@@ -277,27 +258,16 @@ describe("AdminIngestionService", () => {
     );
   });
 
-  it("keeps job extraction bounded and exposes one full-corpus reconciliation action", async () => {
+  it("keeps job extraction bounded", async () => {
     const runId = "f9500341-2ccd-4a1b-909a-853f66c41285";
-    const reconciliationInput = { idempotencyKey: "full-corpus-2026-08-22" };
 
     await service.executeNextStructuredRefreshItems(runId, { limit: 2 });
-    await service.reconcileEntityCorpus(reconciliationInput);
 
-    expect(request).toHaveBeenNthCalledWith(
-      1,
+    expect(request).toHaveBeenCalledWith(
       expect.objectContaining({
         method: "POST",
         url: `https://etl.internal/jobposts/structured-refresh-runs/${runId}/execute-next`,
         data: { limit: 2 },
-      }),
-    );
-    expect(request).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        method: "POST",
-        url: "https://etl.internal/entity-reconciliation/runs",
-        data: reconciliationInput,
       }),
     );
   });

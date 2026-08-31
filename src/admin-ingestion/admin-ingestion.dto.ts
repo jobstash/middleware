@@ -2,7 +2,6 @@ import { Type } from "class-transformer";
 import { ApiProperty } from "@nestjs/swagger";
 import {
   ArrayNotEmpty,
-  ArrayMaxSize,
   ArrayUnique,
   IsArray,
   IsBoolean,
@@ -13,7 +12,6 @@ import {
   IsOptional,
   IsString,
   IsUrl,
-  IsUUID,
   Length,
   Matches,
   Max,
@@ -261,43 +259,12 @@ export class PublishStructuredRefreshDto {
   approvedItems: StructuredRefreshApprovedItemDto[];
 }
 
-export class CreateEntityReconciliationRunDto {
-  @IsString()
-  @Length(8, 200)
-  idempotencyKey: string;
-}
-
 export class ExecuteInferenceBatchDto {
   @IsOptional()
   @IsInt()
   @Min(1)
   @Max(Number.MAX_SAFE_INTEGER)
   limit?: number;
-}
-
-export class CreateInferenceCanaryCampaignDto {
-  @IsUUID()
-  entityReconciliationRunId: string;
-
-  @IsUUID()
-  structuredJobpostRunId: string;
-
-  @IsArray()
-  @ArrayMaxSize(20)
-  @ArrayUnique()
-  @IsUUID(undefined, { each: true })
-  entityReconciliationItemIds: string[];
-
-  @IsArray()
-  @ArrayMaxSize(30)
-  @ArrayUnique()
-  @IsUUID(undefined, { each: true })
-  structuredJobpostItemIds: string[];
-}
-
-export class ReviewInferenceCanaryCampaignDto {
-  @IsBoolean()
-  approve: boolean;
 }
 
 export class CollisionListQueryDto {
