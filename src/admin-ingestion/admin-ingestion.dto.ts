@@ -76,12 +76,6 @@ export class CreateEntityEnrichmentRunDto {
   operation: (typeof ENTITY_ENRICHMENT_OPERATIONS)[number];
 
   @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Max(50)
-  concurrency?: number;
-
-  @IsOptional()
   @IsString()
   @Length(1, 200)
   target?: string;

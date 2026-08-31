@@ -68,20 +68,13 @@ describe("admin ingestion contracts", () => {
   it("validates bounded entity enrichment operations", async () => {
     const valid = plainToInstance(CreateEntityEnrichmentRunDto, {
       operation: "all",
-      concurrency: 50,
       fresh: true,
     });
     const invalidOperation = plainToInstance(CreateEntityEnrichmentRunDto, {
       operation: "everything",
-      concurrency: 50,
-    });
-    const invalidConcurrency = plainToInstance(CreateEntityEnrichmentRunDto, {
-      operation: "sparse",
-      concurrency: 51,
     });
     expect(await validate(valid)).toHaveLength(0);
     expect(await validate(invalidOperation)).not.toHaveLength(0);
-    expect(await validate(invalidConcurrency)).not.toHaveLength(0);
   });
 
   it("requires an exact diff and per-item approval manifest for publishing", async () => {

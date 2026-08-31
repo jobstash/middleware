@@ -93,7 +93,6 @@ describe("AdminIngestionService", () => {
     const itemId = "e9500341-2ccd-4a1b-909a-853f66c41285";
     await service.createEntityEnrichmentRun({
       operation: "sparse",
-      concurrency: 50,
     });
     await service.getEntityEnrichmentItems(runId, "2", "50", "failed");
     await service.retryEntityEnrichmentItem(itemId);
@@ -103,7 +102,7 @@ describe("AdminIngestionService", () => {
       expect.objectContaining({
         method: "POST",
         url: "https://etl.internal/entity-enrichment/runs",
-        data: { operation: "sparse", concurrency: 50 },
+        data: { operation: "sparse" },
       }),
     );
     expect(request).toHaveBeenNthCalledWith(
