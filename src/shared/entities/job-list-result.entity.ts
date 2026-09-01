@@ -186,7 +186,7 @@ export class JobListResultEntity {
                     link: notStringOrNull(audit?.link),
                   })) ?? [],
                 chains:
-                  project.chains.map(chain => ({
+                  (project?.chains ?? []).map(chain => ({
                     ...chain,
                     logo: notStringOrNull(chain?.logo),
                   })) ?? [],
@@ -475,7 +475,7 @@ export class EcosystemJobListResultEntity {
                     link: notStringOrNull(audit?.link),
                   })) ?? [],
                 chains:
-                  project.chains.map(chain => ({
+                  (project?.chains ?? []).map(chain => ({
                     ...chain,
                     logo: notStringOrNull(chain?.logo),
                   })) ?? [],
