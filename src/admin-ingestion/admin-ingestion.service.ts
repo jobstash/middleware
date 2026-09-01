@@ -379,34 +379,46 @@ export class AdminIngestionService {
         ? {}
         : { params, paramsSerializer: { indexes: null } }),
     };
-    try {
-      const response = await axios.request<T>(config);
-      return response.data;
-    } catch (error) {
-      if (!axios.isAxiosError(error)) {
-        throw new BadGatewayException({
-          success: false,
-          message: "Ingestion service request failed",
-        });
+    const retryableImportRequest =
+      method === "POST" && path === "/imports/runs";
+    let error: unknown;
+    for (let attempt = 0; attempt < (retryableImportRequest ? 2 : 1); attempt++) {
+      try {
+        const response = await axios.request<T>(config);
+        return response.data;
+      } catch (caught) {
+        error = caught;
+        const status = axios.isAxiosError(caught)
+          ? caught.response?.status
+          : undefined;
+        if (!retryableImportRequest || (status !== undefined && status < 500)) {
+          break;
+        }
       }
-      const upstreamStatus = error.response?.status;
-      const responseData = error.response?.data as
-        { message?: unknown } | string | undefined;
-      const rawMessage =
-        typeof responseData === "string" ? responseData : responseData?.message;
-      const message = Array.isArray(rawMessage)
-        ? rawMessage.filter(item => typeof item === "string").join("; ")
-        : typeof rawMessage === "string"
-          ? rawMessage
-          : "Ingestion service request failed";
-      const status = [
-        HttpStatus.BAD_REQUEST,
-        HttpStatus.NOT_FOUND,
-        HttpStatus.CONFLICT,
-      ].includes(upstreamStatus)
-        ? upstreamStatus
-        : HttpStatus.BAD_GATEWAY;
-      throw new HttpException({ success: false, message }, status);
     }
+    if (!axios.isAxiosError(error)) {
+      throw new BadGatewayException({
+        success: false,
+        message: "Ingestion service request failed",
+      });
+    }
+    const upstreamStatus = error.response?.status;
+    const responseData = error.response?.data as
+      { message?: unknown } | string | undefined;
+    const rawMessage =
+      typeof responseData === "string" ? responseData : responseData?.message;
+    const message = Array.isArray(rawMessage)
+      ? rawMessage.filter(item => typeof item === "string").join("; ")
+      : typeof rawMessage === "string"
+        ? rawMessage
+        : "Ingestion service request failed";
+    const status = [
+      HttpStatus.BAD_REQUEST,
+      HttpStatus.NOT_FOUND,
+      HttpStatus.CONFLICT,
+    ].includes(upstreamStatus)
+      ? upstreamStatus
+      : HttpStatus.BAD_GATEWAY;
+    throw new HttpException({ success: false, message }, status);
   }
 }

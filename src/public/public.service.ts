@@ -25,7 +25,7 @@ export const shapeLegacyPublicJobPayload = (
         ...payload.organization,
         hasUser: false,
         atsClient: null,
-        projects: payload.organization.projects.map(project => ({
+        projects: (payload.organization.projects ?? []).map(project => ({
           ...project,
           jobs: [],
           repos: [],

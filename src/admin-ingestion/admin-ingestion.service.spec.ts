@@ -88,6 +88,25 @@ describe("AdminIngestionService", () => {
     );
   });
 
+  it("retries a transient ETL failure for an idempotent import request", async () => {
+    const transient = Object.assign(new Error("upstream unavailable"), {
+      isAxiosError: true,
+      response: { status: 502, data: { message: "Bad Gateway" } },
+    });
+    request.mockRejectedValueOnce(transient).mockResolvedValueOnce({
+      data: { runId: "retry-safe" },
+    });
+
+    await expect(
+      service.createImportRun({
+        source: "jobposts",
+        idempotencyKey: "operator-jobs-retry-safe",
+        scope: "all",
+      }),
+    ).resolves.toEqual({ runId: "retry-safe" });
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
   it("forwards entity enrichment runs, pagination, and item retries through the BFF", async () => {
     const runId = "f9500341-2ccd-4a1b-909a-853f66c41285";
     const itemId = "e9500341-2ccd-4a1b-909a-853f66c41285";

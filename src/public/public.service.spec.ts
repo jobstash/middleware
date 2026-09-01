@@ -38,4 +38,16 @@ describe("shapeLegacyPublicJobPayload", () => {
     });
     expect(payload.organization.projects[0].jobs).toEqual([{ id: "job-1" }]);
   });
+
+  it("accepts archive payloads whose organization has no projects array", () => {
+    const payload = {
+      organization: { hasUser: true, atsClient: "greenhouse" },
+    } as unknown as JobListResult;
+
+    expect(shapeLegacyPublicJobPayload(payload).organization).toMatchObject({
+      hasUser: false,
+      atsClient: null,
+      projects: [],
+    });
+  });
 });
