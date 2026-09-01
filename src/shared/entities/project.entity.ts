@@ -42,7 +42,7 @@ export class ProjectWithBaseRelationsEntity {
       docs: notStringOrNull(project?.docs),
       category: notStringOrNull(project?.category),
       hacks:
-        project?.hacks.map(hack => ({
+        (project?.hacks ?? []).map(hack => ({
           ...hack,
           fundsLost: hack.fundsLost,
           date: nonZeroOrNull(hack.date),
@@ -51,7 +51,7 @@ export class ProjectWithBaseRelationsEntity {
           fundsReturned: nonZeroOrNull(hack.fundsReturned),
         })) ?? [],
       audits:
-        project?.audits.map(audit => ({
+        (project?.audits ?? []).map(audit => ({
           ...audit,
           id: notStringOrNull(audit?.id),
           name: notStringOrNull(audit?.name),
@@ -61,20 +61,22 @@ export class ProjectWithBaseRelationsEntity {
           link: notStringOrNull(audit?.link),
         })) ?? [],
       chains:
-        project.chains.map(chain => ({
+        (project?.chains ?? []).map(chain => ({
           ...chain,
           logo: notStringOrNull(chain?.logo),
         })) ?? [],
+      ecosystems: project?.ecosystems ?? [],
       jobs:
-        project?.jobs.map(job => ({
+        (project?.jobs ?? []).map(job => ({
           ...job,
           tags:
-            job.tags.map(tag => ({
+            (job.tags ?? []).map(tag => ({
               ...tag,
               createdTimestamp: nonZeroOrNull(tag?.createdTimestamp),
             })) ?? [],
         })) ?? [],
       repos: project?.repos ?? [],
+      investors: project?.investors ?? [],
       grants:
         project?.grants?.map(grant => ({
           ...grant,
@@ -130,7 +132,7 @@ export class ProjectWithRelationsEntity {
       docs: notStringOrNull(project?.docs),
       category: notStringOrNull(project?.category),
       hacks:
-        project?.hacks.map(hack => ({
+        (project?.hacks ?? []).map(hack => ({
           ...hack,
           fundsLost: hack.fundsLost,
           date: nonZeroOrNull(hack.date),
@@ -139,7 +141,7 @@ export class ProjectWithRelationsEntity {
           fundsReturned: nonZeroOrNull(hack.fundsReturned),
         })) ?? [],
       audits:
-        project?.audits.map(audit => ({
+        (project?.audits ?? []).map(audit => ({
           ...audit,
           id: notStringOrNull(audit?.id),
           name: notStringOrNull(audit?.name),
@@ -149,20 +151,22 @@ export class ProjectWithRelationsEntity {
           link: notStringOrNull(audit?.link),
         })) ?? [],
       chains:
-        project.chains.map(chain => ({
+        (project?.chains ?? []).map(chain => ({
           ...chain,
           logo: notStringOrNull(chain?.logo),
         })) ?? [],
+      ecosystems: project?.ecosystems ?? [],
       jobs:
-        project?.jobs.map(job => ({
+        (project?.jobs ?? []).map(job => ({
           ...job,
           tags:
-            job.tags.map(tag => ({
+            (job.tags ?? []).map(tag => ({
               ...tag,
               createdTimestamp: nonZeroOrNull(tag?.createdTimestamp),
             })) ?? [],
         })) ?? [],
       repos: project?.repos ?? [],
+      investors: project?.investors ?? [],
       grants:
         project?.grants?.map(grant => ({
           ...grant,
