@@ -110,6 +110,7 @@ type PillarConfigSnapshot = {
   expiresAt: number;
   configs: FilterConfig[];
   unfilteredPillars: Map<string, Pillar>;
+  listFilterIndexes: Map<string, Map<string, FilterConfig[]>>;
 };
 
 const PILLAR_LIST_FILTER_FIELDS = [
@@ -928,7 +929,12 @@ export class SearchService {
           ? undefined
           : singleFilterField === null
             ? configs
-            : this.filterConfigs(configs, params);
+            : this.filterConfigsForSingleField(
+                configs,
+                params,
+                singleFilterField,
+                ecosystem,
+              );
       const buildResponsePillar = (candidate: string): Pillar | undefined => {
         if (filteredConfigs) {
           return singleFilterField === null || singleFilterField === candidate
@@ -1163,7 +1169,12 @@ export class SearchService {
           ? undefined
           : singleFilterField === null
             ? allConfigs
-            : this.filterConfigs(allConfigs, params);
+            : this.filterConfigsForSingleField(
+                allConfigs,
+                params,
+                singleFilterField,
+                ecosystem,
+              );
       for (const filter of filterNames) {
         const configs = filteredConfigs
           ? singleFilterField === null || singleFilterField !== filter
@@ -1472,6 +1483,7 @@ export class SearchService {
         expiresAt: Date.now() + PILLAR_CONFIG_CACHE_TTL_MS,
         configs,
         unfilteredPillars: new Map(),
+        listFilterIndexes: new Map(),
       });
       return configs;
     });
@@ -1670,6 +1682,51 @@ export class SearchService {
     }
     if (activeFields.size > 1) return undefined;
     return activeFields.values().next().value ?? null;
+  }
+
+  private filterConfigsForSingleField(
+    configs: FilterConfig[],
+    params: SearchPillarFiltersParams,
+    field: string,
+    ecosystem?: string,
+  ): FilterConfig[] {
+    const requested = (params as unknown as Record<string, unknown>)[field];
+    const snapshot = ecosystem
+      ? undefined
+      : this.pillarConfigCache.get(params.nav);
+    if (
+      !Array.isArray(requested) ||
+      !requested.length ||
+      !snapshot ||
+      snapshot.configs !== configs
+    ) {
+      return this.filterConfigs(configs, params);
+    }
+
+    let index = snapshot.listFilterIndexes.get(field);
+    if (!index) {
+      index = new Map();
+      for (const config of configs) {
+        const seen = new Set<string>();
+        for (const label of this.asStringArray(config[field])) {
+          const key = slugify(label);
+          if (!key || seen.has(key)) continue;
+          seen.add(key);
+          const matches = index.get(key);
+          if (matches) matches.push(config);
+          else index.set(key, [config]);
+        }
+      }
+      snapshot.listFilterIndexes.set(field, index);
+    }
+
+    const matches = new Set<FilterConfig>();
+    for (const value of requested) {
+      for (const config of index.get(slugify(String(value))) ?? []) {
+        matches.add(config);
+      }
+    }
+    return [...matches];
   }
 
   private filterConfigs(

@@ -347,7 +347,7 @@ describe("SearchService organization intelligence filters", () => {
     expect(getPillarConfigs).toHaveBeenCalledTimes(1);
   });
 
-  it("filters a single-field pillar page once while preserving all facets", async () => {
+  it("uses the single-field index while preserving all pillar facets", async () => {
     const service = new SearchService(
       {
         getPillarConfigs: jest.fn().mockResolvedValue([
@@ -391,7 +391,7 @@ describe("SearchService organization intelligence filters", () => {
       undefined,
     );
 
-    expect(filterConfigs).toHaveBeenCalledTimes(1);
+    expect(filterConfigs).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       success: true,
       data: {
