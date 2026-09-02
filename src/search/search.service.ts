@@ -106,6 +106,31 @@ type NormalizedWorkOption = Record<string, unknown> & {
   requiredUtcBand: NormalizedUtcBand | null;
   preferredUtcBand: NormalizedUtcBand | null;
 };
+type PillarConfigSnapshot = {
+  expiresAt: number;
+  configs: FilterConfig[];
+  unfilteredPillars: Map<string, Pillar>;
+};
+
+const PILLAR_LIST_FILTER_FIELDS = [
+  "names",
+  "chains",
+  "categories",
+  "locations",
+  "investors",
+  "fundingRounds",
+  "fundingStages",
+  "tags",
+  "classifications",
+  "commitments",
+  "locationTypes",
+  "timezones",
+  "collaborationHours",
+  "organizations",
+  "projects",
+  "ecosystems",
+  "seniority",
+] as const;
 
 const TEAM_FILTER_FIELDS = new Set([
   "currentMaintainers",
@@ -202,7 +227,7 @@ export class SearchService {
   private readonly logger = new CustomLogger(SearchService.name);
   private readonly pillarConfigCache = new Map<
     SearchNav,
-    { expiresAt: number; configs: FilterConfig[] }
+    PillarConfigSnapshot
   >();
   private readonly pillarConfigLoads = new Map<
     SearchNav,
@@ -897,7 +922,31 @@ export class SearchService {
         ecosystem,
         params,
       );
-      const active = this.buildPillar(configs, { ...params, pillar });
+      const singleFilterField = this.singleActiveFilterField(params);
+      const filteredConfigs =
+        singleFilterField === undefined
+          ? undefined
+          : singleFilterField === null
+            ? configs
+            : this.filterConfigs(configs, params);
+      const buildResponsePillar = (candidate: string): Pillar | undefined => {
+        if (filteredConfigs) {
+          return singleFilterField === null || singleFilterField === candidate
+            ? this.getUnfilteredPillar(
+                configs,
+                params.nav,
+                candidate,
+                ecosystem,
+              )
+            : this.buildPillarFromFilteredConfigs(
+                filteredConfigs,
+                params.nav,
+                candidate,
+              );
+        }
+        return this.buildPillar(configs, { ...params, pillar: candidate });
+      };
+      const active = buildResponsePillar(pillar);
       const headerText = await this.fetchHeaderText(
         params.nav,
         pillar,
@@ -915,9 +964,7 @@ export class SearchService {
       ];
       const altPillars = (NAV_PILLAR_ORDERING[params.nav] ?? [])
         .filter(candidate => candidate !== pillar)
-        .map(candidate =>
-          this.buildPillar(configs, { ...params, pillar: candidate }),
-        )
+        .map(buildResponsePillar)
         .filter((candidate): candidate is Pillar => Boolean(candidate))
         .map(candidate => ({
           ...candidate,
@@ -966,10 +1013,7 @@ export class SearchService {
     const configs = await this.loadPillarConfigs(nav, ecosystem);
     return (NAV_PILLAR_ORDERING[nav] ?? []).flatMap(pillar => {
       const prefix = NAV_PILLAR_SLUG_PREFIX_MAPPINGS[nav]?.[pillar];
-      const data = this.buildPillar(configs, {
-        nav,
-        pillar,
-      } as SearchPillarFiltersParams & { pillar: string });
+      const data = this.getUnfilteredPillar(configs, nav, pillar, ecosystem);
       return prefix
         ? (data?.items ?? []).map(item => `${prefix}-${slugify(item)}`)
         : [];
@@ -1048,10 +1092,7 @@ export class SearchService {
       const wanted = new Set(params.slugs ?? []);
       const labels = new Map<string, string>();
       for (const pillar of pillars) {
-        const data = this.buildPillar(configs, {
-          nav: params.nav,
-          pillar,
-        } as SearchPillarFiltersParams & { pillar: string });
+        const data = this.getUnfilteredPillar(configs, params.nav, pillar);
         for (const label of data?.items ?? []) {
           const key = slugify(label);
           if (wanted.has(key)) {
@@ -1116,8 +1157,19 @@ export class SearchService {
       const filters: (
         SearchRangeFilter | SingleSelectFilter | MultiSelectFilter
       )[] = [];
+      const singleFilterField = this.singleActiveFilterField(params);
+      const filteredConfigs =
+        singleFilterField === undefined
+          ? undefined
+          : singleFilterField === null
+            ? allConfigs
+            : this.filterConfigs(allConfigs, params);
       for (const filter of filterNames) {
-        const configs = this.filterConfigs(allConfigs, params, filter);
+        const configs = filteredConfigs
+          ? singleFilterField === null || singleFilterField !== filter
+            ? filteredConfigs
+            : allConfigs
+          : this.filterConfigs(allConfigs, params, filter);
         const preset = presets[filter];
         if (!preset) continue;
         const visiblePreset = TEAM_FILTER_FIELDS.has(filter)
@@ -1419,6 +1471,7 @@ export class SearchService {
       this.pillarConfigCache.set(nav, {
         expiresAt: Date.now() + PILLAR_CONFIG_CACHE_TTL_MS,
         configs,
+        unfilteredPillars: new Map(),
       });
       return configs;
     });
@@ -1553,11 +1606,70 @@ export class SearchService {
       return undefined;
     }
     const configs = this.filterConfigs(allConfigs, params, params.pillar);
+    return this.buildPillarFromFilteredConfigs(
+      configs,
+      params.nav,
+      params.pillar,
+    );
+  }
+
+  private buildPillarFromFilteredConfigs(
+    configs: FilterConfig[],
+    nav: SearchNav,
+    pillar: string,
+  ): Pillar | undefined {
+    if (!NAV_PILLAR_ORDERING[nav]?.includes(pillar)) return undefined;
     return {
-      slug: params.pillar,
-      label: NAV_FILTER_LABEL_MAPPINGS[params.nav]?.[params.pillar],
-      items: this.collectValues(configs, params.pillar),
+      slug: pillar,
+      label: NAV_FILTER_LABEL_MAPPINGS[nav]?.[pillar],
+      items: this.collectValues(configs, pillar),
     };
+  }
+
+  private getUnfilteredPillar(
+    configs: FilterConfig[],
+    nav: SearchNav,
+    pillar: string,
+    ecosystem?: string,
+  ): Pillar | undefined {
+    const snapshot = ecosystem ? undefined : this.pillarConfigCache.get(nav);
+    if (!snapshot || snapshot.configs !== configs) {
+      return this.buildPillarFromFilteredConfigs(configs, nav, pillar);
+    }
+    const cached = snapshot.unfilteredPillars.get(pillar);
+    if (cached) return cached;
+    const built = this.buildPillarFromFilteredConfigs(configs, nav, pillar);
+    if (built) snapshot.unfilteredPillars.set(pillar, built);
+    return built;
+  }
+
+  private singleActiveFilterField(
+    params: SearchPillarFiltersParams,
+  ): string | null | undefined {
+    const values = params as unknown as Record<string, unknown>;
+    const activeFields = new Set<string>();
+    for (const field of PILLAR_LIST_FILTER_FIELDS) {
+      if (Array.isArray(values[field]) && values[field].length) {
+        activeFields.add(field);
+      }
+    }
+    for (const [field, mapping] of Object.entries(
+      rangeFilters[params.nav] ?? {},
+    )) {
+      if (
+        this.asNumber(values[mapping.minimum]) !== null ||
+        this.asNumber(values[mapping.maximum]) !== null
+      ) {
+        activeFields.add(field);
+      }
+    }
+    for (const [field, parameter] of Object.entries(
+      booleanFilters[params.nav] ?? {},
+    )) {
+      if (typeof values[parameter] === "boolean") activeFields.add(field);
+    }
+    if (activeFields.size > 1) return undefined;
+    return activeFields.values().next().value ?? null;
   }
 
   private filterConfigs(
@@ -1569,27 +1681,8 @@ export class SearchService {
     const teamSignalsAvailable = configs.some(
       config => config.teamSignalsAvailable === true,
     );
-    const listFields = [
-      "names",
-      "chains",
-      "categories",
-      "locations",
-      "investors",
-      "fundingRounds",
-      "fundingStages",
-      "tags",
-      "classifications",
-      "commitments",
-      "locationTypes",
-      "timezones",
-      "collaborationHours",
-      "organizations",
-      "projects",
-      "ecosystems",
-      "seniority",
-    ];
     return configs.filter(config => {
-      for (const field of listFields) {
+      for (const field of PILLAR_LIST_FILTER_FIELDS) {
         if (field === excludedField) continue;
         const requested = values[field];
         if (!Array.isArray(requested) || !requested.length) continue;

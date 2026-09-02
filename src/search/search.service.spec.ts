@@ -346,4 +346,62 @@ describe("SearchService organization intelligence filters", () => {
 
     expect(getPillarConfigs).toHaveBeenCalledTimes(1);
   });
+
+  it("filters a single-field pillar page once while preserving all facets", async () => {
+    const service = new SearchService(
+      {
+        getPillarConfigs: jest.fn().mockResolvedValue([
+          {
+            names: ["Alpha"],
+            tags: ["Solidity"],
+            categories: ["DeFi"],
+            chains: ["Ethereum"],
+          },
+          {
+            names: ["Beta"],
+            tags: ["Rust"],
+            categories: ["Infrastructure"],
+            chains: ["Solana"],
+          },
+        ]),
+        getStoredPillarText: jest.fn().mockResolvedValue({
+          title: "Solidity projects",
+          description: "Projects using Solidity",
+        }),
+      } as unknown as SearchRepository,
+      {} as never,
+      {} as never,
+    );
+    const internals = service as unknown as {
+      filterConfigs: (
+        configs: Record<string, unknown>[],
+        params: unknown,
+        excludedField?: string,
+      ) => Record<string, unknown>[];
+    };
+    const filterConfigs = jest.spyOn(internals, "filterConfigs");
+
+    const result = await service.searchPillar(
+      {
+        nav: "projects",
+        pillar: "tags",
+        item: "solidity",
+        tags: ["solidity"],
+      } as never,
+      undefined,
+    );
+
+    expect(filterConfigs).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({
+      success: true,
+      data: {
+        activePillar: { slug: "tags", items: ["Solidity", "Rust"] },
+        altPillars: expect.arrayContaining([
+          expect.objectContaining({ slug: "categories", items: ["DeFi"] }),
+          expect.objectContaining({ slug: "chains", items: ["Ethereum"] }),
+          expect.objectContaining({ slug: "names", items: ["Alpha"] }),
+        ]),
+      },
+    });
+  });
 });
