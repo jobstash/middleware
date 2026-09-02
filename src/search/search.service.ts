@@ -96,6 +96,16 @@ import {
 } from "src/team-intelligence/team-intelligence.types";
 
 type FilterConfig = Record<string, unknown>;
+type NormalizedUtcBand = {
+  minimumUtcOffset: number;
+  maximumUtcOffset: number;
+};
+type NormalizedWorkOption = Record<string, unknown> & {
+  classification: string;
+  mode: string;
+  requiredUtcBand: NormalizedUtcBand | null;
+  preferredUtcBand: NormalizedUtcBand | null;
+};
 
 const TEAM_FILTER_FIELDS = new Set([
   "currentMaintainers",
@@ -105,6 +115,8 @@ const TEAM_FILTER_FIELDS = new Set([
   "movedLeads",
   "earlyLeadDepartures",
 ]);
+
+const PILLAR_CONFIG_CACHE_TTL_MS = 5 * 60 * 1_000;
 
 const JOB_CLASSIFICATION_LABELS = new Map(
   CANONICAL_JOB_CLASSIFICATIONS.map(classification => [
@@ -188,6 +200,14 @@ const booleanFilters: Partial<Record<SearchNav, Record<string, string>>> = {
 @Injectable()
 export class SearchService {
   private readonly logger = new CustomLogger(SearchService.name);
+  private readonly pillarConfigCache = new Map<
+    SearchNav,
+    { expiresAt: number; configs: FilterConfig[] }
+  >();
+  private readonly pillarConfigLoads = new Map<
+    SearchNav,
+    Promise<FilterConfig[]>
+  >();
 
   private readonly groupLabels: Record<SuggestionGroupId, string> = {
     jobs: "Job Titles",
@@ -1384,6 +1404,36 @@ export class SearchService {
     filters: TeamFilterInput = {},
   ): Promise<FilterConfig[]> {
     void filters;
+    if (ecosystem) {
+      return this.loadPillarConfigsUncached(nav, ecosystem);
+    }
+
+    const now = Date.now();
+    const cached = this.pillarConfigCache.get(nav);
+    if (cached && cached.expiresAt > now) return cached.configs;
+
+    const existingLoad = this.pillarConfigLoads.get(nav);
+    if (existingLoad) return existingLoad;
+
+    const load = this.loadPillarConfigsUncached(nav).then(configs => {
+      this.pillarConfigCache.set(nav, {
+        expiresAt: Date.now() + PILLAR_CONFIG_CACHE_TTL_MS,
+        configs,
+      });
+      return configs;
+    });
+    this.pillarConfigLoads.set(nav, load);
+    try {
+      return await load;
+    } finally {
+      this.pillarConfigLoads.delete(nav);
+    }
+  }
+
+  private async loadPillarConfigsUncached(
+    nav: SearchNav,
+    ecosystem?: string,
+  ): Promise<FilterConfig[]> {
     const configs = await this.searchRepository.getPillarConfigs(
       nav,
       ecosystem,
@@ -1676,7 +1726,7 @@ export class SearchService {
       typeof arrangement.classification === "string"
         ? arrangement.classification
         : "unstated";
-    const normalizeUtcBand = (rawBand: unknown) => {
+    const normalizeUtcBand = (rawBand: unknown): NormalizedUtcBand | null => {
       if (!rawBand || typeof rawBand !== "object" || Array.isArray(rawBand)) {
         return null;
       }
@@ -1693,7 +1743,10 @@ export class SearchService {
         ? { minimumUtcOffset, maximumUtcOffset }
         : null;
     };
-    const normalizeOptions = (key: string, mode: string) =>
+    const normalizeOptions = (
+      key: string,
+      mode: string,
+    ): NormalizedWorkOption[] =>
       Array.isArray(arrangement[key])
         ? arrangement[key]
             .filter(
@@ -1724,7 +1777,7 @@ export class SearchService {
       remoteOptions: normalizeOptions("remoteOptions", "remote"),
       hybridOptions: normalizeOptions("hybridOptions", "hybrid"),
       onsiteOptions: normalizeOptions("onsiteOptions", "onsite"),
-    } as PillarJob["workArrangement"];
+    } as unknown as PillarJob["workArrangement"];
   }
 
   private normalizePillarOrganization(

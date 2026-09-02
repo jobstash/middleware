@@ -326,4 +326,24 @@ describe("SearchService organization intelligence filters", () => {
       data: [{ slug: "utc-08", label: "08:00 UTC" }],
     });
   });
+
+  it("reuses the global pillar snapshot across requests", async () => {
+    const getPillarConfigs = jest
+      .fn()
+      .mockResolvedValue([{ tags: ["solidity"] }]);
+    const service = new SearchService(
+      { getPillarConfigs } as unknown as SearchRepository,
+      {} as never,
+      {} as never,
+    );
+
+    await service.fetchPillarItemLabels({
+      nav: "jobs",
+      pillars: ["tags"],
+      slugs: ["solidity"],
+    } as never);
+    await service.searchPillarFilters({ nav: "jobs" } as never, undefined);
+
+    expect(getPillarConfigs).toHaveBeenCalledTimes(1);
+  });
 });
