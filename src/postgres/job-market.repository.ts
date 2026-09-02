@@ -256,6 +256,10 @@ export class JobMarketRepository {
     return this.postgres.query<JobMarketMetricRow>(`
       WITH market_pillar AS (
         SELECT id FROM job_market_pillars WHERE slug = 'market'
+      ), target_pillars AS MATERIALIZED (
+        SELECT id
+        FROM job_market_pillars
+        WHERE kind IN ('market', 'classifications')
       ), latest AS (
         SELECT max(metric.sample_date) AS sample_date
         FROM job_market_daily_metrics metric
@@ -269,7 +273,9 @@ export class JobMarketRepository {
             WHERE metric.sample_date > latest.sample_date - 14
               AND metric.sample_date <= latest.sample_date - 7
           ), 0)::int AS previous_window_jobs
-        FROM job_market_daily_metrics metric
+        FROM target_pillars target
+        JOIN job_market_daily_metrics metric
+          ON metric.pillar_id = target.id
         CROSS JOIN latest
         WHERE metric.sample_date > latest.sample_date - 14
         GROUP BY metric.pillar_id
@@ -297,7 +303,9 @@ export class JobMarketRepository {
             WHERE metric.sample_date > latest.sample_date - 35
               AND metric.sample_date <= latest.sample_date - 7
           ) AS baseline_hiring_companies
-        FROM job_market_daily_metrics metric
+        FROM target_pillars target
+        JOIN job_market_daily_metrics metric
+          ON metric.pillar_id = target.id
         CROSS JOIN latest
         WHERE metric.sample_date > latest.sample_date - 35
         GROUP BY metric.pillar_id

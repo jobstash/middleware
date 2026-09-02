@@ -29,6 +29,19 @@ describe("JobMarketRepository", () => {
     expect(query.mock.calls[0][0]).toContain("JOIN market_pillar");
   });
 
+  it("aggregates overview windows only for materialized overview pillars", async () => {
+    const query = jest.fn().mockResolvedValue([]);
+    const repository = new JobMarketRepository({ query } as never);
+
+    await repository.getOverview();
+
+    const [sql] = query.mock.calls[0];
+    expect(sql).toContain("target_pillars AS MATERIALIZED");
+    expect(sql).toContain("kind IN ('market', 'classifications')");
+    expect(sql.match(/FROM target_pillars target/g)).toHaveLength(2);
+    expect(sql.match(/ON metric\.pillar_id = target\.id/g)).toHaveLength(2);
+  });
+
   it("scopes relevant skills to open jobs in the selected classification", async () => {
     const query = jest.fn().mockResolvedValue([]);
     const repository = new JobMarketRepository({ query } as never);
