@@ -78,6 +78,62 @@ describe("SearchService organization intelligence filters", () => {
     );
   });
 
+  it("restores required fields on legacy work-arrangement options", async () => {
+    const getPillarJobs = jest.fn().mockResolvedValue([
+      {
+        workArrangement: {
+          classification: "verified_onsite",
+          fullyRemote: false,
+          remoteOptions: [],
+          hybridOptions: [],
+          onsiteOptions: [
+            {
+              scope: "unstated",
+              includedCountries: [],
+              excludedCountries: [],
+              includedRegions: [],
+              excludedRegions: [],
+              requiredUtcBand: null,
+              preferredUtcBand: null,
+              residencyRequirements: [],
+              workAuthorizationRequirements: [],
+              sponsorshipStatus: "unstated",
+              officeCity: "Stockholm",
+              attendanceCadence: null,
+              travelRequirement: null,
+              confidence: "source_stated",
+            },
+          ],
+        },
+      },
+    ]);
+    const service = new SearchService(
+      { getPillarJobs } as unknown as SearchRepository,
+      { getSummariesById: jest.fn().mockResolvedValue(new Map()) } as never,
+      {} as never,
+    );
+
+    await expect(
+      service.getPillarPageData("cl-forward-deployed-engineer"),
+    ).resolves.toMatchObject({
+      success: true,
+      data: {
+        jobs: [
+          {
+            workArrangement: {
+              onsiteOptions: [
+                {
+                  classification: "verified_onsite",
+                  mode: "onsite",
+                },
+              ],
+            },
+          },
+        ],
+      },
+    });
+  });
+
   it("links current-stage navigation to the working organization filter route", async () => {
     const service = new SearchService(
       {

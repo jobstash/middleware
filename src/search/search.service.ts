@@ -1617,6 +1617,9 @@ export class SearchService {
 
   private normalizePillarJob(raw: Record<string, unknown>): PillarJob {
     const organization = raw.organization as Record<string, unknown> | null;
+    const workArrangement = this.normalizePillarWorkArrangement(
+      raw.workArrangement,
+    );
     const seniority =
       { "1": "Intern", "2": "Junior", "3": "Senior", "4": "Lead", "5": "Head" }[
         String(raw.seniority ?? "")
@@ -1633,6 +1636,7 @@ export class SearchService {
       access: raw.access === "protected" ? "protected" : "public",
       featured: Boolean(raw.featured),
       onboardIntoWeb3: Boolean(raw.onboardIntoWeb3),
+      workArrangement,
       tags: Array.isArray(raw.tags)
         ? raw.tags.filter(
             tag =>
@@ -1660,6 +1664,48 @@ export class SearchService {
           } as unknown as PillarJob["organization"])
         : null,
     };
+  }
+
+  private normalizePillarWorkArrangement(
+    raw: unknown,
+  ): PillarJob["workArrangement"] {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+
+    const arrangement = raw as Record<string, unknown>;
+    const classification =
+      typeof arrangement.classification === "string"
+        ? arrangement.classification
+        : "unstated";
+    const normalizeOptions = (key: string, mode: string) =>
+      Array.isArray(arrangement[key])
+        ? arrangement[key]
+            .filter(
+              (option): option is Record<string, unknown> =>
+                Boolean(option) &&
+                typeof option === "object" &&
+                !Array.isArray(option),
+            )
+            .map(option => ({
+              ...option,
+              classification:
+                typeof option.classification === "string"
+                  ? option.classification
+                  : classification,
+              mode,
+            }))
+        : [];
+
+    return {
+      ...arrangement,
+      classification,
+      fullyRemote:
+        typeof arrangement.fullyRemote === "boolean"
+          ? arrangement.fullyRemote
+          : null,
+      remoteOptions: normalizeOptions("remoteOptions", "remote"),
+      hybridOptions: normalizeOptions("hybridOptions", "hybrid"),
+      onsiteOptions: normalizeOptions("onsiteOptions", "onsite"),
+    } as PillarJob["workArrangement"];
   }
 
   private normalizePillarOrganization(

@@ -1,3 +1,5 @@
+import type { WorkArrangementV1 } from "src/shared/interfaces/work-arrangement.interface";
+
 /**
  * Funding round for organization
  */
@@ -104,6 +106,7 @@ export interface PillarJob {
   offersTokenAllocation: boolean | null;
   salaryCurrency: string | null;
   classification: string | null;
+  workArrangement?: WorkArrangementV1 | null;
   tags: PillarTag[];
   availability?: Array<{
     workMode?: "remote" | "hybrid" | "onsite";
