@@ -1676,6 +1676,23 @@ export class SearchService {
       typeof arrangement.classification === "string"
         ? arrangement.classification
         : "unstated";
+    const normalizeUtcBand = (rawBand: unknown) => {
+      if (!rawBand || typeof rawBand !== "object" || Array.isArray(rawBand)) {
+        return null;
+      }
+      const band = rawBand as Record<string, unknown>;
+      const minimumMinutes = this.asNumber(band.minimumMinutes);
+      const maximumMinutes = this.asNumber(band.maximumMinutes);
+      const minimumUtcOffset =
+        this.asNumber(band.minimumUtcOffset) ??
+        (minimumMinutes != null ? minimumMinutes / 60 : null);
+      const maximumUtcOffset =
+        this.asNumber(band.maximumUtcOffset) ??
+        (maximumMinutes != null ? maximumMinutes / 60 : null);
+      return minimumUtcOffset != null && maximumUtcOffset != null
+        ? { minimumUtcOffset, maximumUtcOffset }
+        : null;
+    };
     const normalizeOptions = (key: string, mode: string) =>
       Array.isArray(arrangement[key])
         ? arrangement[key]
@@ -1692,6 +1709,8 @@ export class SearchService {
                   ? option.classification
                   : classification,
               mode,
+              requiredUtcBand: normalizeUtcBand(option.requiredUtcBand),
+              preferredUtcBand: normalizeUtcBand(option.preferredUtcBand),
             }))
         : [];
 

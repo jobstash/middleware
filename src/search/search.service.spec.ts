@@ -93,7 +93,10 @@ describe("SearchService organization intelligence filters", () => {
               excludedCountries: [],
               includedRegions: [],
               excludedRegions: [],
-              requiredUtcBand: null,
+              requiredUtcBand: {
+                minimumMinutes: -180,
+                maximumMinutes: 330,
+              },
               preferredUtcBand: null,
               residencyRequirements: [],
               workAuthorizationRequirements: [],
@@ -125,6 +128,10 @@ describe("SearchService organization intelligence filters", () => {
                 {
                   classification: "verified_onsite",
                   mode: "onsite",
+                  requiredUtcBand: {
+                    minimumUtcOffset: -3,
+                    maximumUtcOffset: 5.5,
+                  },
                 },
               ],
             },
