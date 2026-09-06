@@ -2127,10 +2127,11 @@ export class ProfileRepository {
     const rows = await queryRows<{ value: Record<string, unknown> }>(
       this.postgres,
       `
-        SELECT tag.properties || jsonb_build_object(
-          'canTeach', COALESCE(
+        SELECT DISTINCT ON (lower(btrim(tag.properties ->> 'name')))
+          tag.properties || jsonb_build_object(
+          'canTeach', bool_or(COALESCE(
             jsonb_boolean_value(relationship.properties, 'canTeach'), false
-          )
+          )) OVER (PARTITION BY lower(btrim(tag.properties ->> 'name')))
         ) AS value
         FROM graph_nodes account
         JOIN graph_relationships relationship
@@ -2139,7 +2140,7 @@ export class ProfileRepository {
           ON tag.id = relationship.target_id AND tag.label = 'Tag'
         WHERE account.label = 'User'
           AND lower(account.properties ->> 'wallet') = lower($1)
-        ORDER BY tag.properties ->> 'name', tag.id
+        ORDER BY lower(btrim(tag.properties ->> 'name')), tag.id
       `,
       [wallet],
     );
@@ -2209,22 +2210,40 @@ export class ProfileRepository {
       if (!account) return false;
       await queryRows(
         manager,
+        "SELECT id FROM graph_nodes WHERE id=$1 FOR UPDATE",
+        [account.nodeId],
+      );
+      const tags = await queryRows<NodeRecord & { canTeach: boolean }>(
+        manager,
+        `
+        SELECT canonical.id::text AS "nodeId", canonical.properties,
+          bool_or(COALESCE(input."canTeach", false)) AS "canTeach"
+        FROM jsonb_to_recordset($1::jsonb) AS input(id text, "normalizedName" text, "canTeach" boolean)
+        JOIN graph_nodes source ON source.label='Tag'
+          AND source.properties ->> 'id' = input.id
+          AND source.properties ->> 'normalizedName' = input."normalizedName"
+        CROSS JOIN LATERAL (
+          SELECT tag.id, tag.properties FROM graph_nodes tag
+          WHERE tag.label='Tag'
+            AND lower(btrim(tag.properties ->> 'name')) = lower(btrim(source.properties ->> 'name'))
+          ORDER BY tag.id LIMIT 1
+        ) canonical
+        GROUP BY canonical.id, canonical.properties
+      `,
+        [JSON.stringify(skills)],
+      );
+      await queryRows(
+        manager,
         "DELETE FROM graph_relationships WHERE source_id = $1 AND type = 'HAS_SKILL'",
         [account.nodeId],
       );
-      for (const skill of skills) {
-        const tag = await this.findNode(
-          "Tag",
-          { id: skill.id, normalizedName: skill.normalizedName },
-          manager,
-        );
-        if (!tag) continue;
+      for (const tag of tags) {
         await this.insertRelationship(
           manager,
           account.nodeId,
           tag.nodeId,
           "HAS_SKILL",
-          { canTeach: skill.canTeach },
+          { canTeach: tag.canTeach },
         );
       }
       return true;
@@ -2464,6 +2483,11 @@ export class ProfileRepository {
       if (!context) return false;
       await queryRows(
         manager,
+        "SELECT id FROM graph_nodes WHERE id=$1 FOR UPDATE",
+        [context.accountId],
+      );
+      await queryRows(
+        manager,
         `
           WITH old_tags AS MATERIALIZED (
             SELECT DISTINCT used_tag.target_id AS tag_id
@@ -2492,10 +2516,12 @@ export class ProfileRepository {
       const tagNodes = await queryRows<NodeRecord>(
         manager,
         `
-          SELECT id::text AS "nodeId", properties
+          SELECT DISTINCT ON (lower(btrim(properties ->> 'name')))
+            id::text AS "nodeId", properties
           FROM graph_nodes
           WHERE label = 'Tag'
             AND properties ->> 'normalizedName' = ANY($1::text[])
+          ORDER BY lower(btrim(properties ->> 'name')), id
         `,
         [[...new Set(tags.map(tag => tag.normalizedName))]],
       );
@@ -2503,13 +2529,28 @@ export class ProfileRepository {
         const input = tags.find(
           value => value.normalizedName === tag.properties.normalizedName,
         );
-        await this.insertRelationship(
+        const existingSkill = await queryRows(
           manager,
-          context.accountId,
-          tag.nodeId,
-          "HAS_SKILL",
-          { canTeach: input?.canTeach ?? false },
+          `
+          UPDATE graph_relationships SET properties = properties || $3::jsonb
+          WHERE source_id=$1 AND target_id=$2 AND type='HAS_SKILL'
+          RETURNING id
+        `,
+          [
+            context.accountId,
+            tag.nodeId,
+            JSON.stringify({ canTeach: input?.canTeach ?? false }),
+          ],
         );
+        if (!existingSkill.length) {
+          await this.insertRelationship(
+            manager,
+            context.accountId,
+            tag.nodeId,
+            "HAS_SKILL",
+            { canTeach: input?.canTeach ?? false },
+          );
+        }
         await this.insertRelationship(
           manager,
           context.githubId,

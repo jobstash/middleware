@@ -1169,7 +1169,7 @@ export class SearchRepository {
     return this.postgres.query<SkillSuggestionItem & Record<string, unknown>>(
       `
         WITH recent_tags AS (
-          SELECT entry.key AS normalized_name, entry.value AS name,
+          SELECT entry.key AS normalized_name,
             count(DISTINCT job.job_node_id) AS popularity
           FROM job_search_documents job
           CROSS JOIN LATERAL jsonb_each_text(
@@ -1182,20 +1182,26 @@ export class SearchRepository {
               OR lower(entry.value) LIKE '%' || lower($1) || '%'
               OR lower(entry.value) % lower($1)
             )
-          GROUP BY entry.key, entry.value
+          GROUP BY entry.key
+        ), unique_tags AS (
+          SELECT DISTINCT ON (lower(btrim(tag.properties ->> 'name')))
+            tag.properties, max(recent_tags.popularity) OVER (
+              PARTITION BY lower(btrim(tag.properties ->> 'name'))
+            ) AS popularity
+          FROM recent_tags
+          JOIN graph_nodes tag ON tag.label='Tag'
+            AND tag.properties ->> 'normalizedName' = recent_tags.normalized_name
+          ORDER BY lower(btrim(tag.properties ->> 'name')), tag.id
         )
-        SELECT tag.properties ->> 'id' AS id,
-          recent_tags.name,
-          recent_tags.normalized_name AS "normalizedName"
-        FROM recent_tags
-        JOIN graph_nodes tag
-          ON tag.label = 'Tag'
-         AND tag.properties ->> 'normalizedName' = recent_tags.normalized_name
+        SELECT properties ->> 'id' AS id,
+          properties ->> 'name' AS name,
+          properties ->> 'normalizedName' AS "normalizedName"
+        FROM unique_tags
         ORDER BY
           CASE WHEN $1::text IS NOT NULL
-            THEN similarity(lower(recent_tags.name), lower($1)) END DESC NULLS LAST,
-          recent_tags.popularity DESC,
-          recent_tags.name
+            THEN similarity(lower(properties ->> 'name'), lower($1)) END DESC NULLS LAST,
+          popularity DESC,
+          properties ->> 'name', properties ->> 'id'
         OFFSET $4 LIMIT $5
       `,
       [
