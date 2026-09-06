@@ -195,6 +195,12 @@ The same authenticated save fills missing name/location and CV-supported job
 preferences in one transaction. Existing populated preferences take precedence;
 past employers do not become target employers and legal/pay preferences are not
 guessed. Unstated scalars remain null. Matching data excludes contact details.
+Current and former CV employers are excluded before ranking, on the web and in
+weekly email. Employer names and recorded aliases match ignoring case, spacing
+and punctuation; linked Organization/Project facets of the same Profile and
+direct ownership links share the exclusion. Similar names alone and GitHub
+contributions do not establish employment. Work history still informs matching
+at other employers, but never gives a bonus for returning to a previous company.
 Explicit seniority overrides the recent-CV fallback. Old uploads only retained
 skills/contact details and a document URL: they need reprocessing or re-upload,
 not an assumption that parsed career history exists. Removing the CV removes

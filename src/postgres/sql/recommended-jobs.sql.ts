@@ -213,6 +213,47 @@ export const recommendedJobsSql = `
       WHEN jsonb_typeof(target_user.properties #> '{recommendationCareer,roles}') = 'array'
         THEN target_user.properties #> '{recommendationCareer,roles}'
       ELSE '[]'::jsonb END) entry
+  ), career_employer_names AS MATERIALIZED (
+    SELECT DISTINCT regexp_replace(lower(role ->> 'company'), '[^[:alnum:]]', '', 'g') AS name
+    FROM career
+    WHERE NULLIF(regexp_replace(lower(role ->> 'company'), '[^[:alnum:]]', '', 'g'), '') IS NOT NULL
+  ), career_employers AS MATERIALIZED (
+    SELECT DISTINCT employer.node_id
+    FROM (
+      SELECT organization_node_id AS node_id, name, payload -> 'aliases' AS aliases
+      FROM organization_search_documents
+      UNION ALL
+      SELECT project_node_id, name, payload -> 'aliases'
+      FROM project_search_documents
+      UNION ALL
+      SELECT id, properties ->> 'name', properties -> 'aliases'
+      FROM graph_nodes WHERE label = 'EntityProfile'
+    ) employer
+    CROSS JOIN LATERAL (
+      SELECT employer.name
+      UNION ALL
+      SELECT value FROM jsonb_array_elements_text(CASE
+        WHEN jsonb_typeof(employer.aliases) = 'array' THEN employer.aliases
+        ELSE '[]'::jsonb END)
+    ) identity
+    JOIN career_employer_names career_name
+      ON career_name.name = regexp_replace(lower(identity.name), '[^[:alnum:]]', '', 'g')
+  ), excluded_employers AS MATERIALIZED (
+    SELECT node_id FROM career_employers
+    UNION
+    SELECT ownership.target_id FROM graph_relationships ownership
+    JOIN career_employers employer ON employer.node_id = ownership.source_id
+    WHERE ownership.type IN ('HAS_PROJECT', 'PROFILE_HAS_ORGANIZATION', 'PROFILE_HAS_PROJECT')
+    UNION
+    SELECT ownership.source_id FROM graph_relationships ownership
+    JOIN career_employers employer ON employer.node_id = ownership.target_id
+    WHERE ownership.type = 'HAS_PROJECT'
+    UNION
+    SELECT sibling.target_id FROM graph_relationships membership
+    JOIN career_employers employer ON employer.node_id = membership.target_id
+    JOIN graph_relationships sibling ON sibling.source_id = membership.source_id
+      AND sibling.type IN ('PROFILE_HAS_ORGANIZATION', 'PROFILE_HAS_PROJECT')
+    WHERE membership.type IN ('PROFILE_HAS_ORGANIZATION', 'PROFILE_HAS_PROJECT')
   ), user_location AS MATERIALIZED (
     SELECT location.properties ->> 'city' AS city,
       location.properties ->> 'country' AS country,
@@ -285,6 +326,10 @@ export const recommendedJobsSql = `
       AND job_vectors.version='${RECOMMENDATION_EMBEDDING_VERSION}'
       AND job_vectors.content_hash=md5(recommendation_embedding_content('job',document.job_node_id))
     WHERE document.online
+      AND NOT EXISTS (
+        SELECT 1 FROM excluded_employers employer
+        WHERE employer.node_id = COALESCE(organization.organization_node_id, project.project_node_id)
+      )
       AND NOT EXISTS (
         SELECT 1 FROM user_job_preferences preferences
         WHERE preferences.user_node_id = target_user.id
@@ -548,10 +593,6 @@ export const recommendedJobsSql = `
               role ->> 'endDate' DESC NULLS LAST, role ->> 'startDate' DESC NULLS LAST
             LIMIT 1
           )
-        UNION ALL
-        SELECT 2.0::numeric, 'Company in your work history'
-        WHERE EXISTS (SELECT 1 FROM career
-          WHERE lower(role ->> 'company') = lower(candidate.owner_name))
         UNION ALL
         SELECT 2.0::numeric AS score, candidate.salary_currency AS label
         WHERE candidate.salary_currency IS NOT NULL

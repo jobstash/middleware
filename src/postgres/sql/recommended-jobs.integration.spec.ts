@@ -540,6 +540,84 @@ describeDatabase("recommendations executed in PostgreSQL", () => {
     expect(rows[0].job.shortUUID).toBe("senior");
     expect(rows[0].score).toBeGreaterThan(rows[1].score);
   });
+  it.each([true, false])(
+    "excludes CV employers from web and email even when preferred (current=%s)",
+    async current => {
+      await client.query(
+        `UPDATE graph_nodes SET properties=properties || $1::jsonb WHERE id=1`,
+        [
+          JSON.stringify({
+            recommendationCareer: {
+              roles: [{ company: "  B.e.t.a  ", current }],
+            },
+          }),
+        ],
+      );
+      await client.query(`UPDATE user_job_preferences SET target_organizations=ARRAY['Beta'];
+        INSERT INTO user_activity_events(user_node_id,job_node_id,event_type) VALUES (1,200,'job_view');`);
+      await addSkill();
+      await embedDocument("job", 100);
+      await embedDocument("job", 200);
+      for (const weeklyEmail of [false, true]) {
+        const rows = await rank(weeklyEmail);
+        expect(rows.map(row => row.job.shortUUID)).toEqual(["junior"]);
+        expect(rows[0].reasonLabels).not.toContain(
+          "Company in your work history",
+        );
+      }
+    },
+  );
+  it("excludes renamed employers through recorded aliases, not partial names", async () => {
+    await client.query(`UPDATE graph_nodes SET properties=properties ||
+      '{"recommendationCareer":{"roles":[{"company":"Former-Beta"},{"company":"Al"},{"company":" "},{"company":null}]}}' WHERE id=1;
+      UPDATE organization_search_documents SET payload=payload || '{"aliases":["Former Beta"]}' WHERE organization_id='org-b';`);
+    expect((await rank()).map(row => row.job.shortUUID)).toEqual(["junior"]);
+  });
+  it.each(["parent", "project", "profile"])(
+    "shares a CV employer exclusion across canonical Profile facets (%s)",
+    async facet => {
+      const company = {
+        parent: "Beta",
+        project: "Beta Protocol",
+        profile: "Old Beta Brand",
+      }[facet];
+      await client.query(
+        `UPDATE graph_nodes SET properties=properties || $1::jsonb WHERE id=1`,
+        [JSON.stringify({ recommendationCareer: { roles: [{ company }] } })],
+      );
+      await client.query(`INSERT INTO graph_nodes VALUES
+        (40,'Project','{"name":"Beta Protocol"}'),(41,'EntityProfile','{"name":"Beta Group","aliases":["Old Beta Brand"]}');
+        INSERT INTO graph_relationships VALUES (41,20,'PROFILE_HAS_ORGANIZATION'),(41,40,'PROFILE_HAS_PROJECT');
+        INSERT INTO project_search_documents VALUES (40,'project-b','Beta Protocol','{}','{}','{"name":"Beta Protocol"}','');
+        INSERT INTO job_search_documents(job_node_id,project_id,title,payload) VALUES
+          (300,'project-b','Engineer','{"shortUUID":"project-job"}');`);
+      expect((await rank()).map(row => row.job.shortUUID)).toEqual(["junior"]);
+    },
+  );
+  it.each(["Beta", "Beta Protocol"])(
+    "honours direct ownership without requiring a Profile (%s)",
+    async company => {
+      await client.query(
+        `UPDATE graph_nodes SET properties=properties || $1::jsonb WHERE id=1`,
+        [JSON.stringify({ recommendationCareer: { roles: [{ company }] } })],
+      );
+      await client.query(`INSERT INTO graph_nodes VALUES (40,'Project','{"name":"Beta Protocol"}');
+        INSERT INTO graph_relationships VALUES (20,40,'HAS_PROJECT');
+        INSERT INTO project_search_documents VALUES (40,'project-b','Beta Protocol','{}','{}','{"name":"Beta Protocol"}','');
+        INSERT INTO job_search_documents(job_node_id,project_id,title,payload) VALUES
+          (300,'project-b','Engineer','{"shortUUID":"project-job"}');`);
+      expect((await rank()).map(row => row.job.shortUUID)).toEqual(["junior"]);
+    },
+  );
+  it("does not mistake GitHub contributions for employment or exclude jobs without CV history", async () => {
+    await client.query(`INSERT INTO graph_nodes VALUES (30,'UserWorkHistory','{"name":"Beta","login":"beta"}');
+      INSERT INTO graph_relationships VALUES (1,30,'HAS_WORK_HISTORY');`);
+    expect(await rank()).toHaveLength(2);
+    await client.query(
+      `UPDATE graph_nodes SET properties=properties || '{"recommendationCareer":{"roles":[]}}' WHERE id=1;`,
+    );
+    expect(await rank()).toHaveLength(2);
+  });
   it("preserves hard exclusions despite strong content matches", async () => {
     await client.query(`UPDATE user_job_preferences SET seniority_levels=ARRAY['Senior'];
       INSERT INTO user_activity_events(user_node_id,job_node_id,event_type) VALUES (1,200,'job_apply');`);
