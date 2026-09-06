@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import * as Sentry from "@sentry/node";
 import axios from "axios";
 import { now, uniqBy } from "lodash";
@@ -156,21 +160,33 @@ export class ProfileService {
     return { ...groups, summary, appliedPreferences: preferences };
   }
 
+  async updateRecommendationCareer(
+    wallet: string,
+    career: object,
+  ): Promise<void> {
+    if (!(await this.profiles.updateRecommendationCareer(wallet, career))) {
+      throw new NotFoundException("User profile not found");
+    }
+  }
+
   async getRecommendedJobs(
     wallet: string,
     limit = 30,
+    surface: "web" | "weekly_email" = "web",
   ): Promise<RecommendedJobsResponse> {
     const requestedLimit = Math.max(1, Math.min(limit, 50));
     const [candidates, hasPreferences, preferences] = await Promise.all([
       this.profiles.getRecommendedJobCandidates(
         wallet,
-        Math.min(100, requestedLimit * 3),
+        500,
+        surface === "weekly_email",
       ),
       this.profiles.hasJobPreferences(wallet),
       this.getJobPreferences(wallet),
     ]);
 
     const jobs: RecommendedJobsResponse["jobs"] = [];
+    const employers = new Set<string>();
     for (const candidate of candidates) {
       if (jobs.length >= requestedLimit) break;
       try {
@@ -187,17 +203,23 @@ export class ProfileService {
             ...(arrangement?.hybridOptions ?? []),
             ...(arrangement?.onsiteOptions ?? []),
           ];
+          const match = matchWorkLocationOptions(
+            job,
+            options,
+            preferences,
+            arrangement?.classification ?? "unstated",
+          );
           if (
-            !matchWorkLocationOptions(
-              job,
-              options,
-              preferences,
-              arrangement?.classification ?? "unstated",
-            )
+            !match ||
+            (surface === "weekly_email" && match.group !== "confirmedMatches")
           ) {
             continue;
           }
         }
+        const employer =
+          job.organization?.orgId ?? job.project?.id ?? job.shortUUID;
+        if (surface === "weekly_email" && employers.has(employer)) continue;
+        employers.add(employer);
         jobs.push({
           job,
           reason: this.recommendationReason(candidate.reasonLabels),
@@ -216,7 +238,7 @@ export class ProfileService {
         });
       }
     }
-    return { jobs, total: jobs.length };
+    return { jobs, total: jobs.length, rankingVersion: "sentences-v1" };
   }
 
   private recommendationReason(labels: string[]): string {

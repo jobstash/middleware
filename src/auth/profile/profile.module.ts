@@ -23,6 +23,7 @@ import { StripeModule } from "src/stripe/stripe.module";
 import { PublicProfilesController } from "./public-profiles.controller";
 import { ProfileModerationController } from "./profile-moderation.controller";
 import { EmailDigestService } from "./email-digest.service";
+import { RecommendationEmbeddingService } from "./recommendation-embedding.service";
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { EmailDigestService } from "./email-digest.service";
     JobsService,
     TagsService,
     EmailDigestService,
+    RecommendationEmbeddingService,
   ],
   exports: [ProfileService],
 })

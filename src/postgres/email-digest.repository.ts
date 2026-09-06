@@ -280,7 +280,13 @@ export class EmailDigestRepository {
               unsubscribed_at = now(),
               updated_at = now()
           WHERE status = 'subscribed'
-            AND unsubscribe_token_hash = $1
+            AND (unsubscribe_token_hash = $1 OR EXISTS (
+              SELECT 1 FROM user_email_digest_consent_events sent
+              WHERE sent.user_node_id = user_email_digest_subscriptions.user_node_id
+                AND sent.event_type = 'digest_sent'
+                AND sent.occurred_at >= user_email_digest_subscriptions.confirmed_at
+                AND sent.metadata ->> 'unsubscribeTokenHash' = $1
+            ))
           RETURNING
             user_node_id::text AS "userNodeId",
             email_node_id::text AS "emailNodeId"
@@ -344,20 +350,35 @@ export class EmailDigestRepository {
   async setUnsubscribeToken(
     userNodeId: string,
     tokenHash: string,
-  ): Promise<void> {
-    await queryRows(
+    expectedEmail: string,
+  ): Promise<boolean> {
+    const rows = await queryRows(
       this.postgres,
       `
         UPDATE user_email_digest_subscriptions
         SET unsubscribe_token_hash = $2, updated_at = now()
         WHERE user_node_id = $1
           AND status = 'subscribed'
+          AND EXISTS (
+            SELECT 1 FROM graph_relationships edge
+            JOIN graph_nodes email ON email.id = edge.target_id AND email.label = 'UserEmail'
+            WHERE edge.source_id = user_node_id AND edge.target_id = email_node_id
+              AND edge.type = 'HAS_EMAIL'
+              AND email.properties ->> 'email' = $3
+          )
+        RETURNING user_node_id
       `,
-      [userNodeId, tokenHash],
+      [userNodeId, tokenHash, expectedEmail],
     );
+    return rows.length > 0;
   }
 
-  async markSent(userNodeId: string): Promise<void> {
+  async markSent(
+    userNodeId: string,
+    jobIds: string[] = [],
+    rankingVersion = "legacy",
+    unsubscribeTokenHash?: string,
+  ): Promise<void> {
     await this.postgres.transaction(async manager => {
       const [row] = await queryRows<{ emailNodeId: string }>(
         manager,
@@ -365,7 +386,6 @@ export class EmailDigestRepository {
           UPDATE user_email_digest_subscriptions
           SET last_sent_at = now(), updated_at = now()
           WHERE user_node_id = $1
-            AND status = 'subscribed'
           RETURNING email_node_id::text AS "emailNodeId"
         `,
         [userNodeId],
@@ -376,6 +396,7 @@ export class EmailDigestRepository {
           userNodeId,
           row.emailNodeId,
           "digest_sent",
+          { jobIds, rankingVersion, unsubscribeTokenHash },
         );
       }
     });
@@ -400,15 +421,16 @@ export class EmailDigestRepository {
     emailNodeId: string,
     eventType:
       "confirmation_requested" | "confirmed" | "unsubscribed" | "digest_sent",
+    metadata: Record<string, unknown> = {},
   ): Promise<void> {
     await queryRows(
       executor,
       `
         INSERT INTO user_email_digest_consent_events (
-          user_node_id, email_node_id, event_type
-        ) VALUES ($1, $2, $3)
+          user_node_id, email_node_id, event_type, metadata
+        ) VALUES ($1, $2, $3, $4::jsonb)
       `,
-      [userNodeId, emailNodeId, eventType],
+      [userNodeId, emailNodeId, eventType, JSON.stringify(metadata)],
     );
   }
 }

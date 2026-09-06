@@ -1,7 +1,13 @@
+import { recommendationSemanticCtes } from "./recommendation-semantic.sql";
+import { RECOMMENDATION_EMBEDDING_VERSION } from "../recommendation-embedding.repository";
 import {
   jobEmployerJoins,
   jobEmployerPayload,
 } from "./job-employer-payload.sql";
+
+// Transaction-local: continue past filtered/dead HNSW tuples after refreshes.
+export const recommendationVectorSearchSettings =
+  "SET LOCAL hnsw.iterative_scan = strict_order; SET LOCAL hnsw.ef_search = 100; SET LOCAL jit = off";
 
 export const recommendedJobsSql = `
   WITH target_user AS MATERIALIZED (
@@ -63,14 +69,13 @@ export const recommendedJobsSql = `
     ) label
     GROUP BY lower(label.value)
   ), seniority_affinity AS MATERIALIZED (
-    SELECT lower(label.value) AS label_key, sum(activity.weight) AS weight
+    SELECT translate(lower(source_job.seniority), ' _-', '') AS label_key,
+      sum(activity.weight) AS weight
     FROM weighted_activity activity
     JOIN job_search_documents source_job
       ON source_job.job_node_id = activity.job_node_id
-    CROSS JOIN LATERAL jsonb_each_text(
-      COALESCE(source_job.filter_labels -> 'seniorities', '{}'::jsonb)
-    ) label
-    GROUP BY lower(label.value)
+    WHERE NULLIF(btrim(source_job.seniority), '') IS NOT NULL
+    GROUP BY translate(lower(source_job.seniority), ' _-', '')
   ), profile_context AS MATERIALIZED (
     SELECT
       COALESCE(
@@ -99,7 +104,12 @@ export const recommendedJobsSql = `
         AS payment_currencies,
       COALESCE(preferences.commitments, ARRAY[]::text[]) AS commitments,
       preferences.minimum_salary,
-      preferences.salary_currency
+      preferences.salary_currency,
+      preferences.residence_country,
+      COALESCE(preferences.languages, ARRAY[]::text[]) AS languages,
+      COALESCE(preferences.education_level,
+        target_user.properties #>> '{recommendationCareer,educationLevel}') AS education_level,
+      COALESCE(preferences.showcase_repositories, ARRAY[]::text[]) AS showcase_repositories
     FROM target_user
     LEFT JOIN user_job_preferences preferences
       ON preferences.user_node_id = target_user.id
@@ -151,7 +161,11 @@ export const recommendedJobsSql = `
           ) >= extract(epoch FROM now() - interval '2 years') * 1000
             THEN 1.0
           ELSE 0.75
-        END AS weight
+        END * CASE WHEN EXISTS (
+          SELECT 1 FROM unnest(preference_context.showcase_repositories) selected(url)
+          WHERE regexp_replace(lower(selected.url), '/+$', '') =
+            regexp_replace(lower(repository.properties ->> 'url'), '/+$', '')
+        ) THEN 1.5 ELSE 1.0 END AS weight
       FROM target_user
       JOIN graph_relationships account_history
         ON account_history.source_id = target_user.id
@@ -165,6 +179,7 @@ export const recommendedJobsSql = `
       JOIN graph_nodes repository
         ON repository.id = history_repository.target_id
        AND repository.label = 'UserWorkHistoryRepo'
+      CROSS JOIN preference_context
       CROSS JOIN LATERAL jsonb_array_elements_text(
         CASE
           WHEN jsonb_typeof(repository.properties -> 'skills') = 'array'
@@ -172,9 +187,43 @@ export const recommendedJobsSql = `
           ELSE '[]'::jsonb
         END
       ) repository_skill
+      UNION ALL
+      SELECT lower(skill.value), skill.value, 3.0::numeric
+      FROM target_user
+      JOIN graph_relationships edge ON edge.source_id = target_user.id
+        AND edge.type = 'HAS_ADJACENT_REPO'
+      JOIN graph_nodes repository ON repository.id = edge.target_id
+        AND repository.label = 'UserAdjacentRepo'
+      CROSS JOIN preference_context
+      CROSS JOIN LATERAL jsonb_array_elements_text(CASE
+        WHEN jsonb_typeof(repository.properties -> 'skills') = 'array'
+        THEN repository.properties -> 'skills' ELSE '[]'::jsonb END) skill
+      WHERE EXISTS (
+        SELECT 1 FROM unnest(preference_context.showcase_repositories) selected(url)
+        WHERE regexp_replace(lower(selected.url), '/+$', '') =
+          regexp_replace(lower(repository.properties ->> 'url'), '/+$', '')
+      )
     ) signal
     WHERE NULLIF(btrim(signal.label), '') IS NOT NULL
     GROUP BY signal.label_key
+  ), ${recommendationSemanticCtes}, career AS MATERIALIZED (
+    SELECT entry.value AS role
+    FROM target_user
+    CROSS JOIN LATERAL jsonb_array_elements(CASE
+      WHEN jsonb_typeof(target_user.properties #> '{recommendationCareer,roles}') = 'array'
+        THEN target_user.properties #> '{recommendationCareer,roles}'
+      ELSE '[]'::jsonb END) entry
+  ), user_location AS MATERIALIZED (
+    SELECT location.properties ->> 'city' AS city,
+      location.properties ->> 'country' AS country,
+      location.properties ->> 'countryCode' AS country_code
+    FROM target_user
+    LEFT JOIN LATERAL (
+      SELECT node.properties FROM graph_relationships edge
+      JOIN graph_nodes node ON node.id = edge.target_id AND node.label = 'UserLocation'
+      WHERE edge.source_id = target_user.id AND edge.type = 'HAS_LOCATION'
+      ORDER BY node.id LIMIT 1
+    ) location ON true
   ), owner_affinity AS MATERIALIZED (
     SELECT COALESCE(
       source_job.organization_id, source_job.project_id
@@ -189,32 +238,34 @@ export const recommendedJobsSql = `
     GROUP BY COALESCE(
       source_job.organization_id, source_job.project_id
     )
-  ), search_terms AS MATERIALIZED (
-    SELECT lower(NULLIF(btrim(COALESCE(
-      event.filters ->> 'titleQuery',
-      event.filters ->> 'query',
-      CASE WHEN event.query !~ '^\\s*\\{' THEN event.query END
-    )), '')) AS term,
-    sum(exp(-extract(epoch FROM (now() - event.occurred_at)) / 3888000.0))
-      AS weight
-    FROM user_activity_events event
-    JOIN target_user ON target_user.id = event.user_node_id
-    WHERE event.event_type = 'search'
-      AND event.occurred_at >= now() - interval '12 months'
-    GROUP BY lower(NULLIF(btrim(COALESCE(
-      event.filters ->> 'titleQuery',
-      event.filters ->> 'query',
-      CASE WHEN event.query !~ '^\\s*\\{' THEN event.query END
-    )), ''))
-    HAVING length(lower(NULLIF(btrim(COALESCE(
-      event.filters ->> 'titleQuery',
-      event.filters ->> 'query',
-      CASE WHEN event.query !~ '^\\s*\\{' THEN event.query END
-    )), ''))) >= 3
+  ), funding_affinity AS MATERIALIZED (
+    SELECT sum(ln(1 + funding.total) * activity.weight) / NULLIF(sum(activity.weight), 0) AS target_log_funding
+    FROM weighted_activity activity
+    JOIN job_search_documents source_job ON source_job.job_node_id = activity.job_node_id
+    ${jobEmployerJoins("source_job")}
+    CROSS JOIN LATERAL (
+      SELECT sum(jsonb_numeric_value(round, 'raisedAmount')) AS total
+      FROM jsonb_array_elements(COALESCE(
+        COALESCE(organization.payload, project.payload) -> 'fundingRounds', '[]'::jsonb
+      )) round
+    ) funding
+    WHERE activity.weight > 0 AND funding.total > 0
+  ), investor_affinity AS MATERIALIZED (
+    SELECT lower(investor) AS name, sum(activity.weight) AS weight
+    FROM weighted_activity activity
+    JOIN job_search_documents source_job ON source_job.job_node_id = activity.job_node_id
+    CROSS JOIN LATERAL unnest(source_job.investor_names) investor
+    WHERE activity.weight > 0
+    GROUP BY lower(investor)
   ), candidates AS MATERIALIZED (
     SELECT document.*,
+      COALESCE(job_semantics.score,0) AS semantic_job_score,
+      COALESCE(company_semantics.score,0) AS semantic_company_score,
+      COALESCE(job_semantics.supported_sentences,0) AS semantic_job_support,
+      COALESCE(company_semantics.supported_sentences,0) AS semantic_company_support,
       COALESCE(document.organization_id, document.project_id) AS owner_key,
       COALESCE(organization.name, project.name) AS owner_name,
+      COALESCE(organization.payload, project.payload) AS owner_payload,
       CASE
         WHEN document.organization_id IS NOT NULL THEN
           COALESCE(organization.tags, ARRAY[]::text[])
@@ -226,12 +277,49 @@ export const recommendedJobsSql = `
     FROM job_search_documents document
     ${jobEmployerJoins("document")}
     CROSS JOIN target_user
+    LEFT JOIN semantic_scores job_semantics ON job_semantics.kind='job' AND job_semantics.node_id=document.job_node_id
+    LEFT JOIN semantic_scores company_semantics ON company_semantics.kind='employer'
+      AND company_semantics.node_id=COALESCE(organization.organization_node_id,project.project_node_id)
+    LEFT JOIN recommendation_embedding_documents job_vectors ON job_vectors.kind='job'
+      AND job_vectors.node_id=document.job_node_id AND job_vectors.status='ready'
+      AND job_vectors.version='${RECOMMENDATION_EMBEDDING_VERSION}'
+      AND job_vectors.content_hash=md5(recommendation_embedding_content('job',document.job_node_id))
     WHERE document.online
+      AND (NOT $3::boolean OR (job_vectors.node_id IS NOT NULL AND EXISTS (SELECT 1 FROM user_evidence)))
+      AND (NOT $3::boolean OR NOT EXISTS (
+        SELECT 1 FROM user_email_digest_consent_events sent
+        WHERE sent.user_node_id = target_user.id AND sent.event_type = 'digest_sent'
+          AND sent.occurred_at > now() - interval '28 days'
+          AND sent.metadata -> 'jobIds' ? (document.payload ->> 'shortUUID')
+      ))
       AND NOT document.blocked
       AND document.published_timestamp >=
         (extract(epoch FROM now() - interval '90 days') * 1000)::bigint
       AND num_nonnulls(document.organization_id, document.project_id) = 1
       AND (organization.payload IS NOT NULL OR project.payload IS NOT NULL)
+      AND lower(COALESCE(
+        organization.payload #>> '{profileStatus,name}',
+        organization.payload ->> 'profileStatus',
+        project.payload #>> '{status,name}', project.payload ->> 'status', ''
+      )) NOT IN ('dead', 'inactive', 'closed', 'shutdown', 'shut down',
+        'discontinued', 'defunct', 'support ended')
+      AND NOT EXISTS (
+        SELECT 1 FROM graph_relationships edge
+        JOIN graph_nodes status ON status.id = edge.target_id
+        WHERE edge.source_id = COALESCE(organization.organization_node_id, project.project_node_id)
+          AND edge.type IN ('HAS_STATUS', 'HAS_PROFILE_STATUS')
+          AND lower(COALESCE(status.properties ->> 'name', '')) IN
+            ('dead', 'inactive', 'closed', 'shutdown', 'shut down', 'discontinued', 'defunct', 'support ended')
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM graph_relationships membership
+        JOIN graph_relationships info_edge ON info_edge.source_id = membership.source_id
+          AND info_edge.type = 'HAS_PROFILE_INFO'
+        JOIN graph_nodes info ON info.id = info_edge.target_id AND info.label = 'ProfileInfo'
+        WHERE membership.target_id = COALESCE(organization.organization_node_id, project.project_node_id)
+          AND membership.type IN ('PROFILE_HAS_ORGANIZATION', 'PROFILE_HAS_PROJECT')
+          AND lower(COALESCE(info.properties ->> 'profileStatus', '')) IN ('inactive', 'closed')
+      )
       AND (
         SELECT count(*)
         FROM jsonb_object_keys(COALESCE(
@@ -265,10 +353,11 @@ export const recommendedJobsSql = `
       COALESCE(tag_match.score, 0) AS tag_score,
       skill_match.labels AS skill_labels,
       COALESCE(skill_match.score, 0) AS skill_score,
+      COALESCE(related_skill_match.score,0) AS related_skill_score,
       COALESCE(seniority_match.score, 0) AS seniority_score,
-      COALESCE(search_match.score, 0) AS search_score,
-      search_match.term AS search_term,
       COALESCE(preference_match.score, 0) AS preference_score,
+      COALESCE(location_match.score, 0) AS location_score,
+      COALESCE(financial_match.score, 0) AS financial_score,
       preference_match.labels AS preference_labels,
       preference_context.minimum_salary AS preferred_minimum_salary,
       preference_context.salary_currency AS preferred_salary_currency,
@@ -286,6 +375,8 @@ export const recommendedJobsSql = `
     FROM candidates candidate
     CROSS JOIN profile_context
     CROSS JOIN preference_context
+    CROSS JOIN user_location
+    CROSS JOIN funding_affinity
     LEFT JOIN owner_affinity
       ON owner_affinity.owner_key = candidate.owner_key
     LEFT JOIN LATERAL (
@@ -329,22 +420,53 @@ export const recommendedJobsSql = `
       JOIN profile_skills skill ON skill.label_key = lower(label.value)
     ) skill_match ON true
     LEFT JOIN LATERAL (
+      SELECT least(6.0,COALESCE(sum(related.strength),0)*2.0) AS score
+      FROM graph_relationships tag_edge JOIN related_tags related ON related.tag_node_id=tag_edge.target_id
+      JOIN graph_nodes tag ON tag.id=tag_edge.target_id
+      WHERE tag_edge.source_id=candidate.job_node_id AND tag_edge.type='HAS_TAG'
+        AND COALESCE(tag_edge.properties ->> 'isSoftSkill','false') <> 'true'
+        AND NOT EXISTS (SELECT 1 FROM profile_skills exact WHERE exact.label_key=lower(tag.properties ->> 'name'))
+    ) related_skill_match ON true
+    LEFT JOIN LATERAL (
       SELECT max(affinity.weight) * 0.8 AS score
-      FROM jsonb_each_text(COALESCE(
-        candidate.filter_labels -> 'seniorities', '{}'::jsonb
-      )) label
-      JOIN seniority_affinity affinity
-        ON affinity.label_key = lower(label.value)
+      FROM seniority_affinity affinity
+      WHERE affinity.label_key = translate(lower(candidate.seniority), ' _-', '')
     ) seniority_match ON true
     LEFT JOIN LATERAL (
-      SELECT term.term, term.weight * 4.0 AS score
-      FROM search_terms term
-      WHERE lower(candidate.title) LIKE '%' || term.term || '%'
-      ORDER BY term.weight DESC
-      LIMIT 1
-    ) search_match ON true
+      SELECT COALESCE((
+        SELECT least(2.0, COALESCE(sum(affinity.weight), 0) * 0.15)
+        FROM unnest(candidate.investor_names) investor
+        JOIN investor_affinity affinity ON affinity.name = lower(investor)
+      ), 0) + COALESCE((
+        SELECT 2.0 * exp(-abs(ln(1 + sum(jsonb_numeric_value(round, 'raisedAmount')))
+          - funding_affinity.target_log_funding))
+        FROM jsonb_array_elements(COALESCE(candidate.owner_payload -> 'fundingRounds', '[]'::jsonb)) round
+        HAVING sum(jsonb_numeric_value(round, 'raisedAmount')) > 0
+          AND funding_affinity.target_log_funding IS NOT NULL
+      ), 0) AS score
+    ) financial_match ON true
     LEFT JOIN LATERAL (
-      SELECT least(sum(signal.score), 30.0) AS score,
+      SELECT CASE
+        WHEN length(user_location.city) >= 2 AND EXISTS (
+          SELECT 1 FROM jsonb_array_elements(
+            COALESCE(candidate.work_arrangement -> 'onsiteOptions', '[]'::jsonb)
+            || COALESCE(candidate.work_arrangement -> 'hybridOptions', '[]'::jsonb)
+          ) option WHERE lower(option ->> 'officeCity') = lower(user_location.city)
+        ) THEN 6.0
+        WHEN length(user_location.country) >= 2
+          AND lower(candidate.location) = lower(user_location.country) THEN 3.0
+        WHEN COALESCE(preference_context.residence_country, user_location.country_code) IS NOT NULL AND EXISTS (
+          SELECT 1 FROM jsonb_array_elements(
+            COALESCE(candidate.work_arrangement -> 'remoteOptions', '[]'::jsonb)
+            || COALESCE(candidate.work_arrangement -> 'hybridOptions', '[]'::jsonb)
+            || COALESCE(candidate.work_arrangement -> 'onsiteOptions', '[]'::jsonb)
+          ) option WHERE option -> 'includedCountries' ? upper(COALESCE(
+            preference_context.residence_country, user_location.country_code))
+        ) THEN 3.0
+        ELSE 0.0 END AS score
+    ) location_match ON true
+    LEFT JOIN LATERAL (
+      SELECT least(COALESCE(sum(signal.score), 0), 30.0) AS score,
         (array_agg(signal.label ORDER BY signal.score DESC))[1:3] AS labels
       FROM (
         SELECT 9.0::numeric AS score, category.value AS label
@@ -358,15 +480,12 @@ export const recommendedJobsSql = `
             translate(lower(category.value), ' _-', '')
         )
         UNION ALL
-        SELECT 7.0::numeric AS score, seniority.value AS label
-        FROM jsonb_each_text(COALESCE(
-          candidate.filter_labels -> 'seniorities', '{}'::jsonb
-        )) seniority
+        SELECT 7.0::numeric AS score, candidate.seniority AS label
         WHERE EXISTS (
           SELECT 1
           FROM unnest(preference_context.seniority_levels) preferred(value)
           WHERE translate(lower(preferred.value), ' _-', '') =
-            translate(lower(seniority.value), ' _-', '')
+            translate(lower(candidate.seniority), ' _-', '')
         )
         UNION ALL
         SELECT 10.0::numeric AS score, 'Preferred company' AS label
@@ -374,7 +493,6 @@ export const recommendedJobsSql = `
           SELECT 1
           FROM unnest(preference_context.target_organizations) preferred(value)
           WHERE lower(candidate.owner_name) = lower(preferred.value)
-             OR lower(candidate.owner_name) LIKE '%' || lower(preferred.value) || '%'
         )
         UNION ALL
         SELECT 4.0::numeric AS score, industry.value AS label
@@ -396,12 +514,6 @@ export const recommendedJobsSql = `
             translate(lower(commitment.value), ' _-', '')
         )
         UNION ALL
-        SELECT 3.0::numeric AS score, priority.value AS label
-        FROM unnest(preference_context.role_priorities) priority(value)
-        WHERE length(priority.value) >= 3
-          AND lower(candidate.search_text) LIKE
-            '%' || lower(priority.value) || '%'
-        UNION ALL
         SELECT 3.0::numeric AS score, funding.value AS label
         FROM unnest(candidate.funding_round_names) funding(value)
         WHERE EXISTS (
@@ -409,6 +521,22 @@ export const recommendedJobsSql = `
           FROM unnest(preference_context.funding_stages) preferred(value)
           WHERE lower(preferred.value) = lower(funding.value)
         )
+        UNION ALL
+        SELECT 4.0::numeric, 'Seniority from your recent CV role'
+        WHERE cardinality(preference_context.seniority_levels) = 0
+          AND translate(lower(candidate.seniority), ' _-', '') = (
+            SELECT translate(lower(role ->> 'seniority'), ' _-', '') FROM career
+            WHERE role ->> 'seniority' IS NOT NULL
+              AND (role ->> 'current' = 'true' OR role ->> 'endDate' >=
+                to_char(now() - interval '2 years', 'YYYY-MM-DD'))
+            ORDER BY (role ->> 'current' = 'true') DESC,
+              role ->> 'endDate' DESC NULLS LAST, role ->> 'startDate' DESC NULLS LAST
+            LIMIT 1
+          )
+        UNION ALL
+        SELECT 2.0::numeric, 'Company in your work history'
+        WHERE EXISTS (SELECT 1 FROM career
+          WHERE lower(role ->> 'company') = lower(candidate.owner_name))
         UNION ALL
         SELECT 2.0::numeric AS score, candidate.salary_currency AS label
         WHERE candidate.salary_currency IS NOT NULL
@@ -437,9 +565,13 @@ export const recommendedJobsSql = `
       + class_score
       + tag_score
       + skill_score
+      + related_skill_score
       + seniority_score
-      + search_score
       + preference_score
+      + semantic_job_score
+      + semantic_company_score
+      + location_score
+      + financial_score
       + owner_score
       + web3_score
       + CASE
@@ -488,8 +620,12 @@ export const recommendedJobsSql = `
     ${jobEmployerPayload("ranked.payload", "ranked")} AS job,
     ranked.score::double precision AS score,
     array_remove(ARRAY[
-      CASE WHEN ranked.search_term IS NOT NULL THEN 'Matches your search' END,
       ranked.preference_labels[1],
+      CASE WHEN ranked.related_skill_score >= 1 THEN 'Related technical skills' END,
+      CASE WHEN ranked.semantic_job_support >= 2 THEN 'Matches several requirements' END,
+      CASE WHEN ranked.semantic_company_support >= 2 THEN 'Company aligns with your interests' END,
+      CASE WHEN ranked.location_score >= 6 THEN 'Office in your city' END,
+      CASE WHEN ranked.financial_score > 0 THEN 'Funding profile you explored' END,
       CASE WHEN ranked.web3_score > 0 THEN 'Web3 beginner friendly' END,
       CASE WHEN ranked.owner_score > 0 THEN 'Company you explored' END,
       ranked.class_label,

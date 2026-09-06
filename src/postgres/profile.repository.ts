@@ -11,7 +11,10 @@ import {
   jobEmployerJoins,
   jobEmployerPayload,
 } from "./sql/job-employer-payload.sql";
-import { recommendedJobsSql } from "./sql/recommended-jobs.sql";
+import {
+  recommendedJobsSql,
+  recommendationVectorSearchSettings,
+} from "./sql/recommended-jobs.sql";
 
 type QueryExecutor = PostgresService | EntityManager;
 
@@ -520,9 +523,32 @@ export class ProfileRepository {
     return row?.found ?? false;
   }
 
+  async updateRecommendationCareer(
+    wallet: string,
+    career: object,
+  ): Promise<boolean> {
+    const rows = await queryRows(
+      this.postgres,
+      `
+      WITH updated AS (
+        UPDATE graph_nodes SET properties = properties || jsonb_build_object('recommendationCareer', $2::jsonb)
+        WHERE label = 'User' AND lower(properties ->> 'wallet') = lower($1)
+        RETURNING id
+      ), removed AS (
+        DELETE FROM recommendation_embedding_documents
+        WHERE kind='user' AND node_id IN (SELECT id FROM updated)
+          AND COALESCE(jsonb_array_length($2::jsonb -> 'roles'),0)=0
+      ) SELECT id FROM updated
+    `,
+      [wallet, JSON.stringify(career)],
+    );
+    return rows.length > 0;
+  }
+
   async getRecommendedJobCandidates(
     wallet: string,
     limit = 60,
+    weeklyEmail = false,
   ): Promise<
     Array<{
       job: JobListResult;
@@ -530,10 +556,14 @@ export class ProfileRepository {
       reasonLabels: string[];
     }>
   > {
-    return queryRows(this.postgres, recommendedJobsSql, [
-      wallet,
-      Math.max(1, Math.min(limit, 100)),
-    ]);
+    return this.postgres.transaction(async manager => {
+      await manager.query(recommendationVectorSearchSettings);
+      return queryRows(manager, recommendedJobsSql, [
+        wallet,
+        Math.max(1, Math.min(limit, 500)),
+        weeklyEmail,
+      ]);
+    });
   }
 
   async updateJobPreferences(
@@ -2999,6 +3029,21 @@ export class ProfileRepository {
     return this.postgres.transaction(async manager => {
       const account = await this.findNode("User", { wallet }, manager);
       if (!account) return false;
+      if (
+        relationshipType === "HAS_SHOWCASE" &&
+        !nodes.some(node => node.label === "CV")
+      ) {
+        await queryRows(
+          manager,
+          "UPDATE graph_nodes SET properties = properties - 'recommendationCareer' WHERE id = $1",
+          [account.nodeId],
+        );
+        await queryRows(
+          manager,
+          "DELETE FROM recommendation_embedding_documents WHERE kind='user' AND node_id=$1",
+          [account.nodeId],
+        );
+      }
       await this.deleteOwnedNodes(manager, account.nodeId, [relationshipType]);
       for (const properties of nodes) {
         const node = await this.insertNode(manager, label, properties);

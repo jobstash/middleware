@@ -39,6 +39,11 @@ const envSchema = Joi.object({
     .valid("development", "production", "test", "staging")
     .default("development"),
   OPENAI_API_KEY: Joi.string().required(),
+  RECOMMENDATION_EMBEDDING_BATCH_SIZE: Joi.number()
+    .integer()
+    .min(1)
+    .max(1000)
+    .default(100),
   ORG_ADMIN_DOMAIN: Joi.string().required(),
   PRIVY_APP_ID: Joi.string().required(),
   PRIVY_APP_SECRET: Joi.string().required(),

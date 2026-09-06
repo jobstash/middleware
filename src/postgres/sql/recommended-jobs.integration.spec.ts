@@ -1,0 +1,669 @@
+import { Client } from "pg";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import {
+  recommendedJobsSql,
+  recommendationVectorSearchSettings,
+} from "./recommended-jobs.sql";
+import { recommendationMetricsSql } from "./recommendation-metrics.sql";
+import { EmailDigestRepository } from "../email-digest.repository";
+import { ProfileRepository } from "../profile.repository";
+import {
+  RecommendationEmbeddingRepository,
+  RECOMMENDATION_EMBEDDING_VERSION,
+} from "../recommendation-embedding.repository";
+import { recommendationSentences } from "../../auth/profile/recommendation-sentences";
+
+const databaseUrl = process.env.RECOMMENDATIONS_TEST_DATABASE_URL;
+const describeDatabase = databaseUrl ? describe : describe.skip;
+
+describeDatabase("recommendations executed in PostgreSQL", () => {
+  let client: Client;
+  const schema = `recommendations_test_${process.pid}`;
+  beforeAll(async () => {
+    if (!["127.0.0.1", "localhost"].includes(new URL(databaseUrl!).hostname)) {
+      throw new Error(
+        "Recommendation fixtures must use an isolated local database",
+      );
+    }
+    client = new Client({ connectionString: databaseUrl });
+    await client.connect();
+    await client.query("CREATE EXTENSION IF NOT EXISTS vector");
+    await client.query(`CREATE SCHEMA ${schema}; SET search_path TO ${schema}, public;
+      CREATE TABLE graph_nodes (id bigint PRIMARY KEY, label text, properties jsonb DEFAULT '{}');
+      CREATE TABLE graph_relationships (source_id bigint, target_id bigint, type text, properties jsonb DEFAULT '{}');
+      CREATE TABLE tag_embeddings (tag_node_id bigint,context text,embedding halfvec(3072));
+      CREATE INDEX ON tag_embeddings USING hnsw(embedding halfvec_cosine_ops);
+      CREATE FUNCTION jsonb_numeric_value(jsonb, text) RETURNS numeric LANGUAGE SQL AS 'SELECT ($1 ->> $2)::numeric';
+      CREATE FUNCTION jsonb_boolean_value(jsonb, text) RETURNS boolean LANGUAGE SQL AS 'SELECT ($1 ->> $2)::boolean';
+      CREATE TABLE user_activity_events (id bigint GENERATED ALWAYS AS IDENTITY, user_node_id bigint, job_node_id bigint,
+        event_type text, occurred_at timestamptz DEFAULT now(), dwell_ms integer, filters jsonb, query text,
+        surface text, position integer, metadata jsonb DEFAULT '{}');
+      CREATE TABLE user_email_digest_consent_events (id bigint GENERATED ALWAYS AS IDENTITY, user_node_id bigint, email_node_id bigint,
+        event_type text, occurred_at timestamptz DEFAULT now());
+      CREATE TABLE user_email_digest_subscriptions (user_node_id bigint PRIMARY KEY, email_node_id bigint,
+        status text, confirmation_token_hash text, confirmation_expires_at timestamptz, unsubscribe_token_hash text,
+        requested_at timestamptz, confirmed_at timestamptz, unsubscribed_at timestamptz, updated_at timestamptz,
+        last_digest_week date, last_sent_at timestamptz);
+      CREATE TABLE schema_migrations(version text PRIMARY KEY);
+      CREATE TABLE user_job_preferences (user_node_id bigint, role_priorities text[], target_organizations text[],
+        job_categories text[], seniority_levels text[], company_size_min int, company_size_max int,
+        industries text[], funding_stages text[], payment_currencies text[], commitments text[],
+        minimum_salary numeric, salary_currency text, preferred_skills text[], residence_country text,
+        languages text[], education_level text, showcase_repositories text[]);
+      CREATE TABLE organization_search_documents (organization_node_id bigint, organization_id text,
+        name text, tags text[], categories text[], payload jsonb, search_text text);
+      CREATE TABLE project_search_documents (project_node_id bigint, project_id text, name text,
+        tags text[], categories text[], payload jsonb, search_text text);
+      CREATE TABLE job_search_documents (job_node_id bigint PRIMARY KEY, organization_id text, project_id text,
+        title text, seniority text, location text, online boolean DEFAULT true, blocked boolean DEFAULT false,
+        published_timestamp bigint DEFAULT (extract(epoch FROM now()) * 1000)::bigint,
+        filter_labels jsonb DEFAULT '{"tags":{"ts":"TypeScript"}}',
+        payload jsonb DEFAULT '{}', work_arrangement jsonb DEFAULT '{}', search_text text DEFAULT '',
+        search_vector tsvector DEFAULT '', funding_round_names text[] DEFAULT '{}', investor_names text[] DEFAULT '{}', salary_currency text,
+        maximum_salary numeric, minimum_salary numeric, salary numeric, headcount_estimate int,
+        onboard_into_web3 boolean DEFAULT false);
+    `);
+    const migration = readFileSync(
+      resolve(
+        __dirname,
+        "../../../../etl/database/init/zz-232-recommendation-delivery-metadata.sql",
+      ),
+      "utf8",
+    );
+    await client.query(migration);
+    await client.query(migration);
+    const sentenceMigration = readFileSync(
+      resolve(
+        __dirname,
+        "../../../../etl/database/init/zz-234-recommendation-embeddings.sql",
+      ),
+      "utf8",
+    );
+    await client.query(sentenceMigration);
+    await client.query(sentenceMigration);
+  });
+  afterAll(async () => {
+    if (client) {
+      await client.query(`DROP SCHEMA ${schema} CASCADE`);
+      await client.end();
+    }
+  });
+  beforeEach(async () => {
+    await client.query("BEGIN");
+    await client.query(recommendationVectorSearchSettings);
+    await client.query(`INSERT INTO graph_nodes VALUES (1, 'User', '{"wallet":"test-user"}');
+      INSERT INTO user_job_preferences(user_node_id) VALUES (1);
+      INSERT INTO graph_nodes VALUES (10, 'Organization', '{}'), (20, 'Organization', '{}');
+      INSERT INTO organization_search_documents VALUES
+        (10, 'org-a', 'Alpha', '{}', '{}', '{"name":"Alpha"}', ''),
+        (20, 'org-b', 'Beta', '{}', '{}', '{"name":"Beta"}', '');
+      INSERT INTO job_search_documents(job_node_id, organization_id, title, seniority, payload) VALUES
+        (100, 'org-a', 'Engineer', 'Junior', '{"shortUUID":"junior"}'),
+        (200, 'org-b', 'Engineer', 'Senior', '{"shortUUID":"senior"}');
+      INSERT INTO graph_nodes VALUES (100, 'StructuredJobpost', '{"shortUUID":"junior"}'),
+        (200, 'StructuredJobpost', '{"shortUUID":"senior"}');`);
+  });
+  afterEach(async () => {
+    await client.query("ROLLBACK");
+    // Aborted bulk HNSW fixtures leave dead index entries, unlike an empty table.
+    await client.query("VACUUM ANALYZE recommendation_sentence_embeddings");
+    await client.query("VACUUM ANALYZE tag_embeddings");
+  });
+  const rank = async (weeklyEmail = false) =>
+    (await client.query(recommendedJobsSql, ["test-user", 50, weeklyEmail]))
+      .rows;
+
+  const vector = (axis: number) =>
+    Array.from({ length: 3072 }, (_, i) => (i === axis ? 1 : 0));
+  const embeddingRepository = () => {
+    const executor = {
+      query: async (sql: string, parameters: unknown[]) =>
+        (await client.query(sql, parameters)).rows,
+    };
+    return new RecommendationEmbeddingRepository({
+      ...executor,
+      transaction: async (
+        work: (manager: typeof executor) => Promise<unknown>,
+      ) => work(executor),
+    } as never);
+  };
+  const embedDocument = async (
+    kind: string,
+    nodeId: number,
+    axis: number | ((text: string, index: number) => number) = 0,
+  ) => {
+    const [input] = (
+      await client.query(
+        `SELECT $1::text AS kind,$2::text AS "nodeId",content,md5(content) AS hash
+      FROM (SELECT recommendation_embedding_content($1,$2) AS content) source`,
+        [kind, nodeId],
+      )
+    ).rows;
+    await embeddingRepository().store(
+      input,
+      recommendationSentences(input.content).map((s, i) => ({
+        ...s,
+        embedding: vector(typeof axis === "number" ? axis : axis(s.text, i)),
+      })),
+    );
+  };
+  const addSkill = async () => {
+    await client.query(`INSERT INTO graph_nodes VALUES (60,'Tag','{"name":"Rust"}');
+      INSERT INTO graph_relationships(source_id,target_id,type) VALUES (1,60,'HAS_SKILL');`);
+    await client.query(
+      "INSERT INTO tag_embeddings VALUES (60,'Rust',$1::halfvec(3072))",
+      [JSON.stringify(vector(0))],
+    );
+  };
+
+  const emailRepository = () => {
+    const executor = {
+      query: async (sql: string, parameters: unknown[]) =>
+        (await client.query(sql, parameters)).rows,
+    };
+    return new EmailDigestRepository({
+      ...executor,
+      transaction: async (
+        callback: (manager: typeof executor) => Promise<unknown>,
+      ) => callback(executor),
+    } as never);
+  };
+
+  const subscribe = async () => {
+    await client.query(`INSERT INTO graph_nodes VALUES (50,'UserEmail','{"email":"user@example.test"}');
+      INSERT INTO graph_relationships VALUES (1,50,'HAS_EMAIL');
+      INSERT INTO user_email_digest_subscriptions(user_node_id,email_node_id,status,confirmed_at)
+        VALUES (1,50,'subscribed',now() - interval '14 days');`);
+    return emailRepository();
+  };
+
+  it("claims each subscriber once per week and records real delivery metadata", async () => {
+    const repository = await subscribe();
+    expect(await repository.claimWeek("1")).toBe(true);
+    expect(await repository.claimWeek("1")).toBe(false);
+    await repository.markSent("1", ["senior"], "content-v2", "first-token");
+    const event = (
+      await client.query(
+        "SELECT metadata FROM user_email_digest_consent_events WHERE event_type='digest_sent'",
+      )
+    ).rows[0];
+    expect(event.metadata).toEqual({
+      jobIds: ["senior"],
+      rankingVersion: "content-v2",
+      unsubscribeTokenHash: "first-token",
+    });
+  });
+
+  it("honors links in older delivered emails but not before a new opt-in", async () => {
+    const repository = await subscribe();
+    await repository.markSent("1", ["senior"], "content-v2", "first-token");
+    expect(
+      await repository.setUnsubscribeToken(
+        "1",
+        "second-token",
+        "user@example.test",
+      ),
+    ).toBe(true);
+    expect(await repository.unsubscribeToken("first-token")).toBe(true);
+    expect(
+      await repository.setUnsubscribeToken(
+        "1",
+        "third-token",
+        "user@example.test",
+      ),
+    ).toBe(false);
+    await client.query(
+      "UPDATE user_email_digest_subscriptions SET status='subscribed',confirmed_at=now() + interval '1 second'",
+    );
+    expect(await repository.unsubscribeToken("first-token")).toBe(false);
+  });
+
+  it("does not authorize sending to a detached contact email", async () => {
+    const repository = await subscribe();
+    expect(
+      await repository.setUnsubscribeToken("1", "token", "old@example.test"),
+    ).toBe(false);
+    await client.query(
+      "DELETE FROM graph_relationships WHERE type='HAS_EMAIL'",
+    );
+    expect(await repository.getRecipients()).toEqual([]);
+    expect(
+      await repository.setUnsubscribeToken("1", "token", "user@example.test"),
+    ).toBe(false);
+  });
+
+  it("executes a bounded feed against 1,000 additional materialized jobs", async () => {
+    await client.query(`INSERT INTO graph_nodes(id,label,properties)
+      SELECT id, 'Organization', '{}'::jsonb FROM generate_series(1000,1999) id;
+      INSERT INTO organization_search_documents(organization_node_id,organization_id,name,payload,search_text)
+      SELECT id, id::text, 'Company ' || id, jsonb_build_object('name','Company ' || id), 'Robotics Rust research'
+      FROM generate_series(1000,1999) id;
+      INSERT INTO job_search_documents(job_node_id,organization_id,title,seniority,payload)
+      SELECT id+10000, id::text,'Engineer','Senior',jsonb_build_object('shortUUID',id::text,
+        'description',repeat('Build Rust distributed systems and robotics. ',50))
+      FROM generate_series(1000,1999) id;
+      UPDATE user_job_preferences SET preferred_skills=ARRAY['Rust'], industries=ARRAY['robotics'];`);
+    await addSkill();
+    await client.query(
+      `INSERT INTO graph_nodes(id,label) SELECT id+10000,'StructuredJobpost' FROM generate_series(1000,1999) id`,
+    );
+    await client.query(
+      `INSERT INTO recommendation_embedding_documents(kind,node_id,version,content_hash,status,weight_sum)
+      SELECT 'job',id+10000,$1,md5(recommendation_embedding_content('job',id+10000)),'ready',0.7 FROM generate_series(1000,1999) id`,
+      [RECOMMENDATION_EMBEDDING_VERSION],
+    );
+    await client.query(
+      `INSERT INTO recommendation_sentence_embeddings(kind,node_id,sentence_hash,text_hash,source,sentence,weight,embedding)
+      SELECT 'job',id+10000,'fixture-'||id,'fixture-'||id,'description','Build Rust distributed systems and robotics.',0.7,$1::halfvec(3072)
+      FROM generate_series(1000,1999) id`,
+      [JSON.stringify(vector(0))],
+    );
+    const plan = (
+      await client.query(
+        "EXPLAIN (ANALYZE, FORMAT JSON) " + recommendedJobsSql,
+        ["test-user", 50, false],
+      )
+    ).rows[0]["QUERY PLAN"][0];
+    expect(plan.Plan["Actual Rows"]).toBe(50);
+    console.info(
+      `Recommendation fixture: 1002 jobs, 1000 sentence vectors, execution ${plan["Execution Time"]}ms`,
+    );
+  }, 30000);
+
+  it("uses scalar seniority for explicit preference with no seniorities label map", async () => {
+    await client.query(
+      `UPDATE user_job_preferences SET seniority_levels = ARRAY['Senior'];`,
+    );
+    const rows = await rank();
+    expect(rows[0].job.shortUUID).toBe("senior");
+    expect(rows[0].score - rows[1].score).toBeCloseTo(7);
+    expect(rows[0].reasonLabels).toContain("Senior");
+  });
+  it("does not award maximum bonuses or invent explanations for a cold profile", async () => {
+    const rows = await rank();
+    expect(rows[0].score).toBeCloseTo(6);
+    expect(rows[0].reasonLabels).toEqual([]);
+  });
+  it("uses CV seniority only as a fallback for explicit preferences", async () => {
+    await client.query(`UPDATE graph_nodes SET properties = properties ||
+      '{"recommendationCareer":{"roles":[{"title":"Engineer","current":true,"seniority":"senior"}]}}' WHERE id=1;`);
+    expect((await rank())[0].job.shortUUID).toBe("senior");
+    await client.query(
+      `UPDATE user_job_preferences SET seniority_levels=ARRAY['Junior'];`,
+    );
+    expect((await rank())[0].job.shortUUID).toBe("junior");
+  });
+  it("uses known showcased repository skills without fetching arbitrary URLs", async () => {
+    await client.query(`INSERT INTO graph_nodes VALUES (30,'UserAdjacentRepo','{"url":"https://github.com/me/example","skills":["Rust"]}');
+      INSERT INTO graph_relationships VALUES (1,30,'HAS_ADJACENT_REPO');
+      UPDATE user_job_preferences SET showcase_repositories=ARRAY['https://github.com/me/example/'];
+      UPDATE job_search_documents SET payload=payload || '{"description":"Build Rust services"}' WHERE job_node_id=200;`);
+    await addSkill();
+    await client.query(
+      "DELETE FROM graph_relationships WHERE type='HAS_SKILL'",
+    );
+    await embedDocument("job", 200);
+    expect((await rank())[0].job.shortUUID).toBe("senior");
+  });
+  it("matches language and education mentions without penalizing unknown requirements", async () => {
+    await client.query(`UPDATE user_job_preferences SET languages=ARRAY['Spanish'], education_level='bachelor';
+      UPDATE job_search_documents SET payload=payload || '{"description":"Spanish fluency required. Bachelor degree or equivalent experience."}' WHERE job_node_id=200;`);
+    await embedDocument("user", 1);
+    await embedDocument("job", 200);
+    const rows = await rank();
+    expect(rows[0].job.shortUUID).toBe("senior");
+    expect(rows[0].score).toBeGreaterThan(rows[1].score);
+  });
+  it("never assumes missing funding means a poor employer", async () => {
+    await client.query(
+      `UPDATE organization_search_documents SET payload=payload || '{"fundingRounds":[{"raisedAmount":10000000}]}' WHERE organization_id='org-b';`,
+    );
+    const rows = await rank();
+    expect(rows[0].score).toBeCloseTo(rows[1].score);
+  });
+  it("rejects a closed parent Profile and discontinued direct Project", async () => {
+    await client.query(`INSERT INTO graph_nodes VALUES (30,'ProfileInfo','{"profileStatus":"Closed"}'),(31,'EntityProfile','{}');
+      INSERT INTO graph_relationships VALUES (31,30,'HAS_PROFILE_INFO'),(31,10,'PROFILE_HAS_ORGANIZATION');
+      INSERT INTO project_search_documents VALUES (40,'project','Project','{}','{}','{"status":{"name":"Discontinued"}}','');
+      UPDATE job_search_documents SET organization_id=NULL, project_id='project' WHERE job_node_id=200;`);
+    expect(await rank()).toEqual([]);
+  });
+  it("does not repeat recently emailed jobs in the digest but keeps them on the web", async () => {
+    await addSkill();
+    await embedDocument("job", 100);
+    await embedDocument("job", 200);
+    await client.query(`INSERT INTO user_email_digest_consent_events(user_node_id,event_type,metadata) VALUES
+      (1,'digest_sent','{"jobIds":["senior"]}');`);
+    expect(await rank()).toHaveLength(2);
+    expect((await rank(true)).map(row => row.job.shortUUID)).toEqual([
+      "junior",
+    ]);
+  });
+  it("learns scalar seniority from previous activity", async () => {
+    await client.query(
+      `INSERT INTO user_activity_events(user_node_id, job_node_id, event_type) VALUES (1,200,'job_view');`,
+    );
+    const rows = await rank();
+    expect(rows[0].job.shortUUID).toBe("senior");
+    expect(rows[0].score).toBeGreaterThan(rows[1].score + 1);
+  });
+  it("excludes closed organizations, keeps acquired and unknown employers", async () => {
+    await client.query(`INSERT INTO graph_nodes VALUES (11,'OrganizationStatus','{"name":"Closed"}');
+      INSERT INTO graph_relationships VALUES (10,11,'HAS_PROFILE_STATUS');`);
+    expect((await rank()).map(row => row.job.shortUUID)).toEqual(["senior"]);
+    await client.query(
+      `UPDATE graph_nodes SET properties = '{"name":"Acquired"}' WHERE id=11;`,
+    );
+    expect(await rank()).toHaveLength(2);
+  });
+  it("matches skills in description when tags are identical", async () => {
+    await client.query(`UPDATE user_job_preferences SET preferred_skills = ARRAY['Rust'];
+      UPDATE job_search_documents SET payload = payload || '{"description":"Build Rust services"}' WHERE job_node_id=200;`);
+    await addSkill();
+    await embedDocument("job", 200);
+    const rows = await rank();
+    expect(rows[0].job.shortUUID).toBe("senior");
+    expect(rows[0].score).toBeGreaterThan(rows[1].score);
+    expect(rows[0].reasonLabels).not.toContain("Matches several requirements");
+  });
+  it("matches company content and industries", async () => {
+    await client.query(`UPDATE user_job_preferences SET industries = ARRAY['robotics'];
+      UPDATE organization_search_documents SET payload=payload || '{"summary":"We build robotics automation systems."}' WHERE organization_id='org-b';`);
+    await embedDocument("user", 1);
+    await embedDocument("employer", 20);
+    const rows = await rank();
+    expect(rows[0].job.shortUUID).toBe("senior");
+    expect(rows[0].score).toBeGreaterThan(rows[1].score);
+  });
+  it("includes owned project descriptions in company matching", async () => {
+    await client.query(`UPDATE user_job_preferences SET industries = ARRAY['robotics'];
+      UPDATE organization_search_documents SET payload=payload || '{"projects":[{"description":"We build robotics automation systems."}]}' WHERE organization_id='org-b';`);
+    await embedDocument("user", 1);
+    await embedDocument("employer", 20);
+    expect((await rank())[0].job.shortUUID).toBe("senior");
+  });
+  it("uses confirmed CV experience without requiring a GitHub profile", async () => {
+    await client.query(`UPDATE graph_nodes SET properties = properties ||
+      '{"recommendationCareer":{"roles":[{"title":"Robotics engineer","description":"Robot navigation","current":true}]}}'
+      WHERE id=1;
+      UPDATE job_search_documents SET payload = payload || '{"description":"Robotics navigation systems"}' WHERE job_node_id=200;`);
+    await embedDocument("user", 1);
+    await embedDocument("job", 200);
+    const rows = await rank();
+    expect(rows[0].job.shortUUID).toBe("senior");
+    expect(rows[0].score).toBeGreaterThan(rows[1].score);
+  });
+  it("preserves hard exclusions despite strong content matches", async () => {
+    await client.query(`UPDATE user_job_preferences SET seniority_levels=ARRAY['Senior'];
+      INSERT INTO user_activity_events(user_node_id,job_node_id,event_type) VALUES (1,200,'job_apply');`);
+    expect((await rank()).map(row => row.job.shortUUID)).toEqual(["junior"]);
+  });
+  it("does not award semantic points for generic sentences even with identical vectors", async () => {
+    await client.query(`UPDATE user_job_preferences SET role_priorities=ARRAY['We are a dynamic team.'];
+      UPDATE job_search_documents SET payload=payload || '{"requirements":"Excellent communication skills. We are a dynamic team."}' WHERE job_node_id=200;`);
+    await embedDocument("user", 1);
+    await embedDocument("job", 200);
+    for (const row of await rank()) expect(Number(row.score)).toBeCloseTo(6);
+  });
+  it("caps one evidence sentence at one requirement and rewards distinct coverage", async () => {
+    await client.query(`UPDATE user_job_preferences SET role_priorities=ARRAY['Develop resilient services.'];
+      UPDATE job_search_documents SET payload=payload || '{"requirements":"Build distributed systems. Maintain production databases. Review protocol security."}' WHERE job_node_id=200;`);
+    await embedDocument("user", 1);
+    await embedDocument("job", 200);
+    let rows = await rank();
+    expect(rows[0].score - rows[1].score).toBeCloseTo(6);
+    expect(rows[0].reasonLabels).not.toContain("Matches several requirements");
+    await client.query(
+      `UPDATE user_job_preferences SET role_priorities=ARRAY['Develop resilient services.','Operate reliable storage.','Audit cryptographic implementations.'];`,
+    );
+    // Synthetic vectors test aggregation independently of model quality.
+    await embedDocument("user", 1, (_, i) => i);
+    await embedDocument("job", 200, (_, i) => i);
+    rows = await rank();
+    expect(rows[0].score - rows[1].score).toBeCloseTo(18);
+    expect(rows[0].reasonLabels).toContain("Matches several requirements");
+  });
+  it("does not inflate coverage by repeating requirements", async () => {
+    await client.query(`UPDATE user_job_preferences SET role_priorities=ARRAY['Develop resilient services.'];
+      UPDATE job_search_documents SET payload=payload || '{"requirements":"Build distributed systems."}' WHERE job_node_id=200;`);
+    await embedDocument("user", 1);
+    await embedDocument("job", 200);
+    const score = (await rank())[0].score;
+    await client.query(
+      `UPDATE job_search_documents SET payload=payload || '{"requirements":"Build distributed systems. Build distributed systems. Build distributed systems."}' WHERE job_node_id=200;`,
+    );
+    await embedDocument("job", 200);
+    expect((await rank())[0].score).toBeCloseTo(score);
+    expect(
+      (
+        await client.query(
+          "SELECT count(*) FROM recommendation_sentence_embeddings WHERE kind='job' AND node_id=200",
+        )
+      ).rows[0].count,
+    ).toBe("1");
+  });
+  it("discounts sentences repeated across employers", async () => {
+    await client.query(`UPDATE user_job_preferences SET role_priorities=ARRAY['Develop resilient services.'];
+      UPDATE job_search_documents SET payload=payload || '{"requirements":"Build distributed systems."}' WHERE job_node_id=200;`);
+    await embedDocument("user", 1);
+    await embedDocument("job", 200);
+    const score = (await rank())[0].score;
+    await client.query(
+      `UPDATE job_search_documents SET payload=payload || '{"requirements":"Build distributed systems."}' WHERE job_node_id=100;`,
+    );
+    await embedDocument("job", 100);
+    expect(Number((await rank())[0].score)).toBeLessThan(Number(score));
+  });
+  it("ignores stale source text and embedding versions", async () => {
+    await client.query(`UPDATE user_job_preferences SET role_priorities=ARRAY['Develop resilient services.'];
+      UPDATE job_search_documents SET payload=payload || '{"requirements":"Build distributed systems."}' WHERE job_node_id=200;`);
+    await embedDocument("user", 1);
+    await embedDocument("job", 200);
+    await client.query(
+      "UPDATE recommendation_embedding_documents SET version='old' WHERE kind='job'",
+    );
+    for (const row of await rank()) expect(Number(row.score)).toBeCloseTo(6);
+    await embedDocument("job", 200);
+    await client.query(
+      `UPDATE user_job_preferences SET role_priorities=ARRAY['Design human interfaces.']`,
+    );
+    for (const row of await rank()) expect(Number(row.score)).toBeCloseTo(6);
+  });
+  it("reuses unchanged sentences, retries failed inputs later, and never stores stale results", async () => {
+    await client.query(
+      `UPDATE job_search_documents SET payload=payload || '{"requirements":"Build distributed systems."}' WHERE job_node_id=200;`,
+    );
+    await embedDocument("job", 200);
+    const repository = embeddingRepository();
+    expect(
+      (await repository.pending(100)).some(
+        x => x.kind === "job" && x.nodeId === "200",
+      ),
+    ).toBe(false);
+    await client.query(
+      `UPDATE job_search_documents SET payload=payload || '{"requirements":"Build distributed systems. Maintain production databases."}' WHERE job_node_id=200;`,
+    );
+    const input = (await repository.pending(100)).find(
+      x => x.kind === "job" && x.nodeId === "200",
+    )!;
+    expect(
+      (
+        await repository.reusable(
+          input,
+          recommendationSentences(input.content).map(s => s.hash),
+        )
+      ).size,
+    ).toBe(1);
+    await repository.fail(input);
+    expect(
+      (await repository.pending(100)).some(
+        x => x.kind === "job" && x.nodeId === "200",
+      ),
+    ).toBe(false);
+    await client.query(
+      "UPDATE recommendation_embedding_documents SET retry_after=now()-interval '1 minute' WHERE kind='job'",
+    );
+    expect(
+      (await repository.pending(100)).some(
+        x => x.kind === "job" && x.nodeId === "200",
+      ),
+    ).toBe(true);
+    await client.query(
+      "UPDATE job_search_documents SET payload='{}' WHERE job_node_id=200",
+    );
+    expect(await repository.store(input, [])).toBe(false);
+    await embedDocument("job", 200);
+    expect(
+      (await repository.pending(100)).some(
+        x => x.kind === "job" && x.nodeId === "200",
+      ),
+    ).toBe(false);
+  });
+  it("reuses existing technical tag vectors without requiring new sentence embeddings", async () => {
+    await addSkill();
+    await client.query(`INSERT INTO graph_nodes VALUES (61,'Tag','{"name":"Systems programming"}');
+      INSERT INTO graph_relationships(source_id,target_id,type,properties) VALUES (200,61,'HAS_TAG','{"isSoftSkill":false}');`);
+    await client.query(
+      "INSERT INTO tag_embeddings VALUES (61,'Systems programming',$1::halfvec(3072))",
+      [JSON.stringify(vector(0))],
+    );
+    const rows = await rank();
+    expect(rows[0].job.shortUUID).toBe("senior");
+    expect(rows[0].reasonLabels).toContain("Related technical skills");
+    await client.query(
+      "UPDATE graph_relationships SET properties='{\"isSoftSkill\":true}' WHERE type='HAS_TAG'",
+    );
+    for (const row of await rank()) expect(Number(row.score)).toBeCloseTo(6);
+  });
+  it("removes cached career sentences when a user clears their CV data", async () => {
+    await client.query(
+      `UPDATE graph_nodes SET properties=properties || '{"recommendationCareer":{"roles":[{"title":"Engineer","description":"Build reliable distributed systems."}]}}' WHERE id=1`,
+    );
+    await embedDocument("user", 1);
+    const repository = new ProfileRepository({
+      query: async (sql: string, args: unknown[]) =>
+        (await client.query(sql, args)).rows,
+    } as never);
+    expect(
+      await repository.updateRecommendationCareer("test-user", { roles: [] }),
+    ).toBe(true);
+    expect(
+      (
+        await client.query(
+          "SELECT count(*) FROM recommendation_sentence_embeddings WHERE kind='user'",
+        )
+      ).rows[0].count,
+    ).toBe("0");
+  });
+  it("never reuses another user's private experience vectors", async () => {
+    await client.query(
+      `UPDATE user_job_preferences SET role_priorities=ARRAY['Build reliable distributed systems.'];`,
+    );
+    await embedDocument("user", 1);
+    const sentences = recommendationSentences(
+      JSON.stringify([
+        { source: "preference", text: "Build reliable distributed systems." },
+      ]),
+    );
+    const other = { kind: "user", nodeId: "2", content: "[]", hash: "unused" };
+    expect(
+      (
+        await embeddingRepository().reusable(
+          other,
+          sentences.map(s => s.hash),
+        )
+      ).size,
+    ).toBe(0);
+  });
+  it("does not relabel old vectors as a new model after an unsuccessful refresh", async () => {
+    await client.query(
+      `UPDATE job_search_documents SET payload=payload || '{"requirements":"Build distributed systems."}' WHERE job_node_id=200`,
+    );
+    await embedDocument("job", 200);
+    await client.query(
+      "UPDATE recommendation_embedding_documents SET version='previous-model' WHERE kind='job'",
+    );
+    const repository = embeddingRepository();
+    const input = (await repository.pending(100)).find(
+      x => x.kind === "job" && x.nodeId === "200",
+    )!;
+    await repository.fail(input);
+    expect(
+      (
+        await repository.reusable(
+          input,
+          recommendationSentences(input.content).map(s => s.hash),
+        )
+      ).size,
+    ).toBe(0);
+    expect(
+      (await repository.pending(100)).some(
+        x => x.kind === "job" && x.nodeId === "200",
+      ),
+    ).toBe(false);
+  });
+  it("ranks an exact office city above a country match", async () => {
+    await client.query(`INSERT INTO graph_nodes VALUES (30,'UserLocation','{"city":"Berlin","country":"Germany"}');
+      INSERT INTO graph_relationships VALUES (1,30,'HAS_LOCATION');
+      UPDATE job_search_documents SET location='Germany';
+      UPDATE job_search_documents SET work_arrangement='{"onsiteOptions":[{"officeCity":"Berlin","mode":"onsite"}]}' WHERE job_node_id=200;`);
+    const rows = await rank();
+    expect(rows[0].job.shortUUID).toBe("senior");
+    expect(rows[0].score - rows[1].score).toBeCloseTo(3);
+  });
+  it("uses the profile country code for graded office-country matching", async () => {
+    await client.query(`INSERT INTO graph_nodes VALUES (30,'UserLocation','{"city":"Berlin","country":"Germany","countryCode":"DE"}');
+      INSERT INTO graph_relationships VALUES (1,30,'HAS_LOCATION');
+      UPDATE job_search_documents SET work_arrangement='{"onsiteOptions":[{"officeCity":"Munich","includedCountries":["DE"]}]}' WHERE job_node_id=200;`);
+    const rows = await rank();
+    expect(rows[0].job.shortUUID).toBe("senior");
+    expect(rows[0].score - rows[1].score).toBeCloseTo(3);
+  });
+  it("deduplicates impressions and conversions, excludes pre-impression actions and out-of-k rows", async () => {
+    await client.query(`INSERT INTO user_activity_events(user_node_id,job_node_id,event_type,surface,position,occurred_at) VALUES
+      (1,100,'job_impression','jobs_for_me',0,now()-interval '2 hours'),
+      (1,100,'job_impression','jobs_for_me',0,now()-interval '1 hour'),
+      (1,200,'job_impression','jobs_for_me',3,now()-interval '1 hour'),
+      (1,100,'job_view','job_details',null,now()),
+      (1,100,'job_view','job_details',null,now()),
+      (1,100,'job_apply','job_details',null,now()-interval '3 hours'),
+      (1,100,'job_bookmark','job_details',null,now());`);
+    const metrics = (await client.query(recommendationMetricsSql, [30, 3]))
+      .rows[0].data;
+    expect(metrics.daily[0]).toMatchObject({
+      exposures: 1,
+      clicks: 1,
+      applies: 0,
+      saves: 1,
+      clickRate: 1,
+      saveRate: 1,
+      medianSecondsToFirstApply: null,
+    });
+  });
+  it("attributes conversions to the latest surface, never counts email delivery as an open", async () => {
+    await client.query(`INSERT INTO user_email_digest_consent_events(user_node_id,event_type,occurred_at,metadata) VALUES
+      (1,'digest_sent',now()-interval '2 hours','{"jobIds":["junior"],"rankingVersion":"content-v2"}'),
+      (1,'unsubscribed',now(),'{}');
+      INSERT INTO user_activity_events(user_node_id,job_node_id,event_type,surface,position,occurred_at) VALUES
+      (1,100,'job_impression','jobs_for_me',0,now()-interval '1 hour'),
+      (1,100,'job_apply','job_details',null,now());`);
+    const metrics = (await client.query(recommendationMetricsSql, [30, 3]))
+      .rows[0].data;
+    expect(
+      metrics.daily.find(
+        (row: { surface: string }) => row.surface === "weekly_email",
+      ),
+    ).toMatchObject({ exposures: 1, clicks: 0, applies: 0 });
+    expect(
+      metrics.daily.find(
+        (row: { surface: string }) => row.surface === "jobs_for_me",
+      ),
+    ).toMatchObject({ applies: 1, medianSecondsToFirstApply: 3600 });
+    expect(metrics.email).toMatchObject({
+      sent: 1,
+      unsubscribed: 1,
+      unsubscribeRate: 1,
+    });
+  });
+});

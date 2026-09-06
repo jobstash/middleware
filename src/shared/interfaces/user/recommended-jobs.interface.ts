@@ -10,6 +10,9 @@ export class RecommendedJob {
 }
 
 export class RecommendedJobsResponse {
+  @ApiProperty()
+  rankingVersion: string;
+
   @ApiProperty({ type: [RecommendedJob] })
   jobs: RecommendedJob[];
 

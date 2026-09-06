@@ -4,6 +4,7 @@ import { EntityManager } from "typeorm";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { DASHBOARD_UNIVERSE_ID } from "src/telemetry/telemetry.constants";
 import { PostgresService } from "./postgres.service";
+import { recommendationMetricsSql } from "./sql/recommendation-metrics.sql";
 
 type DashboardJobStatsRow = {
   active: string;
@@ -31,6 +32,14 @@ export class TelemetryRepository {
   private readonly logger = new CustomLogger(TelemetryRepository.name);
 
   constructor(private readonly postgres: PostgresService) {}
+
+  async getRecommendationMetrics(days: number, k: number): Promise<unknown> {
+    const [row] = await this.postgres.query<{ data: unknown }>(
+      recommendationMetricsSql,
+      [days, k],
+    );
+    return row.data;
+  }
 
   /**
    * Records one login for the user resolved by wallet or Privy id.

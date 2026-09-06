@@ -133,6 +133,98 @@ This is a barebones spec for what the JobStash job recommendation engine will lo
 
 - CTR@k, ApplyRate@k, SaveRate@k, time-to-first-apply, unsubscribe rate.
 
+### Implementation update — September 2026
+
+Ranking remains in `src/postgres/sql/recommended-jobs.sql.ts`; there is no model
+call on a recommendation request. `sentences-v1` fixes scalar seniority matching
+and a second bug: PostgreSQL `LEAST(NULL, 30)` awarded the maximum preference
+bonus to jobs with no matching preferences. Empty aggregates now score zero.
+
+Content relevance uses individual sentence/bullet embeddings, never whole CV/JD
+vectors or lexical substring/full-text scores. Existing `tag_embeddings`
+(`text-embedding-3-large`, 3072 dimensions) supply skill vectors without another
+embedding call. New vectors use the same model through LangChain. Stored raw
+Jobpost embeddings remain untouched and are not used for sentence coverage.
+
+Typed CV experience, job requirements/responsibilities, employer/project prose,
+and explicit interests are split independently. Each sentence keeps its source
+and, for CV roles, a short title context. Application/benefits boilerplate is
+removed; generic teamwork/motivation text is excluded from embedding and scoring.
+Duplicate sentences count once. Exact sentences repeated across public documents
+receive an inverse-square-root frequency discount. These are conservative noise
+controls, not a claim that all generic or negated statements are understood.
+
+Indexed nearest-neighbor retrieval considers up to 100 public sentences per
+user sentence/skill, with cosine similarity at least 0.65. Scores ramp to full
+strength at 0.95, weighted by source specificity and frequency. One user evidence
+sentence can cover at most one sentence per target document; multiple evidence
+sentences cannot pile onto one target sentence. Job coverage contributes at most
+18 points, company coverage 8, and related technical tags 6. The coverage
+denominator is at least three requirement-equivalents, preventing one vague
+match from earning the full bonus. Generic sentences do not dilute coverage.
+Nearest-neighbor retrieval is approximate and bounded, not an exhaustive join.
+Transaction-local iterative HNSW scans prevent dead/filtered index entries from
+exhausting the initial candidate list; settings do not leak into other queries.
+Thresholds and relevance quality need evaluation on labelled real pairs; test
+vectors exercise aggregation and exclusions, not model judgement.
+
+The existing middleware scheduler refreshes changed/missing inputs every five
+minutes, 100 documents per pass by default (`RECOMMENDATION_EMBEDDING_BATCH_SIZE`).
+It reuses unchanged sentence vectors, batches new sentences in groups of 16 with
+two concurrent embedding requests, and retries failed documents after 15 minutes.
+Rate-limit/authentication failures stop new calls for that pass. No feature flag.
+Embedding calls occur only in this background refresh, using the existing
+OpenAI API credential; they are not Codex-subscription inference. New sentence
+coverage requires a backfill and incurs embedding usage. Version/source hashes
+prevent stale vectors from influencing scores. No raw CV/contact data is sent.
+An oversized individual sentence fails explicitly rather than being truncated.
+
+Company status excludes known closed/inactive employers and discontinued projects,
+including closed parent Profiles; unknown status and acquired companies are
+not automatically excluded. Funding amount and investor overlap measure
+similarity to previously explored employers, not financial health or a made-up
+investor-quality ranking. Missing financial data is neutral.
+
+New CV uploads retain bounded career fields after the user saves the preview.
+Explicit seniority overrides the recent-CV fallback. Old uploads only retained
+skills/contact details and a document URL: they need reprocessing or re-upload,
+not an assumption that parsed career history exists. Removing the CV removes
+its matching data. Showcased repository skills are used when indexed work or
+adjacent-repository evidence exists; arbitrary supplied URLs are not fetched.
+Language/education sentence similarities are positive signals, not verified eligibility.
+City/country affinity does not override legal or work-arrangement exclusions.
+
+Weekly email uses the same ranker: Monday 08:00 Europe/Amsterdam, confirmed
+opt-in only, at most three jobs, one per employer, no jobs mailed in the last
+28 days. Where work preferences exist, only confirmed location matches are
+emailed. Fewer than three matches means a shorter email; no matches means no
+email. No claim of exactly-once delivery across a provider/network failure.
+Only jobs with current processed sentence inputs and users with current sentence
+or tag evidence are eligible for email. The email scheduler runs only with
+`ENVIRONMENT=production` and `MIDDLEWARE_SCHEDULE_OWNER=1`; the latter selects the
+designated scheduler instance, not a feature rollout.
+
+Super-admin `GET /telemetry/recommendations?days=30&k=3` feeds the org-admin
+dashboard. Seven-day last-touch attribution joins existing view/apply/save
+events to visible recommendation impressions or recorded email deliveries.
+Repeated user/job/day exposures are deduplicated. Views are click proxies;
+email delivery is not an open. Rates use exposed user/job/day cohorts, while
+median first-apply time uses each exposed user's first application in that
+daily surface/version cohort. Unsubscribe rate is per delivered email, within
+seven days. Incomplete windows are marked pending. Historical emails without
+job metadata have unsubscribe metrics but cannot have per-job attribution.
+These observational metrics support evaluation, not causal lift claims.
+
+Release order: apply ETL migrations `zz-232-recommendation-delivery-metadata.sql`
+and `zz-234-recommendation-embeddings.sql` to the application database (pgvector >=0.8
+required), then release middleware, webapp and org-admin.
+The migrations are additive/idempotent; no ETL worker restart, ClickHouse rebuild,
+new mail provider, source-data rewrite or newsletter blast is required.
+Use `RECOMMENDATIONS_TEST_DATABASE_URL` pointing at an isolated local PostgreSQL
+to run `recommended-jobs.integration.spec.ts`, including the real migration,
+rank-order fixtures and attribution queries. Production credentials must not
+be supplied to that test.
+
 ## UI ideas
 
 We have a couple UI options we can execute our job board with based on certain pros and cons

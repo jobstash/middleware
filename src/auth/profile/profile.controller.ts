@@ -65,6 +65,7 @@ import { PrivyService } from "../privy/privy.service";
 import { EmailDigestService } from "./email-digest.service";
 import { EmailDigestTokenInput } from "./dto/email-digest-token.input";
 import { EmailDigestState } from "src/postgres/email-digest.repository";
+import { RecommendationCareerInput } from "./dto/recommendation-career.input";
 
 const SOCIAL_LABELS = [
   "Website",
@@ -105,6 +106,24 @@ export class ProfileController {
     private readonly privyService: PrivyService,
     private readonly emailDigestService: EmailDigestService,
   ) {}
+
+  @Patch("recommendation-career")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
+  async updateRecommendationCareer(
+    @Session() { address }: SessionObject,
+    @Body(
+      new ValidationPipe({
+        transform: true,
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      }),
+    )
+    input: RecommendationCareerInput,
+  ) {
+    await this.profileService.updateRecommendationCareer(address, input);
+    return { success: true };
+  }
 
   @Get("email-digest")
   @UseGuards(PBACGuard)

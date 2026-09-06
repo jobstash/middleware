@@ -21,6 +21,10 @@ export class TelemetryService {
 
   constructor(private readonly telemetry: TelemetryRepository) {}
 
+  getRecommendationMetrics(days: number, k: number): Promise<unknown> {
+    return this.telemetry.getRecommendationMetrics(days, k);
+  }
+
   async logUserLoginEvent(
     walletOrPrivyId: string,
     context: { method?: string } = {},

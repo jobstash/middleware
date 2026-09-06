@@ -116,12 +116,15 @@ export class EmailDigestService {
     wallet: string;
     email: string;
   }): Promise<void> {
-    if (!(await this.repository.claimWeek(recipient.userNodeId))) return;
-
+    let sent = false;
+    let claimed = false;
     try {
+      claimed = await this.repository.claimWeek(recipient.userNodeId);
+      if (!claimed) return;
       const recommendations = await this.profileService.getRecommendedJobs(
         recipient.wallet,
-        6,
+        3,
+        "weekly_email",
       );
       if (recommendations.jobs.length === 0) {
         await this.repository.releaseWeek(recipient.userNodeId);
@@ -129,18 +132,21 @@ export class EmailDigestService {
       }
 
       const unsubscribeToken = token();
-      await this.repository.setUnsubscribeToken(
+      const stillSubscribed = await this.repository.setUnsubscribeToken(
         recipient.userNodeId,
         tokenHash(unsubscribeToken),
+        recipient.email,
       );
+      if (!stillSubscribed) return;
       const unsubscribeUrl = `${this.frontend}/email/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
       const oneClickUnsubscribeUrl = `${this.frontend}/api/email-digest/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
       const jobRows = recommendations.jobs
+        .slice(0, 3)
         .map(({ job, reason }) => {
           const title = job.title ?? "Open role";
           const employer = job.organization?.name ?? job.project?.name ?? "";
           const orgText = employer ? `-${employer}` : "";
-          const href = `${this.frontend}/${slugify(`${title}${orgText}`)}/${job.shortUUID}`;
+          const href = `${this.frontend}/${slugify(`${title}${orgText}`)}/${encodeURIComponent(job.shortUUID)}?utm_source=weekly_job_digest&utm_medium=email`;
           return `<div style="border-top:1px solid #333;padding:14px 0">
             <a href="${href}" style="color:#ffffff;text-decoration:none;font-size:17px;font-weight:700">${escapeHtml(title)}</a>
             <div style="color:#b5b5b5;margin-top:4px">${escapeHtml(employer || "JobStash")} · ${escapeHtml(reason)}</div>
@@ -167,9 +173,19 @@ export class EmailDigestService {
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
       };
       await this.mailService.sendEmail(message);
-      await this.repository.markSent(recipient.userNodeId);
+      sent = true;
+      await this.repository.markSent(
+        recipient.userNodeId,
+        recommendations.jobs.slice(0, 3).map(({ job }) => job.shortUUID),
+        recommendations.rankingVersion,
+        tokenHash(unsubscribeToken),
+      );
     } catch (error) {
-      await this.repository.releaseWeek(recipient.userNodeId);
+      // Never resend a delivered message because recording its receipt failed.
+      if (claimed && !sent)
+        await this.repository
+          .releaseWeek(recipient.userNodeId)
+          .catch(() => undefined);
       this.logger.error(
         `Weekly digest failed: ${
           error instanceof Error ? error.message : String(error)

@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Header,
   Query,
   UseGuards,
   // UseInterceptors,
@@ -25,6 +26,7 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 import { UserService } from "src/user/user.service";
 import { GetDashboardJobStatsInput } from "./dto/get-dashboard-job-stats.input";
 import { DASHBOARD_UNIVERSE_ID } from "./telemetry.constants";
+import { RecommendationMetricsInput } from "./dto/recommendation-metrics.input";
 
 @Controller("telemetry")
 export class TelemetryController {
@@ -33,6 +35,29 @@ export class TelemetryController {
     private readonly userService: UserService,
     private readonly telemetryService: TelemetryService,
   ) {}
+
+  @Get("recommendations")
+  @Header("Cache-Control", "private, no-store")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
+  async getRecommendationMetrics(
+    @Query(
+      new ValidationPipe({
+        transform: true,
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      }),
+    )
+    input: RecommendationMetricsInput,
+  ) {
+    return {
+      success: true,
+      data: await this.telemetryService.getRecommendationMetrics(
+        input.days,
+        input.k,
+      ),
+    };
+  }
 
   @Get("job/views")
   @UseGuards(PBACGuard)
