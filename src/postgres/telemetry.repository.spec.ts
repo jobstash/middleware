@@ -211,7 +211,9 @@ describe("TelemetryRepository", () => {
 
     const [sql, parameters] = postgresQuery.mock.calls[0];
     expect(sql).toContain("FROM job_search_documents job");
-    expect(sql).toContain("event.type IN ('APPLIED_TO', 'VIEWED_DETAILS')");
+    expect(sql).toContain("event.event_type IN ('job_apply', 'job_view')");
+    expect(sql).toContain("event.occurred_at AT TIME ZONE 'UTC'");
+    expect(sql).not.toContain("published_timestamp");
     expect(parameters).toEqual(["ecosystem", "universe", "universe"]);
   });
 });

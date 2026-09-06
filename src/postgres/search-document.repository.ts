@@ -932,7 +932,17 @@ export class SearchDocumentRepository {
           ${jobEmployerPayload("job.payload")}
           || jsonb_build_object(
             'online', job.online,
-            'blocked', job.blocked
+            'blocked', job.blocked,
+            'applications', (
+              SELECT count(*) FROM graph_relationships application
+              WHERE application.target_id = job.job_node_id
+                AND application.type = 'APPLIED_TO'
+            ),
+            'views', (
+              SELECT count(*) FROM user_activity_events view_event
+              WHERE view_event.job_node_id = job.job_node_id
+                AND view_event.event_type = 'job_view'
+            )
           ) AS payload
         FROM job_search_documents job
         ${jobEmployerJoins()}
@@ -999,9 +1009,9 @@ export class SearchDocumentRepository {
              ),
              'views', (
                SELECT count(*)
-               FROM graph_relationships view_event
-               WHERE view_event.target_id = job.job_node_id
-                 AND view_event.type = 'VIEWED_DETAILS'
+               FROM user_activity_events view_event
+               WHERE view_event.job_node_id = job.job_node_id
+                 AND view_event.event_type = 'job_view'
              )
            ) AS payload
          FROM job_search_documents job
@@ -1046,9 +1056,9 @@ export class SearchDocumentRepository {
             ),
             'views', (
               SELECT count(*)
-              FROM graph_relationships view_event
-              WHERE view_event.target_id = job.job_node_id
-                AND view_event.type = 'VIEWED_DETAILS'
+              FROM user_activity_events view_event
+              WHERE view_event.job_node_id = job.job_node_id
+                AND view_event.event_type = 'job_view'
             )
           ) AS payload
         FROM job_search_documents job
@@ -1079,15 +1089,15 @@ export class SearchDocumentRepository {
         ${jobEmployerJoins()}
         CROSS JOIN LATERAL (
           SELECT
-            count(*) FILTER (
-              WHERE event.type = 'APPLIED_TO'
+            count(DISTINCT event.user_node_id) FILTER (
+              WHERE event.event_type = 'job_apply'
             )::integer AS applications,
             count(*) FILTER (
-              WHERE event.type = 'VIEWED_DETAILS'
+              WHERE event.event_type = 'job_view'
             )::integer AS views
-          FROM graph_relationships event
-          WHERE event.target_id = job.job_node_id
-            AND event.type IN ('APPLIED_TO', 'VIEWED_DETAILS')
+          FROM user_activity_events event
+          WHERE event.job_node_id = job.job_node_id
+            AND event.event_type IN ('job_apply', 'job_view')
         ) metrics
         WHERE cardinality(job.tags) > 0
           AND num_nonnulls(job.organization_id, job.project_id) = 1
@@ -1921,9 +1931,9 @@ export class SearchDocumentRepository {
             ),
             'views', (
               SELECT count(*)
-              FROM graph_relationships view_event
-              WHERE view_event.target_id = job.job_node_id
-                AND view_event.type = 'VIEWED_DETAILS'
+              FROM user_activity_events view_event
+              WHERE view_event.job_node_id = job.job_node_id
+                AND view_event.event_type = 'job_view'
             )
           ) AS payload
         FROM job_search_documents job

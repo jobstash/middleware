@@ -224,26 +224,26 @@ export class TelemetryRepository {
   }): Promise<number> {
     const [row] = await this.postgres.query<{ count: string }>(
       `
-        SELECT count(DISTINCT event.id)::text AS count
+        SELECT count(*)::text AS count
         FROM job_search_documents job
-        JOIN graph_relationships event
-          ON event.target_id = job.job_node_id
-         AND event.type = $3
+        JOIN user_activity_events event
+          ON event.job_node_id = job.job_node_id
+         AND event.event_type = $3
         WHERE job.organization_id = $1
           AND ($2::text IS NULL OR job.short_uuid = $2)
           AND (
             $4::bigint IS NULL
-            OR NULLIF(event.properties ->> 'createdTimestamp', '')::numeric >= $4
+            OR event.occurred_at >= to_timestamp($4 / 1000.0)
           )
           AND (
             $5::bigint IS NULL
-            OR NULLIF(event.properties ->> 'createdTimestamp', '')::numeric <= $5
+            OR event.occurred_at <= to_timestamp($5 / 1000.0)
           )
       `,
       [
         options.organizationId,
         options.shortUuid ?? null,
-        options.relationshipType,
+        options.relationshipType === "APPLIED_TO" ? "job_apply" : "job_view",
         options.epochStart ?? null,
         options.epochEnd ?? null,
       ],
@@ -280,14 +280,12 @@ export class TelemetryRepository {
           SELECT
             count(*) AS total,
             count(*) FILTER (
-              WHERE NULLIF(
-                application.properties ->> 'createdTimestamp',
-                ''
-              )::numeric >= $3
+              WHERE application.occurred_at >= to_timestamp($3 / 1000.0)
             ) AS recent
-          FROM graph_relationships application
-          JOIN jobs ON jobs.job_node_id = application.target_id
-          WHERE application.type = 'APPLIED_TO'
+          FROM user_activity_events application
+          JOIN jobs ON jobs.job_node_id = application.job_node_id
+          WHERE application.event_type = 'job_apply'
+            AND application.occurred_at <= current_timestamp
         )
         SELECT
           count(*) FILTER (WHERE jobs.online)::text AS active,
@@ -451,43 +449,37 @@ export class TelemetryRepository {
         WITH months AS MATERIALIZED (
           SELECT
             index,
-            date_trunc('month', current_timestamp)
+            date_trunc('month', current_timestamp AT TIME ZONE 'UTC')
               - ((12 - index) * interval '1 month') AS month_start
           FROM generate_series(0, 12) AS index
         ), jobs AS MATERIALIZED (
-          SELECT
-            job.job_node_id,
-            date_trunc(
-              'month',
-              to_timestamp(job.published_timestamp / 1000.0)
-            ) AS published_month
+          SELECT job.job_node_id
           FROM job_search_documents job
-          WHERE job.published_timestamp >= extract(
-                  epoch FROM current_timestamp - interval '1 year'
-                ) * 1000
-            AND job.published_timestamp <= extract(epoch FROM current_timestamp) * 1000
-            AND CASE
+          WHERE CASE
               WHEN $1 = 'ecosystem' AND $2 = $3 THEN true
               WHEN $1 = 'ecosystem' THEN $2 = ANY(job.managed_ecosystems)
               ELSE job.organization_id = $2
             END
         ), events AS MATERIALIZED (
           SELECT
-            job.published_month,
-            count(*) FILTER (WHERE event.type = 'APPLIED_TO') AS applications,
-            count(*) FILTER (WHERE event.type = 'VIEWED_DETAILS') AS views
+            date_trunc('month', event.occurred_at AT TIME ZONE 'UTC') AS event_month,
+            count(*) FILTER (WHERE event.event_type = 'job_apply') AS applications,
+            count(*) FILTER (WHERE event.event_type = 'job_view') AS views
           FROM jobs job
-          LEFT JOIN graph_relationships event
-            ON event.target_id = job.job_node_id
-           AND event.type IN ('APPLIED_TO', 'VIEWED_DETAILS')
-          GROUP BY job.published_month
+          JOIN user_activity_events event ON event.job_node_id = job.job_node_id
+          WHERE event.event_type IN ('job_apply', 'job_view')
+            AND event.occurred_at >= (
+              SELECT min(month_start) AT TIME ZONE 'UTC' FROM months
+            )
+            AND event.occurred_at <= current_timestamp
+          GROUP BY event_month
         )
         SELECT
           to_char(month.month_start, 'Mon YYYY') AS month,
           COALESCE(event.applications, 0)::text AS applications,
           COALESCE(event.views, 0)::text AS views
         FROM months month
-        LEFT JOIN events event ON event.published_month = month.month_start
+        LEFT JOIN events event ON event.event_month = month.month_start
         ORDER BY month.index
       `,
       [options.type, options.id, DASHBOARD_UNIVERSE_ID],

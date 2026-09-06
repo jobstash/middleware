@@ -73,7 +73,7 @@ describe("SearchDocumentRepository", () => {
     expect(pageSql).toContain("'online', job.online");
     expect(pageSql).toContain("'blocked', job.blocked");
     expect(pageSql).toContain("application.type = 'APPLIED_TO'");
-    expect(pageSql).toContain("view_event.type = 'VIEWED_DETAILS'");
+    expect(pageSql).toContain("view_event.event_type = 'job_view'");
     expect(pageSql).toContain("LIMIT $2 OFFSET $3");
     expect(pageParameters).toEqual([false, 100, 100]);
   });
@@ -388,7 +388,7 @@ describe("SearchDocumentRepository", () => {
     const [sql, parameters] = query.mock.calls[0];
     expect(sql).toContain("WHERE job.organization_id = $1");
     expect(sql).toContain("application.type = 'APPLIED_TO'");
-    expect(sql).toContain("view_event.type = 'VIEWED_DETAILS'");
+    expect(sql).toContain("view_event.event_type = 'job_view'");
     expect(sql).not.toContain("org-1' OR true --");
     expect(parameters).toEqual(["org-1' OR true --"]);
   });

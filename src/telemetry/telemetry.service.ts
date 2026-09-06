@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import * as Sentry from "@sentry/node";
-import { subDays, subMonths } from "date-fns";
+import { subDays } from "date-fns";
 import { TelemetryRepository } from "src/postgres/telemetry.repository";
 import {
   DashboardJobStatsEntity,
@@ -48,10 +48,15 @@ export class TelemetryService {
     data: GetDashboardJobStatsInput,
   ): Promise<ResponseWithOptionalData<DashboardJobStats>> {
     try {
+      const now = new Date();
       const stats = await this.telemetry.getDashboardJobStats({
         type: data.type,
         id: data.id,
-        applicationEpochStart: subMonths(new Date(), 1).getTime(),
+        applicationEpochStart: Date.UTC(
+          now.getUTCFullYear(),
+          now.getUTCMonth(),
+          1,
+        ),
       });
       return {
         success: true,

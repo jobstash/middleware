@@ -102,6 +102,13 @@ describePostgres("TelemetryRepository PostgreSQL integration", () => {
     await createRelationship(userNodeId, activeJobNodeId, "VIEWED_DETAILS", {
       createdTimestamp: Date.now(),
     });
+    await postgres.query(`
+      INSERT INTO user_activity_events(user_node_id,job_node_id,event_type,event_key,occurred_at)
+      SELECT source_id,target_id,
+        CASE type WHEN 'APPLIED_TO' THEN 'job_apply' ELSE 'job_view' END,
+        'test-' || id, to_timestamp((properties->>'createdTimestamp')::numeric / 1000.0)
+      FROM graph_relationships WHERE type IN ('APPLIED_TO','VIEWED_DETAILS')
+    `);
   });
 
   it("upserts one login-history node per user", async () => {
