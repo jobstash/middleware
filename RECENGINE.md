@@ -191,6 +191,10 @@ similarity to previously explored employers, not financial health or a made-up
 investor-quality ranking. Missing financial data is neutral.
 
 New CV uploads retain bounded career fields after the user saves the preview.
+The same authenticated save fills missing name/location and CV-supported job
+preferences in one transaction. Existing populated preferences take precedence;
+past employers do not become target employers and legal/pay preferences are not
+guessed. Unstated scalars remain null. Matching data excludes contact details.
 Explicit seniority overrides the recent-CV fallback. Old uploads only retained
 skills/contact details and a document URL: they need reprocessing or re-upload,
 not an assumption that parsed career history exists. Removing the CV removes
@@ -198,6 +202,13 @@ its matching data. Showcased repository skills are used when indexed work or
 adjacent-repository evidence exists; arbitrary supplied URLs are not fetched.
 Language/education sentence similarities are positive signals, not verified eligibility.
 City/country affinity does not override legal or work-arrangement exclusions.
+When preferences exist, unknown arrangements and disallowed modes are excluded
+before the candidate limit. Web recommendations also reject unresolved geographic,
+office-attendance and required-timezone checks; these remain available only in
+the separate checking API. Unknown sponsorship/authorization is not presented as
+verified legal eligibility. Explicit Netherlands office options and remote options
+that include the Netherlands remain eligible. Saving preferences invalidates the
+recommendation feed immediately.
 
 Weekly email uses the same ranker: Monday 08:00 Europe/Amsterdam, confirmed
 opt-in only, at most three jobs, one per employer, no jobs mailed in the last

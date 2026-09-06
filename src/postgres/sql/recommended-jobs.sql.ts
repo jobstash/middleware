@@ -285,6 +285,21 @@ export const recommendedJobsSql = `
       AND job_vectors.version='${RECOMMENDATION_EMBEDDING_VERSION}'
       AND job_vectors.content_hash=md5(recommendation_embedding_content('job',document.job_node_id))
     WHERE document.online
+      AND NOT EXISTS (
+        SELECT 1 FROM user_job_preferences preferences
+        WHERE preferences.user_node_id = target_user.id
+          AND (
+            document.work_arrangement ->> 'classification' IN ('verified_remote','verified_hybrid','verified_onsite')
+            AND EXISTS (
+              SELECT 1 FROM jsonb_array_elements(
+                COALESCE(document.work_arrangement -> 'remoteOptions','[]'::jsonb) ||
+                COALESCE(document.work_arrangement -> 'hybridOptions','[]'::jsonb) ||
+                COALESCE(document.work_arrangement -> 'onsiteOptions','[]'::jsonb)
+              ) option
+              WHERE option ->> 'mode' = ANY(preferences.work_modes)
+            )
+          ) IS NOT TRUE
+      )
       AND (NOT $3::boolean OR (job_vectors.node_id IS NOT NULL AND EXISTS (SELECT 1 FROM user_evidence)))
       AND (NOT $3::boolean OR NOT EXISTS (
         SELECT 1 FROM user_email_digest_consent_events sent

@@ -1,4 +1,6 @@
 import { Type } from "class-transformer";
+import { PartialType } from "@nestjs/mapped-types";
+import { UpdateJobPreferencesInput } from "./update-job-preferences.input";
 import {
   ArrayMaxSize,
   IsArray,
@@ -8,8 +10,23 @@ import {
   IsOptional,
   IsString,
   MaxLength,
+  Matches,
   ValidateNested,
 } from "class-validator";
+
+class ResumePreferencesInput extends PartialType(UpdateJobPreferencesInput) {}
+class ResumeLocationInput {
+  @IsOptional() @IsString() @MaxLength(160) city?: string | null;
+  @IsOptional() @IsString() @MaxLength(160) country?: string | null;
+  @IsOptional() @Matches(/^[A-Z]{2}$/) countryCode?: string | null;
+}
+class ResumeProfileInput {
+  @IsOptional() @IsString() @MaxLength(160) name?: string | null;
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ResumeLocationInput)
+  location?: ResumeLocationInput | null;
+}
 
 class CareerRoleInput {
   @IsString() @MaxLength(160) title: string;
@@ -33,4 +50,12 @@ export class RecommendationCareerInput {
   @IsOptional()
   @IsIn(["secondary", "associate", "bachelor", "master", "doctorate", "other"])
   educationLevel: string | null;
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ResumeProfileInput)
+  profile?: ResumeProfileInput;
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ResumePreferencesInput)
+  preferences?: ResumePreferencesInput;
 }

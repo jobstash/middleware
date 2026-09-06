@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
 import { EntityManager } from "typeorm";
+import type { RecommendationCareerInput } from "src/auth/profile/dto/recommendation-career.input";
+import { EMPTY_RECOMMENDATION_PROFILE } from "src/shared/interfaces";
 import {
   JobListResult,
   WorkArrangementClassification,
@@ -525,11 +527,13 @@ export class ProfileRepository {
 
   async updateRecommendationCareer(
     wallet: string,
-    career: object,
+    input: RecommendationCareerInput,
   ): Promise<boolean> {
-    const rows = await queryRows(
-      this.postgres,
-      `
+    const { profile, preferences, ...career } = input;
+    return this.postgres.transaction(async manager => {
+      const rows = await queryRows(
+        manager,
+        `
       WITH updated AS (
         UPDATE graph_nodes SET properties = properties || jsonb_build_object('recommendationCareer', $2::jsonb)
         WHERE label = 'User' AND lower(properties ->> 'wallet') = lower($1)
@@ -540,9 +544,62 @@ export class ProfileRepository {
           AND COALESCE(jsonb_array_length($2::jsonb -> 'roles'),0)=0
       ) SELECT id FROM updated
     `,
-      [wallet, JSON.stringify(career)],
-    );
-    return rows.length > 0;
+        [wallet, JSON.stringify(career)],
+      );
+      if (!rows.length) return false;
+      if (profile?.name)
+        await queryRows(
+          manager,
+          `UPDATE graph_nodes SET properties=properties || jsonb_build_object('name',$2::text)
+       WHERE label='User' AND lower(properties->>'wallet')=lower($1)
+         AND NULLIF(btrim(properties->>'name'),'') IS NULL`,
+          [wallet, profile.name],
+        );
+      if (profile?.location?.country && profile.location.countryCode) {
+        const account = await this.findNode("User", { wallet }, manager);
+        const [existing] = await queryRows<{
+          properties: Record<string, unknown>;
+        }>(
+          manager,
+          `SELECT target.properties FROM graph_relationships edge JOIN graph_nodes target ON target.id=edge.target_id
+         WHERE edge.source_id=$1 AND edge.type='HAS_LOCATION' AND target.label='UserLocation' ORDER BY target.id LIMIT 1 FOR UPDATE OF target`,
+          [account.nodeId],
+        );
+        // Never combine a CV city with an existing, different residence.
+        if (!existing?.properties.country && !existing?.properties.city) {
+          await this.upsertOwnedNode(
+            manager,
+            account.nodeId,
+            "HAS_LOCATION",
+            "UserLocation",
+            Object.fromEntries(
+              Object.entries(profile.location).filter(
+                ([, value]) => value != null && value !== "",
+              ),
+            ),
+          );
+        }
+      }
+      if (preferences)
+        await this.updateJobPreferences(
+          wallet,
+          {
+            ...EMPTY_RECOMMENDATION_PROFILE,
+            workModes: ["remote", "hybrid", "onsite"],
+            residenceCountry: null,
+            utcOffset: null,
+            workAuthorization: null,
+            requiresSponsorship: null,
+            attendancePreference: null,
+            travelTolerance: null,
+            ...Object.fromEntries(
+              Object.entries(preferences).filter(([, value]) => value != null),
+            ),
+          },
+          { executor: manager, fillMissing: true },
+        );
+      return true;
+    });
   }
 
   async getRecommendedJobCandidates(
@@ -594,9 +651,76 @@ export class ProfileRepository {
       commitments?: string[];
       showcaseRepositories?: string[];
     },
+    options: { executor?: QueryExecutor; fillMissing?: boolean } = {},
   ): Promise<boolean> {
+    const columns = [
+      "work_modes",
+      "residence_country",
+      "utc_offset_minutes",
+      "work_authorization",
+      "requires_sponsorship",
+      "attendance_preference",
+      "travel_tolerance",
+      "search_status",
+      "role_priorities",
+      "target_organizations",
+      "languages",
+      "job_categories",
+      "seniority_levels",
+      "education_level",
+      "company_size_min",
+      "company_size_max",
+      "industries",
+      "preferred_skills",
+      "minimum_salary",
+      "salary_currency",
+      "funding_stages",
+      "payment_currencies",
+      "commitments",
+      "showcase_repositories",
+    ];
+    const arrays = new Set([
+      "role_priorities",
+      "target_organizations",
+      "languages",
+      "job_categories",
+      "seniority_levels",
+      "industries",
+      "preferred_skills",
+      "funding_stages",
+      "payment_currencies",
+      "commitments",
+      "showcase_repositories",
+    ]);
+    const assignments = columns
+      .map(
+        column =>
+          `${column} = ${
+            !options.fillMissing
+              ? `EXCLUDED.${column}`
+              : arrays.has(column)
+                ? `CASE WHEN cardinality(user_job_preferences.${column}) > 0 THEN user_job_preferences.${column} ELSE EXCLUDED.${column} END`
+                : `COALESCE(user_job_preferences.${column}, CASE WHEN ${
+                    (
+                      {
+                        minimum_salary:
+                          "user_job_preferences.salary_currency IS NULL OR user_job_preferences.salary_currency = EXCLUDED.salary_currency",
+                        salary_currency:
+                          "user_job_preferences.minimum_salary IS NULL",
+                        utc_offset_minutes:
+                          "user_job_preferences.residence_country IS NULL OR user_job_preferences.residence_country = EXCLUDED.residence_country",
+                        company_size_min:
+                          "user_job_preferences.company_size_max IS NULL OR EXCLUDED.company_size_min <= user_job_preferences.company_size_max",
+                        company_size_max:
+                          "user_job_preferences.company_size_min IS NULL OR EXCLUDED.company_size_max >= user_job_preferences.company_size_min",
+                      } as Record<string, string>
+                    )[column] ?? "TRUE"
+                  } THEN EXCLUDED.${column} END)`
+          }`,
+      )
+      .join(",\n");
     const rows = await queryRows<{ userNodeId: string }>(
-      this.postgres,
+      options.executor ?? this.postgres,
       `
         INSERT INTO user_job_preferences (
           user_node_id, work_modes, residence_country, utc_offset_minutes,
@@ -619,30 +743,7 @@ export class ProfileRepository {
         ORDER BY account.id
         LIMIT 1
         ON CONFLICT (user_node_id) DO UPDATE SET
-          work_modes = EXCLUDED.work_modes,
-          residence_country = EXCLUDED.residence_country,
-          utc_offset_minutes = EXCLUDED.utc_offset_minutes,
-          work_authorization = EXCLUDED.work_authorization,
-          requires_sponsorship = EXCLUDED.requires_sponsorship,
-          attendance_preference = EXCLUDED.attendance_preference,
-          travel_tolerance = EXCLUDED.travel_tolerance,
-          search_status = EXCLUDED.search_status,
-          role_priorities = EXCLUDED.role_priorities,
-          target_organizations = EXCLUDED.target_organizations,
-          languages = EXCLUDED.languages,
-          job_categories = EXCLUDED.job_categories,
-          seniority_levels = EXCLUDED.seniority_levels,
-          education_level = EXCLUDED.education_level,
-          company_size_min = EXCLUDED.company_size_min,
-          company_size_max = EXCLUDED.company_size_max,
-          industries = EXCLUDED.industries,
-          preferred_skills = EXCLUDED.preferred_skills,
-          minimum_salary = EXCLUDED.minimum_salary,
-          salary_currency = EXCLUDED.salary_currency,
-          funding_stages = EXCLUDED.funding_stages,
-          payment_currencies = EXCLUDED.payment_currencies,
-          commitments = EXCLUDED.commitments,
-          showcase_repositories = EXCLUDED.showcase_repositories,
+          ${assignments},
           updated_at = now()
         RETURNING user_node_id::text AS "userNodeId"
       `,

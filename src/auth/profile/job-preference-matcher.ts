@@ -367,19 +367,32 @@ export const matchWorkLocationOptions = <TJob extends object>(
       reasons.push("The employer says office attendance is optional.");
     }
     if (option.mode === "hybrid" || option.mode === "onsite") {
-      needsChecking.push(
-        option.officeCity
-          ? {
-              code: "office_location_review",
-              message:
-                "The office location needs a manual check against your residence and travel tolerance.",
-            }
-          : {
-              code: "office_location_missing",
-              message:
-                "The employer has not provided enough office location detail.",
-            },
-      );
+      if (disallowsRequiredAttendance(preferences.attendancePreference))
+        continue;
+      if (
+        option.officeCity &&
+        preferences.residenceCountry &&
+        option.includedCountries.length === 1 &&
+        includesInsensitive(
+          option.includedCountries,
+          preferences.residenceCountry,
+        )
+      ) {
+        reasons.push("The office option is in your selected country.");
+      } else
+        needsChecking.push(
+          option.officeCity
+            ? {
+                code: "office_location_review",
+                message:
+                  "The office location needs a manual check against your residence and travel tolerance.",
+              }
+            : {
+                code: "office_location_missing",
+                message:
+                  "The employer has not provided enough office location detail.",
+              },
+        );
     }
 
     if (
@@ -430,3 +443,18 @@ export const matchWorkLocationOptions = <TJob extends object>(
 
   return best;
 };
+
+/** Unknown eligibility belongs in the checking view, not a personalized recommendation. */
+export const meetsRecommendationConstraints = (
+  match: CategorizedJobForMe<object> | null,
+): boolean =>
+  !!match &&
+  match.group !== "timezoneNearMisses" &&
+  !match.item.needsChecking.some(
+    ({ code }) =>
+      ![
+        "set_sponsorship_preference",
+        "sponsorship_unstated",
+        "work_authorization_review",
+      ].includes(code),
+  );

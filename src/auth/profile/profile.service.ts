@@ -58,7 +58,11 @@ import { UpdateUserSkillsInput } from "./dto/update-user-skills.input";
 import { addDays } from "date-fns";
 import { ConfigService } from "@nestjs/config";
 import { UpdateJobPreferencesInput } from "./dto/update-job-preferences.input";
-import { matchWorkLocationOptions } from "./job-preference-matcher";
+import { RecommendationCareerInput } from "./dto/recommendation-career.input";
+import {
+  matchWorkLocationOptions,
+  meetsRecommendationConstraints,
+} from "./job-preference-matcher";
 
 @Injectable()
 export class ProfileService {
@@ -162,7 +166,7 @@ export class ProfileService {
 
   async updateRecommendationCareer(
     wallet: string,
-    career: object,
+    career: RecommendationCareerInput,
   ): Promise<void> {
     if (!(await this.profiles.updateRecommendationCareer(wallet, career))) {
       throw new NotFoundException("User profile not found");
@@ -191,6 +195,7 @@ export class ProfileService {
       if (jobs.length >= requestedLimit) break;
       try {
         const job = new JobListResultEntity(candidate.job).getProperties();
+        let locationReason: string | undefined;
         if (hasPreferences && preferences) {
           const arrangement = job.workArrangement as unknown as {
             classification?: WorkArrangementClassification;
@@ -203,16 +208,22 @@ export class ProfileService {
             ...(arrangement?.hybridOptions ?? []),
             ...(arrangement?.onsiteOptions ?? []),
           ];
-          const match = matchWorkLocationOptions(
-            job,
-            options,
-            preferences,
-            arrangement?.classification ?? "unstated",
-          );
-          if (
-            !match ||
-            (surface === "weekly_email" && match.group !== "confirmedMatches")
-          ) {
+          const eligible = options.some(option => {
+            const match = matchWorkLocationOptions(
+              job,
+              [option],
+              preferences,
+              arrangement?.classification ?? "unstated",
+            );
+            const accepted =
+              meetsRecommendationConstraints(match) &&
+              (surface !== "weekly_email" ||
+                match?.group === "confirmedMatches");
+            if (accepted && preferences.residenceCountry)
+              locationReason = `${option.mode === "remote" ? "Remote location includes" : "Office option in"} ${preferences.residenceCountry}`;
+            return accepted;
+          });
+          if (!eligible) {
             continue;
           }
         }
@@ -222,7 +233,12 @@ export class ProfileService {
         employers.add(employer);
         jobs.push({
           job,
-          reason: this.recommendationReason(candidate.reasonLabels),
+          reason: [
+            locationReason,
+            this.recommendationReason(candidate.reasonLabels),
+          ]
+            .filter(Boolean)
+            .join(" · "),
         });
       } catch (error) {
         Sentry.withScope(scope => {

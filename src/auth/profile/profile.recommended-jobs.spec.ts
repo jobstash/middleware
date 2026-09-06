@@ -60,9 +60,10 @@ describe("ProfileService recommended jobs", () => {
       .mockImplementation(function () {
         return (this as unknown as { raw: unknown }).raw as never;
       });
-    jest
-      .spyOn(eligibility, "matchWorkLocationOptions")
-      .mockReturnValue({ group: "needsChecking", item: {} as never });
+    jest.spyOn(eligibility, "matchWorkLocationOptions").mockReturnValue({
+      group: "needsChecking",
+      item: { needsChecking: [{ code: "office_location_review" }] } as never,
+    });
     const profiles = {
       getRecommendedJobCandidates: jest
         .fn()
@@ -83,7 +84,7 @@ describe("ProfileService recommended jobs", () => {
       (await service.getRecommendedJobs("wallet", 3, "weekly_email")).jobs,
     ).toEqual([]);
     expect((await service.getRecommendedJobs("wallet", 3)).jobs).toHaveLength(
-      1,
+      0,
     );
   });
 
@@ -131,6 +132,59 @@ describe("ProfileService recommended jobs", () => {
       total: 1,
       rankingVersion: "sentences-v1",
     });
+  });
+  it("accepts a valid alternative even when another option needs geographic checking", async () => {
+    jest
+      .spyOn(JobListResultEntity.prototype, "getProperties")
+      .mockImplementation(function () {
+        return (this as unknown as { raw: unknown }).raw as never;
+      });
+    jest
+      .spyOn(eligibility, "matchWorkLocationOptions")
+      .mockImplementation((_job, options) => ({
+        group: "needsChecking",
+        item: {
+          needsChecking: [
+            {
+              code:
+                options[0].scope === "global"
+                  ? "set_sponsorship_preference"
+                  : "geographic_scope_unstated",
+            },
+          ],
+        } as never,
+      }));
+    const profiles = {
+      getRecommendedJobCandidates: jest.fn().mockResolvedValue([
+        {
+          job: {
+            shortUUID: "global",
+            workArrangement: {
+              classification: "verified_remote",
+              remoteOptions: [
+                { mode: "remote", scope: "unstated" },
+                { mode: "remote", scope: "global" },
+              ],
+            },
+          },
+          reasonLabels: [],
+        },
+      ]),
+      hasJobPreferences: jest.fn().mockResolvedValue(true),
+      getJobPreferences: jest
+        .fn()
+        .mockResolvedValue({ workModes: ["remote"], residenceCountry: "NL" }),
+    };
+    const service = new ProfileService(
+      profiles as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+    const result = await service.getRecommendedJobs("wallet", 3);
+    expect(result.jobs).toHaveLength(1);
+    expect(result.jobs[0].reason).toContain("Remote location includes NL");
   });
 
   it("records a hide action with the supplied event id", async () => {

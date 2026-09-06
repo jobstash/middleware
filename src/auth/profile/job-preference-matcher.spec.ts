@@ -3,7 +3,10 @@ import {
   JobPreferences,
   WorkLocationOption,
 } from "src/shared/interfaces";
-import { matchWorkLocationOptions } from "./job-preference-matcher";
+import {
+  matchWorkLocationOptions,
+  meetsRecommendationConstraints,
+} from "./job-preference-matcher";
 
 const option = (
   overrides: Partial<WorkLocationOption> = {},
@@ -39,6 +42,103 @@ const preferences: JobPreferences = {
 };
 
 describe("matchWorkLocationOptions", () => {
+  it("rejects Singapore hybrid and unstated office locations for Netherlands recommendations", () => {
+    const local = {
+      ...preferences,
+      workModes: ["remote", "hybrid", "onsite"] as JobPreferences["workModes"],
+      attendancePreference: "hybrid_ok",
+      travelTolerance: null,
+      requiresSponsorship: null,
+    };
+    for (const includedCountries of [["SG"], []]) {
+      const match = matchWorkLocationOptions(
+        {},
+        [
+          option({
+            mode: "hybrid",
+            classification: "verified_hybrid",
+            officeCity: "Singapore",
+            scope: includedCountries.length ? "country_list" : "unstated",
+            includedCountries,
+          }),
+        ],
+        local,
+      );
+      expect(meetsRecommendationConstraints(match)).toBe(false);
+    }
+    expect(
+      meetsRecommendationConstraints(matchWorkLocationOptions({}, [], local)),
+    ).toBe(false);
+    expect(
+      meetsRecommendationConstraints(
+        matchWorkLocationOptions(
+          {},
+          [
+            option({
+              mode: "hybrid",
+              classification: "verified_hybrid",
+              officeCity: "Amsterdam",
+              includedCountries: ["NL"],
+            }),
+          ],
+          local,
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      meetsRecommendationConstraints(
+        matchWorkLocationOptions(
+          {},
+          [option({ scope: "global", includedCountries: [] })],
+          local,
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      meetsRecommendationConstraints(
+        matchWorkLocationOptions(
+          {},
+          [
+            option({
+              scope: "global",
+              includedCountries: [],
+              excludedCountries: ["NL"],
+            }),
+          ],
+          local,
+        ),
+      ),
+    ).toBe(false);
+  });
+  it("does not allow a high ranking to relax required timezone or remote-only attendance", () => {
+    expect(
+      meetsRecommendationConstraints(
+        matchWorkLocationOptions(
+          {},
+          [
+            option({
+              requiredUtcBand: { minimumUtcOffset: 3, maximumUtcOffset: 4 },
+            }),
+          ],
+          preferences,
+        ),
+      ),
+    ).toBe(false);
+    expect(
+      matchWorkLocationOptions(
+        {},
+        [
+          option({
+            mode: "hybrid",
+            classification: "verified_hybrid",
+            includedCountries: ["NL"],
+            officeCity: "Amsterdam",
+          }),
+        ],
+        { ...preferences, workModes: ["remote", "hybrid"] },
+      ),
+    ).toBeNull();
+  });
   it("keeps a latest zero-option arrangement visible but unresolved", () => {
     expect(
       matchWorkLocationOptions({ shortUUID: "unstated" }, [], preferences),
