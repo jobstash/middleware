@@ -168,11 +168,16 @@ exhausting the initial candidate list; settings do not leak into other queries.
 Thresholds and relevance quality need evaluation on labelled real pairs; test
 vectors exercise aggregation and exclusions, not model judgement.
 
-The existing middleware scheduler refreshes changed/missing inputs every five
-minutes, 100 documents per pass by default (`RECOMMENDATION_EMBEDDING_BATCH_SIZE`).
-It reuses unchanged sentence vectors, batches new sentences in groups of 16 with
-two concurrent embedding requests, and retries failed documents after 15 minutes.
-Rate-limit/authentication failures stop new calls for that pass. No feature flag.
+The existing middleware scheduler starts on application startup and checks for
+changed/missing inputs every five minutes when idle. While work remains, it drains
+consecutive pages without a scheduling delay: 100 documents per page by default
+(`RECOMMENDATION_EMBEDDING_BATCH_SIZE`). It reuses unchanged sentence vectors and
+batches new sentences in groups of 16. `RECOMMENDATION_EMBEDDING_CONCURRENCY`
+defaults to five concurrent documents/API requests, capped at five to bound
+database writes. A process guard and database advisory lock prevent overlapping
+workers. Failed documents retry after 15 minutes. Rate-limit/authentication
+failures stop dispatch, wait for in-flight documents, then yield until the next
+scheduled pass. No feature flag.
 Embedding calls occur only in this background refresh, using the existing
 OpenAI API credential; they are not Codex-subscription inference. New sentence
 coverage requires a backfill and incurs embedding usage. Version/source hashes

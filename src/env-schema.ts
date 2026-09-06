@@ -44,6 +44,11 @@ const envSchema = Joi.object({
     .min(1)
     .max(1000)
     .default(100),
+  RECOMMENDATION_EMBEDDING_CONCURRENCY: Joi.number()
+    .integer()
+    .min(1)
+    .max(5)
+    .default(5),
   ORG_ADMIN_DOMAIN: Joi.string().required(),
   PRIVY_APP_ID: Joi.string().required(),
   PRIVY_APP_SECRET: Joi.string().required(),
