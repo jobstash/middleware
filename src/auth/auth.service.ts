@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { JwtService } from "@nestjs/jwt";
+import { JwtService, JwtSignOptions } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import { Request, Response } from "express";
 import { SessionObject } from "src/shared/interfaces";
@@ -10,14 +10,19 @@ import { GraphRepository } from "src/postgres/graph.repository";
 @Injectable()
 export class AuthService {
   private readonly logger = new CustomLogger(AuthService.name);
-  private readonly jwtConfig: object;
+  private readonly jwtConfig: JwtSignOptions;
   constructor(
     private readonly graph: GraphRepository,
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
   ) {
     this.jwtConfig = {
-      secret: this.configService.get<string>("JWT_SECRET"),
+      secret: this.configService.getOrThrow<string>("JWT_SECRET"),
+      algorithm: "HS256",
+      expiresIn:
+        this.configService.getOrThrow<JwtSignOptions["expiresIn"]>(
+          "JWT_EXPIRES_IN",
+        ),
       mutatePayload: false,
     };
   }
@@ -27,13 +32,12 @@ export class AuthService {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _res: Response,
   ): Promise<SessionObject | null> {
-    const token = req.headers?.authorization?.replace("Bearer ", "") ?? null;
+    const token = /^Bearer\s+(\S+)$/i.exec(
+      req.headers?.authorization ?? "",
+    )?.[1];
     if (token) {
-      const decoded = this.decodeToken(token);
+      const decoded = this.verifyToken(token);
       if (decoded) {
-        if (!decoded.address) {
-          return { address: null, cryptoNative: false, permissions: [] };
-        }
         try {
           const [user, permissions] = await Promise.all([
             this.graph.findNode<Record<string, unknown>>("User", {
@@ -46,6 +50,9 @@ export class AuthService {
               targetLabel: "UserPermission",
             }),
           ]);
+          if (!user) {
+            return { address: null, cryptoNative: false, permissions: [] };
+          }
           return {
             address: decoded.address ?? null,
             cryptoNative: (user?.properties.cryptoNative as boolean) ?? false,
@@ -87,34 +94,31 @@ export class AuthService {
   }
 
   validateToken(token: string): boolean {
-    try {
-      this.jwtService.verify(token, this.jwtConfig);
-      return true;
-    } catch (error) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "token-validation",
-          source: "auth.service",
-        });
-        Sentry.captureException(error);
-      });
-      this.logger.error(`AuthService::validateToken ${error.message}`);
-      return false;
-    }
+    return this.verifyToken(token) !== null;
   }
 
-  decodeToken(token: string): SessionObject | null {
+  private verifyToken(token: string): { address: string } | null {
     try {
-      return this.jwtService.decode(token, this.jwtConfig);
-    } catch (error) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "token-decoding",
-          source: "auth.service",
-        });
-        Sentry.captureException(error);
+      const claims = this.jwtService.verify<Record<string, unknown>>(token, {
+        secret: this.jwtConfig.secret,
+        algorithms: ["HS256"],
+        ignoreExpiration: false,
+        ignoreNotBefore: false,
+        // Older issuers omitted exp; bound those signed tokens by iat too.
+        maxAge: this.jwtConfig.expiresIn,
       });
-      this.logger.error(`AuthService::decodeToken ${error.message}`);
+      if (
+        typeof claims.address !== "string" ||
+        !claims.address.trim() ||
+        typeof claims.iat !== "number" ||
+        !Number.isFinite(claims.iat) ||
+        claims.iat > Math.floor(Date.now() / 1000)
+      ) {
+        return null;
+      }
+      return { address: claims.address };
+    } catch {
+      // Invalid credentials are expected input, not an application exception.
       return null;
     }
   }
