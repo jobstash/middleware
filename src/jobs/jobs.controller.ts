@@ -125,16 +125,19 @@ export class JobsController {
   @Permissions(CheckWalletPermissions.USER)
   @ApiOkResponse({
     description:
-      "Returns all matching jobs from the past month, ranked for the user",
+      "Returns all matching jobs from the past month, ranked for the user and paginated",
     type: RecommendedJobsResponse,
   })
   getRecommendedJobs(
     @Session() { address }: SessionObject,
-    @Query("limit") limit?: string,
+    @Query("limit") limit = "30",
+    @Query("page") page = "1",
   ): Promise<RecommendedJobsResponse> {
     return this.profileService.getRecommendedJobs(
       address,
-      limit === undefined ? undefined : Number(limit) || 30,
+      Number(limit) || 30,
+      "web",
+      Number(page) || 1,
     );
   }
 

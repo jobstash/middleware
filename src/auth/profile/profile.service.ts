@@ -175,15 +175,12 @@ export class ProfileService {
 
   async getRecommendedJobs(
     wallet: string,
-    limit?: number,
+    limit = 30,
     surface: "web" | "weekly_email" = "web",
+    page = 1,
   ): Promise<RecommendedJobsResponse> {
-    const requestedLimit =
-      limit === undefined
-        ? surface === "weekly_email"
-          ? 3
-          : Number.POSITIVE_INFINITY
-        : Math.max(1, Math.min(limit, 50));
+    const requestedLimit = Math.max(1, Math.min(limit, 50));
+    const requestedPage = Number.isSafeInteger(page) && page > 0 ? page : 1;
     const [candidates, hasPreferences, preferences] = await Promise.all([
       this.profiles.getRecommendedJobCandidates(
         wallet,
@@ -197,7 +194,7 @@ export class ProfileService {
     const jobs: RecommendedJobsResponse["jobs"] = [];
     const employers = new Set<string>();
     for (const candidate of candidates) {
-      if (jobs.length >= requestedLimit) break;
+      if (surface === "weekly_email" && jobs.length >= requestedLimit) break;
       try {
         const job = new JobListResultEntity(candidate.job).getProperties();
         let locationReason: string | undefined;
@@ -259,7 +256,16 @@ export class ProfileService {
         });
       }
     }
-    return { jobs, total: jobs.length, rankingVersion: "sentences-v1" };
+    if (surface === "weekly_email")
+      return { jobs, total: jobs.length, rankingVersion: "sentences-v1" };
+    const offset = (requestedPage - 1) * requestedLimit;
+    return {
+      jobs: jobs.slice(offset, offset + requestedLimit),
+      total: jobs.length,
+      page: requestedPage,
+      hasMore: offset + requestedLimit < jobs.length,
+      rankingVersion: "sentences-v1",
+    };
   }
 
   private recommendationReason(labels: string[]): string {

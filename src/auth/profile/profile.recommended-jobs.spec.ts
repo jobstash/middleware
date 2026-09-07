@@ -6,7 +6,7 @@ import * as eligibility from "./job-preference-matcher";
 describe("ProfileService recommended jobs", () => {
   afterEach(() => jest.restoreAllMocks());
 
-  it("returns all web matches by default while respecting an explicit limit", async () => {
+  it("makes all web matches accessible across pages without a candidate or employer cap", async () => {
     jest
       .spyOn(JobListResultEntity.prototype, "getProperties")
       .mockImplementation(function () {
@@ -34,8 +34,10 @@ describe("ProfileService recommended jobs", () => {
       {} as never,
     );
     const result = await service.getRecommendedJobs("wallet");
-    expect(result.jobs).toHaveLength(601);
+    expect(result.jobs).toHaveLength(30);
     expect(result.total).toBe(601);
+    expect(result.page).toBe(1);
+    expect(result.hasMore).toBe(true);
     expect(profiles.getRecommendedJobCandidates).toHaveBeenCalledWith(
       "wallet",
       null,
@@ -44,6 +46,17 @@ describe("ProfileService recommended jobs", () => {
     expect((await service.getRecommendedJobs("wallet", 10)).jobs).toHaveLength(
       10,
     );
+    const seen = new Set(result.jobs.map(row => row.job.shortUUID));
+    for (let page = 2; page <= 21; page++) {
+      const next = await service.getRecommendedJobs("wallet", 30, "web", page);
+      expect(next.total).toBe(601);
+      expect(next.hasMore).toBe(page < 21);
+      for (const row of next.jobs) {
+        expect(seen.has(row.job.shortUUID)).toBe(false);
+        seen.add(row.job.shortUUID);
+      }
+    }
+    expect(seen.size).toBe(601);
   });
 
   it("keeps email employers diverse and considers candidates beyond the old nine-row pool", async () => {
@@ -170,6 +183,8 @@ describe("ProfileService recommended jobs", () => {
         },
       ],
       total: 1,
+      page: 1,
+      hasMore: false,
       rankingVersion: "sentences-v1",
     });
   });

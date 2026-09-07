@@ -18,4 +18,10 @@ export class RecommendedJobsResponse {
 
   @ApiProperty()
   total: number;
+
+  @ApiProperty({ required: false })
+  page?: number;
+
+  @ApiProperty({ required: false })
+  hasMore?: boolean;
 }
