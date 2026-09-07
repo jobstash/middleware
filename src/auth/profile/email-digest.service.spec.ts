@@ -61,6 +61,7 @@ describe("EmailDigestService", () => {
           job: {
             shortUUID: `job-${i}`,
             title: "Engineer",
+            timestamp: Date.now(),
             organization: { name: "Acme" },
           },
           reason: "Skills",
@@ -88,6 +89,42 @@ describe("EmailDigestService", () => {
     });
     it("does not send an empty digest", async () => {
       profileService.getRecommendedJobs.mockResolvedValue({ jobs: [] });
+      await service.sendWeeklyDigests();
+      expect(mailService.sendEmail).not.toHaveBeenCalled();
+      expect(repository.releaseWeek).toHaveBeenCalledWith("1");
+    });
+    it("does not fill the email with old, undated or future jobs or their explanations", async () => {
+      const now = Date.now();
+      profileService.getRecommendedJobs.mockResolvedValue({
+        rankingVersion: "sentences-v1",
+        jobs: [now - 22 * 86400000, null, now + 86400000, now].map(
+          (timestamp, i) => ({
+            job: {
+              shortUUID: `age-${i}`,
+              title: "Engineer",
+              timestamp,
+              organization: { name: "Example" },
+            },
+            reason: "Funding Profile You Explored",
+          }),
+        ),
+      });
+      await service.sendWeeklyDigests();
+      const mail = mailService.sendEmail.mock.calls[0][0];
+      expect(mail.html).toContain("age-3");
+      expect(mail.html).not.toMatch(/age-[012]|Funding Profile/);
+      expect(mail.html).toContain("1 role to explore");
+      expect(repository.markSent).toHaveBeenCalledWith(
+        "1",
+        ["age-3"],
+        "sentences-v1",
+        expect.any(String),
+      );
+    });
+    it("skips delivery altogether if every match has aged out", async () => {
+      profileService.getRecommendedJobs.mockResolvedValue({
+        jobs: [{ job: { timestamp: Date.now() - 30 * 86400000 } }],
+      });
       await service.sendWeeklyDigests();
       expect(mailService.sendEmail).not.toHaveBeenCalled();
       expect(repository.releaseWeek).toHaveBeenCalledWith("1");
@@ -171,6 +208,7 @@ describe("EmailDigestService", () => {
             job: {
               shortUUID: "job-one",
               title: "Protocol Engineer",
+              timestamp: Date.now(),
               organization: { name: "Example" },
               project: null,
             },

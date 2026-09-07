@@ -7,9 +7,10 @@ import {
   EmailDigestRepository,
   EmailDigestState,
 } from "src/postgres/email-digest.repository";
-import { button, emailBuilder, raw, slugify, text } from "src/shared/helpers";
+import { button, emailBuilder, text } from "src/shared/helpers";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { ProfileService } from "./profile.service";
+import { isRecentWeeklyJob, weeklyJobsEmail } from "./weekly-jobs-email";
 
 const CONFIRMATION_LIFETIME_MS = 48 * 60 * 60 * 1000;
 const WEEKLY_DIGEST_CRON = "0 8 * * 1";
@@ -17,14 +18,6 @@ const WEEKLY_DIGEST_CRON = "0 8 * * 1";
 const token = (): string => randomBytes(32).toString("base64url");
 const tokenHash = (value: string): string =>
   createHash("sha256").update(value).digest("hex");
-
-const escapeHtml = (value: string): string =>
-  value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
 
 @Injectable()
 export class EmailDigestService {
@@ -126,7 +119,12 @@ export class EmailDigestService {
         3,
         "weekly_email",
       );
-      if (recommendations.jobs.length === 0) {
+      const now = Date.now();
+      const jobs = recommendations.jobs
+        .map(({ job }) => job)
+        .filter(job => isRecentWeeklyJob(job, now))
+        .slice(0, 3);
+      if (jobs.length === 0) {
         await this.repository.releaseWeek(recipient.userNodeId);
         return;
       }
@@ -140,32 +138,12 @@ export class EmailDigestService {
       if (!stillSubscribed) return;
       const unsubscribeUrl = `${this.frontend}/email/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
       const oneClickUnsubscribeUrl = `${this.frontend}/api/email-digest/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
-      const jobRows = recommendations.jobs
-        .slice(0, 3)
-        .map(({ job, reason }) => {
-          const title = job.title ?? "Open role";
-          const employer = job.organization?.name ?? job.project?.name ?? "";
-          const orgText = employer ? `-${employer}` : "";
-          const href = `${this.frontend}/${slugify(`${title}${orgText}`)}/${encodeURIComponent(job.shortUUID)}?utm_source=weekly_job_digest&utm_medium=email`;
-          return `<div style="border-top:1px solid #333;padding:14px 0">
-            <a href="${href}" style="color:#ffffff;text-decoration:none;font-size:17px;font-weight:700">${escapeHtml(title)}</a>
-            <div style="color:#b5b5b5;margin-top:4px">${escapeHtml(employer || "JobStash")} · ${escapeHtml(reason)}</div>
-          </div>`;
-        })
-        .join("");
-      const message = emailBuilder({
+      const message = weeklyJobsEmail({
         from: this.from,
         to: recipient.email,
-        subject: "Your weekly JobStash matches",
-        previewText: "Fresh jobs selected for you.",
-        title: "Fresh jobs for you",
-        bodySections: [
-          raw(jobRows),
-          button("See all matches", `${this.frontend}/profile/jobs`),
-          raw(
-            `<p style="margin-top:18px;font-size:12px"><a href="${unsubscribeUrl}" style="color:#b5b5b5">Stop weekly emails</a></p>`,
-          ),
-        ],
+        frontend: this.frontend,
+        unsubscribeUrl,
+        jobs,
       });
       message.headers = {
         ...message.headers,
@@ -176,7 +154,7 @@ export class EmailDigestService {
       sent = true;
       await this.repository.markSent(
         recipient.userNodeId,
-        recommendations.jobs.slice(0, 3).map(({ job }) => job.shortUUID),
+        jobs.map(job => job.shortUUID),
         recommendations.rankingVersion,
         tokenHash(unsubscribeToken),
       );

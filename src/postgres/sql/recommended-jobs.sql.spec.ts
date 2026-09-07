@@ -23,6 +23,8 @@ describe("recommendedJobsSql", () => {
     expect(recommendedJobsSql).toContain("preferred_company_size_min");
     expect(recommendedJobsSql).toContain("document.online");
     expect(recommendedJobsSql).toContain("NOT document.blocked");
+    expect(recommendedJobsSql).toContain("now() - interval '21 days'");
+    expect(recommendedJobsSql).toContain("document.published_timestamp <=");
     expect(recommendedJobsSql).toContain("jsonb_object_keys");
     expect(recommendedJobsSql).toContain("'job_apply', 'job_dismiss'");
     expect(recommendedJobsSql).toContain("blocked.type = 'BLOCKED_ORG_JOBS'");

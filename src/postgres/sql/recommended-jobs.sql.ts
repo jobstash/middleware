@@ -354,7 +354,8 @@ export const recommendedJobsSql = `
       ))
       AND NOT document.blocked
       AND document.published_timestamp >=
-        (extract(epoch FROM now() - interval '90 days') * 1000)::bigint
+        (extract(epoch FROM now() - interval '21 days') * 1000)::bigint
+      AND document.published_timestamp <= (extract(epoch FROM now()) * 1000)::bigint
       AND num_nonnulls(document.organization_id, document.project_id) = 1
       AND (organization.payload IS NOT NULL OR project.payload IS NOT NULL)
       AND lower(COALESCE(

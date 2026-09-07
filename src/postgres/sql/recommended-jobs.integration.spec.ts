@@ -475,6 +475,27 @@ describeDatabase("recommendations executed in PostgreSQL", () => {
       UPDATE job_search_documents SET organization_id=NULL, project_id='project' WHERE job_node_id=200;`);
     expect(await rank()).toEqual([]);
   });
+  it.each([false, true])(
+    "limits recommendations to the past 21 days before ranking (email=%s)",
+    async email => {
+      await addSkill();
+      await embedDocument("job", 100);
+      await embedDocument("job", 200);
+      await client.query(`UPDATE job_search_documents SET published_timestamp =
+      (extract(epoch FROM now() - interval '21 days') * 1000)::bigint
+      - CASE WHEN job_node_id=100 THEN 1 ELSE 0 END`);
+      expect((await rank(email)).map(row => row.job.shortUUID)).toEqual([
+        "senior",
+      ]);
+      await client.query(`UPDATE job_search_documents SET published_timestamp=
+      CASE WHEN job_node_id=100 THEN NULL ELSE (extract(epoch FROM now()) * 1000)::bigint + 1 END`);
+      expect(await rank(email)).toEqual([]);
+      await client.query(
+        `UPDATE job_search_documents SET published_timestamp=(extract(epoch FROM now()) * 1000)::bigint,online=false`,
+      );
+      expect(await rank(email)).toEqual([]);
+    },
+  );
   it("does not repeat recently emailed jobs in the digest but keeps them on the web", async () => {
     await addSkill();
     await embedDocument("job", 100);
