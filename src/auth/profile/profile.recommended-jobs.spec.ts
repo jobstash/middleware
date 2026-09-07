@@ -42,13 +42,21 @@ describe("ProfileService recommended jobs", () => {
       "wallet",
       null,
       false,
+      expect.any(Date),
     );
     expect((await service.getRecommendedJobs("wallet", 10)).jobs).toHaveLength(
       10,
     );
     const seen = new Set(result.jobs.map(row => row.job.shortUUID));
     for (let page = 2; page <= 21; page++) {
-      const next = await service.getRecommendedJobs("wallet", 30, "web", page);
+      const next = await service.getRecommendedJobs(
+        "wallet",
+        30,
+        "web",
+        page,
+        result.rankedAt,
+      );
+      expect(next.rankedAt).toBe(result.rankedAt);
       expect(next.total).toBe(601);
       expect(next.hasMore).toBe(page < 21);
       for (const row of next.jobs) {
@@ -104,6 +112,7 @@ describe("ProfileService recommended jobs", () => {
       "wallet",
       500,
       true,
+      expect.any(Date),
     );
   });
 
@@ -185,6 +194,7 @@ describe("ProfileService recommended jobs", () => {
       total: 1,
       page: 1,
       hasMore: false,
+      rankedAt: expect.any(String),
       rankingVersion: "sentences-v1",
     });
   });

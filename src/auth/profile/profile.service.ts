@@ -178,14 +178,24 @@ export class ProfileService {
     limit = 30,
     surface: "web" | "weekly_email" = "web",
     page = 1,
+    rankedAt?: string,
   ): Promise<RecommendedJobsResponse> {
     const requestedLimit = Math.max(1, Math.min(limit, 50));
     const requestedPage = Number.isSafeInteger(page) && page > 0 ? page : 1;
+    const now = new Date();
+    const requestedTime = rankedAt ? new Date(rankedAt) : now;
+    const rankingTime =
+      Number.isFinite(requestedTime.getTime()) &&
+      requestedTime <= now &&
+      now.getTime() - requestedTime.getTime() < 24 * 60 * 60 * 1000
+        ? requestedTime
+        : now;
     const [candidates, hasPreferences, preferences] = await Promise.all([
       this.profiles.getRecommendedJobCandidates(
         wallet,
         surface === "weekly_email" ? 500 : null,
         surface === "weekly_email",
+        rankingTime,
       ),
       this.profiles.hasJobPreferences(wallet),
       this.getJobPreferences(wallet),
@@ -264,6 +274,7 @@ export class ProfileService {
       total: jobs.length,
       page: requestedPage,
       hasMore: offset + requestedLimit < jobs.length,
+      rankedAt: rankingTime.toISOString(),
       rankingVersion: "sentences-v1",
     };
   }

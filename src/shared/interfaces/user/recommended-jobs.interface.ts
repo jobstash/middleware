@@ -24,4 +24,7 @@ export class RecommendedJobsResponse {
 
   @ApiProperty({ required: false })
   hasMore?: boolean;
+
+  @ApiProperty({ required: false })
+  rankedAt?: string;
 }

@@ -11,7 +11,7 @@ export const recommendationVectorSearchSettings =
 
 export const recommendedJobsSql = `
   WITH target_user AS MATERIALIZED (
-    SELECT account.id, account.properties
+    SELECT account.id, account.properties, COALESCE($4::timestamptz, now()) AS ranked_at
     FROM graph_nodes account
     WHERE account.label = 'User'
       AND lower(account.properties ->> 'wallet') = lower($1)
@@ -31,7 +31,7 @@ export const recommendedJobsSql = `
         WHEN 'job_unbookmark' THEN -3.0
         ELSE 0.0
       END * exp(
-        -extract(epoch FROM (now() - event.occurred_at)) /
+        -extract(epoch FROM (target_user.ranked_at - event.occurred_at)) /
         CASE event.event_type
           WHEN 'job_apply' THEN 15552000.0
           WHEN 'job_bookmark' THEN 10368000.0
@@ -41,7 +41,7 @@ export const recommendedJobsSql = `
     FROM user_activity_events event
     JOIN target_user ON target_user.id = event.user_node_id
     WHERE event.job_node_id IS NOT NULL
-      AND event.occurred_at >= now() - interval '18 months'
+      AND event.occurred_at BETWEEN target_user.ranked_at - interval '18 months' AND target_user.ranked_at
       AND event.event_type IN (
         'job_apply', 'job_bookmark', 'job_unbookmark',
         'job_view', 'job_impression'
@@ -158,7 +158,7 @@ export const recommendedJobsSql = `
         ) * CASE
           WHEN COALESCE(
             jsonb_numeric_value(repository.properties, 'lastContributedAt'), 0
-          ) >= extract(epoch FROM now() - interval '2 years') * 1000
+          ) >= extract(epoch FROM target_user.ranked_at - interval '2 years') * 1000
             THEN 1.0
           ELSE 0.75
         END * CASE WHEN EXISTS (
@@ -354,9 +354,9 @@ export const recommendedJobsSql = `
       ))
       AND NOT document.blocked
       AND document.published_timestamp >=
-        (extract(epoch FROM now() - CASE WHEN $3::boolean
+        (extract(epoch FROM target_user.ranked_at - CASE WHEN $3::boolean
           THEN interval '21 days' ELSE interval '1 month' END) * 1000)::bigint
-      AND document.published_timestamp <= (extract(epoch FROM now()) * 1000)::bigint
+      AND document.published_timestamp <= (extract(epoch FROM target_user.ranked_at) * 1000)::bigint
       AND num_nonnulls(document.organization_id, document.project_id) = 1
       AND (organization.payload IS NOT NULL OR project.payload IS NOT NULL)
       AND lower(COALESCE(
@@ -590,7 +590,7 @@ export const recommendedJobsSql = `
             SELECT translate(lower(role ->> 'seniority'), ' _-', '') FROM career
             WHERE role ->> 'seniority' IS NOT NULL
               AND (role ->> 'current' = 'true' OR role ->> 'endDate' >=
-                to_char(now() - interval '2 years', 'YYYY-MM-DD'))
+                to_char((SELECT ranked_at FROM target_user) - interval '2 years', 'YYYY-MM-DD'))
             ORDER BY (role ->> 'current' = 'true') DESC,
               role ->> 'endDate' DESC NULLS LAST, role ->> 'startDate' DESC NULLS LAST
             LIMIT 1
@@ -611,13 +611,14 @@ export const recommendedJobsSql = `
       JOIN target_user ON target_user.id = event.user_node_id
       WHERE event.job_node_id = candidate.job_node_id
         AND event.event_type = 'job_view'
+        AND event.occurred_at <= target_user.ranked_at
     ) viewed ON true
   ), scored AS (
     SELECT candidate_features.*,
       6.0 * exp(
         -greatest(
           0,
-          extract(epoch FROM now()) - published_timestamp / 1000.0
+          extract(epoch FROM (SELECT ranked_at FROM target_user)) - published_timestamp / 1000.0
         ) / 864000.0
       )
       + class_score

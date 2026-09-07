@@ -132,12 +132,14 @@ export class JobsController {
     @Session() { address }: SessionObject,
     @Query("limit") limit = "30",
     @Query("page") page = "1",
+    @Query("rankedAt") rankedAt?: string,
   ): Promise<RecommendedJobsResponse> {
     return this.profileService.getRecommendedJobs(
       address,
       Number(limit) || 30,
       "web",
       Number(page) || 1,
+      rankedAt,
     );
   }
 

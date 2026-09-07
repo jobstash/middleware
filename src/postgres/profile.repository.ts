@@ -606,6 +606,7 @@ export class ProfileRepository {
     wallet: string,
     limit: number | null = 60,
     weeklyEmail = false,
+    rankedAt: Date | null = null,
   ): Promise<
     Array<{
       job: JobListResult;
@@ -619,6 +620,7 @@ export class ProfileRepository {
         wallet,
         limit === null ? null : Math.max(1, Math.min(limit, 500)),
         weeklyEmail,
+        rankedAt,
       ]);
     });
   }

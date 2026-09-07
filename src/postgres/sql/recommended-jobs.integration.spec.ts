@@ -110,9 +110,15 @@ describeDatabase("recommendations executed in PostgreSQL", () => {
     await client.query("VACUUM ANALYZE recommendation_sentence_embeddings");
     await client.query("VACUUM ANALYZE tag_embeddings");
   });
-  const rank = async (weeklyEmail = false) =>
-    (await client.query(recommendedJobsSql, ["test-user", 50, weeklyEmail]))
-      .rows;
+  const rank = async (weeklyEmail = false, rankedAt: string | null = null) =>
+    (
+      await client.query(recommendedJobsSql, [
+        "test-user",
+        50,
+        weeklyEmail,
+        rankedAt,
+      ])
+    ).rows;
 
   const profileRepository = () => {
     const executor = {
@@ -408,7 +414,7 @@ describeDatabase("recommendations executed in PostgreSQL", () => {
     const plan = (
       await client.query(
         "EXPLAIN (ANALYZE, FORMAT JSON) " + recommendedJobsSql,
-        ["test-user", 50, false],
+        ["test-user", 50, false, null],
       )
     ).rows[0]["QUERY PLAN"][0];
     expect(plan.Plan["Actual Rows"]).toBe(50);
@@ -533,6 +539,27 @@ describeDatabase("recommendations executed in PostgreSQL", () => {
     expect((await rank(true)).map(row => row.job.shortUUID)).toEqual([
       "junior",
     ]);
+  });
+  it("keeps pagination ranking stable as browsing adds activity, without delaying hard exclusions", async () => {
+    await client.query(
+      `UPDATE job_search_documents SET published_timestamp=(extract(epoch FROM now()-interval '1 day')*1000)::bigint`,
+    );
+    const {
+      rows: [clock],
+    } = await client.query(
+      "SELECT (now()-interval '1 second')::text AS ranked_at",
+    );
+    const before = await rank(false, clock.ranked_at);
+    await client.query(`INSERT INTO user_activity_events(user_node_id,job_node_id,event_type) VALUES
+      (1,200,'job_view'),(1,200,'job_impression'),(1,200,'job_bookmark');`);
+    expect(await rank(false, clock.ranked_at)).toEqual(before);
+    expect((await rank())[0].job.shortUUID).toBe("senior");
+    await client.query(
+      `INSERT INTO user_activity_events(user_node_id,job_node_id,event_type) VALUES (1,200,'job_dismiss');`,
+    );
+    expect(
+      (await rank(false, clock.ranked_at)).map(row => row.job.shortUUID),
+    ).toEqual(["junior"]);
   });
   it("learns scalar seniority from previous activity", async () => {
     await client.query(
