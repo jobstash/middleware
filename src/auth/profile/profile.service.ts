@@ -175,14 +175,19 @@ export class ProfileService {
 
   async getRecommendedJobs(
     wallet: string,
-    limit = 30,
+    limit?: number,
     surface: "web" | "weekly_email" = "web",
   ): Promise<RecommendedJobsResponse> {
-    const requestedLimit = Math.max(1, Math.min(limit, 50));
+    const requestedLimit =
+      limit === undefined
+        ? surface === "weekly_email"
+          ? 3
+          : Number.POSITIVE_INFINITY
+        : Math.max(1, Math.min(limit, 50));
     const [candidates, hasPreferences, preferences] = await Promise.all([
       this.profiles.getRecommendedJobCandidates(
         wallet,
-        500,
+        surface === "weekly_email" ? 500 : null,
         surface === "weekly_email",
       ),
       this.profiles.hasJobPreferences(wallet),

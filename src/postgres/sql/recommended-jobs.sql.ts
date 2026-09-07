@@ -354,7 +354,8 @@ export const recommendedJobsSql = `
       ))
       AND NOT document.blocked
       AND document.published_timestamp >=
-        (extract(epoch FROM now() - interval '21 days') * 1000)::bigint
+        (extract(epoch FROM now() - CASE WHEN $3::boolean
+          THEN interval '21 days' ELSE interval '1 month' END) * 1000)::bigint
       AND document.published_timestamp <= (extract(epoch FROM now()) * 1000)::bigint
       AND num_nonnulls(document.organization_id, document.project_id) = 1
       AND (organization.payload IS NOT NULL OR project.payload IS NOT NULL)
@@ -691,7 +692,7 @@ export const recommendedJobsSql = `
     ], NULL) AS "reasonLabels"
   FROM diversified ranked
   ${jobEmployerJoins("ranked")}
-  WHERE ranked.owner_rank <= 2
+  WHERE NOT $3::boolean OR ranked.owner_rank <= 2
   ORDER BY ranked.score DESC, ranked.published_timestamp DESC, ranked.job_node_id
   LIMIT $2
 `;

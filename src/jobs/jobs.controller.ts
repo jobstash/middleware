@@ -124,14 +124,18 @@ export class JobsController {
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER)
   @ApiOkResponse({
-    description: "Returns fresh jobs ranked from the user's activity",
+    description:
+      "Returns all matching jobs from the past month, ranked for the user",
     type: RecommendedJobsResponse,
   })
   getRecommendedJobs(
     @Session() { address }: SessionObject,
-    @Query("limit") limit = "30",
+    @Query("limit") limit?: string,
   ): Promise<RecommendedJobsResponse> {
-    return this.profileService.getRecommendedJobs(address, Number(limit) || 30);
+    return this.profileService.getRecommendedJobs(
+      address,
+      limit === undefined ? undefined : Number(limit) || 30,
+    );
   }
 
   @Get("/list")

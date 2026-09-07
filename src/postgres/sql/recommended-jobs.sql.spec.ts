@@ -23,12 +23,16 @@ describe("recommendedJobsSql", () => {
     expect(recommendedJobsSql).toContain("preferred_company_size_min");
     expect(recommendedJobsSql).toContain("document.online");
     expect(recommendedJobsSql).toContain("NOT document.blocked");
-    expect(recommendedJobsSql).toContain("now() - interval '21 days'");
+    expect(recommendedJobsSql).toContain(
+      "THEN interval '21 days' ELSE interval '1 month' END",
+    );
     expect(recommendedJobsSql).toContain("document.published_timestamp <=");
     expect(recommendedJobsSql).toContain("jsonb_object_keys");
     expect(recommendedJobsSql).toContain("'job_apply', 'job_dismiss'");
     expect(recommendedJobsSql).toContain("blocked.type = 'BLOCKED_ORG_JOBS'");
-    expect(recommendedJobsSql).toContain("ranked.owner_rank <= 2");
+    expect(recommendedJobsSql).toContain(
+      "WHERE NOT $3::boolean OR ranked.owner_rank <= 2",
+    );
     expect(recommendedJobsSql).toContain("ranked.score DESC");
   });
 

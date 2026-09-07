@@ -6,6 +6,46 @@ import * as eligibility from "./job-preference-matcher";
 describe("ProfileService recommended jobs", () => {
   afterEach(() => jest.restoreAllMocks());
 
+  it("returns all web matches by default while respecting an explicit limit", async () => {
+    jest
+      .spyOn(JobListResultEntity.prototype, "getProperties")
+      .mockImplementation(function () {
+        return (this as unknown as { raw: unknown }).raw as never;
+      });
+    const profiles = {
+      getRecommendedJobCandidates: jest.fn().mockResolvedValue(
+        Array.from({ length: 601 }, (_, index) => ({
+          job: {
+            id: String(index),
+            shortUUID: String(index),
+            organization: { orgId: "same" },
+          },
+          reasonLabels: [],
+        })),
+      ),
+      hasJobPreferences: jest.fn().mockResolvedValue(false),
+      getJobPreferences: jest.fn().mockResolvedValue(null),
+    };
+    const service = new ProfileService(
+      profiles as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+    const result = await service.getRecommendedJobs("wallet");
+    expect(result.jobs).toHaveLength(601);
+    expect(result.total).toBe(601);
+    expect(profiles.getRecommendedJobCandidates).toHaveBeenCalledWith(
+      "wallet",
+      null,
+      false,
+    );
+    expect((await service.getRecommendedJobs("wallet", 10)).jobs).toHaveLength(
+      10,
+    );
+  });
+
   it("keeps email employers diverse and considers candidates beyond the old nine-row pool", async () => {
     jest
       .spyOn(JobListResultEntity.prototype, "getProperties")

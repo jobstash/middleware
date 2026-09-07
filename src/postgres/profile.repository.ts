@@ -604,7 +604,7 @@ export class ProfileRepository {
 
   async getRecommendedJobCandidates(
     wallet: string,
-    limit = 60,
+    limit: number | null = 60,
     weeklyEmail = false,
   ): Promise<
     Array<{
@@ -617,7 +617,7 @@ export class ProfileRepository {
       await manager.query(recommendationVectorSearchSettings);
       return queryRows(manager, recommendedJobsSql, [
         wallet,
-        Math.max(1, Math.min(limit, 500)),
+        limit === null ? null : Math.max(1, Math.min(limit, 500)),
         weeklyEmail,
       ]);
     });

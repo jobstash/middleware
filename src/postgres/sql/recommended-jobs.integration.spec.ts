@@ -475,15 +475,21 @@ describeDatabase("recommendations executed in PostgreSQL", () => {
       UPDATE job_search_documents SET organization_id=NULL, project_id='project' WHERE job_node_id=200;`);
     expect(await rank()).toEqual([]);
   });
-  it.each([false, true])(
-    "limits recommendations to the past 21 days before ranking (email=%s)",
-    async email => {
+  it.each([
+    [false, "1 month"],
+    [true, "21 days"],
+  ] as const)(
+    "uses the correct freshness boundary before ranking (email=%s, age=%s)",
+    async (email, age) => {
       await addSkill();
       await embedDocument("job", 100);
       await embedDocument("job", 200);
-      await client.query(`UPDATE job_search_documents SET published_timestamp =
-      (extract(epoch FROM now() - interval '21 days') * 1000)::bigint
-      - CASE WHEN job_node_id=100 THEN 1 ELSE 0 END`);
+      await client.query(
+        `UPDATE job_search_documents SET published_timestamp =
+      (extract(epoch FROM now() - $1::interval) * 1000)::bigint
+      - CASE WHEN job_node_id=100 THEN 1 ELSE 0 END`,
+        [age],
+      );
       expect((await rank(email)).map(row => row.job.shortUUID)).toEqual([
         "senior",
       ]);
@@ -496,6 +502,27 @@ describeDatabase("recommendations executed in PostgreSQL", () => {
       expect(await rank(email)).toEqual([]);
     },
   );
+  it("keeps 22-to-28-day-old jobs on the web but never emails them", async () => {
+    await addSkill();
+    await embedDocument("job", 100);
+    await embedDocument("job", 200);
+    await client.query(`UPDATE job_search_documents SET published_timestamp =
+      (extract(epoch FROM now() - CASE WHEN job_node_id=100 THEN interval '22 days' ELSE interval '28 days' END) * 1000)::bigint`);
+    expect(await rank()).toHaveLength(2);
+    expect(await rank(true)).toHaveLength(0);
+  });
+  it("returns every web match without a candidate or per-employer cap", async () => {
+    await client.query(`INSERT INTO job_search_documents(job_node_id,organization_id,title,payload)
+      SELECT id,'org-a','Engineer',jsonb_build_object('shortUUID','job-' || id,'title','Engineer')
+      FROM generate_series(1000,1599) id`);
+    const rows = await profileRepository().getRecommendedJobCandidates(
+      "test-user",
+      null,
+      false,
+    );
+    expect(rows).toHaveLength(602);
+    expect(new Set(rows.map(row => row.job.shortUUID)).size).toBe(602);
+  });
   it("does not repeat recently emailed jobs in the digest but keeps them on the web", async () => {
     await addSkill();
     await embedDocument("job", 100);
