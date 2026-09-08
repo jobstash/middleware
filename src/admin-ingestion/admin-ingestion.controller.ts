@@ -95,12 +95,16 @@ export class AdminIngestionController {
     @Query("page") page = "1",
     @Query("pageSize") pageSize = "50",
     @Query("status") status?: string,
+    @Query("sortBy") sortBy?: string,
+    @Query("sortDirection") sortDirection?: string,
+    @Query("itemIds") itemIds?: string,
   ): Promise<unknown> {
     return this.ingestion.getEntityEnrichmentItems(
       runId,
       page,
       pageSize,
       status,
+      { sortBy, sortDirection, itemIds },
     );
   }
 

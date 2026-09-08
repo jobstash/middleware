@@ -60,12 +60,20 @@ export class AdminIngestionService {
     page: string,
     pageSize: string,
     status?: string,
+    options: { sortBy?: string; sortDirection?: string; itemIds?: string } = {},
   ): Promise<unknown> {
     return this.request(
       "GET",
       `/entity-enrichment/runs/${runId}/items`,
       undefined,
-      { page, pageSize, ...(status ? { status } : {}) },
+      {
+        page,
+        pageSize,
+        ...(status ? { status } : {}),
+        ...Object.fromEntries(
+          Object.entries(options).filter(([, value]) => value !== undefined),
+        ),
+      },
     );
   }
 

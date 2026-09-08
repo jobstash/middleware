@@ -195,6 +195,30 @@ describe("AdminIngestionService", () => {
     );
   });
 
+  it("forwards full-run sorting and followed item IDs without changing their scope", async () => {
+    const runId = "f9500341-2ccd-4a1b-909a-853f66c41285";
+    const itemIds =
+      "e9500341-2ccd-4a1b-909a-853f66c41285,e9500341-2ccd-4a1b-909a-853f66c41286";
+    await service.getEntityEnrichmentItems(runId, "3", "50", undefined, {
+      sortBy: "attemptCount",
+      sortDirection: "desc",
+      itemIds,
+    });
+    expect(request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "GET",
+        url: `https://etl.internal/entity-enrichment/runs/${runId}/items`,
+        params: {
+          page: "3",
+          pageSize: "50",
+          sortBy: "attemptCount",
+          sortDirection: "desc",
+          itemIds,
+        },
+      }),
+    );
+  });
+
   it("forwards Telegram publishing to ETL", async () => {
     await service.publishJobpostsToTelegram();
 
