@@ -228,7 +228,7 @@ CROSS JOIN LATERAL (
       'url', related.properties -> 'url',
       'type', related.properties -> 'type'
     )) FILTER (
-      WHERE relationship.type = 'HAS_JOBSITE'
+      WHERE relationship.type = 'HAS_DETECTED_JOBSITE'
         AND related.label = 'DetectedJobsite'
         AND related.properties ->> 'id' IS NOT NULL
     ), '[]'::jsonb) AS detected_jobsites

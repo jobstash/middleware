@@ -1471,7 +1471,7 @@ export class OrganizationsService {
       const [jobsiteNode] = await this.graph.findRelatedNodes<Jobsite>({
         sourceLabel: "Organization",
         sourceWhere: { orgId: dto.orgId },
-        relationshipType: "HAS_JOBSITE",
+        relationshipType: "HAS_DETECTED_JOBSITE",
         targetLabel: "DetectedJobsite",
         targetWhere: { id: dto.jobsiteId },
       });
@@ -1581,25 +1581,12 @@ export class OrganizationsService {
   ): Promise<ResponseWithOptionalData<Jobsite[]>> {
     try {
       const jobsites = (
-        await this.graph.relabelRelatedNodes<Jobsite>({
-          sourceLabel: "Organization",
-          sourceWhere: { orgId: dto.orgId },
-          relationshipType: "HAS_JOBSITE",
-          targetLabel: "DetectedJobsite",
-          targetProperty: "id",
-          targetValues: dto.jobsiteIds,
-          newLabel: "Jobsite",
-        })
+        await this.graph.setOrganizationJobsitesActive<Jobsite>(
+          dto.orgId,
+          dto.jobsiteIds,
+          true,
+        )
       ).map(jobsite => jobsite.properties);
-      const organization = await this.graph.findNode<Organization>(
-        "Organization",
-        { orgId: dto.orgId },
-      );
-      if (organization) {
-        await this.graph.refreshOrganizationSearchDocuments([
-          organization.nodeId,
-        ]);
-      }
       return {
         success: true,
         message: "Activated organization jobsites successfully",
@@ -1626,25 +1613,12 @@ export class OrganizationsService {
   ): Promise<ResponseWithOptionalData<Jobsite[]>> {
     try {
       const jobsites = (
-        await this.graph.relabelRelatedNodes<Jobsite>({
-          sourceLabel: "Organization",
-          sourceWhere: { orgId: dto.orgId },
-          relationshipType: "HAS_JOBSITE",
-          targetLabel: "Jobsite",
-          targetProperty: "id",
-          targetValues: dto.jobsiteIds,
-          newLabel: "DetectedJobsite",
-        })
+        await this.graph.setOrganizationJobsitesActive<Jobsite>(
+          dto.orgId,
+          dto.jobsiteIds,
+          false,
+        )
       ).map(jobsite => jobsite.properties);
-      const organization = await this.graph.findNode<Organization>(
-        "Organization",
-        { orgId: dto.orgId },
-      );
-      if (organization) {
-        await this.graph.refreshOrganizationSearchDocuments([
-          organization.nodeId,
-        ]);
-      }
       return {
         success: true,
         message: "Deactivated organization jobsites successfully",
@@ -1806,7 +1780,7 @@ export class OrganizationsService {
       await this.graph.replaceOwnedRelatedNodes({
         sourceLabel: "Organization",
         sourceWhere: { orgId: dto.orgId },
-        relationshipType: "HAS_JOBSITE",
+        relationshipType: "HAS_DETECTED_JOBSITE",
         targetLabel: "DetectedJobsite",
         nodeKeyProperty: "id",
         nodes: dto.detectedJobsites.map(jobsite => ({

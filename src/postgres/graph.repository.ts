@@ -264,6 +264,80 @@ export class GraphRepository {
     );
   }
 
+  async setOrganizationJobsitesActive<T extends object>(
+    orgId: string,
+    jobsiteIds: string[],
+    active: boolean,
+  ): Promise<GraphNodeRecord<T>[]> {
+    const ids = [...new Set(jobsiteIds)];
+    if (!ids.length) return [];
+    return this.postgres.transaction(async manager => {
+      const [organization] = await executeQuery<{ nodeId: string }>(
+        manager,
+        `SELECT id::text AS "nodeId" FROM graph_nodes
+         WHERE label = 'Organization' AND properties ->> 'orgId' = $1
+         FOR UPDATE`,
+        [orgId],
+      );
+      if (!organization) throw new Error("Organization not found");
+      const jobsites = await executeQuery<
+        GraphNodeRecord<T> & { label: string }
+      >(
+        manager,
+        `SELECT site.id::text AS "nodeId", site.properties, site.label
+         FROM graph_relationships ownership
+         JOIN graph_nodes site ON site.id = ownership.target_id
+         WHERE ownership.source_id = $1::bigint
+           AND ((ownership.type = 'HAS_JOBSITE' AND site.label = 'Jobsite')
+             OR (ownership.type = 'HAS_DETECTED_JOBSITE' AND site.label = 'DetectedJobsite'))
+           AND site.properties ->> 'id' = ANY($2::text[])
+         ORDER BY site.id
+         FOR UPDATE OF site, ownership`,
+        [organization.nodeId, ids],
+      );
+      if (jobsites.length !== ids.length) {
+        throw new Error(
+          "One or more jobsites do not belong to this organization",
+        );
+      }
+      const label = active ? "Jobsite" : "DetectedJobsite";
+      const previousLabel = active ? "DetectedJobsite" : "Jobsite";
+      const changedIds = jobsites
+        .filter(site => site.label !== label)
+        .map(site => site.nodeId);
+      if (changedIds.length) {
+        // Profile constraints validate the node and its ownership edge together at commit.
+        // Keep the node ID, import history, and relationship metadata intact.
+        await executeQuery(
+          manager,
+          `UPDATE graph_nodes
+           SET label = $2, labels = array_append(array_remove(labels, $3), $2),
+               updated_at = now()
+           WHERE id = ANY($1::bigint[])`,
+          [changedIds, label, previousLabel],
+        );
+        await executeQuery(
+          manager,
+          `UPDATE graph_relationships
+           SET type = $3
+           WHERE source_id = $1::bigint AND target_id = ANY($2::bigint[])
+             AND type = $4`,
+          [
+            organization.nodeId,
+            changedIds,
+            active ? "HAS_JOBSITE" : "HAS_DETECTED_JOBSITE",
+            active ? "HAS_DETECTED_JOBSITE" : "HAS_JOBSITE",
+          ],
+        );
+        await this.refreshOrganizationSearchDocuments(
+          [organization.nodeId],
+          manager,
+        );
+      }
+      return jobsites.map(({ nodeId, properties }) => ({ nodeId, properties }));
+    });
+  }
+
   async relabelRelatedNodes<T extends object>(options: {
     sourceLabel: string;
     sourceWhere: Record<string, unknown>;

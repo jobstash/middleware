@@ -2091,7 +2091,7 @@ export class SearchDocumentRepository {
               'url', related.properties -> 'url',
               'type', related.properties -> 'type'
             )) FILTER (
-              WHERE relationship.type = 'HAS_JOBSITE'
+              WHERE relationship.type = 'HAS_DETECTED_JOBSITE'
                 AND related.label = 'DetectedJobsite'
             ), '[]'::jsonb) AS detected_jobsites
           FROM graph_relationships relationship
