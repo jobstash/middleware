@@ -51,6 +51,18 @@ describe("AdminIngestionService", () => {
       [runId],
     );
     expect(request).not.toHaveBeenCalled();
+    const [sql] = (postgres.query as jest.Mock).mock.calls[0];
+    for (const field of [
+      "requestFingerprint",
+      "sourceFingerprint",
+      "maxAttempts",
+      "sourceCount",
+      "onlineCount",
+      "offlineCount",
+      "alreadyCompletedCanaryCount",
+    ]) {
+      expect(sql).toContain(`AS "${field}"`);
+    }
   });
 
   it("selects the current active StructuredJobpost refresh without a fixed run id", async () => {
@@ -80,6 +92,33 @@ describe("AdminIngestionService", () => {
     await expect(
       service.getStructuredRefresh("f9500341-2ccd-4a1b-909a-853f66c41285"),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("loads import and refresh history using the existing ETL service session", async () => {
+    const cursor = "8e9e05b1-aadb-4a61-bfe1-4d9b331fdd00";
+    request.mockResolvedValue({ data: { items: [], nextCursor: null } });
+    await expect(service.listImportRuns(cursor)).resolves.toEqual({
+      items: [],
+      nextCursor: null,
+    });
+    expect(request).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        method: "GET",
+        url: "https://etl.internal/imports/runs",
+        params: { cursor },
+        headers: expect.objectContaining({
+          Authorization: "Bearer server-token",
+        }),
+      }),
+    );
+    await service.listStructuredRefreshRuns();
+    expect(request).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        method: "GET",
+        url: "https://etl.internal/jobposts/structured-refresh-runs",
+        params: {},
+      }),
+    );
   });
 
   afterEach(() => jest.restoreAllMocks());

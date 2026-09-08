@@ -12,6 +12,7 @@ import {
   IsOptional,
   IsString,
   IsUrl,
+  IsUUID,
   Length,
   Matches,
   Max,
@@ -375,4 +376,10 @@ export class ResolveCollisionDto {
   @ValidateNested()
   @Type(() => CollisionSameItemDto)
   sameItem?: CollisionSameItemDto;
+}
+
+export class RunHistoryQueryDto {
+  @IsOptional()
+  @IsUUID()
+  cursor?: string;
 }

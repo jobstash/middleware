@@ -17,6 +17,7 @@ import { PBACGuard } from "src/auth/pbac.guard";
 import { CheckWalletPermissions } from "src/shared/constants";
 import { Permissions } from "src/shared/decorators";
 import {
+  RunHistoryQueryDto,
   CollisionDetailQueryDto,
   CollisionListQueryDto,
   CreateEntityEnrichmentRunDto,
@@ -131,6 +132,13 @@ export class AdminIngestionController {
     return this.ingestion.rerunEntityEnrichmentItem(itemId);
   }
 
+  @Get("import-runs")
+  listImportRuns(
+    @Query(strictQuery) query: RunHistoryQueryDto,
+  ): Promise<unknown> {
+    return this.ingestion.listImportRuns(query.cursor);
+  }
+
   @Post("import-runs")
   @HttpCode(HttpStatus.ACCEPTED)
   createImportRun(
@@ -176,6 +184,13 @@ export class AdminIngestionController {
     @Param("id", new ParseUUIDPipe()) id: string,
   ): Promise<unknown> {
     return this.ingestion.transitionImportRun(id, "cancel");
+  }
+
+  @Get("structured-refresh-runs")
+  listStructuredRefreshRuns(
+    @Query(strictQuery) query: RunHistoryQueryDto,
+  ): Promise<unknown> {
+    return this.ingestion.listStructuredRefreshRuns(query.cursor);
   }
 
   @Post("structured-refresh-runs")
@@ -341,5 +356,4 @@ export class AdminIngestionController {
   ): Promise<unknown> {
     return this.ingestion.getInferenceRunItems(id);
   }
-
 }

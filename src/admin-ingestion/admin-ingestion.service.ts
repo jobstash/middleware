@@ -88,6 +88,24 @@ export class AdminIngestionService {
     return this.request("POST", `/entity-enrichment/items/${itemId}/rerun`);
   }
 
+  listImportRuns(cursor?: string): Promise<unknown> {
+    return this.request(
+      "GET",
+      "/imports/runs",
+      undefined,
+      cursor ? { cursor } : {},
+    );
+  }
+
+  listStructuredRefreshRuns(cursor?: string): Promise<unknown> {
+    return this.request(
+      "GET",
+      "/jobposts/structured-refresh-runs",
+      undefined,
+      cursor ? { cursor } : {},
+    );
+  }
+
   createImportRun(input: CreateImportRunDto): Promise<unknown> {
     return this.request("POST", "/imports/runs", input);
   }
@@ -132,6 +150,17 @@ export class AdminIngestionService {
       `SELECT
          refresh.id::text AS id,
          refresh.idempotency_key AS "idempotencyKey",
+         refresh.request_fingerprint AS "requestFingerprint",
+         refresh.source_fingerprint AS "sourceFingerprint",
+         refresh.max_attempts AS "maxAttempts",
+         refresh.source_count AS "sourceCount",
+         refresh.online_count AS "onlineCount",
+         refresh.offline_count AS "offlineCount",
+         refresh.published_at AS "publishedAt",
+         refresh.reviewed_diff_fingerprint AS "reviewedDiffFingerprint",
+         refresh.reviewed_by AS "reviewedBy",
+         refresh.reviewed_at AS "reviewedAt",
+         refresh.last_error AS "lastError",
          refresh.status,
          refresh.scope,
          refresh.extractor_version AS "extractorVersion",
@@ -158,6 +187,7 @@ export class AdminIngestionService {
            )
          ) AS inference,
          inference.unique_inventory_count AS "uniqueInventoryCount",
+         inference.already_completed_canary_count AS "alreadyCompletedCanaryCount",
          inference.maximum_remaining_calls AS "maximumRemainingCalls",
          inference.calls_started AS "callsStarted",
          inference.successful_results AS "successfulResults",
@@ -197,6 +227,21 @@ export class AdminIngestionService {
         success: false,
         message: "Structured refresh not found",
       });
+    }
+    if (id && !rows[0].inferenceRunId) {
+      for (const field of [
+        "inference",
+        "uniqueInventoryCount",
+        "alreadyCompletedCanaryCount",
+        "maximumRemainingCalls",
+        "callsStarted",
+        "successfulResults",
+        "callOutcomeUnknown",
+        "prelaunchFailures",
+        "paidFallbackCount",
+      ]) {
+        delete rows[0][field];
+      }
     }
     return rows[0];
   }
