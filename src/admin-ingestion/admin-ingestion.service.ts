@@ -44,6 +44,14 @@ export class AdminIngestionService {
     return this.request("POST", "/entity-enrichment/runs", input);
   }
 
+  getEntityEnrichmentWorker(): Promise<unknown> {
+    return this.request("GET", "/entity-enrichment/worker");
+  }
+
+  setEntityEnrichmentWorker(action: "pause" | "resume"): Promise<unknown> {
+    return this.request("POST", `/entity-enrichment/worker/${action}`);
+  }
+
   listEntityEnrichmentRuns(page: string, pageSize: string): Promise<unknown> {
     return this.request("GET", "/entity-enrichment/runs", undefined, {
       page,

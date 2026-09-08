@@ -66,6 +66,23 @@ const hasQuotedEvidence = (value: unknown, key = ""): boolean => {
 export class AdminIngestionController {
   constructor(private readonly ingestion: AdminIngestionService) {}
 
+  @Get("entity-enrichment/worker")
+  getEntityEnrichmentWorker(): Promise<unknown> {
+    return this.ingestion.getEntityEnrichmentWorker();
+  }
+
+  @Post("entity-enrichment/worker/pause")
+  @HttpCode(HttpStatus.OK)
+  pauseEntityEnrichmentWorker(): Promise<unknown> {
+    return this.ingestion.setEntityEnrichmentWorker("pause");
+  }
+
+  @Post("entity-enrichment/worker/resume")
+  @HttpCode(HttpStatus.OK)
+  resumeEntityEnrichmentWorker(): Promise<unknown> {
+    return this.ingestion.setEntityEnrichmentWorker("resume");
+  }
+
   @Post("entity-enrichment/runs")
   @HttpCode(HttpStatus.ACCEPTED)
   createEntityEnrichmentRun(

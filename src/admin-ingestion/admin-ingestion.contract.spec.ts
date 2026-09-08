@@ -77,6 +77,27 @@ describe("admin ingestion contracts", () => {
     expect(await validate(invalidOperation)).not.toHaveLength(0);
   });
 
+  it("keeps worker controls in the super-admin route tree", () => {
+    for (const [method, path] of [
+      [
+        AdminIngestionController.prototype.getEntityEnrichmentWorker,
+        "entity-enrichment/worker",
+      ],
+      [
+        AdminIngestionController.prototype.pauseEntityEnrichmentWorker,
+        "entity-enrichment/worker/pause",
+      ],
+      [
+        AdminIngestionController.prototype.resumeEntityEnrichmentWorker,
+        "entity-enrichment/worker/resume",
+      ],
+    ] as const)
+      expect(Reflect.getMetadata(PATH_METADATA, method)).toBe(path);
+    expect(
+      Reflect.getMetadata("permissions", AdminIngestionController),
+    ).toEqual([CheckWalletPermissions.SUPER_ADMIN]);
+  });
+
   it("requires an exact diff and per-item approval manifest for publishing", async () => {
     const invalid = plainToInstance(PublishStructuredRefreshDto, {
       expectedDiffFingerprint: "not-reviewed",

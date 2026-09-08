@@ -219,6 +219,33 @@ describe("AdminIngestionService", () => {
     );
   });
 
+  it("forwards worker pause and resume independently of ingestion runs", async () => {
+    await service.getEntityEnrichmentWorker();
+    await service.setEntityEnrichmentWorker("pause");
+    await service.setEntityEnrichmentWorker("resume");
+    expect(request).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        method: "GET",
+        url: "https://etl.internal/entity-enrichment/worker",
+      }),
+    );
+    expect(request).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        method: "POST",
+        url: "https://etl.internal/entity-enrichment/worker/pause",
+      }),
+    );
+    expect(request).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        method: "POST",
+        url: "https://etl.internal/entity-enrichment/worker/resume",
+      }),
+    );
+  });
+
   it("forwards Telegram publishing to ETL", async () => {
     await service.publishJobpostsToTelegram();
 
