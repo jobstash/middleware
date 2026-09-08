@@ -65,6 +65,21 @@ describe("AdminIngestionService", () => {
       expect.stringContaining("refresh.created_at DESC"),
       [null],
     );
+    const [query] = (postgres.query as jest.Mock).mock.calls[0];
+    expect(query).toContain("refresh.status = 'running'");
+    expect(query).toContain("refresh.scope ->> 'kind' = 'all'");
+    expect(query).toContain("refresh.completed_at IS NULL");
+    expect(query).toContain(
+      "refresh.processed_count < refresh.scheduled_count",
+    );
+  });
+
+  it("returns no current refresh without an active full run, while retaining missing-run errors", async () => {
+    (postgres.query as jest.Mock).mockResolvedValue([]);
+    await expect(service.getCurrentStructuredRefresh()).resolves.toBeNull();
+    await expect(
+      service.getStructuredRefresh("f9500341-2ccd-4a1b-909a-853f66c41285"),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   afterEach(() => jest.restoreAllMocks());

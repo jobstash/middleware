@@ -133,6 +133,7 @@ export class AdminIngestionService {
          refresh.id::text AS id,
          refresh.idempotency_key AS "idempotencyKey",
          refresh.status,
+         refresh.scope,
          refresh.extractor_version AS "extractorVersion",
          refresh.concurrency,
          refresh.batch_size AS "batchSize",
@@ -180,16 +181,18 @@ export class AdminIngestionService {
          ON inference.workload = 'structured_jobpost'
         AND inference.source_run_key =
           'structured-job-refresh:' || refresh.id::text
-       WHERE ($1::uuid IS NULL OR refresh.id = $1::uuid)
-       ORDER BY
-         CASE WHEN refresh.status IN (
-           'queued', 'running', 'paused', 'ready_to_publish', 'publishing'
-         ) THEN 0 ELSE 1 END,
-         refresh.created_at DESC
+       WHERE refresh.id = $1::uuid
+          OR ($1::uuid IS NULL
+            AND refresh.status = 'running'
+            AND refresh.scope ->> 'kind' = 'all'
+            AND refresh.completed_at IS NULL
+            AND refresh.processed_count < refresh.scheduled_count)
+       ORDER BY refresh.created_at DESC
        LIMIT 1`,
       [id],
     );
     if (!rows[0]) {
+      if (id === null) return null;
       throw new NotFoundException({
         success: false,
         message: "Structured refresh not found",
@@ -382,7 +385,11 @@ export class AdminIngestionService {
     const retryableImportRequest =
       method === "POST" && path === "/imports/runs";
     let error: unknown;
-    for (let attempt = 0; attempt < (retryableImportRequest ? 2 : 1); attempt++) {
+    for (
+      let attempt = 0;
+      attempt < (retryableImportRequest ? 2 : 1);
+      attempt++
+    ) {
       try {
         const response = await axios.request<T>(config);
         return response.data;
