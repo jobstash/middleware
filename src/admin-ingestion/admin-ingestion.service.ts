@@ -507,6 +507,7 @@ export class AdminIngestionService {
       HttpStatus.BAD_REQUEST,
       HttpStatus.NOT_FOUND,
       HttpStatus.CONFLICT,
+      HttpStatus.SERVICE_UNAVAILABLE,
     ].includes(upstreamStatus)
       ? upstreamStatus
       : HttpStatus.BAD_GATEWAY;
