@@ -1,9 +1,9 @@
 import {
   BadGatewayException,
+  NotFoundException,
   HttpException,
   HttpStatus,
   Injectable,
-  NotFoundException,
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
@@ -37,6 +37,47 @@ export class AdminIngestionService {
     private readonly auth0Service: Auth0Service,
     private readonly postgres: PostgresService,
   ) {}
+
+  listReviewCases(cursor?: string, limit = "50"): Promise<unknown> {
+    return this.request("GET", "/entity-enrichment/review-cases", undefined, {
+      cursor,
+      limit,
+    });
+  }
+
+  getReviewCase(caseId: string, targetNodeIds?: string): Promise<unknown> {
+    return this.request(
+      "GET",
+      `/entity-enrichment/review-cases/${encodeURIComponent(caseId)}`,
+      undefined,
+      { targetNodeIds },
+    );
+  }
+
+  resolveReviewCase(
+    caseId: string,
+    input: Record<string, unknown>,
+    actor?: string,
+  ): Promise<unknown> {
+    return this.request(
+      "POST",
+      `/entity-enrichment/review-cases/${encodeURIComponent(caseId)}/resolve`,
+      input,
+      undefined,
+      actor ? { "X-Jobstash-Review-Actor": actor } : undefined,
+    );
+  }
+
+  getReviewDecision(requestId: string): Promise<unknown> {
+    return this.request(
+      "GET",
+      `/entity-enrichment/review-decisions/${requestId}`,
+    );
+  }
+
+  installReviewSchema(): Promise<unknown> {
+    return this.request("POST", "/entity-enrichment/review-schema/install");
+  }
 
   createEntityEnrichmentRun(
     input: CreateEntityEnrichmentRunDto,
@@ -337,31 +378,12 @@ export class AdminIngestionService {
     return this.request("GET", "/entity-collisions", undefined, query);
   }
 
-  async getEntityCollision(
+  getEntityCollision(
     id: string,
-    status: "needs_review" | "resolved",
+    _status?: "needs_review" | "resolved",
   ): Promise<unknown> {
-    const collisions = await this.request<unknown[]>(
-      "GET",
-      "/entity-collisions",
-      undefined,
-      { status, limit: 500 },
-    );
-    const collision = Array.isArray(collisions)
-      ? collisions.find(
-          (item: unknown) =>
-            !!item &&
-            typeof item === "object" &&
-            (item as { id?: unknown }).id === id,
-        )
-      : undefined;
-    if (!collision) {
-      throw new NotFoundException({
-        success: false,
-        message: "Entity collision not found in the requested review state",
-      });
-    }
-    return collision;
+    void _status; // Retain the legacy call signature; detail retrieval is status independent.
+    return this.request("GET", `/entity-collisions/${id}`);
   }
 
   resolveEntityCollision(
@@ -415,6 +437,7 @@ export class AdminIngestionService {
     path: string,
     data?: unknown,
     params?: Record<string, unknown> | object,
+    headers?: Record<string, string>,
   ): Promise<T> {
     const domain = this.configService
       .get<string>("ETL_DOMAIN")
@@ -436,7 +459,7 @@ export class AdminIngestionService {
     const config: AxiosRequestConfig = {
       method,
       url: `${domain}${path}`,
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { ...headers, Authorization: `Bearer ${token}` },
       timeout: 120_000,
       ...(data === undefined ? {} : { data }),
       ...(params === undefined
@@ -487,6 +510,23 @@ export class AdminIngestionService {
     ].includes(upstreamStatus)
       ? upstreamStatus
       : HttpStatus.BAD_GATEWAY;
-    throw new HttpException({ success: false, message }, status);
+    const details: Record<string, unknown> = {};
+    if (responseData && typeof responseData === "object") {
+      for (const key of [
+        "issueId",
+        "issues",
+        "supportedActions",
+        "blockingRelationships",
+        "blockingFields",
+        "conflictingProjectNodeIds",
+        "projectNodeIds",
+        "fields",
+        "relationships",
+      ]) {
+        if (Object.prototype.hasOwnProperty.call(responseData, key))
+          details[key] = responseData[key];
+      }
+    }
+    throw new HttpException({ success: false, message, ...details }, status);
   }
 }

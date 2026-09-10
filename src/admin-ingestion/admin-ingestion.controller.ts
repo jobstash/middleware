@@ -9,9 +9,12 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
+  Req,
   UseGuards,
   ValidationPipe,
 } from "@nestjs/common";
+import { Request } from "express";
+import { randomUUID } from "node:crypto";
 import { ApiOkResponse, ApiOperation } from "@nestjs/swagger";
 import { PBACGuard } from "src/auth/pbac.guard";
 import { CheckWalletPermissions } from "src/shared/constants";
@@ -81,6 +84,49 @@ export class AdminIngestionController {
   @HttpCode(HttpStatus.OK)
   resumeEntityEnrichmentWorker(): Promise<unknown> {
     return this.ingestion.setEntityEnrichmentWorker("resume");
+  }
+
+  @Get("entity-enrichment/review-cases")
+  listReviewCases(
+    @Query("cursor") cursor?: string,
+    @Query("limit") limit = "50",
+  ): Promise<unknown> {
+    return this.ingestion.listReviewCases(cursor, limit);
+  }
+
+  @Get("entity-enrichment/review-cases/:caseId")
+  getReviewCase(
+    @Param("caseId") caseId: string,
+    @Query("targetNodeIds") targetNodeIds?: string,
+  ): Promise<unknown> {
+    return this.ingestion.getReviewCase(caseId, targetNodeIds);
+  }
+
+  @Post("entity-enrichment/review-cases/:caseId/resolve")
+  resolveReviewCase(
+    @Param("caseId") caseId: string,
+    @Body() input: Record<string, unknown>,
+    @Req() request: Request & { user?: { address?: string } },
+  ): Promise<unknown> {
+    if (!input || typeof input !== "object" || Array.isArray(input))
+      throw new BadRequestException("Resolution body is required");
+    return this.ingestion.resolveReviewCase(
+      caseId,
+      { ...input, requestId: input.requestId ?? randomUUID() },
+      request.user?.address,
+    );
+  }
+
+  @Get("entity-enrichment/review-decisions/:requestId")
+  getReviewDecision(
+    @Param("requestId", new ParseUUIDPipe()) requestId: string,
+  ): Promise<unknown> {
+    return this.ingestion.getReviewDecision(requestId);
+  }
+
+  @Post("entity-enrichment/review-schema/install")
+  installReviewSchema(): Promise<unknown> {
+    return this.ingestion.installReviewSchema();
   }
 
   @Post("entity-enrichment/runs")

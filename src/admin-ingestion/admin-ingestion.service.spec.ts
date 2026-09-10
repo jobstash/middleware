@@ -1,4 +1,4 @@
-import { NotFoundException } from "@nestjs/common";
+import { HttpException, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import axios from "axios";
 import { Auth0Service } from "src/auth0/auth0.service";
@@ -258,38 +258,52 @@ describe("AdminIngestionService", () => {
     );
   });
 
-  it("finds exact collision evidence through the bounded upstream collection", async () => {
-    request.mockResolvedValue({
-      data: [
-        {
-          id: "f9500341-2ccd-4a1b-909a-853f66c41285",
-          evidence: { quote: "x" },
-        },
-      ],
-    });
-
+  it("fetches collision details directly without a collection limit", async () => {
+    const id = "f9500341-2ccd-4a1b-909a-853f66c41285";
+    request.mockResolvedValue({ data: { id, evidence: { quote: "x" } } });
     await expect(
-      service.getEntityCollision(
-        "f9500341-2ccd-4a1b-909a-853f66c41285",
-        "needs_review",
-      ),
-    ).resolves.toMatchObject({ evidence: { quote: "x" } });
+      service.getEntityCollision(id, "resolved"),
+    ).resolves.toMatchObject({ id, evidence: { quote: "x" } });
     expect(request).toHaveBeenCalledWith(
       expect.objectContaining({
-        url: "https://etl.internal/entity-collisions",
-        params: { status: "needs_review", limit: 500 },
+        url: `https://etl.internal/entity-collisions/${id}`,
       }),
     );
+    expect(request.mock.calls[0][0].params).toBeUndefined();
   });
 
-  it("fails closed when the collision is absent from the requested review state", async () => {
-    request.mockResolvedValue({ data: [] });
+  it("preserves upstream not-found responses for exact collision reads", async () => {
+    request.mockRejectedValue({
+      isAxiosError: true,
+      response: {
+        status: 404,
+        data: { message: "Entity collision not found" },
+      },
+    });
     await expect(
-      service.getEntityCollision(
-        "f9500341-2ccd-4a1b-909a-853f66c41285",
-        "needs_review",
-      ),
-    ).rejects.toBeInstanceOf(NotFoundException);
+      service.getEntityCollision("f9500341-2ccd-4a1b-909a-853f66c41285"),
+    ).rejects.toBeInstanceOf(HttpException);
+  });
+
+  it("forwards case requests once with existing ETL token exchange and actor context", async () => {
+    const input = {
+      requestId: "f9500341-2ccd-4a1b-909a-853f66c41285",
+      expectedVersion: "version",
+    };
+    await service.resolveReviewCase("entity:123", input, "wallet");
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "POST",
+        url: "https://etl.internal/entity-enrichment/review-cases/entity%3A123/resolve",
+        data: input,
+        headers: {
+          Authorization: "Bearer server-token",
+          "X-Jobstash-Review-Actor": "wallet",
+        },
+      }),
+    );
+    expect(auth0.getETLToken).toHaveBeenCalledTimes(1);
   });
 
   it("does not forward an upstream ETL action href", async () => {

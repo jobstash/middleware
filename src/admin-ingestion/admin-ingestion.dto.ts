@@ -347,6 +347,14 @@ export class CollisionSameItemDto {
   @IsString({ each: true })
   aliasesToPreserve?: string[];
 
+  @IsOptional()
+  @IsObject()
+  scalarWinners?: Record<string, string>;
+
+  @IsOptional()
+  @IsObject()
+  setUnions?: Record<string, string[]>;
+
   @IsNumber()
   @Min(0.98)
   @Max(1)
