@@ -285,6 +285,18 @@ describe("AdminIngestionService", () => {
     ).rejects.toBeInstanceOf(HttpException);
   });
 
+  it("forwards target search through the authenticated ETL read API", async () => {
+    await service.searchReviewTargets("CryptoCannoneer", "Project");
+    expect(request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "GET",
+        url: "https://etl.internal/entity-enrichment/review-targets",
+        params: { query: "CryptoCannoneer", label: "Project" },
+        headers: { Authorization: "Bearer server-token" },
+      }),
+    );
+  });
+
   it("forwards case requests once with existing ETL token exchange and actor context", async () => {
     const input = {
       requestId: "f9500341-2ccd-4a1b-909a-853f66c41285",

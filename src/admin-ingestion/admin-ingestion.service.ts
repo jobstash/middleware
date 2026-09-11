@@ -38,6 +38,13 @@ export class AdminIngestionService {
     private readonly postgres: PostgresService,
   ) {}
 
+  searchReviewTargets(query: string, label?: string): Promise<unknown> {
+    return this.request("GET", "/entity-enrichment/review-targets", undefined, {
+      query,
+      label,
+    });
+  }
+
   listReviewCases(cursor?: string, limit = "50"): Promise<unknown> {
     return this.request("GET", "/entity-enrichment/review-cases", undefined, {
       cursor,

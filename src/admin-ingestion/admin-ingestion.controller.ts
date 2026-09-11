@@ -86,6 +86,14 @@ export class AdminIngestionController {
     return this.ingestion.setEntityEnrichmentWorker("resume");
   }
 
+  @Get("entity-enrichment/review-targets")
+  searchReviewTargets(
+    @Query("query") query: string,
+    @Query("label") label?: string,
+  ): Promise<unknown> {
+    return this.ingestion.searchReviewTargets(query, label);
+  }
+
   @Get("entity-enrichment/review-cases")
   listReviewCases(
     @Query("cursor") cursor?: string,
