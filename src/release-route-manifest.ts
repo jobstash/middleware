@@ -1,6 +1,20 @@
 /** Every HTTP operation registered from AppModule. */
 export const RELEASE_ROUTE_MANIFEST = [
   [
+    "TelemetryController",
+    "getRecommendationMetrics",
+    "GET",
+    "telemetry/recommendations",
+    "active",
+  ],
+  [
+    "ProfileController",
+    "updateRecommendationCareer",
+    "PATCH",
+    "profile/recommendation-career",
+    "active",
+  ],
+  [
     "AccessWorkspacesController",
     "create",
     "POST",
@@ -1816,6 +1830,13 @@ export const RELEASE_ROUTE_MANIFEST = [
     "resolveReviewCase",
     "POST",
     "admin/ingestion/entity-enrichment/review-cases/:caseId/resolve",
+    "active",
+  ],
+  [
+    "AdminIngestionController",
+    "prepareReviewCase",
+    "POST",
+    "admin/ingestion/entity-enrichment/review-cases/:caseId/prepare",
     "active",
   ],
   [

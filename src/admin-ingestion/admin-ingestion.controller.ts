@@ -14,7 +14,7 @@ import {
   ValidationPipe,
 } from "@nestjs/common";
 import { Request } from "express";
-import { randomUUID } from "node:crypto";
+import { isUUID } from "class-validator";
 import { ApiOkResponse, ApiOperation } from "@nestjs/swagger";
 import { PBACGuard } from "src/auth/pbac.guard";
 import { CheckWalletPermissions } from "src/shared/constants";
@@ -118,9 +118,29 @@ export class AdminIngestionController {
   ): Promise<unknown> {
     if (!input || typeof input !== "object" || Array.isArray(input))
       throw new BadRequestException("Resolution body is required");
+    if (typeof input.requestId !== "string" || !isUUID(input.requestId))
+      throw new BadRequestException(
+        "requestId must be a caller-generated UUID; reuse it when retrying the same resolution",
+      );
     return this.ingestion.resolveReviewCase(
       caseId,
-      { ...input, requestId: input.requestId ?? randomUUID() },
+      input,
+      request.user?.address,
+    );
+  }
+
+  @Post("entity-enrichment/review-cases/:caseId/prepare")
+  @HttpCode(HttpStatus.OK)
+  prepareReviewCase(
+    @Param("caseId") caseId: string,
+    @Body() input: Record<string, unknown>,
+    @Req() request: Request & { user?: { address?: string } },
+  ): Promise<unknown> {
+    if (!input || typeof input !== "object" || Array.isArray(input))
+      throw new BadRequestException("Preparation body is required");
+    return this.ingestion.prepareReviewCase(
+      caseId,
+      input,
       request.user?.address,
     );
   }

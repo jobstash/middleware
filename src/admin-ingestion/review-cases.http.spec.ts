@@ -1,4 +1,4 @@
-import { INestApplication } from "@nestjs/common";
+import { BadGatewayException, INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import * as request from "supertest";
 import { AuthService } from "src/auth/auth.service";
@@ -14,6 +14,7 @@ describe("review case HTTP authorization", () => {
     listReviewCases: jest.fn().mockResolvedValue({ cases: [] }),
     getReviewCase: jest.fn().mockResolvedValue({}),
     resolveReviewCase: jest.fn().mockResolvedValue({ outcome: "resolved" }),
+    prepareReviewCase: jest.fn().mockResolvedValue({ blockers: [] }),
     getReviewDecision: jest.fn().mockResolvedValue({}),
     installReviewSchema: jest.fn().mockResolvedValue({ installed: true }),
     createReviewRun: jest.fn().mockResolvedValue({ state: "paused" }),
@@ -61,10 +62,21 @@ describe("review case HTTP authorization", () => {
         .send({})
         .expect(403);
       await request(app.getHttpServer())
+        .post(
+          "/admin/ingestion/entity-enrichment/review-cases/entity:1/prepare",
+        )
+        .send({
+          operation: "archive_entity",
+          nodeId: "1",
+          expectedLabel: "Organization",
+        })
+        .expect(403);
+      await request(app.getHttpServer())
         .post("/admin/ingestion/entity-enrichment/review-schema/install")
         .expect(403);
     }
     expect(ingestion.resolveReviewCase).not.toHaveBeenCalled();
+    expect(ingestion.prepareReviewCase).not.toHaveBeenCalled();
   });
   it("admits super admins and attaches the authenticated session actor", async () => {
     session = {
@@ -76,16 +88,99 @@ describe("review case HTTP authorization", () => {
       .expect(200);
     await request(app.getHttpServer())
       .post("/admin/ingestion/entity-enrichment/review-cases/entity:1/resolve")
-      .send({ reason: "Verified" })
+      .send({
+        reason: "Verified",
+        requestId: "f9500341-2ccd-4a1b-909a-853f66c41285",
+      })
       .expect(201);
     expect(ingestion.resolveReviewCase).toHaveBeenCalledWith(
       "entity:1",
       expect.objectContaining({
         reason: "Verified",
-        requestId: expect.stringMatching(/^[0-9a-f-]{36}$/),
+        requestId: "f9500341-2ccd-4a1b-909a-853f66c41285",
       }),
       "authenticated-wallet",
     );
+  });
+
+  it.each([undefined, null, "", "not-a-uuid", 42])(
+    "rejects an absent or invalid caller request ID: %s",
+    async requestId => {
+      session = {
+        address: "authenticated-wallet",
+        permissions: [CheckWalletPermissions.SUPER_ADMIN],
+      };
+      const response = await request(app.getHttpServer())
+        .post(
+          "/admin/ingestion/entity-enrichment/review-cases/entity:1/resolve",
+        )
+        .send({ reason: "Verified", requestId })
+        .expect(400);
+      expect(response.body.message).toContain("caller-generated UUID");
+      expect(ingestion.resolveReviewCase).not.toHaveBeenCalled();
+    },
+  );
+
+  it("preserves the caller receipt key when a response is lost and the resolution is retried", async () => {
+    session = {
+      address: "authenticated-wallet",
+      permissions: [CheckWalletPermissions.SUPER_ADMIN],
+    };
+    const input = {
+      requestId: "f9500341-2ccd-4a1b-909a-853f66c41285",
+      expectedVersion: "reviewed-version",
+      reason: "Verified",
+      issueIds: [],
+    };
+    const receipt = { requestId: input.requestId, outcome: "resolved" };
+    ingestion.resolveReviewCase
+      .mockRejectedValueOnce(new BadGatewayException("Upstream response lost"))
+      .mockResolvedValueOnce(receipt);
+    await request(app.getHttpServer())
+      .post("/admin/ingestion/entity-enrichment/review-cases/entity:1/resolve")
+      .send(input)
+      .expect(502);
+    const retry = await request(app.getHttpServer())
+      .post("/admin/ingestion/entity-enrichment/review-cases/entity:1/resolve")
+      .send(input)
+      .expect(201);
+    expect(retry.body).toEqual(receipt);
+    expect(ingestion.resolveReviewCase.mock.calls).toEqual([
+      ["entity:1", input, "authenticated-wallet"],
+      ["entity:1", input, "authenticated-wallet"],
+    ]);
+    ingestion.getReviewDecision.mockResolvedValueOnce(receipt);
+    const recovered = await request(app.getHttpServer())
+      .get(
+        `/admin/ingestion/entity-enrichment/review-decisions/${input.requestId}`,
+      )
+      .expect(200);
+    expect(recovered.body).toEqual(receipt);
+    expect(ingestion.getReviewDecision).toHaveBeenCalledWith(input.requestId);
+  });
+
+  it("forwards authenticated preparation without requiring a commit request ID", async () => {
+    session = {
+      address: "authenticated-wallet",
+      permissions: [CheckWalletPermissions.SUPER_ADMIN],
+    };
+    const input = {
+      operation: "archive_entity",
+      nodeId: "1",
+      expectedLabel: "Organization",
+      replacementNodeId: "2",
+    };
+    await request(app.getHttpServer())
+      .post("/admin/ingestion/entity-enrichment/review-cases/entity:1/prepare")
+      .set("X-Jobstash-Review-Actor", "forged-wallet")
+      .send(input)
+      .expect(200);
+    expect(ingestion.prepareReviewCase).toHaveBeenCalledWith(
+      "entity:1",
+      input,
+      "authenticated-wallet",
+    );
+    expect(ingestion.resolveReviewCase).not.toHaveBeenCalled();
   });
 
   const runId = "8c1493f2-4cd6-4c42-9599-387795ce5c90";

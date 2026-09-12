@@ -378,6 +378,28 @@ describe("AdminIngestionService", () => {
     expect(auth0.getETLToken).toHaveBeenCalledTimes(1);
   });
 
+  it("forwards a preparation read with the exact body and authenticated actor", async () => {
+    const input = {
+      operation: "archive_entity",
+      nodeId: "123",
+      expectedLabel: "Organization",
+      replacementNodeId: "456",
+    };
+    await service.prepareReviewCase("entity:123", input, "wallet");
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "POST",
+        url: "https://etl.internal/entity-enrichment/review-cases/entity%3A123/prepare",
+        data: input,
+        headers: {
+          Authorization: "Bearer server-token",
+          "X-Jobstash-Review-Actor": "wallet",
+        },
+      }),
+    );
+  });
+
   it("does not forward an upstream ETL action href", async () => {
     request.mockRejectedValue({
       response: {

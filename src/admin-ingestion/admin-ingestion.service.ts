@@ -75,6 +75,20 @@ export class AdminIngestionService {
     );
   }
 
+  prepareReviewCase(
+    caseId: string,
+    input: Record<string, unknown>,
+    actor?: string,
+  ): Promise<unknown> {
+    return this.request(
+      "POST",
+      `/entity-enrichment/review-cases/${encodeURIComponent(caseId)}/prepare`,
+      input,
+      undefined,
+      actor ? { "X-Jobstash-Review-Actor": actor } : undefined,
+    );
+  }
+
   getReviewDecision(requestId: string): Promise<unknown> {
     return this.request(
       "GET",
