@@ -778,6 +778,7 @@ export class ProjectsService {
           "username",
         ),
       ]);
+      await this.searchDocuments.refreshProjectDocuments([updated.nodeId]);
       const projected = await this.searchDocuments.getProjectById<
         ProjectWithRelations & ProjectMoreInfo
       >(id);

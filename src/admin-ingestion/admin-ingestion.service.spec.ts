@@ -195,6 +195,66 @@ describe("AdminIngestionService", () => {
     );
   });
 
+  it("forwards durable review controls and evidence using the server token and session actor", async () => {
+    const runId = "f9500341-2ccd-4a1b-909a-853f66c41285";
+    const input = {
+      idempotencyKey: "review-all-open",
+      scope: "all_open",
+      concurrency: 20,
+    };
+    await service.createReviewRun(input, "reviewer");
+    expect(request).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        method: "POST",
+        url: "https://etl.internal/entity-enrichment/review-runs",
+        data: input,
+        headers: {
+          Authorization: "Bearer server-token",
+          "X-Jobstash-Review-Actor": "reviewer",
+        },
+      }),
+    );
+    const imported = {
+      entries: [{ caseId: "entity:123", sourceKey: "prepared.json" }],
+    };
+    for (const operation of [
+      "import",
+      "pause",
+      "resume",
+      "concurrency",
+      "resources",
+    ] as const) {
+      await service.updateReviewRun(runId, operation, imported, "reviewer");
+      expect(request).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          method: "POST",
+          url: `https://etl.internal/entity-enrichment/review-runs/${runId}/${operation}`,
+          data: imported,
+          headers: {
+            Authorization: "Bearer server-token",
+            "X-Jobstash-Review-Actor": "reviewer",
+          },
+        }),
+      );
+    }
+    await service.getReviewRunItems(runId, "last-item", "20", "research");
+    expect(request).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        method: "GET",
+        url: `https://etl.internal/entity-enrichment/review-runs/${runId}/items`,
+        params: { cursor: "last-item", limit: "20", stage: "research" },
+      }),
+    );
+    await service.getReviewRunLedger(runId, "last-receipt", "50");
+    expect(request).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        method: "GET",
+        url: `https://etl.internal/entity-enrichment/review-runs/${runId}/ledger`,
+        params: { cursor: "last-receipt", limit: "50" },
+      }),
+    );
+  });
+
   it("forwards full-run sorting and followed item IDs without changing their scope", async () => {
     const runId = "f9500341-2ccd-4a1b-909a-853f66c41285";
     const itemIds =

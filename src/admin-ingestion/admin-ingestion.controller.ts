@@ -137,6 +137,113 @@ export class AdminIngestionController {
     return this.ingestion.installReviewSchema();
   }
 
+  @Post("entity-enrichment/review-runs")
+  createReviewRun(
+    @Body() input: Record<string, unknown>,
+    @Req() request: Request & { user?: { address?: string } },
+  ): Promise<unknown> {
+    return this.ingestion.createReviewRun(input, request.user?.address);
+  }
+
+  @Get("entity-enrichment/review-runs/:runId")
+  getReviewRun(
+    @Param("runId", new ParseUUIDPipe()) runId: string,
+  ): Promise<unknown> {
+    return this.ingestion.getReviewRun(runId);
+  }
+
+  @Get("entity-enrichment/review-runs/:runId/items")
+  getReviewRunItems(
+    @Param("runId", new ParseUUIDPipe()) runId: string,
+    @Query("cursor") cursor?: string,
+    @Query("limit") limit = "50",
+    @Query("stage") stage?: string,
+  ): Promise<unknown> {
+    return this.ingestion.getReviewRunItems(runId, cursor, limit, stage);
+  }
+
+  @Get("entity-enrichment/review-runs/:runId/ledger")
+  getReviewRunLedger(
+    @Param("runId", new ParseUUIDPipe()) runId: string,
+    @Query("cursor") cursor?: string,
+    @Query("limit") limit = "50",
+  ): Promise<unknown> {
+    return this.ingestion.getReviewRunLedger(runId, cursor, limit);
+  }
+
+  @Post("entity-enrichment/review-runs/:runId/import")
+  @HttpCode(HttpStatus.OK)
+  importReviewRun(
+    @Param("runId", new ParseUUIDPipe()) runId: string,
+    @Body() input: Record<string, unknown>,
+    @Req() request: Request & { user?: { address?: string } },
+  ): Promise<unknown> {
+    return this.ingestion.updateReviewRun(
+      runId,
+      "import",
+      input,
+      request.user?.address,
+    );
+  }
+
+  @Post("entity-enrichment/review-runs/:runId/pause")
+  @HttpCode(HttpStatus.OK)
+  pauseReviewRun(
+    @Param("runId", new ParseUUIDPipe()) runId: string,
+    @Req() request: Request & { user?: { address?: string } },
+  ): Promise<unknown> {
+    return this.ingestion.updateReviewRun(
+      runId,
+      "pause",
+      undefined,
+      request.user?.address,
+    );
+  }
+
+  @Post("entity-enrichment/review-runs/:runId/resume")
+  @HttpCode(HttpStatus.OK)
+  resumeReviewRun(
+    @Param("runId", new ParseUUIDPipe()) runId: string,
+    @Req() request: Request & { user?: { address?: string } },
+  ): Promise<unknown> {
+    return this.ingestion.updateReviewRun(
+      runId,
+      "resume",
+      undefined,
+      request.user?.address,
+    );
+  }
+
+  @Post("entity-enrichment/review-runs/:runId/concurrency")
+  @HttpCode(HttpStatus.OK)
+  setReviewRunConcurrency(
+    @Param("runId", new ParseUUIDPipe()) runId: string,
+    @Body() input: Record<string, unknown>,
+    @Req() request: Request & { user?: { address?: string } },
+  ): Promise<unknown> {
+    return this.ingestion.updateReviewRun(
+      runId,
+      "concurrency",
+      input,
+      request.user?.address,
+    );
+  }
+
+  @Post("entity-enrichment/review-runs/:runId/resources")
+  @HttpCode(HttpStatus.OK)
+  setReviewRunResources(
+    @Param("runId", new ParseUUIDPipe()) runId: string,
+    @Body() input: Record<string, unknown>,
+    @Req() request: Request & { user?: { address?: string } },
+  ): Promise<unknown> {
+    return this.ingestion.updateReviewRun(
+      runId,
+      "resources",
+      input,
+      request.user?.address,
+    );
+  }
+
   @Post("entity-enrichment/runs")
   @HttpCode(HttpStatus.ACCEPTED)
   createEntityEnrichmentRun(

@@ -86,6 +86,68 @@ export class AdminIngestionService {
     return this.request("POST", "/entity-enrichment/review-schema/install");
   }
 
+  createReviewRun(
+    input: Record<string, unknown>,
+    actor?: string,
+  ): Promise<unknown> {
+    return this.request(
+      "POST",
+      "/entity-enrichment/review-runs",
+      input,
+      undefined,
+      actor ? { "X-Jobstash-Review-Actor": actor } : undefined,
+    );
+  }
+
+  getReviewRun(runId: string): Promise<unknown> {
+    return this.request(
+      "GET",
+      `/entity-enrichment/review-runs/${encodeURIComponent(runId)}`,
+    );
+  }
+
+  getReviewRunItems(
+    runId: string,
+    cursor?: string,
+    limit = "50",
+    stage?: string,
+  ): Promise<unknown> {
+    return this.request(
+      "GET",
+      `/entity-enrichment/review-runs/${encodeURIComponent(runId)}/items`,
+      undefined,
+      { cursor, limit, stage },
+    );
+  }
+
+  getReviewRunLedger(
+    runId: string,
+    cursor?: string,
+    limit = "50",
+  ): Promise<unknown> {
+    return this.request(
+      "GET",
+      `/entity-enrichment/review-runs/${encodeURIComponent(runId)}/ledger`,
+      undefined,
+      { cursor, limit },
+    );
+  }
+
+  updateReviewRun(
+    runId: string,
+    operation: "import" | "pause" | "resume" | "concurrency" | "resources",
+    input?: Record<string, unknown>,
+    actor?: string,
+  ): Promise<unknown> {
+    return this.request(
+      "POST",
+      `/entity-enrichment/review-runs/${encodeURIComponent(runId)}/${operation}`,
+      input,
+      undefined,
+      actor ? { "X-Jobstash-Review-Actor": actor } : undefined,
+    );
+  }
+
   createEntityEnrichmentRun(
     input: CreateEntityEnrichmentRunDto,
   ): Promise<unknown> {
