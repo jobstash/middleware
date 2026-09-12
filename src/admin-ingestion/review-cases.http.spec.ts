@@ -261,6 +261,7 @@ describe("review case HTTP authorization", () => {
       "last-id",
       "20",
       "research",
+      undefined,
     );
     await request(app.getHttpServer())
       .get(`${runsPath}/${runId}/ledger?cursor=last-receipt&limit=25`)
@@ -273,5 +274,25 @@ describe("review case HTTP authorization", () => {
     await request(app.getHttpServer())
       .post(`${runsPath}/invalid-uuid/resume`)
       .expect(400);
+  });
+
+  it("passes an encoded exact case filter from the run-items HTTP route unchanged", async () => {
+    session = {
+      address: "authenticated-wallet",
+      permissions: [CheckWalletPermissions.SUPER_ADMIN],
+    };
+    const caseId = "collision:e9500341-2ccd-4a1b-909a-853f66c41285";
+    await request(app.getHttpServer())
+      .get(
+        `${runsPath}/${runId}/items?caseId=${encodeURIComponent(caseId)}&cursor=last-id&limit=1&stage=backoff`,
+      )
+      .expect(200);
+    expect(ingestion.getReviewRunItems).toHaveBeenCalledWith(
+      runId,
+      "last-id",
+      "1",
+      "backoff",
+      caseId,
+    );
   });
 });

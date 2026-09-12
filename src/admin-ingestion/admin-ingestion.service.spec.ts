@@ -255,6 +255,20 @@ describe("AdminIngestionService", () => {
     );
   });
 
+  it("forwards the exact review case filter with pagination and stage to ETL", async () => {
+    const runId = "f9500341-2ccd-4a1b-909a-853f66c41285";
+    const caseId = "collision:e9500341-2ccd-4a1b-909a-853f66c41285";
+    await service.getReviewRunItems(runId, "last-item", "1", "backoff", caseId);
+    expect(request).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        method: "GET",
+        url: `https://etl.internal/entity-enrichment/review-runs/${runId}/items`,
+        params: { cursor: "last-item", limit: "1", stage: "backoff", caseId },
+        headers: { Authorization: "Bearer server-token" },
+      }),
+    );
+  });
+
   it("forwards full-run sorting and followed item IDs without changing their scope", async () => {
     const runId = "f9500341-2ccd-4a1b-909a-853f66c41285";
     const itemIds =

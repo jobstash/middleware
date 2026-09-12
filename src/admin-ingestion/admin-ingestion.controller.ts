@@ -178,8 +178,15 @@ export class AdminIngestionController {
     @Query("cursor") cursor?: string,
     @Query("limit") limit = "50",
     @Query("stage") stage?: string,
+    @Query("caseId") caseId?: string,
   ): Promise<unknown> {
-    return this.ingestion.getReviewRunItems(runId, cursor, limit, stage);
+    return this.ingestion.getReviewRunItems(
+      runId,
+      cursor,
+      limit,
+      stage,
+      caseId,
+    );
   }
 
   @Get("entity-enrichment/review-runs/:runId/ledger")

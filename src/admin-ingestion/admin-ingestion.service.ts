@@ -125,12 +125,13 @@ export class AdminIngestionService {
     cursor?: string,
     limit = "50",
     stage?: string,
+    caseId?: string,
   ): Promise<unknown> {
     return this.request(
       "GET",
       `/entity-enrichment/review-runs/${encodeURIComponent(runId)}/items`,
       undefined,
-      { cursor, limit, stage },
+      { cursor, limit, stage, caseId },
     );
   }
 
