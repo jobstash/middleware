@@ -1,6 +1,49 @@
 /** Every HTTP operation registered from AppModule. */
 export const RELEASE_ROUTE_MANIFEST = [
   [
+    "AdminIngestionController",
+    "getReviewEntity",
+    "GET",
+    "admin/ingestion/entity-enrichment/review-entities/:label/:publicId",
+    "active",
+  ],
+  [
+    "AdminIngestionController",
+    "editReviewCase",
+    "POST",
+    "admin/ingestion/entity-enrichment/review-cases/:caseId/edit",
+    "active",
+  ],
+  [
+    "AdminIngestionController",
+    "getReviewForm",
+    "GET",
+    "admin/ingestion/entity-enrichment/review-form",
+    "active",
+  ],
+  [
+    "AdminIngestionController",
+    "getReviewInbox",
+    "GET",
+    "admin/ingestion/entity-enrichment/review-inbox",
+    "active",
+  ],
+  [
+    "AdminIngestionController",
+    "getReviewInboxDetail",
+    "GET",
+    "admin/ingestion/entity-enrichment/review-inbox/:caseId",
+    "active",
+  ],
+  [
+    "AdminIngestionController",
+    "verifyReviewDecision",
+    "POST",
+    "admin/ingestion/entity-enrichment/review-inbox/:caseId/verify",
+    "active",
+  ],
+
+  [
     "TelemetryController",
     "getRecommendationMetrics",
     "GET",

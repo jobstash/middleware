@@ -102,6 +102,31 @@ export class AdminIngestionController {
     return this.ingestion.listReviewCases(cursor, limit);
   }
 
+  @Get("entity-enrichment/review-entities/:label/:publicId")
+  getReviewEntity(
+    @Param("label") label: string,
+    @Param("publicId") publicId: string,
+  ): Promise<unknown> {
+    if (!["Organization", "Project", "EntityProfile"].includes(label))
+      throw new BadRequestException("Unknown record type");
+    return this.ingestion.getReviewEntity(label, publicId);
+  }
+
+  @Post("entity-enrichment/review-cases/:caseId/edit")
+  editReviewCase(
+    @Param("caseId") caseId: string,
+    @Body() input: Record<string, unknown>,
+    @Req() request: Request & { user?: { address?: string } },
+  ): Promise<unknown> {
+    if (
+      !input ||
+      typeof input.requestId !== "string" ||
+      !isUUID(input.requestId)
+    )
+      throw new BadRequestException("A request ID is required");
+    return this.ingestion.editReviewCase(caseId, input, request.user?.address);
+  }
+
   @Get("entity-enrichment/review-form")
   getReviewForm(): Promise<unknown> {
     return this.ingestion.getReviewForm();

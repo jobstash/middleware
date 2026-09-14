@@ -26,6 +26,37 @@ describe("AdminIngestionService", () => {
     request = jest.spyOn(axios, "request").mockResolvedValue({ data: {} });
   });
 
+  it("forwards ordinary record edits with the authenticated actor and unchanged request", async () => {
+    const body = {
+      requestId: "2a0c6008-4bb9-409d-a694-f828b5cfe3fb",
+      changes: [
+        { nodeId: "123", field: "name", expectedValue: "Old", value: "New" },
+      ],
+    };
+    await service.editReviewCase("entity:123", body, "reviewer");
+    expect(request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "POST",
+        url: "https://etl.internal/entity-enrichment/review-cases/entity%3A123/edit",
+        data: body,
+        headers: expect.objectContaining({
+          "X-Jobstash-Review-Actor": "reviewer",
+        }),
+      }),
+    );
+    expect(postgres.query).not.toHaveBeenCalled();
+  });
+
+  it("looks up a normal record through the shared review API", async () => {
+    await service.getReviewEntity("EntityProfile", "profile/id");
+    expect(request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "GET",
+        url: "https://etl.internal/entity-enrichment/review-entities/EntityProfile/profile%2Fid",
+      }),
+    );
+  });
+
   it("forwards review list sorting and filters to ETL without querying the database", async () => {
     await service.getReviewInbox({
       query: "example",

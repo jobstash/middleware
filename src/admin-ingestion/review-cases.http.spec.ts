@@ -11,6 +11,8 @@ describe("review case HTTP authorization", () => {
   let app: INestApplication;
   let session: { address?: string; permissions: string[] };
   const ingestion = {
+    getReviewEntity: jest.fn().mockResolvedValue({}),
+    editReviewCase: jest.fn().mockResolvedValue({}),
     listReviewCases: jest.fn().mockResolvedValue({ cases: [] }),
     getReviewCase: jest.fn().mockResolvedValue({}),
     resolveReviewCase: jest.fn().mockResolvedValue({ outcome: "resolved" }),
@@ -78,6 +80,40 @@ describe("review case HTTP authorization", () => {
     expect(ingestion.resolveReviewCase).not.toHaveBeenCalled();
     expect(ingestion.prepareReviewCase).not.toHaveBeenCalled();
   });
+  it("protects direct editing and forwards the authenticated reviewer", async () => {
+    await request(app.getHttpServer())
+      .get(
+        "/admin/ingestion/entity-enrichment/review-entities/Organization/org",
+      )
+      .expect(403);
+    await request(app.getHttpServer())
+      .post("/admin/ingestion/entity-enrichment/review-cases/entity:1/edit")
+      .send({})
+      .expect(403);
+    session = {
+      address: "reviewer",
+      permissions: [CheckWalletPermissions.SUPER_ADMIN],
+    };
+    await request(app.getHttpServer())
+      .get(
+        "/admin/ingestion/entity-enrichment/review-entities/Organization/org",
+      )
+      .expect(200);
+    const body = {
+      requestId: "f9500341-2ccd-4a1b-909a-853f66c41285",
+      changes: [],
+    };
+    await request(app.getHttpServer())
+      .post("/admin/ingestion/entity-enrichment/review-cases/entity:1/edit")
+      .send(body)
+      .expect(201);
+    expect(ingestion.editReviewCase).toHaveBeenCalledWith(
+      "entity:1",
+      body,
+      "reviewer",
+    );
+  });
+
   it("admits super admins and attaches the authenticated session actor", async () => {
     session = {
       address: "authenticated-wallet",

@@ -52,6 +52,27 @@ export class AdminIngestionService {
     });
   }
 
+  getReviewEntity(label: string, publicId: string): Promise<unknown> {
+    return this.request(
+      "GET",
+      `/entity-enrichment/review-entities/${encodeURIComponent(label)}/${encodeURIComponent(publicId)}`,
+    );
+  }
+
+  editReviewCase(
+    caseId: string,
+    input: Record<string, unknown>,
+    actor?: string,
+  ): Promise<unknown> {
+    return this.request(
+      "POST",
+      `/entity-enrichment/review-cases/${encodeURIComponent(caseId)}/edit`,
+      input,
+      undefined,
+      actor ? { "X-Jobstash-Review-Actor": actor } : undefined,
+    );
+  }
+
   getReviewForm(): Promise<unknown> {
     return this.request("GET", "/entity-enrichment/review-form");
   }
