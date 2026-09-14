@@ -26,6 +26,46 @@ describe("AdminIngestionService", () => {
     request = jest.spyOn(axios, "request").mockResolvedValue({ data: {} });
   });
 
+  it("forwards review list sorting and filters to ETL without querying the database", async () => {
+    await service.getReviewInbox({
+      query: "example",
+      status: "verification",
+      sort: "awaitingVerification",
+      direction: "desc",
+      page: "2",
+      pageSize: "50",
+      extra: "ignored",
+    });
+    expect(request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "GET",
+        url: "https://etl.internal/entity-enrichment/review-inbox",
+        params: {
+          query: "example",
+          status: "verification",
+          sort: "awaitingVerification",
+          direction: "desc",
+          page: "2",
+          pageSize: "50",
+        },
+      }),
+    );
+    expect(postgres.query).not.toHaveBeenCalled();
+  });
+
+  it("forwards human verification through the shared review service", async () => {
+    const body = { requestId: "2a0c6008-4bb9-409d-a694-f828b5cfe3fb" };
+    await service.verifyReviewDecision("entity:123", body);
+    expect(request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "POST",
+        url: "https://etl.internal/entity-enrichment/review-inbox/entity%3A123/verify",
+        data: body,
+      }),
+    );
+    expect(postgres.query).not.toHaveBeenCalled();
+  });
+
   it("reads StructuredJobpost refresh progress directly from PostgreSQL", async () => {
     const runId = "f9500341-2ccd-4a1b-909a-853f66c41285";
     (postgres.query as jest.Mock).mockResolvedValueOnce([

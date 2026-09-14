@@ -52,6 +52,40 @@ export class AdminIngestionService {
     });
   }
 
+  getReviewForm(): Promise<unknown> {
+    return this.request("GET", "/entity-enrichment/review-form");
+  }
+
+  getReviewInbox(query: Record<string, string>): Promise<unknown> {
+    const { query: search, status, sort, direction, page, pageSize } = query;
+    return this.request("GET", "/entity-enrichment/review-inbox", undefined, {
+      query: search,
+      status,
+      sort,
+      direction,
+      page,
+      pageSize,
+    });
+  }
+
+  getReviewInboxDetail(caseId: string): Promise<unknown> {
+    return this.request(
+      "GET",
+      `/entity-enrichment/review-inbox/${encodeURIComponent(caseId)}`,
+    );
+  }
+
+  verifyReviewDecision(
+    caseId: string,
+    input: Record<string, unknown>,
+  ): Promise<unknown> {
+    return this.request(
+      "POST",
+      `/entity-enrichment/review-inbox/${encodeURIComponent(caseId)}/verify`,
+      input,
+    );
+  }
+
   getReviewCase(caseId: string, targetNodeIds?: string): Promise<unknown> {
     return this.request(
       "GET",

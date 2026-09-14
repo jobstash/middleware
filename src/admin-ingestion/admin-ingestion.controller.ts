@@ -102,6 +102,37 @@ export class AdminIngestionController {
     return this.ingestion.listReviewCases(cursor, limit);
   }
 
+  @Get("entity-enrichment/review-form")
+  getReviewForm(): Promise<unknown> {
+    return this.ingestion.getReviewForm();
+  }
+
+  @Get("entity-enrichment/review-inbox")
+  getReviewInbox(@Query() query: Record<string, string>): Promise<unknown> {
+    return this.ingestion.getReviewInbox(query);
+  }
+
+  @Get("entity-enrichment/review-inbox/:caseId")
+  getReviewInboxDetail(@Param("caseId") caseId: string): Promise<unknown> {
+    return this.ingestion.getReviewInboxDetail(caseId);
+  }
+
+  @Post("entity-enrichment/review-inbox/:caseId/verify")
+  verifyReviewDecision(
+    @Param("caseId") caseId: string,
+    @Body() input: Record<string, unknown>,
+  ): Promise<unknown> {
+    if (
+      !input ||
+      typeof input.requestId !== "string" ||
+      !isUUID(input.requestId)
+    )
+      throw new BadRequestException("A saved decision requestId is required");
+    return this.ingestion.verifyReviewDecision(caseId, {
+      requestId: input.requestId,
+    });
+  }
+
   @Get("entity-enrichment/review-cases/:caseId")
   getReviewCase(
     @Param("caseId") caseId: string,
