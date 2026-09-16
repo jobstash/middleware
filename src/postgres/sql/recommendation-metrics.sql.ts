@@ -1,7 +1,7 @@
 /** Last-touch attribution, seven-day window. Email delivery is NOT an impression. */
 export const recommendationMetricsSql = `
 WITH exposures AS MATERIALIZED (
-  SELECT user_node_id, job_node_id, date_trunc('day', occurred_at) AS day,
+  SELECT user_node_id, job_node_id, date_trunc('day', occurred_at AT TIME ZONE 'UTC') AS day,
     surface, COALESCE(metadata ->> 'rankingVersion', 'legacy') AS version,
     occurred_at AS exposed_at, position
   FROM user_activity_events
@@ -9,7 +9,7 @@ WITH exposures AS MATERIALIZED (
     AND position >= 0 AND position < $2
     AND occurred_at >= now() - make_interval(days => $1::integer)
   UNION ALL
-  SELECT sent.user_node_id, job.id, date_trunc('day', sent.occurred_at),
+  SELECT sent.user_node_id, job.id, date_trunc('day', sent.occurred_at AT TIME ZONE 'UTC'),
     'weekly_email', COALESCE(sent.metadata ->> 'rankingVersion', 'legacy'),
     sent.occurred_at, (item.ordinality - 1)::integer
   FROM user_email_digest_consent_events sent
@@ -65,7 +65,8 @@ WITH exposures AS MATERIALIZED (
   LEFT JOIN converted USING (user_node_id, job_node_id, day, surface, version)
   GROUP BY exposure.day, exposure.surface, exposure.version
 ), mail AS (
-  SELECT sent.id, EXISTS (
+  SELECT sent.id, (sent.occurred_at AT TIME ZONE 'UTC')::date::text AS day,
+    sent.occurred_at, LEAST(jsonb_array_length(COALESCE(sent.metadata -> 'jobIds', '[]'::jsonb)), $2)::integer AS jobs_sent, EXISTS (
     SELECT 1 FROM user_email_digest_consent_events event
     WHERE event.user_node_id = sent.user_node_id AND event.event_type = 'unsubscribed'
       AND event.occurred_at >= sent.occurred_at
@@ -79,9 +80,22 @@ WITH exposures AS MATERIALIZED (
   FROM user_email_digest_consent_events sent
   WHERE sent.event_type = 'digest_sent'
     AND sent.occurred_at >= now() - make_interval(days => $1::integer)
+), email_campaigns AS (
+  SELECT mail.day, count(*)::integer AS sent,
+    count(*) FILTER (WHERE unsubscribed)::integer AS unsubscribed,
+    max(mail.occurred_at) + interval '7 days' <= now() AS mature,
+    sum(mail.jobs_sent)::integer AS "jobsSent",
+    COALESCE((SELECT sum(clicks) FROM daily WHERE daily.day = mail.day
+      AND surface = 'weekly_email'), 0)::integer AS "jobsViewed",
+    COALESCE((SELECT sum(applies) FROM daily WHERE daily.day = mail.day
+      AND surface = 'weekly_email'), 0)::integer AS "jobsApplied",
+    COALESCE((SELECT sum(saves) FROM daily WHERE daily.day = mail.day
+      AND surface = 'weekly_email'), 0)::integer AS "jobsSaved"
+  FROM mail GROUP BY mail.day
 )
 SELECT jsonb_build_object(
   'days', $1::integer, 'k', $2::integer, 'attributionDays', 7,
+  'emailCampaigns', COALESCE((SELECT jsonb_agg(to_jsonb(email_campaigns) ORDER BY day DESC) FROM email_campaigns), '[]'::jsonb),
   'daily', COALESCE((SELECT jsonb_agg(to_jsonb(daily) ORDER BY day DESC, surface, version) FROM daily), '[]'::jsonb),
   'email', (SELECT jsonb_build_object('sent', count(*),
     'unsubscribed', count(*) FILTER (WHERE unsubscribed),

@@ -967,6 +967,17 @@ describeDatabase("recommendations executed in PostgreSQL", () => {
         (row: { surface: string }) => row.surface === "jobs_for_me",
       ),
     ).toMatchObject({ applies: 1, medianSecondsToFirstApply: 3600 });
+    expect(metrics.emailCampaigns).toEqual([
+      expect.objectContaining({
+        sent: 1,
+        unsubscribed: 1,
+        jobsSent: 1,
+        jobsViewed: 0,
+        jobsApplied: 0,
+        jobsSaved: 0,
+        mature: false,
+      }),
+    ]);
     expect(metrics.email).toMatchObject({
       sent: 1,
       unsubscribed: 1,
