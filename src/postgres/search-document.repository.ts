@@ -1074,7 +1074,10 @@ export class SearchDocumentRepository {
     return rows.map(row => row.payload);
   }
 
-  async getUniverseTopJobPayloads(limit = 10): Promise<JobListResult[]> {
+  async getTopJobPayloads(
+    limit = 10,
+    organizationId?: string,
+  ): Promise<JobListResult[]> {
     const rows = await this.postgres.query<{ payload: JobListResult }>(
       `
         SELECT
@@ -1098,8 +1101,12 @@ export class SearchDocumentRepository {
           FROM user_activity_events event
           WHERE event.job_node_id = job.job_node_id
             AND event.event_type IN ('job_apply', 'job_view')
+            AND event.occurred_at >= current_timestamp - interval '30 days'
+            AND event.occurred_at <= current_timestamp
         ) metrics
         WHERE cardinality(job.tags) > 0
+          AND ($2::text IS NULL OR job.organization_id = $2)
+          AND (metrics.applications > 0 OR metrics.views > 0)
           AND num_nonnulls(job.organization_id, job.project_id) = 1
         ORDER BY
           metrics.applications DESC,
@@ -1108,7 +1115,7 @@ export class SearchDocumentRepository {
           job.job_node_id
         LIMIT $1
       `,
-      [limit],
+      [limit, organizationId ?? null],
     );
     return rows.map(row => row.payload);
   }

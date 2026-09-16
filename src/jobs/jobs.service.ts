@@ -449,12 +449,16 @@ export class JobsService {
     id: string,
   ): Promise<ResponseWithOptionalData<EcosystemJobListResult[]>> {
     try {
-      const jobs = await this.getAllOrgJobsListResults(id);
-      const topJobs = sort(jobs).desc(x => x.applications ?? 0);
+      const payloads = await this.searchDocuments.getTopJobPayloads(10, id);
+      const hydrated = await this.hydrateJobTeamSummaries(payloads);
       return {
         success: true,
         message: "Top jobs retrieved successfully",
-        data: topJobs.slice(0, 10),
+        data: hydrated.map(payload =>
+          new EcosystemJobListResultEntity(
+            payload as EcosystemJobListResult,
+          ).getProperties(),
+        ),
       };
     } catch (err) {
       Sentry.withScope(scope => {
@@ -474,7 +478,7 @@ export class JobsService {
     ResponseWithOptionalData<EcosystemJobListResult[]>
   > {
     try {
-      const payloads = await this.searchDocuments.getUniverseTopJobPayloads(10);
+      const payloads = await this.searchDocuments.getTopJobPayloads(10);
       const hydrated = await this.hydrateJobTeamSummaries(payloads);
       return {
         success: true,

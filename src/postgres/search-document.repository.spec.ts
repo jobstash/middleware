@@ -81,7 +81,7 @@ describe("SearchDocumentRepository", () => {
   it("ranks universe jobs in PostgreSQL and returns only ten", async () => {
     query.mockResolvedValue([{ payload: { id: "job-1" } }]);
 
-    await expect(repository.getUniverseTopJobPayloads()).resolves.toEqual([
+    await expect(repository.getTopJobPayloads()).resolves.toEqual([
       { id: "job-1" },
     ]);
 
@@ -89,7 +89,22 @@ describe("SearchDocumentRepository", () => {
     expect(sql).toContain("metrics.applications DESC");
     expect(sql).toContain("metrics.views DESC");
     expect(sql).toContain("LIMIT $1");
-    expect(parameters).toEqual([10]);
+    expect(parameters).toEqual([10, null]);
+    expect(sql).toContain(
+      "event.occurred_at >= current_timestamp - interval '30 days'",
+    );
+    expect(sql).toContain("event.occurred_at <= current_timestamp");
+    expect(sql).toContain("metrics.applications > 0 OR metrics.views > 0");
+  });
+
+  it("uses the same recent activity ranking for an organization's top jobs", async () => {
+    await repository.getTopJobPayloads(10, "org-123");
+    const [sql, parameters] = query.mock.calls[0];
+    expect(parameters).toEqual([10, "org-123"]);
+    expect(sql).toContain("job.organization_id = $2");
+    expect(sql).toContain(
+      "event.occurred_at >= current_timestamp - interval '30 days'",
+    );
   });
 
   it.each([
