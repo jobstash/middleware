@@ -19,7 +19,7 @@ export class VisitorEventInput {
   @IsString() @MaxLength(240) @Matches(/^\/[a-zA-Z0-9/_\-.]*$/) path!: string;
   @IsOptional() @Matches(/^[a-f0-9]{64}$/) networkKey?: string;
   @IsOptional() @Matches(/^[A-Z]{2}$/) country?: string;
-  @IsOptional() @IsString() @MaxLength(180) browser?: string;
+  @IsOptional() @IsString() @MaxLength(1024) browser?: string;
 }
 export class VisitorQuery {
   @Type(() => Number) @IsInt() @Min(0) @Max(36500) days = 7;
@@ -41,10 +41,22 @@ export class VisitorQuery {
     "path",
     "lastBrowserSeen",
     "browser",
+    "traffic",
+    "agent",
   ])
   sort = "lastSeen";
   @IsIn(["asc", "desc"]) direction = "desc";
   @IsIn(["all", "signed_in", "anonymous", "active"]) status = "all";
+  @IsIn([
+    "all",
+    "automated",
+    "crawler",
+    "automation",
+    "likely_human",
+    "unknown",
+  ])
+  traffic = "all";
+  @IsOptional() @IsString() @MaxLength(180) agentSearch?: string;
   @IsOptional() @Matches(/^[A-Z]{2}$/) country?: string;
   @IsOptional() @Matches(/^[a-f0-9]{64}$/) networkKey?: string;
 }
@@ -64,6 +76,7 @@ export class VisitorDetailQuery {
     "ip",
     "title",
     "account",
+    "browser",
   ])
   sort = "at";
   @IsIn(["at", "kind", "title", "account"]) eventSort = "at";

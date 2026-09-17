@@ -208,4 +208,69 @@ suite("visitor reporting SQL", () => {
       expect(result.rows).toHaveLength(1);
     }
   });
+  it("classifies crawler claims before browsers and filters the full dataset", async () => {
+    const cases = [
+      ["Googlebot-Image/1.0", "crawler", "Googlebot-Image"],
+      [
+        "Mozilla/5.0 Chrome/120.0 Safari/537.36 (compatible; AhrefsBot/7.0)",
+        "crawler",
+        "AhrefsBot",
+      ],
+      [
+        "Mozilla/5.0 (compatible; SemrushBot/7; +https://example.test)",
+        "crawler",
+        "SemrushBot",
+      ],
+      ["Mozilla/5.0 (compatible; DotBot/1.2)", "crawler", "DotBot"],
+      [
+        "Mozilla/5.0 HeadlessChrome/120.0 Safari/537.36",
+        "automation",
+        "HeadlessChrome",
+      ],
+      ["python-requests/2.32", "automation", "python-requests"],
+      ["JobStash-IP-block-test", "automation", "JobStash test claim"],
+      ["Mozilla/5.0 Chrome/120.0 Safari/537.36", "likely_human", "Chrome"],
+      ["Mozilla/5.0 Version/17.0 Safari/605.1.15", "likely_human", "Safari"],
+      ["Mozilla/5.0 unusual-tool", "unknown", "Unrecognized"],
+      ["", "unknown", "Unrecognized"],
+    ];
+    for (const [index, [browser, traffic, agent]] of cases.entries()) {
+      const id = `44444444-4444-4444-8444-${String(index).padStart(12, "0")}`;
+      await service.record(
+        { visitorId: id, kind: "request", path: "/classification", browser },
+        null,
+      );
+      const data = (await service.list(
+        Object.assign(new VisitorQuery(), { sort: "agent", limit: 100 }),
+      )) as { rows: Record<string, unknown>[] };
+      expect(data.rows.find(row => row.id === id)).toMatchObject({
+        traffic,
+        agent,
+      });
+    }
+    const bots = (await service.list(
+      Object.assign(new VisitorQuery(), {
+        traffic: "crawler",
+        sort: "agent",
+        direction: "asc",
+        limit: 1,
+        offset: 1,
+      }),
+    )) as {
+      total: number;
+      rows: Record<string, unknown>[];
+      trafficCounts: Record<string, number>;
+    };
+    expect(bots.total).toBe(4);
+    expect(bots.rows[0].agent).toBe("DotBot");
+    expect(bots.trafficCounts.likely_human).toBe(2);
+    const search = (await service.list(
+      Object.assign(new VisitorQuery(), { agentSearch: "aHrEfS" }),
+    )) as { total: number };
+    expect(search.total).toBe(1);
+    const literal = (await service.list(
+      Object.assign(new VisitorQuery(), { agentSearch: "%" }),
+    )) as { total: number };
+    expect(literal.total).toBe(0);
+  });
 });

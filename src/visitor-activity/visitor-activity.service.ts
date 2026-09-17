@@ -1,3 +1,4 @@
+import { USER_AGENT_RULES, userAgentMatchSql } from "./user-agent-rules";
 import * as geoip from "geoip-country";
 import { Injectable } from "@nestjs/common";
 import { PostgresService } from "src/postgres/postgres.service";
@@ -53,12 +54,17 @@ export class VisitorActivityService {
         path: '"path"',
         lastBrowserSeen: '"lastBrowserSeen"',
         browser: '"browser"',
+        traffic: '"traffic"',
+        agent: '"agent"',
       }[input.sort] ?? '"lastSeen"';
     const direction = input.direction === "asc" ? "ASC" : "DESC";
     const [row] = await this.postgres.query(
       `
       WITH recent AS MATERIALIZED (
         SELECT * FROM visitor_activity WHERE ($1::int=0 OR last_seen>=now()-make_interval(days=>$1))
+      ), agents AS MATERIALIZED (
+        SELECT b.browser,a.* FROM (SELECT DISTINCT browser FROM recent) b
+        CROSS JOIN LATERAL (${userAgentMatchSql("b.browser", "$8")}) a
       ), grouped AS (
         SELECT visitor_id,min(first_seen) AS "firstSeen",max(last_seen) AS "lastSeen",
           (array_agg(user_node_id ORDER BY last_seen DESC))[1] AS latest_user,
@@ -73,13 +79,16 @@ export class VisitorActivityService {
           max(last_seen) FILTER(WHERE kind='presence') AS "lastBrowserSeen",
           bool_or(user_node_id IS NOT NULL) AS "hasSignedIn"
         FROM recent GROUP BY visitor_id
-      ), filtered AS MATERIALIZED (
+      ), classified AS (
+        SELECT g.*,a.traffic,a.agent,a."agentReason" FROM grouped g JOIN agents a ON a.browser IS NOT DISTINCT FROM g.browser
+      ), base_filtered AS MATERIALIZED (
         SELECT *,visitor_id::text AS id,latest_user IS NOT NULL AS "signedIn",
           "lastSeen">=now()-interval '5 minutes' AS active
-        FROM grouped WHERE ($2='all' OR ($2='signed_in' AND latest_user IS NOT NULL)
+        FROM classified WHERE ($2='all' OR ($2='signed_in' AND latest_user IS NOT NULL)
           OR ($2='anonymous' AND latest_user IS NULL) OR ($2='active' AND "lastSeen">=now()-interval '5 minutes'))
           AND ($3::text IS NULL OR country=$3) AND ($4::text IS NULL OR "networkKey"=$4)
-      ), accounts AS (
+          AND ($9::text IS NULL OR strpos(lower(COALESCE(browser,'') || ' ' || agent),lower($9))>0)
+      ), filtered AS MATERIALIZED (SELECT * FROM base_filtered WHERE $7='all' OR traffic=$7 OR ($7='automated' AND traffic IN ('crawler','automation'))), accounts AS (
         SELECT DISTINCT unnest(users) AS id FROM filtered
       ), activity AS MATERIALIZED (
         SELECT e.user_node_id,count(*) FILTER(WHERE event_type='job_view')::int AS views,
@@ -97,6 +106,7 @@ export class VisitorActivityService {
         'active',(SELECT count(*)::int FROM filtered WHERE active),
         'signedIn',(SELECT count(*)::int FROM filtered WHERE "signedIn"),
         'rows',COALESCE((SELECT jsonb_agg(to_jsonb(page)-'users'-'latest_user'-'visitor_id') FROM page),'[]'::jsonb),
+        'trafficCounts',(SELECT jsonb_object_agg(traffic,total) FROM (SELECT traffic,count(*)::int AS total FROM base_filtered GROUP BY traffic) counts),
         'updatedAt',now()) AS data`,
       [
         input.days,
@@ -105,6 +115,9 @@ export class VisitorActivityService {
         input.networkKey ?? null,
         input.limit,
         input.offset,
+        input.traffic ?? "all",
+        JSON.stringify(USER_AGENT_RULES),
+        input.agentSearch?.trim() || null,
       ],
     );
     return row.data;
@@ -126,6 +139,7 @@ export class VisitorActivityService {
         ip: "ip",
         title: "title",
         account: "account",
+        browser: "browser",
       }[input.sort] ?? "at";
     const eventOrder =
       { at: "at", kind: "kind", title: "title", account: "account" }[
@@ -147,7 +161,7 @@ export class VisitorActivityService {
         WHERE ($2::int=0 OR e.occurred_at>=now()-make_interval(days=>$2)) AND e.event_type IN ('job_view','job_apply')
       ), account_events AS (SELECT * FROM events ORDER BY ${eventOrder} ${eventDirection} NULLS LAST,at DESC,"jobId",kind LIMIT 100 OFFSET $5),
       observed AS (
-        SELECT v.last_seen AS at,v.kind,v.path,v.requests,v.country,host(v.ip) AS ip,
+        SELECT v.last_seen AS at,v.kind,v.path,v.requests,v.country,v.browser,host(v.ip) AS ip,
           v.network_key AS "networkKey",v.user_node_id IS NOT NULL AS "signedIn",
           v.visitor_id,v.minute,v.account_key,
           j.properties->>'title' AS title,
