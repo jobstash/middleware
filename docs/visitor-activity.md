@@ -17,8 +17,8 @@ Set `VISITOR_TRUSTED_IP_HEADER=x-real-ip` on the website only when its public
 entry point is Traefik, untrusted forwarded headers are stripped, and the
 website container has no directly published port. Leave unset elsewhere.
 Country lookup uses the bundled geoip-country database on our server. Update
-the pinned package periodically. Raw IPv4 and IPv6 addresses are saved with visitor activity for 30 days and are
-visible only through the superadmin APIs. IPs are not sent to an external lookup service. Country is approximate and is not proof of abuse. Do not enable
+the pinned package periodically. Raw IPv4 and IPv6 addresses are saved with visitor activity indefinitely and are
+visible only through the superadmin APIs. IPs are not sent automatically to an external service. The admin Lookup link opens IPinfo for the selected address. Country is approximate and is not proof of abuse. Do not enable
 `VISITOR_TRUSTED_COUNTRY_HEADER` for arbitrary client-supplied headers.
 
 A signed HttpOnly cookie provides a random browser ID, expiring after 30 days.
@@ -42,10 +42,18 @@ to a particular browser. Do not sum repeated account counts across visitors.
 Apply metrics mean apply clicks, not confirmation of a submitted application.
 No historical anonymous sessions can be reconstructed from this new table.
 
-Queries limit history to 30 days, sort before pagination and return at most 100
-visitors or detail events. Each minute, cleanup deletes at most 5,000 expired
-visitor rows per worker, leaving existing job metrics unchanged. Collection has
-no retries and times out without blocking normal requests. Disable collection
-by removing the website's `VISITOR_INGEST_SECRET`; saved rows remain readable
-until their normal expiry. Monitor collection errors and database load after
-rollout.
+Visitor activity and raw IP addresses have no automatic deletion or age limit.
+Use `days=0` to read all collected history, or select a time period to narrow a report.
+Both list and detail endpoints support all history. Queries sort before pagination
+and return at most 100 visitors or detail events per request. Existing job metrics
+are unchanged. The browser cookie lifetime is separate from saved history; expiry
+or cookie removal does not delete records.
+
+Collection has no retries and times out without blocking normal requests. Disable
+collection by removing the website's `VISITOR_INGEST_SECRET`; saved history remains
+readable. Monitor collection errors and database load after rollout.
+
+Detail reports accept an optional validated `ip` to show requests actually recorded
+from that address across browser IDs. `offset` and `eventOffset` page through visits
+and account events separately; each supports column sorting before pagination.
+Linked account events remain account-wide and are not claimed to come from that IP.

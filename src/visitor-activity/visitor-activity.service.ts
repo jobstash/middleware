@@ -1,8 +1,11 @@
 import * as geoip from "geoip-country";
 import { Injectable } from "@nestjs/common";
-import { Interval } from "@nestjs/schedule";
 import { PostgresService } from "src/postgres/postgres.service";
-import { VisitorEventInput, VisitorQuery } from "./visitor-activity.dto";
+import {
+  VisitorEventInput,
+  VisitorQuery,
+  VisitorDetailQuery,
+} from "./visitor-activity.dto";
 
 @Injectable()
 export class VisitorActivityService {
@@ -33,17 +36,29 @@ export class VisitorActivityService {
   }
 
   async list(input: VisitorQuery): Promise<unknown> {
-    const order = {
-      lastSeen: '"lastSeen"',
-      requests: "requests",
-      views: "views",
-      applies: "applies",
-    }[input.sort];
+    const order =
+      {
+        id: '"id"',
+        active: '"active"',
+        signedIn: '"signedIn"',
+        hasSignedIn: '"hasSignedIn"',
+        account: '"account"',
+        ip: '"ip"',
+        country: '"country"',
+        lastSeen: '"lastSeen"',
+        requests: '"requests"',
+        anonymousViews: '"anonymousViews"',
+        views: '"views"',
+        applies: '"applies"',
+        path: '"path"',
+        lastBrowserSeen: '"lastBrowserSeen"',
+        browser: '"browser"',
+      }[input.sort] ?? '"lastSeen"';
     const direction = input.direction === "asc" ? "ASC" : "DESC";
     const [row] = await this.postgres.query(
       `
       WITH recent AS MATERIALIZED (
-        SELECT * FROM visitor_activity WHERE last_seen>=now()-make_interval(days=>$1)
+        SELECT * FROM visitor_activity WHERE ($1::int=0 OR last_seen>=now()-make_interval(days=>$1))
       ), grouped AS (
         SELECT visitor_id,min(first_seen) AS "firstSeen",max(last_seen) AS "lastSeen",
           (array_agg(user_node_id ORDER BY last_seen DESC))[1] AS latest_user,
@@ -70,7 +85,7 @@ export class VisitorActivityService {
         SELECT e.user_node_id,count(*) FILTER(WHERE event_type='job_view')::int AS views,
           count(*) FILTER(WHERE event_type='job_apply')::int AS applies
         FROM accounts a JOIN user_activity_events e ON e.user_node_id=a.id
-        WHERE e.occurred_at>=now()-make_interval(days=>$1) AND e.event_type IN ('job_view','job_apply')
+        WHERE ($1::int=0 OR e.occurred_at>=now()-make_interval(days=>$1)) AND e.event_type IN ('job_view','job_apply')
         GROUP BY e.user_node_id
       ), rows AS (
         SELECT f.*,COALESCE(m.views,0)::int AS views,COALESCE(m.applies,0)::int AS applies,
@@ -95,38 +110,60 @@ export class VisitorActivityService {
     return row.data;
   }
 
-  async detail(visitorId: string, days: number): Promise<unknown> {
+  async detail(
+    visitorId: string,
+    days: number,
+    input = new VisitorDetailQuery(),
+  ): Promise<unknown> {
+    const order =
+      {
+        at: "at",
+        kind: "kind",
+        path: "path",
+        requests: "requests",
+        signedIn: '"signedIn"',
+        country: "country",
+        ip: "ip",
+        title: "title",
+        account: "account",
+      }[input.sort] ?? "at";
+    const eventOrder =
+      { at: "at", kind: "kind", title: "title", account: "account" }[
+        input.eventSort
+      ] ?? "at";
+    const direction = input.direction === "asc" ? "ASC" : "DESC";
+    const eventDirection = input.eventDirection === "asc" ? "ASC" : "DESC";
     const [row] = await this.postgres.query(
-      `
-      WITH visits AS MATERIALIZED (
-        SELECT * FROM visitor_activity WHERE visitor_id=$1 AND last_seen>=now()-make_interval(days=>$2)
+      `WITH visits AS MATERIALIZED (
+        SELECT * FROM visitor_activity WHERE
+          (($3::inet IS NULL AND visitor_id=$1::uuid) OR ($3::inet IS NOT NULL AND ip=$3::inet))
+          AND ($2::int=0 OR last_seen>=now()-make_interval(days=>$2))
       ), accounts AS (SELECT DISTINCT user_node_id AS id FROM visits WHERE user_node_id IS NOT NULL),
-      account_events AS (
+      events AS MATERIALIZED (
         SELECT e.occurred_at AS at,e.event_type AS kind,j.properties->>'title' AS title,
           j.properties->>'shortUUID' AS "jobId",COALESCE(u.properties->>'name',u.properties->>'wallet') AS account
         FROM accounts a JOIN user_activity_events e ON e.user_node_id=a.id
         LEFT JOIN graph_nodes j ON j.id=e.job_node_id LEFT JOIN graph_nodes u ON u.id=a.id
-        WHERE e.occurred_at>=now()-make_interval(days=>$2) AND e.event_type IN ('job_view','job_apply')
-        ORDER BY e.occurred_at DESC LIMIT 100
+        WHERE ($2::int=0 OR e.occurred_at>=now()-make_interval(days=>$2)) AND e.event_type IN ('job_view','job_apply')
+      ), account_events AS (SELECT * FROM events ORDER BY ${eventOrder} ${eventDirection} NULLS LAST,at DESC,"jobId",kind LIMIT 100 OFFSET $5),
+      observed AS (
+        SELECT v.last_seen AS at,v.kind,v.path,v.requests,v.country,host(v.ip) AS ip,
+          v.network_key AS "networkKey",v.user_node_id IS NOT NULL AS "signedIn",
+          v.visitor_id,v.minute,v.account_key,
+          j.properties->>'title' AS title,
+          COALESCE(u.properties->>'name',u.properties->>'githubUsername',u.properties->>'wallet') AS account
+        FROM visits v LEFT JOIN graph_nodes u ON u.id=v.user_node_id
+        LEFT JOIN LATERAL (
+          SELECT properties FROM graph_nodes WHERE label='StructuredJobpost'
+            AND properties->>'shortUUID'=substring(v.path from '[^/]+$') ORDER BY id LIMIT 1
+        ) j ON true
       ), visit_page AS (
-        SELECT last_seen AS at,kind,path,requests,country,host(ip) AS ip,network_key AS "networkKey",user_node_id IS NOT NULL AS "signedIn"
-        FROM visits ORDER BY last_seen DESC LIMIT 100
-      ) SELECT jsonb_build_object('visits',COALESCE((SELECT jsonb_agg(visit_page) FROM visit_page),'[]'::jsonb),
+        SELECT * FROM observed ORDER BY ${order} ${direction} NULLS LAST,at DESC,visitor_id,minute,kind,path,account_key LIMIT 100 OFFSET $4
+      ) SELECT jsonb_build_object('visits',COALESCE((SELECT jsonb_agg(to_jsonb(visit_page)-'visitor_id'-'minute'-'account_key') FROM visit_page),'[]'::jsonb),
+        'visitTotal',(SELECT count(*)::int FROM visits), 'eventTotal',(SELECT count(*)::int FROM events),
         'accountEvents',COALESCE((SELECT jsonb_agg(account_events) FROM account_events),'[]'::jsonb)) AS data`,
-      [visitorId, days],
+      [visitorId, days, input.ip ?? null, input.offset, input.eventOffset],
     );
     return row.data;
-  }
-
-  // Bound each cleanup; multiple processes may safely share the work.
-  @Interval(60_000)
-  async expire(): Promise<void> {
-    await this.postgres
-      .query(
-        `DELETE FROM visitor_activity WHERE ctid IN (
-      SELECT ctid FROM visitor_activity WHERE last_seen<now()-interval '30 days' LIMIT 5000 FOR UPDATE SKIP LOCKED
-    )`,
-      )
-      .catch(() => undefined);
   }
 }

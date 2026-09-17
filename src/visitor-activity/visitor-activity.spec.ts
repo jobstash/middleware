@@ -84,7 +84,10 @@ describe("visitor reporting access", () => {
     await expect(
       pipe.transform({ sort: "lastSeen desc; DROP TABLE visitors" }, meta),
     ).rejects.toThrow();
-    await expect(pipe.transform({ days: 365 }, meta)).rejects.toThrow();
+    await expect(pipe.transform({ days: -1 }, meta)).rejects.toThrow();
+    await expect(pipe.transform({ days: 0 }, meta)).resolves.toMatchObject({
+      days: 0,
+    });
     await expect(pipe.transform({ limit: 10000 }, meta)).rejects.toThrow();
     await expect(
       pipe.transform({ days: "7", sort: "requests" }, meta),

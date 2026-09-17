@@ -1,7 +1,7 @@
 import { Client } from "pg";
 import { readFileSync } from "node:fs";
 import { VisitorActivityService } from "./visitor-activity.service";
-import { VisitorQuery } from "./visitor-activity.dto";
+import { VisitorQuery, VisitorDetailQuery } from "./visitor-activity.dto";
 import { PostgresService } from "src/postgres/postgres.service";
 const url = process.env.RECOMMENDATIONS_TEST_DATABASE_URL;
 const suite = url ? describe : describe.skip;
@@ -19,7 +19,7 @@ suite("visitor reporting SQL", () => {
     await db.query(`CREATE SCHEMA ${schema}; SET search_path TO ${schema},public;
       CREATE TABLE graph_nodes(id bigint PRIMARY KEY,label text,properties jsonb);
       CREATE TABLE user_activity_events(user_node_id bigint,job_node_id bigint,event_type text,occurred_at timestamptz);
-      INSERT INTO graph_nodes VALUES(1,'User','{"wallet":"test-wallet","name":"Test account"}'),(10,'Job','{"title":"Engineer","shortUUID":"job-1"}');
+      INSERT INTO graph_nodes VALUES(1,'User','{"wallet":"test-wallet","name":"Test account"}'),(10,'StructuredJobpost','{"title":"Engineer","shortUUID":"job-1"}');
       INSERT INTO user_activity_events VALUES(1,10,'job_view',now()),(1,10,'job_apply',now()),(1,10,'job_view',now()-interval '40 days');`);
     await db.query(readFileSync("scripts/sql/visitor-activity.sql", "utf8"));
     service = new VisitorActivityService({
@@ -111,12 +111,25 @@ suite("visitor reporting SQL", () => {
     expect(filtered.total).toBe(1);
     expect(filtered.rows[0].id).toBe(another);
   });
-  it("expires only old visitor records, retaining existing job events", async () => {
+  it("keeps old visits readable through all-history reports", async () => {
     await db.query(
       "UPDATE visitor_activity SET last_seen=now()-interval '31 days' WHERE visitor_id=$1",
       [another],
     );
-    await service.expire();
+    const recent = (await service.list(
+      Object.assign(new VisitorQuery(), { days: 30 }),
+    )) as { rows: { id: string }[] };
+    expect(recent.rows.some(row => row.id === another)).toBe(false);
+    const history = (await service.list(
+      Object.assign(new VisitorQuery(), { days: 0 }),
+    )) as { rows: { id: string }[] };
+    expect(history.rows.some(row => row.id === another)).toBe(true);
+    const detail = (await service.detail(another, 0)) as { visits: unknown[] };
+    expect(detail.visits).toHaveLength(1);
+    const accountHistory = (await service.detail(visitor, 0)) as {
+      accountEvents: unknown[];
+    };
+    expect(accountHistory.accountEvents).toHaveLength(3);
     expect(
       (
         await db.query(
@@ -124,7 +137,7 @@ suite("visitor reporting SQL", () => {
           [another],
         )
       ).rows[0].count,
-    ).toBe("0");
+    ).toBe("1");
     expect(
       (await db.query("SELECT count(*) FROM user_activity_events")).rows[0]
         .count,
@@ -145,6 +158,54 @@ suite("visitor reporting SQL", () => {
         visits: Record<string, unknown>[];
       };
       expect(detail.visits[0].ip).toBe(ip);
+    }
+  });
+  it("combines actual visits from one IP and sorts the complete activity before paging", async () => {
+    const ip = "9.9.9.9";
+    for (const [id, path] of [
+      [visitor, "/jobs/job-1"],
+      [another, "/about"],
+    ]) {
+      await service.record({ visitorId: id, kind: "request", path, ip }, null);
+    }
+    const query = Object.assign(new VisitorDetailQuery(), {
+      ip,
+      sort: "path",
+      direction: "asc",
+    });
+    const report = (await service.detail(visitor, 0, query)) as {
+      visitTotal: number;
+      visits: Record<string, unknown>[];
+    };
+    expect(report.visitTotal).toBe(2);
+    expect(report.visits.map(v => v.path)).toEqual(["/about", "/jobs/job-1"]);
+    expect(report.visits[1].title).toBe("Engineer");
+    query.offset = 1;
+    const page = (await service.detail(visitor, 0, query)) as typeof report;
+    expect(page.visitTotal).toBe(2);
+    expect(page.visits).toHaveLength(1);
+    expect(page.visits[0].path).toBe("/jobs/job-1");
+    for (const sort of [
+      "id",
+      "active",
+      "signedIn",
+      "hasSignedIn",
+      "account",
+      "ip",
+      "country",
+      "lastSeen",
+      "requests",
+      "anonymousViews",
+      "views",
+      "applies",
+      "path",
+      "lastBrowserSeen",
+      "browser",
+    ]) {
+      const result = (await service.list(
+        Object.assign(new VisitorQuery(), { sort, limit: 1 }),
+      )) as { rows: unknown[] };
+      expect(result.rows).toHaveLength(1);
     }
   });
 });

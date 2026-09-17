@@ -22,7 +22,11 @@ import { Permissions, Session } from "src/shared/decorators";
 import { CheckWalletPermissions } from "src/shared/constants";
 import { SessionObject } from "src/shared/interfaces";
 import { VisitorActivityService } from "./visitor-activity.service";
-import { VisitorEventInput, VisitorQuery } from "./visitor-activity.dto";
+import {
+  VisitorEventInput,
+  VisitorQuery,
+  VisitorDetailQuery,
+} from "./visitor-activity.dto";
 
 @Injectable()
 export class VisitorIngestGuard implements CanActivate {
@@ -84,8 +88,11 @@ export class VisitorActivityController {
   @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   async detail(
     @Param("id", new ParseUUIDPipe()) id: string,
-    @Query(validation) input: VisitorQuery,
+    @Query(validation) input: VisitorDetailQuery,
   ): Promise<{ success: boolean; data: unknown }> {
-    return { success: true, data: await this.visitors.detail(id, input.days) };
+    return {
+      success: true,
+      data: await this.visitors.detail(id, input.days, input),
+    };
   }
 }
