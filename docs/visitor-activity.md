@@ -17,8 +17,8 @@ Set `VISITOR_TRUSTED_IP_HEADER=x-real-ip` on the website only when its public
 entry point is Traefik, untrusted forwarded headers are stripped, and the
 website container has no directly published port. Leave unset elsewhere.
 Country lookup uses the bundled geoip-country database on our server. Update
-the pinned package periodically. No raw IP is saved or sent to an external
-lookup service. Country is approximate and is not proof of abuse. Do not enable
+the pinned package periodically. Raw IPv4 and IPv6 addresses are saved with visitor activity for 30 days and are
+visible only through the superadmin APIs. IPs are not sent to an external lookup service. Country is approximate and is not proof of abuse. Do not enable
 `VISITOR_TRUSTED_COUNTRY_HEADER` for arbitrary client-supplied headers.
 
 A signed HttpOnly cookie provides a random browser ID, expiring after 30 days.

@@ -11,14 +11,14 @@ export class VisitorActivityService {
   async record(input: VisitorEventInput, wallet: string | null): Promise<void> {
     await this.postgres.query(
       `
-      INSERT INTO visitor_activity(visitor_id,kind,path,user_node_id,account_key,network_key,country,browser)
-      SELECT $1,$2,$3,u.id,COALESCE(u.id::text,''),$5,$6,$7
+      INSERT INTO visitor_activity(visitor_id,kind,path,user_node_id,account_key,network_key,country,browser,ip)
+      SELECT $1,$2,$3,u.id,COALESCE(u.id::text,''),$5,$6,$7,$8::inet
       FROM (SELECT 1) seed LEFT JOIN LATERAL (
         SELECT id FROM graph_nodes WHERE label='User' AND lower(properties->>'wallet')=lower($4) ORDER BY id LIMIT 1
       ) u ON true
       ON CONFLICT(visitor_id,minute,kind,path,account_key) DO UPDATE
       SET requests=visitor_activity.requests+1,last_seen=now(),network_key=EXCLUDED.network_key,
-          country=EXCLUDED.country,browser=EXCLUDED.browser`,
+          country=EXCLUDED.country,browser=EXCLUDED.browser,ip=EXCLUDED.ip`,
       [
         input.visitorId,
         input.kind,
@@ -27,6 +27,7 @@ export class VisitorActivityService {
         input.networkKey ?? null,
         (input.ip ? geoip.lookup(input.ip)?.country : input.country) ?? null,
         input.browser ?? null,
+        input.ip ?? null,
       ],
     );
   }
@@ -49,6 +50,7 @@ export class VisitorActivityService {
           array_agg(DISTINCT user_node_id) FILTER(WHERE user_node_id IS NOT NULL) AS users,
           (array_agg(country ORDER BY last_seen DESC))[1] AS country,
           (array_agg(network_key ORDER BY last_seen DESC))[1] AS "networkKey",
+          (array_agg(host(ip) ORDER BY last_seen DESC))[1] AS ip,
           (array_agg(browser ORDER BY last_seen DESC))[1] AS browser,
           (array_agg(path ORDER BY last_seen DESC))[1] AS path,
           sum(requests) FILTER(WHERE kind='request')::int AS requests,
@@ -107,7 +109,7 @@ export class VisitorActivityService {
         WHERE e.occurred_at>=now()-make_interval(days=>$2) AND e.event_type IN ('job_view','job_apply')
         ORDER BY e.occurred_at DESC LIMIT 100
       ), visit_page AS (
-        SELECT last_seen AS at,kind,path,requests,country,network_key AS "networkKey",user_node_id IS NOT NULL AS "signedIn"
+        SELECT last_seen AS at,kind,path,requests,country,host(ip) AS ip,network_key AS "networkKey",user_node_id IS NOT NULL AS "signedIn"
         FROM visits ORDER BY last_seen DESC LIMIT 100
       ) SELECT jsonb_build_object('visits',COALESCE((SELECT jsonb_agg(visit_page) FROM visit_page),'[]'::jsonb),
         'accountEvents',COALESCE((SELECT jsonb_agg(account_events) FROM account_events),'[]'::jsonb)) AS data`,

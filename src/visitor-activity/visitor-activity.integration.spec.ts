@@ -130,4 +130,21 @@ suite("visitor reporting SQL", () => {
         .count,
     ).toBe("3");
   });
+  it("stores and exposes IPv4 and IPv6 addresses in visitor reports", async () => {
+    const id = "33333333-3333-4333-8333-333333333333";
+    for (const ip of ["8.8.8.8", "2001:4860:4860::8888"]) {
+      await service.record(
+        { visitorId: id, kind: "request", path: "/ip-check", ip },
+        null,
+      );
+      const report = (await service.list(new VisitorQuery())) as {
+        rows: Record<string, unknown>[];
+      };
+      expect(report.rows.find(row => row.id === id)?.ip).toBe(ip);
+      const detail = (await service.detail(id, 7)) as {
+        visits: Record<string, unknown>[];
+      };
+      expect(detail.visits[0].ip).toBe(ip);
+    }
+  });
 });
