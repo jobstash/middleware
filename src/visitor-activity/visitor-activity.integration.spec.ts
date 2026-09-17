@@ -62,6 +62,7 @@ suite("visitor reporting SQL", () => {
     );
     const data = (await service.list(new VisitorQuery())) as {
       total: number;
+      countries: string[];
       rows: Record<string, unknown>[];
     };
     expect(data.total).toBe(1);
@@ -97,6 +98,7 @@ suite("visitor reporting SQL", () => {
     });
     const data = (await service.list(query)) as {
       total: number;
+      countries: string[];
       rows: Record<string, unknown>[];
     };
     expect(data.total).toBe(2);
@@ -107,8 +109,14 @@ suite("visitor reporting SQL", () => {
     });
     const filtered = (await service.list(
       Object.assign(query, { country: "LT" }),
-    )) as { total: number; rows: Record<string, unknown>[] };
+    )) as {
+      total: number;
+      countries: string[];
+      rows: Record<string, unknown>[];
+    };
     expect(filtered.total).toBe(1);
+    expect(filtered.countries).toEqual(["LT", "SG"]);
+    expect(data.countries).toEqual(["LT", "SG"]);
     expect(filtered.rows[0].id).toBe(another);
   });
   it("keeps old visits readable through all-history reports", async () => {
@@ -258,6 +266,7 @@ suite("visitor reporting SQL", () => {
       }),
     )) as {
       total: number;
+      countries: string[];
       rows: Record<string, unknown>[];
       trafficCounts: Record<string, number>;
     };

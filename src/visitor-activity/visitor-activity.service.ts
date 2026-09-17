@@ -106,6 +106,7 @@ export class VisitorActivityService {
         'active',(SELECT count(*)::int FROM filtered WHERE active),
         'signedIn',(SELECT count(*)::int FROM filtered WHERE "signedIn"),
         'rows',COALESCE((SELECT jsonb_agg(to_jsonb(page)-'users'-'latest_user'-'visitor_id') FROM page),'[]'::jsonb),
+        'countries',COALESCE((SELECT jsonb_agg(country ORDER BY country) FROM (SELECT DISTINCT country FROM grouped WHERE country IS NOT NULL) countries),'[]'::jsonb),
         'trafficCounts',(SELECT jsonb_object_agg(traffic,total) FROM (SELECT traffic,count(*)::int AS total FROM base_filtered GROUP BY traffic) counts),
         'updatedAt',now()) AS data`,
       [
