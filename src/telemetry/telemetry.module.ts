@@ -1,4 +1,9 @@
 import {
+  VisitorIpBlocksController,
+  VisitorIpBlocksService,
+  BlockProxyGuard,
+} from "src/visitor-activity/visitor-ip-blocks";
+import {
   VisitorActivityController,
   VisitorIngestGuard,
 } from "src/visitor-activity/visitor-activity.controller";
@@ -11,8 +16,18 @@ import { UserModule } from "src/user/user.module";
 
 @Module({
   imports: [forwardRef(() => AuthModule), forwardRef(() => UserModule)],
-  controllers: [TelemetryController, VisitorActivityController],
-  providers: [TelemetryService, VisitorActivityService, VisitorIngestGuard],
+  controllers: [
+    TelemetryController,
+    VisitorActivityController,
+    VisitorIpBlocksController,
+  ],
+  providers: [
+    TelemetryService,
+    VisitorActivityService,
+    VisitorIngestGuard,
+    VisitorIpBlocksService,
+    BlockProxyGuard,
+  ],
   exports: [TelemetryService],
 })
 export class TelemetryModule {}

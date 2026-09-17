@@ -1,0 +1,8 @@
+[Unit]
+Description=Check JobStash IP blocks every five seconds
+[Timer]
+OnBootSec=10
+OnUnitInactiveSec=5
+AccuracySec=1
+[Install]
+WantedBy=timers.target

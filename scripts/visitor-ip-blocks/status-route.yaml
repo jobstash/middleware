@@ -1,0 +1,9 @@
+# Read-only route used by the host to verify that Traefik accepted the list.
+# ClientIP checks the connection address, not client-supplied forwarding headers.
+http:
+  routers:
+    jobstash-blocklist-check:
+      entryPoints: [http]
+      rule: "Host(`jobstash-blocklist-check.internal`) && Method(`GET`) && Path(`/api/http/routers`) && (ClientIP(`127.0.0.1`) || ClientIP(`10.0.2.1`) || ClientIP(`10.0.3.1`) || ClientIP(`::1`))"
+      service: api@internal
+      priority: 100001

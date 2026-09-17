@@ -1,0 +1,13 @@
+[Unit]
+Description=Apply JobStash IP blocks to Traefik
+After=network-online.target docker.service
+Wants=network-online.target
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/jobstash-ip-blocks/sync.py
+TimeoutStartSec=25
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/data/coolify/proxy/dynamic
+ProtectHome=true
