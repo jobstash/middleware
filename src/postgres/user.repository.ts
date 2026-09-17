@@ -888,13 +888,29 @@ export class UserRepository {
   async createUser(
     properties: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
-    const nodeId = await this.insertNode(this.postgres, "User", properties);
-    const [row] = await queryRows<{ properties: Record<string, unknown> }>(
-      this.postgres,
-      "SELECT properties FROM graph_nodes WHERE id = $1",
-      [nodeId],
-    );
-    return row.properties;
+    if (typeof properties.wallet !== "string" || !properties.wallet.trim())
+      throw new Error("A wallet is required to create a user");
+    return this.postgres.transaction(async manager => {
+      // Two simultaneous login requests for the same wallet must reuse one user.
+      await queryRows(
+        manager,
+        "SELECT pg_advisory_xact_lock(hashtextextended('user-wallet:' || lower($1), 0))",
+        [properties.wallet],
+      );
+      const existing = await this.findNode(
+        "User",
+        { wallet: properties.wallet },
+        manager,
+      );
+      if (existing) return existing.properties;
+      const nodeId = await this.insertNode(manager, "User", properties);
+      const [row] = await queryRows<{ properties: Record<string, unknown> }>(
+        manager,
+        "SELECT properties FROM graph_nodes WHERE id = $1",
+        [nodeId],
+      );
+      return row.properties;
+    });
   }
 
   async getActiveSubscriptionOrganizationIds(
@@ -1094,7 +1110,7 @@ export class UserRepository {
         FROM graph_nodes
         WHERE label = 'User'
           AND lower(properties ->> 'wallet') = lower($1)
-        LIMIT 1
+        ORDER BY id LIMIT 1
       `,
       [wallet],
     );
@@ -1648,6 +1664,20 @@ export class UserRepository {
     where: Record<string, unknown>,
     executor: QueryExecutor = this.postgres,
   ): Promise<GraphNode<Record<string, unknown>> | undefined> {
+    if (label === "User" && typeof where.wallet === "string") {
+      const { wallet, ...otherProperties } = where;
+      const [row] = await queryRows<GraphNode<Record<string, unknown>>>(
+        executor,
+        `
+        SELECT id::text AS "nodeId", properties FROM graph_nodes
+        WHERE label = 'User' AND lower(properties ->> 'wallet') = lower($1)
+          AND properties @> $2::jsonb
+        ORDER BY id LIMIT 1
+      `,
+        [wallet, JSON.stringify(otherProperties)],
+      );
+      return row;
+    }
     const [row] = await queryRows<GraphNode<Record<string, unknown>>>(
       executor,
       `

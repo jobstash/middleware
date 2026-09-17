@@ -955,23 +955,26 @@ export class UserService {
   }
 
   async getCryptoNativeStatus(wallet: string): Promise<boolean | undefined> {
-    const initial = await this.users.getCryptoNative(wallet).catch(err => {
+    try {
+      const initial = await this.users.getCryptoNative(wallet);
+      if (initial !== undefined) return initial;
+
+      // A current cache may still lack this field. Refresh once, then stop:
+      // failed/missing profile data must never keep a login request alive forever.
+      await this.profileService.getUserWorkHistory(wallet, true);
+      const refreshed = await this.users.getCryptoNative(wallet);
+      if (refreshed === undefined)
+        this.logger.warn(
+          "Login crypto-native status unavailable after one refresh",
+        );
+      return refreshed;
+    } catch (err) {
       Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "user.service",
-        });
+        scope.setTags({ action: "db-call", source: "user.service" });
         Sentry.captureException(err);
       });
       this.logger.error(`UserService::getCryptoNativeStatus ${err.message}`);
       return undefined;
-    });
-
-    if (initial === undefined) {
-      await this.profileService.getUserWorkHistory(wallet);
-      return this.getCryptoNativeStatus(wallet);
-    } else {
-      return initial;
     }
   }
 

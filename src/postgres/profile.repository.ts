@@ -2577,7 +2577,9 @@ export class ProfileRepository {
         SELECT lock.expires_at::text AS "expiresAt"
         FROM user_cache_locks lock
         JOIN graph_nodes account ON account.id = lock.user_node_id
-        WHERE lower(account.properties ->> 'wallet') = lower($1)
+        WHERE account.label = 'User'
+          AND lower(account.properties ->> 'wallet') = lower($1)
+        ORDER BY account.id LIMIT 1
       `,
       [wallet],
     );
@@ -3323,6 +3325,20 @@ export class ProfileRepository {
     where: Record<string, unknown>,
     executor: QueryExecutor = this.postgres,
   ): Promise<NodeRecord | undefined> {
+    if (label === "User" && typeof where.wallet === "string") {
+      const { wallet, ...otherProperties } = where;
+      const [row] = await queryRows<NodeRecord>(
+        executor,
+        `
+        SELECT id::text AS "nodeId", properties FROM graph_nodes
+        WHERE label = 'User' AND lower(properties ->> 'wallet') = lower($1)
+          AND properties @> $2::jsonb
+        ORDER BY id LIMIT 1
+      `,
+        [wallet, JSON.stringify(otherProperties)],
+      );
+      return row;
+    }
     const [row] = await queryRows<NodeRecord>(
       executor,
       `
