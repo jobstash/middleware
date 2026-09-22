@@ -34,6 +34,7 @@ const IMPORT_SOURCES = [
   "google_sheets",
   "jobsite_probe",
   "pillar",
+  "atlas",
 ] as const;
 const JOBPOST_SCOPES = ["all", "sources", "organization", "jobsite"] as const;
 const SOURCE_SECTIONS = [

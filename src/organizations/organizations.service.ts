@@ -1200,6 +1200,7 @@ export class OrganizationsService {
           params: {
             url: dto.url,
             name: dto.name,
+            ...(dto.vertical ? { vertical: dto.vertical } : {}),
           },
         },
       );
@@ -1297,6 +1298,12 @@ export class OrganizationsService {
           entityId: id,
           expectedVertical: input.expectedVertical,
           vertical: input.vertical,
+          ...(input.aiPrimaryCategory !== undefined
+            ? { aiPrimaryCategory: input.aiPrimaryCategory }
+            : {}),
+          ...(input.aiCategories !== undefined
+            ? { aiCategories: input.aiCategories }
+            : {}),
           reason: input.reason,
           evidence: input.evidence ?? [],
         },
