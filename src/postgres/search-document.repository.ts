@@ -2049,6 +2049,8 @@ export class SearchDocumentRepository {
               node.properties,
               'manualReviewUpdatedTimestamp'
             ),
+            'aiPrimaryCategory', node.properties -> 'aiPrimaryCategory',
+            'aiCategories', coalesce(node.properties -> 'aiCategories','[]'::jsonb),
             'vertical', node.properties -> 'vertical',
             'verticalFirstAppliedTimestamp', jsonb_numeric_value(
               node.properties,

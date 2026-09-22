@@ -72,4 +72,27 @@ describe("ETL import forwarding", () => {
       },
     );
   });
+  it("forwards an optional industry without changing older requests", async () => {
+    const post = jest.spyOn(axios, "post").mockResolvedValue({ status: 202 });
+    const service = new OrganizationsService(
+      config,
+      auth0,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    );
+    await service.addOrganizationByUrl({
+      name: "AI Lab",
+      url: "https://example.ai",
+      vertical: "ai",
+    });
+    expect(post).toHaveBeenCalledWith(
+      expect.any(String),
+      undefined,
+      expect.objectContaining({
+        params: { name: "AI Lab", url: "https://example.ai", vertical: "ai" },
+      }),
+    );
+  });
 });

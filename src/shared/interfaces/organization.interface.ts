@@ -43,6 +43,8 @@ export class Organization {
     steppedDownLeadCount: t.union([t.number, t.null, t.undefined]),
     movedLeadCount: t.union([t.number, t.null, t.undefined]),
     earlyLeadDepartureCount: t.union([t.number, t.null, t.undefined]),
+    aiPrimaryCategory: t.union([t.string, t.null, t.undefined]),
+    aiCategories: t.union([t.array(t.string), t.undefined]),
     vertical: t.union([t.string, t.null, t.undefined]),
     verticalFirstAppliedTimestamp: t.union([t.number, t.null, t.undefined]),
     verticalAppliedTimestamp: t.union([t.number, t.null, t.undefined]),
@@ -119,6 +121,8 @@ export class Organization {
   earlyLeadDepartureCount?: number | null;
 
   @ApiPropertyOptional()
+  aiPrimaryCategory?: string | null;
+  aiCategories?: string[];
   vertical?: string | null;
 
   @ApiPropertyOptional()

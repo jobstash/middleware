@@ -1,6 +1,8 @@
+import { AI_CATEGORIES, AiCategory } from "../../shared/ai-categories";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
   IsArray,
+  ArrayUnique,
   ArrayMaxSize,
   IsIn,
   IsNotEmpty,
@@ -22,6 +24,17 @@ export const ORGANIZATION_VERTICALS = [
 ] as const;
 
 export class UpdateOrganizationClassificationInput {
+  @IsOptional()
+  @IsIn(AI_CATEGORIES)
+  aiPrimaryCategory?: AiCategory | null;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @ArrayMaxSize(14)
+  @IsIn(AI_CATEGORIES, { each: true })
+  aiCategories?: AiCategory[];
+
   @ApiPropertyOptional({ nullable: true })
   @ValidateIf((_input, value) => value !== null)
   @IsString()
