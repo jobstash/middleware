@@ -5,7 +5,7 @@ import { report } from "io-ts-human-reporter";
 export class FundingEvent {
   public static readonly FundingEventType = t.strict({
     id: t.string,
-    timestamp: t.number,
+    timestamp: t.union([t.number, t.null]),
     amountInUsd: t.number,
     tokenAmount: t.number,
     tokenUnit: t.string,
@@ -15,7 +15,7 @@ export class FundingEvent {
   });
 
   id: string;
-  timestamp: number;
+  timestamp: number | null;
   amountInUsd: number;
   tokenAmount: number;
   tokenUnit: string;

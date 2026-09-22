@@ -7,7 +7,7 @@ import { FundingEvent } from "./funding-event.interface";
 export class FundingRound {
   public static readonly FundingRoundType = t.strict({
     id: t.string,
-    date: t.number,
+    date: t.union([t.number, t.null]),
     createdTimestamp: t.number,
     roundName: t.union([t.string, t.null]),
     sourceLink: t.union([t.string, t.null]),
@@ -26,8 +26,8 @@ export class FundingRound {
   @ApiPropertyOptional()
   roundName: string | null;
 
-  @ApiProperty()
-  date: number;
+  @ApiProperty({ type: Number, nullable: true })
+  date: number | null;
 
   @ApiPropertyOptional()
   sourceLink: string | null;
@@ -72,7 +72,7 @@ export class FundingRound {
 export const fundingRoundToFundingEvent = (x: FundingRound): FundingEvent => {
   return {
     id: x.id,
-    timestamp: new Date(x.date).getTime(),
+    timestamp: x.date === null ? null : new Date(x.date).getTime(),
     amountInUsd: x.raisedAmount,
     tokenAmount: x.raisedAmount,
     tokenUnit: "USD",
