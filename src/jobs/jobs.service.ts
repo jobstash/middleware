@@ -97,6 +97,10 @@ export class JobsService {
     private readonly cacheManager?: Cache,
   ) {}
 
+  getJobsRevision(): Promise<{ revision: string }> {
+    return this.searchDocuments.getJobsRevision();
+  }
+
   getJobsListResults = async (
     ecosystem?: string | undefined,
   ): Promise<JobListResult[]> => {
