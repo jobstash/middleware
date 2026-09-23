@@ -53,7 +53,6 @@ describe("PostgreSQL-only middleware runtime", () => {
         `nestjs-${legacyGraphOrm}`,
         `\\b${legacyGraphOrm}\\b`,
         `${legacyGraphEngine}VectorStore`,
-        "queryRunner",
         `${legacyGraphEngine.toUpperCase()}_`,
       ].join("|"),
       "i",

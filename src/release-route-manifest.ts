@@ -1973,6 +1973,37 @@ export const RELEASE_ROUTE_MANIFEST = [
     "admin/ingestion/structured-refresh-runs",
     "active",
   ],
+  ["VisitorIpBlocksController", "list", "GET", "telemetry/ip-blocks", "active"],
+  [
+    "VisitorIpBlocksController",
+    "proxy",
+    "GET",
+    "telemetry/ip-blocks/proxy",
+    "active",
+  ],
+  ["VisitorIpBlocksController", "set", "POST", "telemetry/ip-blocks", "active"],
+  [
+    "VisitorIpBlocksController",
+    "ack",
+    "POST",
+    "telemetry/ip-blocks/proxy/ack",
+    "active",
+  ],
+  ["VisitorActivityController", "list", "GET", "telemetry/visitors", "active"],
+  [
+    "VisitorActivityController",
+    "detail",
+    "GET",
+    "telemetry/visitors/:id",
+    "active",
+  ],
+  [
+    "VisitorActivityController",
+    "record",
+    "POST",
+    "telemetry/visitors/events",
+    "active",
+  ],
 ] as const;
 
 export type ReleaseRouteManifestEntry = (typeof RELEASE_ROUTE_MANIFEST)[number];
