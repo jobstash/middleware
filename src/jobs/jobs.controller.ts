@@ -105,6 +105,12 @@ export class JobsController {
     private readonly subscriptionService: SubscriptionsService,
   ) {}
 
+  @Get("revision")
+  @UseInterceptors(new CacheHeaderInterceptor({ mode: "revalidate-always" }))
+  getJobsRevision(): Promise<{ revision: string }> {
+    return this.jobsService.getJobsRevision();
+  }
+
   @Get("for-me")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER)

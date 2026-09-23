@@ -416,6 +416,16 @@ const legacyPageSlice = <T>(values: T[], page: number, limit: number): T[] => {
 export class SearchDocumentRepository {
   constructor(private readonly postgres: PostgresService) {}
 
+  async getJobsRevision(): Promise<{ revision: string }> {
+    const [row] = await this.postgres.query<{ revision: string }>(`
+      SELECT md5(concat_ws('|',
+        (SELECT max(completed_at)::text FROM jobpost_import_runs),
+        (SELECT max(completed_at)::text FROM work_arrangement_runs)
+      )) AS revision
+    `);
+    return row;
+  }
+
   async refreshProjectDocuments(projectNodeIds: string[]): Promise<number> {
     if (!projectNodeIds.length) return 0;
     const [row] = await this.postgres.query<{ refreshed: string }>(
