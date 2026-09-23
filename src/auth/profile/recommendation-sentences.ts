@@ -8,8 +8,9 @@ export interface RecommendationSentence {
   text: string;
   weight: number;
 }
-const hash = (text: string) => createHash("sha256").update(text).digest("hex");
-const normalize = (text: string) =>
+const hash = (text: string): string =>
+  createHash("sha256").update(text).digest("hex");
+const normalize = (text: string): string =>
   text.normalize("NFKC").replace(/\s+/gu, " ").trim();
 const weights: Record<string, number> = {
   requirements: 1,

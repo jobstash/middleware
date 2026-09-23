@@ -10,7 +10,10 @@ describe("TelemetryController dashboard authorization", () => {
     const getSession = jest.fn();
     const guard = new PBACGuard(new Reflector(), { getSession } as never);
     const context = {
-      switchToHttp: () => ({ getRequest: () => ({}), getResponse: () => ({}) }),
+      switchToHttp: () => ({
+        getRequest: (): Record<string, unknown> => ({}),
+        getResponse: (): Record<string, unknown> => ({}),
+      }),
       getHandler: () => TelemetryController.prototype.getRecommendationMetrics,
       getClass: () => TelemetryController,
     } as unknown as ExecutionContext;

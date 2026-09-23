@@ -6,13 +6,13 @@ describe("consistent login user lookup", () => {
     const query = jest
       .fn()
       .mockResolvedValue([{ present: true, value: false }]);
-    const repository = new UserRepository({ query } as any);
+    const repository = new UserRepository({ query } as never);
     await expect(repository.getCryptoNative("0xMiXeD")).resolves.toBe(false);
     expect(query.mock.calls[0][0]).toMatch(/ORDER BY id LIMIT 1/);
   });
   it("uses the user wallet index and stable selection for cache checks", async () => {
     const query = jest.fn().mockResolvedValue([{ expiresAt: "123" }]);
-    const repository = new ProfileRepository({ query } as any);
+    const repository = new ProfileRepository({ query } as never);
     await expect(repository.getCacheLock("0xMiXeD")).resolves.toBe(123);
     expect(query.mock.calls[0][0]).toContain("account.label = 'User'");
     expect(query.mock.calls[0][0]).toContain("ORDER BY account.id LIMIT 1");
@@ -24,7 +24,7 @@ describe("consistent login user lookup", () => {
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ nodeId: "1", properties }]);
     const transaction = jest.fn(work => work({ query }));
-    const repository = new UserRepository({ transaction } as any);
+    const repository = new UserRepository({ transaction } as never);
     await expect(
       repository.createUser({ wallet: "0xmixed", name: "Replacement" }),
     ).resolves.toEqual(properties);

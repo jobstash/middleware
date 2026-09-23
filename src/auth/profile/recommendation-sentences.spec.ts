@@ -1,6 +1,10 @@
 import { recommendationSentences } from "./recommendation-sentences";
 
-const split = (text: string, source = "requirements", context?: string) =>
+const split = (
+  text: string,
+  source = "requirements",
+  context?: string,
+): ReturnType<typeof recommendationSentences> =>
   recommendationSentences(JSON.stringify([{ source, text, context }]));
 
 describe("recommendation sentence inputs", () => {

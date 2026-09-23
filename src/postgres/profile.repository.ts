@@ -629,7 +629,17 @@ export class ProfileRepository {
   async getRecommendationLocationCandidates(
     rankedAt: Date,
     weeklyEmail: boolean,
-  ) {
+  ): Promise<
+    Array<{
+      nodeId: string;
+      arrangement: {
+        classification: WorkArrangementClassification;
+        remoteOptions: WorkLocationOption[];
+        hybridOptions: WorkLocationOption[];
+        onsiteOptions: WorkLocationOption[];
+      };
+    }>
+  > {
     return queryRows<{
       nodeId: string;
       arrangement: {

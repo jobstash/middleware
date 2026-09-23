@@ -1,7 +1,12 @@
 import { PrivyController } from "../auth/privy/privy.controller";
 import { UserService } from "./user.service";
 
-const setup = () => {
+const setup = (): {
+  users: { getCryptoNative: jest.Mock };
+  profileService: { getUserWorkHistory: jest.Mock };
+  logger: { warn: jest.Mock; error: jest.Mock };
+  service: UserService;
+} => {
   const users = { getCryptoNative: jest.fn() };
   const profileService = {
     getUserWorkHistory: jest.fn().mockResolvedValue(undefined),

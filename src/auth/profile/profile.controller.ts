@@ -120,7 +120,7 @@ export class ProfileController {
       }),
     )
     input: RecommendationCareerInput,
-  ) {
+  ): Promise<{ success: boolean }> {
     await this.profileService.updateRecommendationCareer(address, input);
     return { success: true };
   }

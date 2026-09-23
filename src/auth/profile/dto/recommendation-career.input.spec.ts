@@ -4,7 +4,7 @@ import { validate } from "class-validator";
 import { RecommendationCareerInput } from "./recommendation-career.input";
 
 describe("RecommendationCareerInput", () => {
-  const check = (input: unknown) =>
+  const check = (input: unknown): ReturnType<typeof validate> =>
     validate(plainToInstance(RecommendationCareerInput, input), {
       whitelist: true,
       forbidNonWhitelisted: true,

@@ -49,7 +49,10 @@ export class TelemetryController {
       }),
     )
     input: RecommendationMetricsInput,
-  ) {
+  ): Promise<{
+    success: boolean;
+    data: Awaited<ReturnType<TelemetryService["getRecommendationMetrics"]>>;
+  }> {
     return {
       success: true,
       data: await this.telemetryService.getRecommendationMetrics(

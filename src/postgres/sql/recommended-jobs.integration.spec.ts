@@ -1,4 +1,4 @@
-import { Client } from "pg";
+import { Client, QueryResultRow } from "pg";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
@@ -110,7 +110,10 @@ describeDatabase("recommendations executed in PostgreSQL", () => {
     await client.query("VACUUM ANALYZE recommendation_sentence_embeddings");
     await client.query("VACUUM ANALYZE tag_embeddings");
   });
-  const rank = async (weeklyEmail = false, rankedAt: string | null = null) =>
+  const rank = async (
+    weeklyEmail = false,
+    rankedAt: string | null = null,
+  ): Promise<QueryResultRow[]> =>
     (
       await client.query(recommendedJobsSql, [
         "test-user",
@@ -121,9 +124,9 @@ describeDatabase("recommendations executed in PostgreSQL", () => {
       ])
     ).rows;
 
-  const profileRepository = () => {
+  const profileRepository = (): ProfileRepository => {
     const executor = {
-      query: async (sql: string, args: unknown[]) =>
+      query: async (sql: string, args: unknown[]): Promise<QueryResultRow[]> =>
         (await client.query(sql, args)).rows,
     };
     return new ProfileRepository({
@@ -267,11 +270,14 @@ describeDatabase("recommendations executed in PostgreSQL", () => {
     });
   });
 
-  const vector = (axis: number) =>
+  const vector = (axis: number): number[] =>
     Array.from({ length: 3072 }, (_, i) => (i === axis ? 1 : 0));
-  const embeddingRepository = () => {
+  const embeddingRepository = (): RecommendationEmbeddingRepository => {
     const executor = {
-      query: async (sql: string, parameters: unknown[]) =>
+      query: async (
+        sql: string,
+        parameters: unknown[],
+      ): Promise<QueryResultRow[]> =>
         (await client.query(sql, parameters)).rows,
     };
     return new RecommendationEmbeddingRepository({
@@ -285,7 +291,7 @@ describeDatabase("recommendations executed in PostgreSQL", () => {
     kind: string,
     nodeId: number,
     axis: number | ((text: string, index: number) => number) = 0,
-  ) => {
+  ): Promise<void> => {
     const [input] = (
       await client.query(
         `SELECT $1::text AS kind,$2::text AS "nodeId",content,md5(content) AS hash
@@ -301,7 +307,7 @@ describeDatabase("recommendations executed in PostgreSQL", () => {
       })),
     );
   };
-  const addSkill = async () => {
+  const addSkill = async (): Promise<void> => {
     await client.query(`INSERT INTO graph_nodes VALUES (60,'Tag','{"name":"Rust"}');
       INSERT INTO graph_relationships(source_id,target_id,type) VALUES (1,60,'HAS_SKILL');`);
     await client.query(
@@ -310,9 +316,12 @@ describeDatabase("recommendations executed in PostgreSQL", () => {
     );
   };
 
-  const emailRepository = () => {
+  const emailRepository = (): EmailDigestRepository => {
     const executor = {
-      query: async (sql: string, parameters: unknown[]) =>
+      query: async (
+        sql: string,
+        parameters: unknown[],
+      ): Promise<QueryResultRow[]> =>
         (await client.query(sql, parameters)).rows,
     };
     return new EmailDigestRepository({
@@ -323,7 +332,7 @@ describeDatabase("recommendations executed in PostgreSQL", () => {
     } as never);
   };
 
-  const subscribe = async () => {
+  const subscribe = async (): Promise<EmailDigestRepository> => {
     await client.query(`INSERT INTO graph_nodes VALUES (50,'UserEmail','{"email":"user@example.test"}');
       INSERT INTO graph_relationships VALUES (1,50,'HAS_EMAIL');
       INSERT INTO user_email_digest_subscriptions(user_node_id,email_node_id,status,confirmed_at)
@@ -842,12 +851,14 @@ describeDatabase("recommendations executed in PostgreSQL", () => {
     );
     await embedDocument("user", 1);
     const repository = new ProfileRepository({
-      query: async (sql: string, args: unknown[]) =>
+      query: async (sql: string, args: unknown[]): Promise<QueryResultRow[]> =>
         (await client.query(sql, args)).rows,
       transaction: async (work: (manager: unknown) => Promise<unknown>) =>
         work({
-          query: async (sql: string, args: unknown[]) =>
-            (await client.query(sql, args)).rows,
+          query: async (
+            sql: string,
+            args: unknown[],
+          ): Promise<QueryResultRow[]> => (await client.query(sql, args)).rows,
         }),
     } as never);
     expect(
