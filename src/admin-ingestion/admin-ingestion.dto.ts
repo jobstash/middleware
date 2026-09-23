@@ -35,6 +35,7 @@ const IMPORT_SOURCES = [
   "jobsite_probe",
   "pillar",
   "atlas",
+  "robotics",
 ] as const;
 const JOBPOST_SCOPES = ["all", "sources", "organization", "jobsite"] as const;
 const SOURCE_SECTIONS = [
