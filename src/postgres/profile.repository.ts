@@ -19,6 +19,16 @@ import {
   recommendationVectorSearchSettings,
 } from "./sql/recommended-jobs.sql";
 
+type RecommendationLocationCandidate = {
+  nodeId: string;
+  arrangement: {
+    classification: WorkArrangementClassification;
+    remoteOptions: WorkLocationOption[];
+    hybridOptions: WorkLocationOption[];
+    onsiteOptions: WorkLocationOption[];
+  };
+};
+
 type QueryExecutor = PostgresService | EntityManager;
 
 type NodeRecord = {
@@ -629,26 +639,8 @@ export class ProfileRepository {
   async getRecommendationLocationCandidates(
     rankedAt: Date,
     weeklyEmail: boolean,
-  ): Promise<
-    Array<{
-      nodeId: string;
-      arrangement: {
-        classification: WorkArrangementClassification;
-        remoteOptions: WorkLocationOption[];
-        hybridOptions: WorkLocationOption[];
-        onsiteOptions: WorkLocationOption[];
-      };
-    }>
-  > {
-    return queryRows<{
-      nodeId: string;
-      arrangement: {
-        classification: WorkArrangementClassification;
-        remoteOptions: WorkLocationOption[];
-        hybridOptions: WorkLocationOption[];
-        onsiteOptions: WorkLocationOption[];
-      };
-    }>(
+  ): Promise<RecommendationLocationCandidate[]> {
+    return queryRows<RecommendationLocationCandidate>(
       this.postgres,
       `
       SELECT document.job_node_id::text AS "nodeId",
