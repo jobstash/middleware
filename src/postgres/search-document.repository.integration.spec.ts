@@ -2759,6 +2759,11 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
         [input.title, input.organizationName],
       ],
     );
+    // Production projections populate both payloads; pillar readers use the detail payload.
+    await postgres.query(
+      "UPDATE job_search_documents SET detail_payload = payload WHERE job_node_id = $1",
+      [nodeId],
+    );
     await postgres.query(
       `
         INSERT INTO job_search_owners (
