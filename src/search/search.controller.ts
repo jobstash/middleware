@@ -285,6 +285,7 @@ export class SearchController {
     @Param("slug") slug: string,
     @Headers(ECOSYSTEM_HEADER)
     ecosystem: string | undefined,
+    @Query("metadataOnly") metadataOnly?: string,
   ): Promise<ResponseWithOptionalData<PillarPageData>> {
     const query = JSON.stringify({
       slug,
@@ -294,7 +295,11 @@ export class SearchController {
     if (address) {
       await this.profileService.logSearchInteraction(address, query);
     }
-    return this.searchService.getPillarPageData(slug, ecosystem);
+    return this.searchService.getPillarPageData(
+      slug,
+      ecosystem,
+      metadataOnly === "true",
+    );
   }
 
   @Get("pillar/location/resolve")

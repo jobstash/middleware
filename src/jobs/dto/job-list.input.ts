@@ -16,6 +16,27 @@ import { Compare } from "src/shared/validators";
 const JOB_WORK_MODE_FILTERS = [...WORK_MODES, "fully-remote"] as const;
 
 export class JobListParams {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  organizationId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
+  @IsBoolean()
+  paysInCrypto?: boolean | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
+  @IsBoolean()
+  offersTokenAllocation?: boolean | null = null;
+
   @ApiPropertyOptional({
     example: "this-week",
     enum: [

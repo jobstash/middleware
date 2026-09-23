@@ -74,6 +74,100 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
     await seedCoreDocuments();
   });
 
+  describe("organization feed", () => {
+    it("selects five matching jobs per organization and paginates whole groups", async () => {
+      for (const [organizationId, count, base] of [
+        ["org-acme", 200, 10000],
+        ["org-beta", 6, 20000],
+      ] as const) {
+        for (let i = 0; i < count; i++)
+          await insertJob({
+            id: `stack-${organizationId}-${i}`,
+            title: `Engineer ${i}`,
+            access: "public",
+            organizationId,
+            organizationName: organizationId,
+            organizationHasExpertJobs: false,
+            salary: i < 3 ? 200000 : 100000,
+            publishedTimestamp: base + i,
+            tags: ["typescript"],
+            projectNames: [],
+          });
+      }
+      const first = await repository.searchJobGroups({
+        startDate: 10000,
+        page: 1,
+        limit: 1,
+      });
+      const second = await repository.searchJobGroups({
+        startDate: 10000,
+        page: 2,
+        limit: 1,
+      });
+      expect(first.total).toBe(2);
+      expect(first.totalJobs).toBe(206);
+      expect(first.data[0].organizationId).toBe("org-beta");
+      expect(first.data[0].totalJobs).toBe(6);
+      expect(first.data[0].jobs.map(job => job.id)).toEqual(
+        [5, 4, 3, 2, 1].map(i => `stack-org-beta-${i}`),
+      );
+      expect(second.data[0].organizationId).toBe("org-acme");
+      expect(second.data[0].totalJobs).toBe(200);
+      expect(second.data[0].jobs).toHaveLength(5);
+      const olderOrganizationPage = await repository.searchJobs({
+        organizationId: "org-acme",
+        page: 2,
+        limit: 100,
+      });
+      expect(olderOrganizationPage.total).toBeGreaterThanOrEqual(200);
+      expect(olderOrganizationPage.data).toHaveLength(100);
+      expect(
+        olderOrganizationPage.data.every(
+          job => job.timestamp < Date.now() - 90 * 86400000,
+        ),
+      ).toBe(true);
+      const filtered = await repository.searchJobGroups({
+        startDate: 10000,
+        minSalaryRange: 150000,
+      });
+      expect(filtered.totalJobs).toBe(6);
+      expect(filtered.data[0].jobs.map(job => job.id)).toEqual(
+        [2, 1, 0].map(i => `stack-org-beta-${i}`),
+      );
+      const empty = await repository.searchJobGroups({
+        startDate: 10000,
+        page: 3,
+        limit: 1,
+      });
+      expect(empty.data).toEqual([]);
+      expect(empty.totalJobs).toBe(206);
+    });
+
+    it("intersects explicit filters with pillar criteria instead of broadening the pillar", async () => {
+      const result = await repository.searchJobGroups({
+        organizations: ["beta"],
+        pillarCriteria: { organizationId: "org-acme" },
+      });
+      expect(result.totalJobs).toBe(0);
+      expect(result.data).toEqual([]);
+    });
+
+    it("keeps the exact organization when normalized names collide", async () => {
+      await postgres.query(
+        "UPDATE organization_search_documents SET normalized_name = 'acme' WHERE organization_id = 'org-beta'",
+      );
+      expect(
+        await pillarRepository.resolveJobPillar("o-acme~org-beta"),
+      ).toEqual({ organizationId: "org-beta" });
+      const result = await repository.searchJobs({
+        organizationId: "org-beta",
+      });
+      expect(
+        result.data.every(job => job.organization.orgId === "org-beta"),
+      ).toBe(true);
+    });
+  });
+
   it("disables PostgreSQL JIT for latency-sensitive middleware queries", async () => {
     const [settings] = await postgres.query<{ jit: string }>("SHOW jit");
 
@@ -2664,6 +2758,11 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
         searchText,
         [input.title, input.organizationName],
       ],
+    );
+    // Production projections populate both payloads; pillar readers use the detail payload.
+    await postgres.query(
+      "UPDATE job_search_documents SET detail_payload = payload WHERE job_node_id = $1",
+      [nodeId],
     );
     await postgres.query(
       `

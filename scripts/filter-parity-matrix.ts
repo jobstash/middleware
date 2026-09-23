@@ -48,7 +48,13 @@ export type FilterMatrixCase = {
   headers: Record<string, string>;
   coveredParameters: string[];
   kind:
-    "baseline" | "single" | "pair" | "range" | "sort" | "header" | "validation";
+    | "baseline"
+    | "single"
+    | "pair"
+    | "range"
+    | "sort"
+    | "header"
+    | "validation";
   productionBaselineMayFail: boolean;
 };
 
@@ -156,6 +162,13 @@ const publicationDate = enumParameter(
 
 const jobParameters = (): MatrixParameter[] => [
   publicationDate,
+  {
+    name: "organizationId",
+    values: [value("missing", "parity-nonexistent")],
+    pairValues: [value("missing", "parity-nonexistent")],
+  },
+  booleanParameter("paysInCrypto"),
+  booleanParameter("offersTokenAllocation"),
   numberParameter("minSalaryRange", 100_000, 2_000_000),
   numberParameter("maxSalaryRange", 150_000, 2_000_001),
   numberParameter("minHeadCount", 10, 1_000),

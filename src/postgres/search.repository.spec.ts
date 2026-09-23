@@ -2,6 +2,59 @@ import { PostgresService } from "./postgres.service";
 import { SearchRepository } from "./search.repository";
 
 describe("SearchRepository", () => {
+  it.each([
+    ["country", "countries"],
+    ["city", "cities"],
+    ["continent", "continents"],
+    ["business_region", "regions"],
+    ["administrative_area", "regions"],
+  ])("resolves a %s pillar using its stored place type", async (kind, key) => {
+    const repository = new SearchRepository({
+      query: jest.fn(),
+    } as unknown as PostgresService);
+    jest.spyOn(repository, "resolvePlacePillar").mockResolvedValue({
+      placeId: "place-id",
+      canonicalName: "Place",
+      canonicalSlug: "place",
+      kind: kind as "city",
+    });
+    expect(await repository.resolveJobPillar("l-place")).toEqual({
+      [key]: ["place:place-id"],
+    });
+  });
+
+  it.each([
+    ["lt-fully-remote", { workModes: ["fully-remote"] }],
+    ["t-typescript", { tags: ["typescript"] }],
+    ["cl-engineering", { classifications: ["engineering"] }],
+    ["tz-europe-berlin", { timezones: ["europe-berlin"] }],
+    ["ct-utc-08", { collaborationHours: ["utc-08"] }],
+    ["s-senior", { seniority: ["3"] }],
+    ["urgently-hiring", { expertJobs: true }],
+    ["crypto-beginner-jobs", { onboardIntoWeb3: true }],
+    ["b-pays-in-crypto", { paysInCrypto: true }],
+  ])(
+    "resolves %s without dropping its implied filter",
+    async (slug, criteria) => {
+      const repository = new SearchRepository({
+        query: jest.fn(),
+      } as unknown as PostgresService);
+      expect(await repository.resolveJobPillar(slug as string)).toEqual(
+        criteria,
+      );
+    },
+  );
+
+  it("retains legacy free-text location pillars as individual city criteria", async () => {
+    const repository = new SearchRepository({
+      query: jest.fn(),
+    } as unknown as PostgresService);
+    jest.spyOn(repository, "resolvePlacePillar").mockResolvedValue(undefined);
+    expect(
+      await repository.resolveJobPillar("l-london-united-kingdom"),
+    ).toEqual({ cities: ["london-united-kingdom"] });
+  });
+
   it("projects organization identity without persisting ClickHouse team data", async () => {
     const query = jest.fn().mockResolvedValue([]);
     const repository = new SearchRepository({
