@@ -143,6 +143,7 @@ const reportResponse = (
 describe("PeopleIntelligenceService", () => {
   it("suppresses public developer-report person cells below k=5", () => {
     const response = reportResponse();
+    response.top.aiCategories = [{slug: "chips", activeDevelopers: 4}, {slug: "applications", activeDevelopers: 12}];
     response.summary.activeDevelopers = 4;
     response.summary.internalDevelopers = 2;
     response.summary.internalDeveloperShare = 0.5;
@@ -241,6 +242,7 @@ describe("PeopleIntelligenceService", () => {
     expect(result.top.organizations.map(org => org.organizationKey)).toEqual([
       "safe",
     ]);
+    expect(result.top.aiCategories).toEqual([{slug: "applications", activeDevelopers: 12}]);
     expect(result.summary.activeDevelopers).toBe(0);
     expect(result.summary.internalDeveloperShare).toBe(0);
     expect(result.coverage.developerPercent).toBe(0);

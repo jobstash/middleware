@@ -152,6 +152,7 @@ export type DeveloperReport = {
   current: DeveloperReportPoint | null;
   history: DeveloperReportPoint[];
   top: {
+    aiCategories?: Array<{ slug: string; activeDevelopers: number }>;
     verticals: DeveloperReportScopeSummary[];
     chains: DeveloperReportScopeSummary[];
     organizations: Array<{

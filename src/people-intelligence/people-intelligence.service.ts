@@ -313,6 +313,13 @@ export const suppressDeveloperReportK5 = (
     current: history.at(-1) ?? null,
     history,
     top: {
+      ...(report.top.aiCategories
+        ? {
+            aiCategories: report.top.aiCategories.filter(category =>
+              safePopulation(category.activeDevelopers),
+            ),
+          }
+        : {}),
       verticals: topVerticals,
       chains: topChains,
       organizations: report.top.organizations.filter(

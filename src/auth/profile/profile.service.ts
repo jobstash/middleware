@@ -173,12 +173,100 @@ export class ProfileService {
     }
   }
 
+  private readonly recommendationCache = new Map<
+    string,
+    {
+      expiresAt: number;
+      result: RecommendedJobsResponse;
+    }
+  >();
+  private readonly recommendationRequests = new Map<
+    string,
+    Promise<RecommendedJobsResponse>
+  >();
+
   async getRecommendedJobs(
     wallet: string,
     limit = 30,
     surface: "web" | "weekly_email" = "web",
     page = 1,
     rankedAt?: string,
+  ): Promise<RecommendedJobsResponse> {
+    if (surface === "weekly_email")
+      return this.computeRecommendedJobs(
+        wallet,
+        limit,
+        surface,
+        page,
+        rankedAt,
+      );
+    const revision = await this.profiles.getRecommendationRevision(wallet);
+    const prefix = JSON.stringify([wallet, revision]);
+    const key = prefix + ":" + (rankedAt ?? "latest");
+    for (const [cacheKey, entry] of this.recommendationCache) {
+      if (entry.expiresAt <= Date.now())
+        this.recommendationCache.delete(cacheKey);
+    }
+    let result = this.recommendationCache.get(key)?.result;
+    if (!result && rankedAt) {
+      result = this.recommendationCache.get(prefix + ":latest")?.result;
+      if (result?.rankedAt !== rankedAt) result = undefined;
+    }
+    if (!result) {
+      let pending = this.recommendationRequests.get(key);
+      if (!pending) {
+        pending = this.computeRecommendedJobs(
+          wallet,
+          limit,
+          surface,
+          page,
+          rankedAt,
+          true,
+        );
+        this.recommendationRequests.set(key, pending);
+      }
+      try {
+        result = await pending;
+        // Bound memory by job count, not just account count.
+        if (result.jobs.length <= 1000) {
+          this.recommendationCache.set(key, {
+            expiresAt: Date.now() + 30_000,
+            result,
+          });
+          while (
+            [...this.recommendationCache.values()].reduce(
+              (total, entry) => total + entry.result.jobs.length,
+              0,
+            ) > 2000 ||
+            this.recommendationCache.size > 20
+          ) {
+            this.recommendationCache.delete(
+              this.recommendationCache.keys().next().value!,
+            );
+          }
+        }
+      } finally {
+        this.recommendationRequests.delete(key);
+      }
+    }
+    const size = Math.max(1, Math.min(limit, 50));
+    const currentPage = Number.isSafeInteger(page) && page > 0 ? page : 1;
+    const offset = (currentPage - 1) * size;
+    return {
+      ...result,
+      jobs: result.jobs.slice(offset, offset + size),
+      page: currentPage,
+      hasMore: offset + size < result.total,
+    };
+  }
+
+  private async computeRecommendedJobs(
+    wallet: string,
+    limit = 30,
+    surface: "web" | "weekly_email" = "web",
+    page = 1,
+    rankedAt?: string,
+    allMatches = false,
   ): Promise<RecommendedJobsResponse> {
     const requestedLimit = Math.max(1, Math.min(limit, 50));
     const requestedPage = Number.isSafeInteger(page) && page > 0 ? page : 1;
@@ -190,16 +278,47 @@ export class ProfileService {
       now.getTime() - requestedTime.getTime() < 24 * 60 * 60 * 1000
         ? requestedTime
         : now;
-    const [candidates, hasPreferences, preferences] = await Promise.all([
-      this.profiles.getRecommendedJobCandidates(
-        wallet,
-        surface === "weekly_email" ? 500 : null,
-        surface === "weekly_email",
-        rankingTime,
-      ),
+    const [hasPreferences, preferences] = await Promise.all([
       this.profiles.hasJobPreferences(wallet),
       this.getJobPreferences(wallet),
     ]);
+    // Check eligibility before ranking and constructing thousands of full job
+    // cards. Use the same location matcher as the final response.
+    let eligibleNodeIds: string[] | null = null;
+    if (hasPreferences && preferences) {
+      const locations = await this.profiles.getRecommendationLocationCandidates(
+        rankingTime,
+        surface === "weekly_email",
+      );
+      eligibleNodeIds = locations
+        .filter(({ arrangement }) =>
+          [
+            ...arrangement.remoteOptions,
+            ...arrangement.hybridOptions,
+            ...arrangement.onsiteOptions,
+          ].some(option => {
+            const match = matchWorkLocationOptions(
+              {},
+              [option],
+              preferences,
+              arrangement.classification,
+            );
+            return (
+              meetsRecommendationConstraints(match) &&
+              (surface !== "weekly_email" ||
+                match?.group === "confirmedMatches")
+            );
+          }),
+        )
+        .map(row => row.nodeId);
+    }
+    const candidates = await this.profiles.getRecommendedJobCandidates(
+      wallet,
+      surface === "weekly_email" ? 500 : null,
+      surface === "weekly_email",
+      rankingTime,
+      eligibleNodeIds,
+    );
 
     const jobs: RecommendedJobsResponse["jobs"] = [];
     const employers = new Set<string>();
@@ -270,7 +389,7 @@ export class ProfileService {
       return { jobs, total: jobs.length, rankingVersion: "sentences-v1" };
     const offset = (requestedPage - 1) * requestedLimit;
     return {
-      jobs: jobs.slice(offset, offset + requestedLimit),
+      jobs: allMatches ? jobs : jobs.slice(offset, offset + requestedLimit),
       total: jobs.length,
       page: requestedPage,
       hasMore: offset + requestedLimit < jobs.length,
