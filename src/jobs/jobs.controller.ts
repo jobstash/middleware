@@ -158,11 +158,13 @@ export class JobsController {
     description:
       "Paginated organization stacks or individual jobs, selected by active filters",
   })
-  getJobFeed(
+  async getJobFeed(
+    @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true, whitelist: true }))
     params: JobFeedParams,
     @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
   ): Promise<JobFeedResult> {
+    await this.recordJobSearch(address, params, ecosystem, "feed");
     return this.jobsService.getJobFeed({
       ...params,
       ecosystemHeader: ecosystem,
@@ -224,8 +226,21 @@ export class JobsController {
       ...params,
       ecosystemHeader: ecosystem,
     };
-    const queryString = JSON.stringify(enrichedParams);
-    this.logger.log(`/jobs/list ${queryString}`);
+    await this.recordJobSearch(address, params, ecosystem, "list");
+    return this.jobsService.getJobsListWithSearch(enrichedParams);
+  }
+
+  private async recordJobSearch(
+    address: string | undefined,
+    params: JobListParams,
+    ecosystem: string | undefined,
+    path: "feed" | "list",
+  ): Promise<void> {
+    const queryString = JSON.stringify({
+      ...params,
+      ecosystemHeader: ecosystem,
+    });
+    this.logger.log(`/jobs/${path} ${queryString}`);
     const isFirstPage =
       params.page === null || params.page === undefined || params.page === 1;
     const hasUserCriteria = Object.entries(params).some(([key, value]) => {
@@ -243,7 +258,6 @@ export class JobsController {
     if (address && isFirstPage && hasUserCriteria) {
       await this.profileService.logSearchInteraction(address, queryString);
     }
-    return this.jobsService.getJobsListWithSearch(enrichedParams);
   }
 
   @Get("/filters")
