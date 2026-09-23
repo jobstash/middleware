@@ -17,8 +17,8 @@ describe("visitor reporting access", () => {
       const guard = new PBACGuard(new Reflector(), { getSession } as never);
       const context = {
         switchToHttp: () => ({
-          getRequest: () => ({}),
-          getResponse: () => ({}),
+          getRequest: (): Record<string, unknown> => ({}),
+          getResponse: (): Record<string, unknown> => ({}),
         }),
         getHandler: () => VisitorActivityController.prototype[method],
         getClass: () => VisitorActivityController,
@@ -56,9 +56,12 @@ describe("visitor reporting access", () => {
       "x-visitor-time": time,
       "x-visitor-signature": signature,
     };
-    const request = { rawBody, header: (name: string) => headers[name] };
+    const request = {
+      rawBody,
+      header: (name: string): string => headers[name],
+    };
     const context = {
-      switchToHttp: () => ({ getRequest: () => request }),
+      switchToHttp: () => ({ getRequest: (): typeof request => request }),
     } as unknown as ExecutionContext;
     const guard = new VisitorIngestGuard();
     expect(guard.canActivate(context)).toBe(true);
