@@ -1,4 +1,5 @@
-import { Injectable } from "@nestjs/common";
+import { SearchDocumentRepository } from "src/postgres/search-document.repository";
+import { Injectable, Optional } from "@nestjs/common";
 import * as Sentry from "@sentry/node";
 import { go } from "fuzzysort";
 import { capitalize, lowerCase } from "lodash";
@@ -250,6 +251,7 @@ export class SearchService {
     private readonly searchRepository: SearchRepository,
     private readonly teamIntelligence: TeamIntelligenceService,
     private readonly jobMarketRepository: JobMarketRepository,
+    @Optional() private readonly searchDocuments?: SearchDocumentRepository,
   ) {}
 
   async getPillarMarket(
@@ -257,7 +259,18 @@ export class SearchService {
     range = "365",
   ): Promise<ResponseWithOptionalData<PillarMarketData>> {
     try {
-      const canonicalSlug = this.marketApiSlug(slug);
+      let canonicalSlug = this.marketApiSlug(slug);
+      if (canonicalSlug.startsWith("o-") && canonicalSlug.includes("~")) {
+        canonicalSlug = await this.searchRepository.getOrganizationMarketSlug(
+          canonicalSlug.slice(canonicalSlug.lastIndexOf("~") + 1),
+        );
+        if (!canonicalSlug)
+          return {
+            success: true,
+            message: "Organization market history is unavailable",
+            data: null,
+          };
+      }
       const days = this.marketRangeDays(range);
       const [rows, compensationRows, signalRows] = await Promise.all([
         this.jobMarketRepository.getPillarHistory(canonicalSlug, days),
@@ -1161,7 +1174,9 @@ export class SearchService {
         ),
       ];
       const filters: (
-        SearchRangeFilter | SingleSelectFilter | MultiSelectFilter
+        | SearchRangeFilter
+        | SingleSelectFilter
+        | MultiSelectFilter
       )[] = [];
       const singleFilterField = this.singleActiveFilterField(params);
       const filteredConfigs =
@@ -1252,6 +1267,7 @@ export class SearchService {
   async getPillarPageData(
     slug: string,
     ecosystem?: string,
+    metadataOnly = false,
   ): Promise<ResponseWithOptionalData<PillarPageData>> {
     try {
       const parsed = this.parsePillarSlug(slug);
@@ -1266,25 +1282,48 @@ export class SearchService {
         : [];
       const organization =
         this.normalizePillarOrganization(hydratedOrganization);
-      const header = await this.fetchHeaderText(
-        "jobs",
-        parsed.pillarType,
-        parsed.value,
-      );
+      const header = organization
+        ? {
+            title: `Jobs at ${organization.name}`,
+            description:
+              organization.summary ||
+              `Explore open jobs at ${organization.name}.`,
+          }
+        : await this.fetchHeaderText("jobs", parsed.pillarType, parsed.value);
       if (!header) {
         return { success: true, message: "Pillar not found", data: null };
       }
-      const { startDate, endDate } = this.getPillarDateRange();
-      const rawJobs = await this.searchRepository.getPillarJobs({
-        pillarType: parsed.pillarType,
-        value: parsed.value,
-        ecosystem,
-        startDate,
-        endDate,
-        // Match the maximum public /jobs/list page size. The smaller
-        // pillar-only cap silently dropped eligible jobs from the SEO page.
-        limit: 100,
-      });
+      const { startDate, endDate } =
+        metadataOnly && parsed.pillarType === "organizations"
+          ? { startDate: null, endDate: null }
+          : this.getPillarDateRange();
+      const criteria = metadataOnly
+        ? await this.searchRepository.resolveJobPillar(slug)
+        : undefined;
+      const preview = metadataOnly
+        ? await this.searchDocuments.searchJobGroups({
+            ...criteria,
+            startDate,
+            endDate,
+            ecosystemHeader: ecosystem,
+            limit: 1,
+          })
+        : undefined;
+      const rawJobs = preview
+        ? (preview.data.flatMap(entry => entry.jobs) as unknown as Record<
+            string,
+            unknown
+          >[])
+        : await this.searchRepository.getPillarJobs({
+            pillarType: parsed.pillarType,
+            value: parsed.value,
+            ecosystem,
+            startDate,
+            endDate,
+            // Match the maximum public /jobs/list page size. The smaller
+            // pillar-only cap silently dropped eligible jobs from the SEO page.
+            limit: 100,
+          });
       const jobs = (await this.hydratePillarJobs(rawJobs)).map(job =>
         this.normalizePillarJob(job),
       );
@@ -1305,7 +1344,22 @@ export class SearchService {
         message: "Retrieved pillar page data",
         data: {
           ...header,
-          jobs,
+          jobs: metadataOnly ? [] : jobs,
+          filterContext: criteria
+            ? ((): PillarPageData["filterContext"] => {
+                if (organization)
+                  return {
+                    paramKey: "organizations",
+                    value: organization.normalizedName,
+                    organizationId: organization.orgId,
+                  };
+                const [paramKey, value] = Object.entries(criteria)[0];
+                return {
+                  paramKey,
+                  value: Array.isArray(value) ? value.join(",") : String(value),
+                };
+              })()
+            : undefined,
           indexing: jobs.length > 0 ? "index" : "noindex",
           hasEligibleOpenJobs: jobs.length > 0,
           organization,

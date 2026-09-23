@@ -1,3 +1,4 @@
+import type { JobFeedGroup, JobFeedPage } from "src/jobs/dto/job-feed.output";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Injectable } from "@nestjs/common";
@@ -90,8 +91,9 @@ export type EvSitemapProject = {
   orgIds: string[];
 };
 
-type JobSearchParams = Partial<JobListParams> & {
+export type JobSearchParams = Partial<JobListParams> & {
   ecosystemHeader?: string;
+  pillarCriteria?: JobSearchParams;
   startDate?: number | null;
   endDate?: number | null;
   publicAccessOnly?: boolean;
@@ -204,6 +206,7 @@ class SqlPredicateBuilder {
     );
     this.add(`(
       (${fallbackExpression}) && ${keys}::text[]
+      OR ('other' = ANY(${keys}::text[]) AND cardinality(${fallbackExpression}) = 0)
       OR EXISTS (
         SELECT 1
         FROM unnest(${fallbackExpression}) facet_key
@@ -1130,9 +1133,7 @@ export class SearchDocumentRepository {
     return rows.map(row => row.payload);
   }
 
-  async searchJobs(
-    params: JobSearchParams,
-  ): Promise<SearchPage<JobListResult>> {
+  private jobPredicates(params: JobSearchParams): SqlPredicateBuilder {
     const where = new SqlPredicateBuilder();
     if (params.online === true || !params.includeOffline) where.add("online");
     if (params.blocked === true) {
@@ -1221,6 +1222,16 @@ export class SearchDocumentRepository {
       const parameter = where.bind(keys);
       where.add(`(
         availability_keys && ${parameter}::text[]
+        ${
+          facet === "cities" || facet === "availability"
+            ? `OR slugify_text(location) = ANY(${parameter}::text[])
+        OR EXISTS (
+          SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(payload -> 'availability') = 'array'
+            THEN payload -> 'availability' ELSE '[]'::jsonb END) entry(item)
+          WHERE slugify_text(COALESCE(entry.item ->> 'placeName', entry.item ->> 'placeText')) = ANY(${parameter}::text[])
+        )`
+            : ""
+        }
         OR EXISTS (
           SELECT 1
           FROM jsonb_each_text(
@@ -1263,6 +1274,15 @@ export class SearchDocumentRepository {
       "ARRAY[slugify_text(organization_name)]",
       params.organizations,
     );
+    if (params.organizationId?.trim())
+      where.addEqual("organization_id", params.organizationId.trim());
+    for (const key of ["paysInCrypto", "offersTokenAllocation"] as const) {
+      if (params[key] !== null && params[key] !== undefined) {
+        where.add(
+          `lower(COALESCE(payload ->> '${key}', 'false')) = ${where.bind(String(params[key]))}`,
+        );
+      }
+    }
     const seniorities = normalizeList(params.seniority);
     if (seniorities?.length) {
       where.add(`seniority = ANY(${where.bind(seniorities)}::text[])`);
@@ -1370,6 +1390,89 @@ export class SearchDocumentRepository {
     } else {
       where.addEqual("has_token", params.token);
     }
+    if (params.pillarCriteria) {
+      const pillar = this.jobPredicates(params.pillarCriteria);
+      const offset = where.parameters.length;
+      where.add(
+        pillar.predicates
+          .join(" AND ")
+          .replace(/\$(\d+)/g, (_, n) => `$${Number(n) + offset}`),
+      );
+      where.parameters.push(...pillar.parameters);
+    }
+    return where;
+  }
+
+  async searchJobGroups(
+    params: JobSearchParams,
+  ): Promise<JobFeedPage<JobFeedGroup>> {
+    const where = this.jobPredicates(params);
+    const page = Math.max(1, Math.trunc(params.page || 1));
+    const limit = Math.min(20, Math.max(1, Math.trunc(params.limit || 10)));
+    const limitParam = where.bind(limit);
+    const offsetParam = where.bind((page - 1) * limit);
+    const [result] = await this.postgres.query<{
+      total: string;
+      totalJobs: string;
+      data: Array<{
+        key: string;
+        organizationId: string | null;
+        totalJobs: number;
+        jobs: JobListResult[];
+      }>;
+    }>(
+      `
+      WITH eligible AS MATERIALIZED (
+        SELECT job_node_id, organization_id, published_timestamp,
+          CASE WHEN organization_id IS NOT NULL THEN 'org:' || organization_id
+            ELSE 'job:' || job_node_id::text END AS group_key
+        FROM job_search_documents
+        ${where.toSql()}
+      ), groups AS (
+        SELECT group_key, organization_id, max(published_timestamp) AS newest,
+          count(*) AS job_count
+        FROM eligible GROUP BY group_key, organization_id
+      ), selected AS MATERIALIZED (
+        SELECT * FROM groups ORDER BY newest DESC NULLS LAST, group_key
+        LIMIT ${limitParam} OFFSET ${offsetParam}
+      ), cards AS (
+        SELECT selected.*, picked.job_node_id, picked.published_timestamp,
+          ${jobEmployerPayload("job.payload")} AS payload
+        FROM selected
+        CROSS JOIN LATERAL (
+          SELECT job_node_id, published_timestamp FROM eligible
+          WHERE eligible.group_key = selected.group_key
+          ORDER BY published_timestamp DESC NULLS LAST, job_node_id LIMIT 5
+        ) picked
+        JOIN job_search_documents job ON job.job_node_id = picked.job_node_id
+        ${jobEmployerJoins()}
+      ), entries AS (
+        SELECT group_key, organization_id, newest, job_count,
+          jsonb_agg(payload ORDER BY published_timestamp DESC NULLS LAST, job_node_id) AS jobs
+        FROM cards GROUP BY group_key, organization_id, newest, job_count
+      )
+      SELECT (SELECT count(*) FROM groups) AS total,
+        (SELECT count(*) FROM eligible) AS "totalJobs",
+        COALESCE((SELECT jsonb_agg(jsonb_build_object(
+          'key', group_key, 'organizationId', organization_id,
+          'totalJobs', job_count, 'jobs', jobs
+        ) ORDER BY newest DESC NULLS LAST, group_key) FROM entries), '[]'::jsonb) AS data
+    `,
+      where.parameters,
+    );
+    return {
+      page,
+      count: result.data.length,
+      total: Number(result.total),
+      totalJobs: Number(result.totalJobs),
+      data: result.data,
+    };
+  }
+
+  async searchJobs(
+    params: JobSearchParams,
+  ): Promise<SearchPage<JobListResult>> {
+    const where = this.jobPredicates(params);
     const sortExpressions: Record<string, string> = {
       audits: "COALESCE(sort_project_audit_count, 0)",
       hacks: "COALESCE(sort_project_hack_count, 0)",

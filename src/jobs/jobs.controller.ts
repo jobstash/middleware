@@ -1,3 +1,5 @@
+import type { JobFeedResult } from "./dto/job-feed.output";
+import { JobFeedParams } from "./dto/job-feed.input";
 import {
   BadRequestException,
   Body,
@@ -147,6 +149,24 @@ export class JobsController {
       Number(page) || 1,
       rankedAt,
     );
+  }
+
+  @Get("feed")
+  @UseGuards(PBACGuard)
+  @UseInterceptors(new CacheHeaderInterceptor({ mode: "revalidate-always" }))
+  @ApiOkResponse({
+    description:
+      "Paginated organization stacks or individual jobs, selected by active filters",
+  })
+  getJobFeed(
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    params: JobFeedParams,
+    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
+  ): Promise<JobFeedResult> {
+    return this.jobsService.getJobFeed({
+      ...params,
+      ecosystemHeader: ecosystem,
+    });
   }
 
   @Get("/list")

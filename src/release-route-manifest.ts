@@ -1,5 +1,6 @@
 /** Every HTTP operation registered from AppModule. */
 export const RELEASE_ROUTE_MANIFEST = [
+  ["JobsController", "getJobFeed", "GET", "jobs/feed", "active"],
   ["JobsController", "getJobsRevision", "GET", "jobs/revision", "active"],
   [
     "AdminIngestionController",

@@ -1,3 +1,7 @@
+import type { JobFeedResult } from "./dto/job-feed.output";
+import { SearchRepository } from "src/postgres/search.repository";
+import { JobFeedParams, shouldGroupJobs } from "./dto/job-feed.input";
+import { JobSearchParams } from "src/postgres/search-document.repository";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Inject, Injectable, Optional } from "@nestjs/common";
 import { Cache } from "cache-manager";
@@ -54,7 +58,6 @@ import { ChangeJobLocationTypeInput } from "./dto/change-location-type.input";
 import { CreateJobFolderInput } from "./dto/create-job-folder.input";
 import { EditJobTagsInput } from "./dto/edit-tags.input";
 import { FeatureJobsInput } from "./dto/feature-jobs.input";
-import { JobListParams } from "./dto/job-list.input";
 import { UpdateJobApplicantListInput } from "./dto/update-job-applicant-list.input";
 import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
 import { UpdateJobMetadataInput } from "./dto/update-job-metadata.input";
@@ -95,6 +98,7 @@ export class JobsService {
     @Optional()
     @Inject(CACHE_MANAGER)
     private readonly cacheManager?: Cache,
+    @Optional() private readonly searchRepository?: SearchRepository,
   ) {}
 
   getJobsRevision(): Promise<{ revision: string }> {
@@ -201,7 +205,7 @@ export class JobsService {
   }
 
   async getJobsListWithSearch(
-    params: JobListParams & { ecosystemHeader?: string },
+    params: JobSearchParams,
   ): Promise<PaginatedData<JobListResult>> {
     const teamOrganizationIds =
       await this.teamIntelligence.matchingOrganizationIds(params);
@@ -231,6 +235,52 @@ export class JobsService {
           return [];
         }
       }),
+    };
+  }
+
+  async getJobFeed(
+    input: JobFeedParams & { ecosystemHeader?: string },
+  ): Promise<JobFeedResult> {
+    const pillarCriteria = input.pillar
+      ? await this.searchRepository.resolveJobPillar(input.pillar)
+      : undefined;
+    const params: JobSearchParams = {
+      ...input,
+      page: Math.max(1, Math.trunc(input.page || 1)),
+      limit: Math.min(20, Math.max(1, Math.trunc(input.limit || 10))),
+      pillarCriteria,
+    };
+    if (
+      !shouldGroupJobs(params) ||
+      (pillarCriteria && !shouldGroupJobs(pillarCriteria))
+    ) {
+      const result = await this.getJobsListWithSearch(params);
+      return {
+        ...result,
+        mode: "individual" as const,
+        totalJobs: result.total,
+      };
+    }
+    const teamOrganizationIds =
+      await this.teamIntelligence.matchingOrganizationIds(params);
+    const result = await this.searchDocuments.searchJobGroups({
+      ...publicationDateRangeGenerator(params.publicationDate ?? null),
+      ...params,
+      ...(teamOrganizationIds !== undefined ? { teamOrganizationIds } : {}),
+    });
+    const jobs = await this.hydrateJobTeamSummaries(
+      result.data.flatMap(entry => entry.jobs),
+    );
+    const byId = new Map(
+      jobs.map(job => [job.id, new JobListResultEntity(job).getProperties()]),
+    );
+    return {
+      ...result,
+      mode: "grouped" as const,
+      data: result.data.map(entry => ({
+        ...entry,
+        jobs: entry.jobs.map(job => byId.get(job.id)),
+      })),
     };
   }
 

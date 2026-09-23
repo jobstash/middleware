@@ -1,4 +1,5 @@
-import { Injectable } from "@nestjs/common";
+import { JobListParams } from "src/jobs/dto/job-list.input";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { SearchNav } from "src/shared/interfaces";
 import { slugify } from "src/shared/helpers";
 import { SuggestionGroupId } from "src/search/dto/job-suggestions.input";
@@ -379,6 +380,86 @@ export class SearchRepository {
     return row?.title && row?.description ? row : undefined;
   }
 
+  async resolveJobPillar(slug: string): Promise<Partial<JobListParams>> {
+    const aliases = {
+      "urgently-hiring": "b-expertJobs",
+      "crypto-beginner-jobs": "b-onboardIntoWeb3",
+    };
+    const canonical = aliases[slug] ?? slug;
+    const match = canonical.match(/^([^-]+)-(.+)$/);
+    if (!match) throw new BadRequestException("Invalid pillar");
+    const [, prefix, value] = match;
+    if (prefix === "o") {
+      const org = await this.getOrganizationPillar(value);
+      // An unknown organization must never broaden the request to every job.
+      return {
+        organizationId: String(org?.orgId ?? "__missing_organization__"),
+      };
+    }
+    if (prefix === "l") {
+      const place = await this.resolvePlacePillar(value);
+      if (!place) return { cities: [value] }; // Preserve legacy free-text location pillars as individual cards.
+      const key =
+        place.kind === "city"
+          ? "cities"
+          : place.kind === "country"
+            ? "countries"
+            : place.kind === "continent"
+              ? "continents"
+              : "regions";
+      return { [key]: [`place:${place.placeId}`] };
+    }
+    if (prefix === "s") {
+      const key = {
+        intern: "1",
+        junior: "2",
+        senior: "3",
+        lead: "4",
+        head: "5",
+      }[value];
+      if (!key) throw new BadRequestException("Unknown seniority pillar");
+      return { seniority: [key] };
+    }
+    if (prefix === "b") {
+      if (["expertJobs", "onboardIntoWeb3"].includes(value))
+        return { [value]: true };
+      if (value === "beginner-friendly") return { onboardIntoWeb3: true };
+      if (value === "pays-in-crypto") return { paysInCrypto: true };
+      if (value === "offers-token-allocation")
+        return { offersTokenAllocation: true };
+      throw new BadRequestException("Unknown boolean pillar");
+    }
+    const key = {
+      cl: "classifications",
+      t: "tags",
+      co: "commitments",
+      lt: "workModes",
+      tz: "timezones",
+      ct: "collaborationHours",
+      i: "investors",
+      fr: "fundingRounds",
+      fs: "fundingStages",
+    }[prefix];
+    if (!key) throw new BadRequestException("Unknown pillar");
+    return { [key]: [value] };
+  }
+
+  async getOrganizationMarketSlug(orgId: string): Promise<string | undefined> {
+    const [row] = await this.postgres.query<{ slug: string }>(
+      `
+      SELECT 'o-' || organization.normalized_name AS slug
+      FROM organization_search_documents organization
+      WHERE organization.organization_id = $1 AND NOT EXISTS (
+        SELECT 1 FROM organization_search_documents namesake
+        WHERE namesake.normalized_name = organization.normalized_name
+          AND namesake.organization_id <> organization.organization_id
+      )
+    `,
+      [orgId],
+    );
+    return row?.slug;
+  }
+
   async getOrganizationPillar(
     normalizedName: string,
   ): Promise<Record<string, unknown> | undefined> {
@@ -388,10 +469,15 @@ export class SearchRepository {
       `
         SELECT ${organizationSummary("organization")} AS payload
         FROM organization_search_documents organization
-        WHERE organization.normalized_name = $1
+        WHERE ${normalizedName.includes("~") ? "organization.organization_id" : "organization.normalized_name"} = $1
+        ORDER BY organization.organization_id
         LIMIT 1
       `,
-      [normalizedName],
+      [
+        normalizedName.includes("~")
+          ? normalizedName.slice(normalizedName.lastIndexOf("~") + 1)
+          : normalizedName,
+      ],
     );
     return row?.payload;
   }

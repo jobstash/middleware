@@ -182,6 +182,11 @@ export interface PillarPageOrg {
 }
 
 export interface PillarPageData {
+  filterContext?: {
+    paramKey: string;
+    value: string;
+    organizationId?: string | null;
+  };
   title: string;
   description: string;
   jobs: PillarJob[];
