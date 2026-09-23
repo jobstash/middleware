@@ -11,7 +11,13 @@ describe("ProfileRepository", () => {
     expect(manager.query.mock.calls[0][0]).toContain(
       "SET LOCAL hnsw.iterative_scan",
     );
-    expect(manager.query.mock.calls[1][1]).toEqual(["user", 10, false]);
+    expect(manager.query.mock.calls[1][1]).toEqual([
+      "user",
+      10,
+      false,
+      null,
+      null,
+    ]);
   });
   it("lists canonical Profiles with their ProfileInfo and exact child links", async () => {
     const query = jest.fn().mockResolvedValue([

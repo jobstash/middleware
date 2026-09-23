@@ -117,6 +117,7 @@ describeDatabase("recommendations executed in PostgreSQL", () => {
         50,
         weeklyEmail,
         rankedAt,
+        null,
       ])
     ).rows;
 
@@ -414,7 +415,7 @@ describeDatabase("recommendations executed in PostgreSQL", () => {
     const plan = (
       await client.query(
         "EXPLAIN (ANALYZE, FORMAT JSON) " + recommendedJobsSql,
-        ["test-user", 50, false, null],
+        ["test-user", 50, false, null, null],
       )
     ).rows[0]["QUERY PLAN"][0];
     expect(plan.Plan["Actual Rows"]).toBe(50);

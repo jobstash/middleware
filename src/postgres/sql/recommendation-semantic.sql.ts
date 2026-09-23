@@ -35,13 +35,17 @@ export const recommendationSemanticCtes = `
     FROM recommendation_sentence_embeddings repeated
     JOIN (SELECT DISTINCT text_hash FROM sentence_neighbors) matched USING(text_hash)
     WHERE repeated.kind IN ('job','employer') GROUP BY repeated.text_hash
+  ), matched_documents AS MATERIALIZED (
+    SELECT doc.* FROM recommendation_embedding_documents doc
+    JOIN (SELECT DISTINCT kind,node_id FROM sentence_neighbors) matched USING(kind,node_id)
+    WHERE doc.status='ready' AND doc.version='${RECOMMENDATION_EMBEDDING_VERSION}'
   ), sentence_pairs AS MATERIALIZED (
     SELECT neighbor.*,doc.weight_sum,
       least(1.0,(neighbor.similarity-0.65)/0.30) * neighbor.weight * neighbor.evidence_weight
         / sqrt(greatest(frequency.documents,1)) AS strength,
       row_number() OVER (PARTITION BY neighbor.kind,neighbor.node_id,neighbor.evidence_key
         ORDER BY neighbor.similarity * neighbor.weight DESC,neighbor.sentence_hash) AS evidence_rank
-    FROM sentence_neighbors neighbor JOIN recommendation_embedding_documents doc USING(kind,node_id)
+    FROM sentence_neighbors neighbor JOIN matched_documents doc USING(kind,node_id)
     JOIN sentence_frequency frequency USING(text_hash)
     WHERE doc.status='ready' AND doc.version='${RECOMMENDATION_EMBEDDING_VERSION}'
       AND doc.content_hash=md5(recommendation_embedding_content(doc.kind,doc.node_id))

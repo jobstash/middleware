@@ -13,6 +13,18 @@ describe("ProfileService recommended jobs", () => {
         return (this as unknown as { raw: unknown }).raw as never;
       });
     const profiles = {
+      getRecommendationRevision: jest.fn().mockResolvedValue("revision"),
+      getRecommendationLocationCandidates: jest.fn().mockResolvedValue([
+        {
+          nodeId: "eligible",
+          arrangement: {
+            classification: "verified_remote",
+            remoteOptions: [{ mode: "remote", scope: "global" }],
+            hybridOptions: [],
+            onsiteOptions: [],
+          },
+        },
+      ]),
       getRecommendedJobCandidates: jest.fn().mockResolvedValue(
         Array.from({ length: 601 }, (_, index) => ({
           job: {
@@ -43,6 +55,7 @@ describe("ProfileService recommended jobs", () => {
       null,
       false,
       expect.any(Date),
+      null,
     );
     expect((await service.getRecommendedJobs("wallet", 10)).jobs).toHaveLength(
       10,
@@ -65,6 +78,10 @@ describe("ProfileService recommended jobs", () => {
       }
     }
     expect(seen.size).toBe(601);
+    expect(profiles.getRecommendedJobCandidates).toHaveBeenCalledTimes(1);
+    profiles.getRecommendationRevision.mockResolvedValue("after-import");
+    await service.getRecommendedJobs("wallet");
+    expect(profiles.getRecommendedJobCandidates).toHaveBeenCalledTimes(2);
   });
 
   it("keeps email employers diverse and considers candidates beyond the old nine-row pool", async () => {
@@ -74,6 +91,18 @@ describe("ProfileService recommended jobs", () => {
         return (this as unknown as { raw: unknown }).raw as never;
       });
     const profiles = {
+      getRecommendationRevision: jest.fn().mockResolvedValue("revision"),
+      getRecommendationLocationCandidates: jest.fn().mockResolvedValue([
+        {
+          nodeId: "eligible",
+          arrangement: {
+            classification: "verified_remote",
+            remoteOptions: [{ mode: "remote", scope: "global" }],
+            hybridOptions: [],
+            onsiteOptions: [],
+          },
+        },
+      ]),
       getRecommendedJobCandidates: jest.fn().mockResolvedValue([
         ...Array.from({ length: 12 }, (_, i) => ({
           job: {
@@ -113,6 +142,7 @@ describe("ProfileService recommended jobs", () => {
       500,
       true,
       expect.any(Date),
+      null,
     );
   });
 
@@ -127,6 +157,18 @@ describe("ProfileService recommended jobs", () => {
       item: { needsChecking: [{ code: "office_location_review" }] } as never,
     });
     const profiles = {
+      getRecommendationRevision: jest.fn().mockResolvedValue("revision"),
+      getRecommendationLocationCandidates: jest.fn().mockResolvedValue([
+        {
+          nodeId: "eligible",
+          arrangement: {
+            classification: "verified_remote",
+            remoteOptions: [{ mode: "remote", scope: "global" }],
+            hybridOptions: [],
+            onsiteOptions: [],
+          },
+        },
+      ]),
       getRecommendedJobCandidates: jest
         .fn()
         .mockResolvedValue([
@@ -161,6 +203,18 @@ describe("ProfileService recommended jobs", () => {
         return raw as never;
       });
     const profiles = {
+      getRecommendationRevision: jest.fn().mockResolvedValue("revision"),
+      getRecommendationLocationCandidates: jest.fn().mockResolvedValue([
+        {
+          nodeId: "eligible",
+          arrangement: {
+            classification: "verified_remote",
+            remoteOptions: [{ mode: "remote", scope: "global" }],
+            hybridOptions: [],
+            onsiteOptions: [],
+          },
+        },
+      ]),
       getRecommendedJobCandidates: jest.fn().mockResolvedValue([
         {
           job: { id: "bad", shortUUID: "bad" },
@@ -220,6 +274,18 @@ describe("ProfileService recommended jobs", () => {
         } as never,
       }));
     const profiles = {
+      getRecommendationRevision: jest.fn().mockResolvedValue("revision"),
+      getRecommendationLocationCandidates: jest.fn().mockResolvedValue([
+        {
+          nodeId: "eligible",
+          arrangement: {
+            classification: "verified_remote",
+            remoteOptions: [{ mode: "remote", scope: "global" }],
+            hybridOptions: [],
+            onsiteOptions: [],
+          },
+        },
+      ]),
       getRecommendedJobCandidates: jest.fn().mockResolvedValue([
         {
           job: {
@@ -254,6 +320,7 @@ describe("ProfileService recommended jobs", () => {
 
   it("records a hide action with the supplied event id", async () => {
     const profiles = {
+      getRecommendationRevision: jest.fn().mockResolvedValue("revision"),
       recordJobActivity: jest.fn().mockResolvedValue(true),
     };
     const service = new ProfileService(
@@ -296,6 +363,7 @@ describe("ProfileService recommended jobs", () => {
       targetOrganizations: ["Protocol Labs"],
     };
     const profiles = {
+      getRecommendationRevision: jest.fn().mockResolvedValue("revision"),
       getJobPreferences: jest
         .fn()
         .mockResolvedValueOnce(existing)

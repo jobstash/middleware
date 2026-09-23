@@ -326,6 +326,7 @@ export const recommendedJobsSql = `
       AND job_vectors.version='${RECOMMENDATION_EMBEDDING_VERSION}'
       AND job_vectors.content_hash=md5(recommendation_embedding_content('job',document.job_node_id))
     WHERE document.online
+      AND ($5::bigint[] IS NULL OR document.job_node_id = ANY($5::bigint[]))
       AND NOT EXISTS (
         SELECT 1 FROM excluded_employers employer
         WHERE employer.node_id = COALESCE(organization.organization_node_id, project.project_node_id)

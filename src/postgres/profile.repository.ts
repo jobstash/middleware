@@ -12,6 +12,7 @@ import { PostgresService } from "./postgres.service";
 import {
   jobEmployerJoins,
   jobEmployerPayload,
+  jobWorkArrangementPayload,
 } from "./sql/job-employer-payload.sql";
 import {
   recommendedJobsSql,
@@ -602,11 +603,62 @@ export class ProfileRepository {
     });
   }
 
+  async getRecommendationRevision(wallet: string): Promise<string> {
+    const [row] = await queryRows<{ revision: string }>(
+      this.postgres,
+      `
+      SELECT concat_ws('|',
+        (SELECT max(completed_at)::text FROM jobpost_import_runs),
+        (SELECT max(completed_at)::text FROM work_arrangement_runs),
+        preferences.updated_at::text,
+        embedding.updated_at::text,
+        (SELECT max(event.occurred_at)::text FROM user_activity_events event
+         WHERE event.user_node_id=account.id AND event.event_type!='job_impression')
+      ) AS revision
+      FROM graph_nodes account
+      LEFT JOIN user_job_preferences preferences ON preferences.user_node_id=account.id
+      LEFT JOIN recommendation_embedding_documents embedding ON embedding.kind='user' AND embedding.node_id=account.id
+      WHERE account.label='User' AND lower(account.properties->>'wallet')=lower($1)
+      ORDER BY account.id LIMIT 1
+    `,
+      [wallet],
+    );
+    return row?.revision ?? "";
+  }
+
+  async getRecommendationLocationCandidates(
+    rankedAt: Date,
+    weeklyEmail: boolean,
+  ) {
+    return queryRows<{
+      nodeId: string;
+      arrangement: {
+        classification: WorkArrangementClassification;
+        remoteOptions: WorkLocationOption[];
+        hybridOptions: WorkLocationOption[];
+        onsiteOptions: WorkLocationOption[];
+      };
+    }>(
+      this.postgres,
+      `
+      SELECT document.job_node_id::text AS "nodeId",
+        ${jobWorkArrangementPayload("document")} AS arrangement
+      FROM job_search_documents document
+      WHERE document.online AND NOT document.blocked
+        AND document.published_timestamp BETWEEN
+          (extract(epoch FROM $1::timestamptz - CASE WHEN $2::boolean THEN interval '21 days' ELSE interval '1 month' END)*1000)::bigint
+          AND (extract(epoch FROM $1::timestamptz)*1000)::bigint
+    `,
+      [rankedAt, weeklyEmail],
+    );
+  }
+
   async getRecommendedJobCandidates(
     wallet: string,
     limit: number | null = 60,
     weeklyEmail = false,
     rankedAt: Date | null = null,
+    eligibleNodeIds: string[] | null = null,
   ): Promise<
     Array<{
       job: JobListResult;
@@ -621,6 +673,7 @@ export class ProfileRepository {
         limit === null ? null : Math.max(1, Math.min(limit, 500)),
         weeklyEmail,
         rankedAt,
+        eligibleNodeIds,
       ]);
     });
   }
