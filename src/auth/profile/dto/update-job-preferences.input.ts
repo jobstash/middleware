@@ -7,7 +7,6 @@ import {
   ArrayUnique,
   IsArray,
   IsBoolean,
-  IsDivisibleBy,
   IsIn,
   IsNumber,
   IsOptional,
@@ -26,6 +25,7 @@ import {
   WORK_MODES,
   WorkMode,
 } from "src/shared/interfaces";
+import { IsQuarterHourOffset } from "src/shared/validators/quarter-hour-offset.validator";
 
 const IsPreferenceList = (): ReturnType<typeof applyDecorators> =>
   applyDecorators(
@@ -58,7 +58,7 @@ export class UpdateJobPreferencesInput {
   @IsOptional()
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })
-  @IsDivisibleBy(0.25)
+  @IsQuarterHourOffset()
   @Min(-12)
   @Max(14)
   utcOffset: number | null;
