@@ -117,12 +117,12 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
           SET jobsite_id = structured_jobpost_id || ':fixture-jobsite'
           WHERE structured_jobpost_id LIKE 'stack-%';
       `);
-      const first = await repository.searchJobGroups({
+      const first = await repository.searchLatestImportJobGroups({
         startDate: 10000,
         page: 1,
         limit: 1,
       });
-      const second = await repository.searchJobGroups({
+      const second = await repository.searchLatestImportJobGroups({
         startDate: 10000,
         page: 2,
         limit: 1,
@@ -155,7 +155,7 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
           job => job.timestamp < Date.now() - 90 * 86400000,
         ),
       ).toBe(true);
-      const filtered = await repository.searchJobGroups({
+      const filtered = await repository.searchLatestImportJobGroups({
         startDate: 10000,
         minSalaryRange: 150000,
       });
@@ -163,7 +163,7 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
       expect(filtered.data[0].jobTitles.map(job => job.id)).toEqual(
         [2, 1, 0].map(i => `stack-org-beta-${i}`),
       );
-      const empty = await repository.searchJobGroups({
+      const empty = await repository.searchLatestImportJobGroups({
         startDate: 10000,
         page: 3,
         limit: 1,

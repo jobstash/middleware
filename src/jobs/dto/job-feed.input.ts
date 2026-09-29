@@ -1,8 +1,17 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
-import { IsOptional, IsString } from "class-validator";
+import { IsIn, IsOptional, IsString } from "class-validator";
 import { JobListParams } from "./job-list.input";
 
 export class JobFeedParams extends JobListParams {
+  @ApiPropertyOptional({
+    description:
+      "Return every job title from each organization's latest completed import batch",
+    enum: ["latest-import"],
+  })
+  @IsOptional()
+  @IsIn(["latest-import"])
+  batch?: "latest-import";
+
   @ApiPropertyOptional({
     description: "Pillar slug whose criteria constrain the feed",
   })

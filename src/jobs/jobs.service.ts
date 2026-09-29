@@ -263,11 +263,15 @@ export class JobsService {
     }
     const teamOrganizationIds =
       await this.teamIntelligence.matchingOrganizationIds(params);
-    const result = await this.searchDocuments.searchJobGroups({
+    const groupParams: JobSearchParams = {
       ...publicationDateRangeGenerator(params.publicationDate ?? null),
       ...params,
       ...(teamOrganizationIds !== undefined ? { teamOrganizationIds } : {}),
-    });
+    };
+    const result =
+      input.batch === "latest-import"
+        ? await this.searchDocuments.searchLatestImportJobGroups(groupParams)
+        : await this.searchDocuments.searchJobGroups(groupParams);
     const jobs = await this.hydrateJobTeamSummaries(
       result.data.flatMap(entry => entry.jobs),
     );

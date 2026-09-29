@@ -12,6 +12,7 @@ describePostgres("latest import organization feed", () => {
   let client: Client;
   let repository: SearchDocumentRepository;
   let sequence: number;
+  let lastQuery: { sql: string; parameters: unknown[] };
 
   beforeAll(async () => {
     client = new Client({
@@ -21,8 +22,10 @@ describePostgres("latest import organization feed", () => {
     });
     await client.connect();
     repository = new SearchDocumentRepository({
-      query: async (sql: string, parameters: unknown[]) =>
-        (await client.query(sql, parameters)).rows,
+      query: async (sql: string, parameters: unknown[]) => {
+        lastQuery = { sql, parameters };
+        return (await client.query(sql, parameters)).rows;
+      },
     } as unknown as PostgresService);
   });
 
@@ -67,9 +70,13 @@ describePostgres("latest import organization feed", () => {
         legacy_list_eligible boolean DEFAULT true,
         access text DEFAULT 'public', organization_has_expert_jobs boolean DEFAULT false,
         tags text[] DEFAULT ARRAY['engineering']::text[],
-        salary numeric DEFAULT 100000, salary_currency text DEFAULT 'USD',
+        salary numeric DEFAULT 100000, salary_currency text DEFAULT 'USD', seniority text,
         payload jsonb DEFAULT '{}', work_arrangement jsonb DEFAULT '{}'
       ) ON COMMIT DROP;
+      CREATE INDEX ON jobpost_import_run_items (run_id, item_kind, stable_external_id);
+      CREATE INDEX ON graph_nodes ((properties ->> 'id'));
+      CREATE INDEX ON graph_relationships (source_id, type, target_id);
+      CREATE INDEX ON graph_relationships (target_id, type, source_id);
     `);
   });
 
@@ -228,12 +235,12 @@ describePostgres("latest import organization feed", () => {
       [previous, fresh],
       [previous],
     );
-    const result = await repository.searchJobGroups({});
+    const result = await repository.searchLatestImportJobGroups({});
     expect(result.totalJobs).toBe(1);
     expect(result.data[0].importRunId).toBe(hirechainRun);
     expect(result.data[0].jobTitles.map(job => job.id)).toEqual([fresh]);
     await addRun("acme", "2026-01-03");
-    expect((await repository.searchJobGroups({})).data).toEqual([]);
+    expect((await repository.searchLatestImportJobGroups({})).data).toEqual([]);
   });
 
   it("does not revive a prior batch after Hirechain imports no new jobs for the organization", async () => {
@@ -244,7 +251,7 @@ describePostgres("latest import organization feed", () => {
       site: "hirechain",
     });
     await addHirechainRun("acme", "2026-01-02", [previous], [previous]);
-    expect((await repository.searchJobGroups({})).data).toEqual([]);
+    expect((await repository.searchLatestImportJobGroups({})).data).toEqual([]);
   });
 
   it("retains the earlier complete batch if Hirechain failed an organization item", async () => {
@@ -268,7 +275,7 @@ describePostgres("latest import organization feed", () => {
       [failed],
     );
     expect(
-      (await repository.searchJobGroups({})).data[0].jobTitles.map(
+      (await repository.searchLatestImportJobGroups({})).data[0].jobTitles.map(
         job => job.id,
       ),
     ).toEqual([oldJob]);
@@ -284,7 +291,7 @@ describePostgres("latest import organization feed", () => {
       [runId],
     );
     expect(
-      (await repository.searchJobGroups({})).data[0].jobTitles.map(
+      (await repository.searchLatestImportJobGroups({})).data[0].jobTitles.map(
         job => job.id,
       ),
     ).toEqual([oldJob]);
@@ -308,8 +315,14 @@ describePostgres("latest import organization feed", () => {
       runId: betaRun,
       timestamp: 2000,
     });
-    const first = await repository.searchJobGroups({ page: 1, limit: 1 });
-    const second = await repository.searchJobGroups({ page: 2, limit: 1 });
+    const first = await repository.searchLatestImportJobGroups({
+      page: 1,
+      limit: 1,
+    });
+    const second = await repository.searchLatestImportJobGroups({
+      page: 2,
+      limit: 1,
+    });
     expect(first).toMatchObject({ total: 2, totalJobs: 64, count: 1 });
     expect(first.data[0]).toMatchObject({
       organizationId: "beta",
@@ -329,10 +342,12 @@ describePostgres("latest import organization feed", () => {
     });
     expect(second.data[0].jobs.map(job => job.id)).toEqual([ids[0]]);
     expect(
-      (await repository.searchJobGroups({ page: 3, limit: 1 })).data,
+      (await repository.searchLatestImportJobGroups({ page: 3, limit: 1 }))
+        .data,
     ).toEqual([]);
     expect(
-      (await repository.searchJobGroups({ page: 2, limit: 1 })).data,
+      (await repository.searchLatestImportJobGroups({ page: 2, limit: 1 }))
+        .data,
     ).toEqual(second.data);
   });
 
@@ -350,8 +365,14 @@ describePostgres("latest import organization feed", () => {
       runId: acmeRun,
       timestamp: 5000,
     });
-    const firstPage = await repository.searchJobGroups({ page: 1, limit: 1 });
-    const secondPage = await repository.searchJobGroups({ page: 2, limit: 1 });
+    const firstPage = await repository.searchLatestImportJobGroups({
+      page: 1,
+      limit: 1,
+    });
+    const secondPage = await repository.searchLatestImportJobGroups({
+      page: 2,
+      limit: 1,
+    });
     expect(firstPage.data[0].organizationId).toBe("acme");
     expect(firstPage.data[0].jobTitles.map(job => job.id)).toEqual([
       firstId,
@@ -381,7 +402,7 @@ describePostgres("latest import organization feed", () => {
     await client.query(
       "INSERT INTO graph_relationships VALUES (1000, 3, 'HAS_STRUCTURED_JOBPOST')",
     );
-    const result = await repository.searchJobGroups({});
+    const result = await repository.searchLatestImportJobGroups({});
     expect(result.totalJobs).toBe(2);
     expect(result.data[0].jobTitles.map(job => job.id)).toEqual([
       second,
@@ -393,7 +414,7 @@ describePostgres("latest import organization feed", () => {
     const oldRun = await addRun("acme", "2026-01-01");
     await addJob({ organizationId: "acme", runId: oldRun });
     await addRun("acme", "2026-01-02", { main: "skipped" });
-    const result = await repository.searchJobGroups({});
+    const result = await repository.searchLatestImportJobGroups({});
     expect(result).toMatchObject({ total: 0, totalJobs: 0, data: [] });
   });
 
@@ -403,11 +424,13 @@ describePostgres("latest import organization feed", () => {
     const latestRun = await addRun("acme", "2026-01-02");
     await addJob({ organizationId: "acme", runId: latestRun, salary: 90000 });
     await addJob({ organizationId: "acme", salary: 250000 });
-    const result = await repository.searchJobGroups({
+    const result = await repository.searchLatestImportJobGroups({
       pillarCriteria: { minSalaryRange: 150000 },
     });
     expect(result.data).toEqual([]);
-    expect((await repository.searchJobGroups({})).totalJobs).toBe(1);
+    expect((await repository.searchLatestImportJobGroups({})).totalJobs).toBe(
+      1,
+    );
   });
 
   it("keeps the previous completed batch through unfinished, cancelled, or partially failed imports", async () => {
@@ -435,7 +458,7 @@ describePostgres("latest import organization feed", () => {
       "completed_with_errors",
     );
     await addJob({ organizationId: "acme", runId: partialRun });
-    const result = await repository.searchJobGroups({});
+    const result = await repository.searchLatestImportJobGroups({});
     expect(result.data[0].importRunId).toBe(oldRun);
     expect(result.data[0].jobTitles.map(job => job.id)).toEqual([oldJob]);
   });
@@ -453,7 +476,7 @@ describePostgres("latest import organization feed", () => {
       [runId],
     );
     expect(
-      (await repository.searchJobGroups({})).data[0].jobTitles.map(
+      (await repository.searchLatestImportJobGroups({})).data[0].jobTitles.map(
         job => job.id,
       ),
     ).toEqual([id]);
@@ -473,9 +496,93 @@ describePostgres("latest import organization feed", () => {
       [wrongSite],
     );
     expect(
-      (await repository.searchJobGroups({})).data[0].jobTitles.map(
+      (await repository.searchLatestImportJobGroups({})).data[0].jobTitles.map(
         job => job.id,
       ),
     ).toEqual([id]);
+  });
+  it("limits published Hirechain membership work to each organization's selected run", async () => {
+    const organizationCount = 8;
+    const jobsPerOrganization = 200;
+    const historyCount = 40;
+    await client.query(`
+      INSERT INTO organization_search_documents
+      SELECT 'org-' || org, jsonb_build_object('orgId', 'org-' || org, 'name', 'Company ' || org)
+      FROM generate_series(1, ${organizationCount}) org;
+      INSERT INTO graph_nodes
+      SELECT org, 'Organization', jsonb_build_object('orgId', 'org-' || org)
+      FROM generate_series(1, ${organizationCount}) org;
+      INSERT INTO graph_nodes
+      SELECT 100 + org, 'Jobsite', jsonb_build_object('id', 'site-' || org, 'type', 'hirechain')
+      FROM generate_series(1, ${organizationCount}) org;
+      INSERT INTO graph_relationships
+      SELECT org, 100 + org, 'HAS_JOBSITE'
+      FROM generate_series(1, ${organizationCount}) org;
+      INSERT INTO graph_nodes
+      SELECT 1000 + job, 'Jobpost', jsonb_build_object('url', 'https://fixture.invalid/job/' || job)
+      FROM generate_series(1, ${organizationCount * jobsPerOrganization}) job;
+      INSERT INTO graph_relationships
+      SELECT 101 + (job - 1) / ${jobsPerOrganization}, 1000 + job, 'HAS_JOBPOST'
+      FROM generate_series(1, ${organizationCount * jobsPerOrganization}) job;
+      INSERT INTO graph_relationships
+      SELECT 1000 + job, 10000 + job, 'HAS_STRUCTURED_JOBPOST'
+      FROM generate_series(1, ${organizationCount * jobsPerOrganization}) job;
+      INSERT INTO job_search_documents (
+        job_node_id, structured_jobpost_id, short_uuid, title, organization_id,
+        jobsite_id, published_timestamp, payload
+      ) SELECT 10000 + job, 'job-' || job, 'job-' || job, 'Engineer ' || job,
+        'org-' || (1 + (job - 1) / ${jobsPerOrganization}),
+        'site-' || (1 + (job - 1) / ${jobsPerOrganization}), job,
+        jsonb_build_object('id', 'job-' || job, 'title', 'Engineer ' || job)
+      FROM generate_series(1, ${organizationCount * jobsPerOrganization}) job;
+      INSERT INTO jobpost_import_runs
+      SELECT md5('history-' || history)::uuid, 'hirechain', 'completed',
+        '2026-01-01'::timestamptz + history * interval '1 day'
+      FROM generate_series(1, ${historyCount}) history;
+      INSERT INTO jobpost_import_run_items (run_id, jobsite_id, status, item_kind, stable_external_id)
+      SELECT run.id, 'job-' || job, 'succeeded', 'hirechain_job', 'https://fixture.invalid/job/' || job
+      FROM jobpost_import_runs run
+      CROSS JOIN generate_series(1, ${organizationCount * jobsPerOrganization}) job;
+      INSERT INTO jobpost_import_run_items (run_id, jobsite_id, status, item_kind, input_payload)
+      SELECT run.id, 'finalizer', 'succeeded', 'hirechain_finalize', jsonb_build_object(
+        'previouslyStructuredUrls', (SELECT jsonb_agg('https://fixture.invalid/job/' || job)
+          FROM generate_series(1, ${organizationCount * jobsPerOrganization}) job
+          WHERE job % ${jobsPerOrganization} <> 0))
+      FROM jobpost_import_runs run;
+      ANALYZE jobpost_import_runs;
+      ANALYZE jobpost_import_run_items;
+      ANALYZE graph_nodes;
+      ANALYZE graph_relationships;
+      ANALYZE job_search_documents;
+    `);
+    const result = await repository.searchLatestImportJobGroups({ limit: 3 });
+    expect(result.total).toBe(organizationCount);
+    expect(result.totalJobs).toBe(organizationCount);
+    expect(result.data).toHaveLength(3);
+    const planResult = await client.query(
+      `EXPLAIN (ANALYZE, FORMAT JSON) ${lastQuery.sql}`,
+      lastQuery.parameters,
+    );
+    const plan = planResult.rows[0]["QUERY PLAN"][0];
+    type QueryPlan = {
+      "Subplan Name"?: string;
+      "Actual Rows"?: number;
+      Plans?: QueryPlan[];
+    };
+    const findPlan = (node: QueryPlan, name: string): QueryPlan | undefined => {
+      if (node["Subplan Name"] === name) return node;
+      for (const child of node.Plans ?? []) {
+        const found = findPlan(child, name);
+        if (found) return found;
+      }
+      return undefined;
+    };
+    const membership = findPlan(plan.Plan, "CTE hirechain_jobs");
+    if (process.env.REPORT_JOB_FEED_PLAN === "1") {
+      process.stdout.write(
+        `${JSON.stringify({ retainedItems: organizationCount * jobsPerOrganization * historyCount, membershipRows: membership?.["Actual Rows"], executionMs: plan["Execution Time"], planningMs: plan["Planning Time"] })}\n`,
+      );
+    }
+    expect(membership?.["Actual Rows"]).toBe(organizationCount);
   });
 });

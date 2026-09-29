@@ -5,14 +5,16 @@ export interface JobFeedTitle {
   shortUUID: string;
   title: string;
   location: string | null;
+  seniority: string | null;
+  classification: string | null;
 }
 
 export interface JobFeedGroup {
   key: string;
   organizationId: string | null;
   totalJobs: number;
-  importRunId: string | null;
-  jobTitles: JobFeedTitle[];
+  importRunId?: string | null;
+  jobTitles?: JobFeedTitle[];
   jobs: JobListResult[];
 }
 
