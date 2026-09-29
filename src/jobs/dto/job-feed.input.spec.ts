@@ -78,26 +78,14 @@ describe("feed grouping policy", () => {
   });
 });
 
-describe("organization stack size", () => {
-  it.each([1, 5, 10, 25])("accepts %s jobs", async count => {
+describe("organization feed input", () => {
+  it("ignores the retired stack cap query parameter", async () => {
     const value = plainToInstance(JobFeedParams, {
-      jobsPerOrganization: String(count),
+      jobsPerOrganization: "25",
+      pillar: "remote",
     });
-    expect(
-      (await validate(value)).filter(
-        error => error.property === "jobsPerOrganization",
-      ),
-    ).toEqual([]);
-    expect(value.jobsPerOrganization).toBe(count);
-  });
-  it.each([0, -1, 26, 2.5, "invalid"])("rejects %s", async count => {
-    const value = plainToInstance(JobFeedParams, {
-      jobsPerOrganization: count,
-    });
-    expect(
-      (await validate(value)).some(
-        error => error.property === "jobsPerOrganization",
-      ),
-    ).toBe(true);
+    expect(await validate(value, { whitelist: true })).toEqual([]);
+    expect(value.pillar).toBe("remote");
+    expect(value).not.toHaveProperty("jobsPerOrganization");
   });
 });

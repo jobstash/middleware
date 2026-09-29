@@ -1,9 +1,18 @@
 import type { JobListResult } from "src/shared/types";
 
+export interface JobFeedTitle {
+  id: string;
+  shortUUID: string;
+  title: string;
+  location: string | null;
+}
+
 export interface JobFeedGroup {
   key: string;
   organizationId: string | null;
   totalJobs: number;
+  importRunId: string | null;
+  jobTitles: JobFeedTitle[];
   jobs: JobListResult[];
 }
 

@@ -1404,61 +1404,146 @@ export class SearchDocumentRepository {
   }
 
   async searchJobGroups(
-    params: JobSearchParams & { jobsPerOrganization?: number },
+    params: JobSearchParams,
   ): Promise<JobFeedPage<JobFeedGroup>> {
     const where = this.jobPredicates(params);
     const page = Math.max(1, Math.trunc(params.page || 1));
     const limit = Math.min(20, Math.max(1, Math.trunc(params.limit || 10)));
     const limitParam = where.bind(limit);
     const offsetParam = where.bind((page - 1) * limit);
-    const jobsLimit = where.bind(
-      Math.min(25, Math.max(1, Math.trunc(params.jobsPerOrganization || 5))),
-    );
     const [result] = await this.postgres.query<{
       total: string;
       totalJobs: string;
-      data: Array<{
-        key: string;
-        organizationId: string | null;
-        totalJobs: number;
-        jobs: JobListResult[];
-      }>;
+      data: JobFeedGroup[];
     }>(
       `
-      WITH eligible AS MATERIALIZED (
-        SELECT job_node_id, organization_id, published_timestamp,
+      WITH completed_jobsite_batches AS (
+        SELECT COALESCE(item.employer_id, item.organization_id) AS organization_id,
+          run.id AS run_id, run.completed_at, 'jobposts'::text AS source_key
+        FROM jobpost_import_runs run
+        JOIN jobpost_import_run_items item ON item.run_id = run.id
+        WHERE run.source_key = 'jobposts'
+          AND run.status IN ('completed', 'completed_with_errors')
+          AND run.completed_at IS NOT NULL
+          AND COALESCE(item.employer_label, 'Organization') = 'Organization'
+          AND COALESCE(item.employer_id, item.organization_id) IS NOT NULL
+        GROUP BY COALESCE(item.employer_id, item.organization_id), run.id, run.completed_at
+        HAVING bool_and(item.status IN ('succeeded', 'skipped'))
+      ), completed_hirechain_runs AS MATERIALIZED (
+        SELECT run.id AS run_id, run.completed_at,
+          CASE WHEN jsonb_typeof(finalizer.input_payload -> 'previouslyStructuredUrls') = 'array'
+            THEN finalizer.input_payload -> 'previouslyStructuredUrls'
+            ELSE '[]'::jsonb END AS previous_urls
+        FROM jobpost_import_runs run
+        JOIN jobpost_import_run_items finalizer ON finalizer.run_id = run.id
+          AND finalizer.item_kind = 'hirechain_finalize' AND finalizer.status = 'succeeded'
+        WHERE run.source_key = 'hirechain'
+          AND run.status IN ('completed', 'completed_with_errors')
+          AND run.completed_at IS NOT NULL
+          -- Older runs without an admission snapshot cannot prove which jobs were new.
+          AND jsonb_typeof(finalizer.input_payload -> 'previouslyStructuredUrls') = 'array'
+      ), hirechain_jobs AS MATERIALIZED (
+        SELECT DISTINCT run.run_id, run.completed_at,
+          employer.properties ->> 'orgId' AS organization_id,
+          raw_job.id AS raw_job_node_id, item.status,
+          run.previous_urls ? item.stable_external_id AS previously_imported
+        FROM completed_hirechain_runs run
+        JOIN jobpost_import_run_items item ON item.run_id = run.run_id
+          AND item.item_kind = 'hirechain_job'
+        JOIN graph_nodes raw_job ON raw_job.label = 'Jobpost'
+          AND raw_job.properties ? 'url'
+          AND raw_job.properties ->> 'url' = item.stable_external_id
+        JOIN graph_relationships posted ON posted.target_id = raw_job.id
+          AND posted.type = 'HAS_JOBPOST'
+        JOIN graph_nodes jobsite ON jobsite.id = posted.source_id
+          AND jobsite.label = 'Jobsite' AND jobsite.properties ->> 'type' = 'hirechain'
+        JOIN graph_relationships ownership ON ownership.target_id = jobsite.id
+          AND ownership.type = 'HAS_JOBSITE'
+        JOIN graph_nodes employer ON employer.id = ownership.source_id
+          AND employer.label = 'Organization'
+          AND employer.properties ->> 'orgId' IS NOT NULL
+      ), completed_batches AS (
+        SELECT * FROM completed_jobsite_batches
+        UNION ALL
+        SELECT organization_id, run_id, completed_at, 'hirechain'::text AS source_key
+        FROM hirechain_jobs GROUP BY organization_id, run_id, completed_at
+        HAVING bool_and(status = 'succeeded')
+      ), latest_batches AS MATERIALIZED (
+        -- Select the batch before filtering its jobs. A zero-new-job run must
+        -- not resurrect a previous batch, and a pillar cannot select an older run.
+        SELECT DISTINCT ON (organization_id) organization_id, run_id, source_key
+        FROM completed_batches
+        ORDER BY organization_id, completed_at DESC, run_id DESC
+      ), eligible AS MATERIALIZED (
+        SELECT job_node_id, structured_jobpost_id, short_uuid, title, location,
+          organization_id, jobsite_id, published_timestamp,
           CASE WHEN organization_id IS NOT NULL THEN 'org:' || organization_id
             ELSE 'job:' || job_node_id::text END AS group_key
         FROM job_search_documents
         ${where.toSql()}
+      ), batch_jobs AS MATERIALIZED (
+        SELECT DISTINCT eligible.*, latest.run_id
+        FROM latest_batches latest
+        JOIN jobpost_import_run_items item ON item.run_id = latest.run_id
+          AND latest.source_key = 'jobposts'
+          AND COALESCE(item.employer_id, item.organization_id) = latest.organization_id
+          AND COALESCE(item.employer_label, 'Organization') = 'Organization'
+        JOIN jobpost_import_run_discoveries discovery
+          ON discovery.run_id = item.run_id AND discovery.jobsite_id = item.jobsite_id
+        JOIN graph_nodes raw_job ON raw_job.label = 'Jobpost'
+          AND raw_job.properties ? 'url'
+          AND raw_job.properties ->> 'url' = discovery.discovery_key
+        JOIN graph_relationships structured
+          ON structured.source_id = raw_job.id AND structured.type = 'HAS_STRUCTURED_JOBPOST'
+        JOIN eligible ON eligible.job_node_id = structured.target_id
+          AND eligible.organization_id = latest.organization_id
+          AND eligible.jobsite_id = item.jobsite_id
+        UNION ALL
+        SELECT DISTINCT eligible.*, latest.run_id
+        FROM latest_batches latest
+        JOIN hirechain_jobs imported ON imported.run_id = latest.run_id
+          AND imported.organization_id = latest.organization_id
+          AND latest.source_key = 'hirechain' AND NOT imported.previously_imported
+        JOIN graph_relationships structured ON structured.source_id = imported.raw_job_node_id
+          AND structured.type = 'HAS_STRUCTURED_JOBPOST'
+        JOIN eligible ON eligible.job_node_id = structured.target_id
+          AND eligible.organization_id = latest.organization_id
+        UNION ALL
+        -- Project-owned jobs retain their existing individual feed entries.
+        SELECT eligible.*, NULL::uuid AS run_id
+        FROM eligible WHERE organization_id IS NULL
       ), groups AS (
-        SELECT group_key, organization_id, max(published_timestamp) AS newest,
-          count(*) AS job_count
-        FROM eligible GROUP BY group_key, organization_id
+        SELECT group_key, organization_id, run_id,
+          max(published_timestamp) AS newest, count(*) AS job_count
+        FROM batch_jobs GROUP BY group_key, organization_id, run_id
       ), selected AS MATERIALIZED (
         SELECT * FROM groups ORDER BY newest DESC NULLS LAST, group_key
         LIMIT ${limitParam} OFFSET ${offsetParam}
-      ), cards AS (
-        SELECT selected.*, picked.job_node_id, picked.published_timestamp,
+      ), entries AS (
+        SELECT selected.*, titles.job_titles,
           ${jobEmployerPayload("job.payload")} AS payload
         FROM selected
         CROSS JOIN LATERAL (
-          SELECT job_node_id, published_timestamp FROM eligible
-          WHERE eligible.group_key = selected.group_key
-          ORDER BY published_timestamp DESC NULLS LAST, job_node_id LIMIT ${jobsLimit}
+          SELECT jsonb_agg(jsonb_build_object(
+            'id', structured_jobpost_id, 'shortUUID', short_uuid,
+            'title', title, 'location', location
+          ) ORDER BY published_timestamp DESC NULLS LAST, job_node_id) AS job_titles
+          FROM batch_jobs WHERE batch_jobs.group_key = selected.group_key
+        ) titles
+        CROSS JOIN LATERAL (
+          SELECT job_node_id FROM batch_jobs
+          WHERE batch_jobs.group_key = selected.group_key
+          ORDER BY published_timestamp DESC NULLS LAST, job_node_id LIMIT 1
         ) picked
         JOIN job_search_documents job ON job.job_node_id = picked.job_node_id
         ${jobEmployerJoins()}
-      ), entries AS (
-        SELECT group_key, organization_id, newest, job_count,
-          jsonb_agg(payload ORDER BY published_timestamp DESC NULLS LAST, job_node_id) AS jobs
-        FROM cards GROUP BY group_key, organization_id, newest, job_count
       )
       SELECT (SELECT count(*) FROM groups) AS total,
-        (SELECT count(*) FROM eligible) AS "totalJobs",
+        (SELECT count(*) FROM batch_jobs) AS "totalJobs",
         COALESCE((SELECT jsonb_agg(jsonb_build_object(
           'key', group_key, 'organizationId', organization_id,
-          'totalJobs', job_count, 'jobs', jobs
+          'totalJobs', job_count, 'importRunId', run_id,
+          'jobTitles', job_titles, 'jobs', jsonb_build_array(payload)
         ) ORDER BY newest DESC NULLS LAST, group_key) FROM entries), '[]'::jsonb) AS data
     `,
       where.parameters,

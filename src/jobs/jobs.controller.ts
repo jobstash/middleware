@@ -156,7 +156,7 @@ export class JobsController {
   @UseInterceptors(new CacheHeaderInterceptor({ mode: "revalidate-always" }))
   @ApiOkResponse({
     description:
-      "Paginated organization stacks or individual jobs, selected by active filters",
+      "Paginated latest-import organization stacks with all matching job titles and the first card, or individual jobs selected by active filters",
   })
   async getJobFeed(
     @Session() { address }: SessionObject,
