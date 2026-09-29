@@ -295,20 +295,23 @@ export class TagRepository {
           GROUP BY tag_slug
           HAVING count(DISTINCT job.job_node_id) >= 1
             AND count(DISTINCT job.job_node_id) < $1
+        ), canonical_tags AS MATERIALIZED (
+          -- Resolve each tag once. A lateral ORDER BY id / LIMIT lookup can
+          -- scan the graph primary key separately for every popular tag.
+          SELECT DISTINCT ON (node.properties ->> 'normalizedName')
+            node.id,
+            node.properties,
+            node.properties ->> 'normalizedName' AS tag_slug
+          FROM graph_nodes node
+          WHERE node.label = 'Tag'
+          ORDER BY node.properties ->> 'normalizedName', node.id
         ), ranked AS MATERIALIZED (
           SELECT
             tag.id AS canonical_id,
             tag.properties,
             popularity.job_count
           FROM popularity
-          JOIN LATERAL (
-            SELECT node.id, node.properties
-            FROM graph_nodes node
-            WHERE node.label = 'Tag'
-              AND node.properties ->> 'normalizedName' = popularity.tag_slug
-            ORDER BY node.id
-            LIMIT 1
-          ) tag ON true
+          JOIN canonical_tags tag ON tag.tag_slug = popularity.tag_slug
         )
         SELECT properties
         FROM ranked
