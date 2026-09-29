@@ -1,3 +1,6 @@
+import { plainToInstance } from "class-transformer";
+import { validate } from "class-validator";
+import { JobFeedParams } from "./job-feed.input";
 import { shouldGroupJobs } from "./job-feed.input";
 import { JobListParams } from "./job-list.input";
 
@@ -72,5 +75,29 @@ describe("feed grouping policy", () => {
       true,
     );
     expect(shouldGroupJobs({ publicationDate: "past-3-months" })).toBe(true);
+  });
+});
+
+describe("organization stack size", () => {
+  it.each([1, 5, 10, 25])("accepts %s jobs", async count => {
+    const value = plainToInstance(JobFeedParams, {
+      jobsPerOrganization: String(count),
+    });
+    expect(
+      (await validate(value)).filter(
+        error => error.property === "jobsPerOrganization",
+      ),
+    ).toEqual([]);
+    expect(value.jobsPerOrganization).toBe(count);
+  });
+  it.each([0, -1, 26, 2.5, "invalid"])("rejects %s", async count => {
+    const value = plainToInstance(JobFeedParams, {
+      jobsPerOrganization: count,
+    });
+    expect(
+      (await validate(value)).some(
+        error => error.property === "jobsPerOrganization",
+      ),
+    ).toBe(true);
   });
 });

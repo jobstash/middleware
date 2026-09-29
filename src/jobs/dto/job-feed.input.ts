@@ -1,8 +1,22 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
-import { IsOptional, IsString } from "class-validator";
+import { Type } from "class-transformer";
+import { IsInt, Min, Max, IsOptional, IsString } from "class-validator";
 import { JobListParams } from "./job-list.input";
 
 export class JobFeedParams extends JobListParams {
+  @ApiPropertyOptional({
+    description: "Maximum jobs per organization stack",
+    default: 5,
+    minimum: 1,
+    maximum: 25,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(25)
+  jobsPerOrganization?: number;
+
   @ApiPropertyOptional({
     description: "Pillar slug whose criteria constrain the feed",
   })

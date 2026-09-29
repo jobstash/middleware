@@ -264,6 +264,7 @@ export class JobsService {
     const teamOrganizationIds =
       await this.teamIntelligence.matchingOrganizationIds(params);
     const result = await this.searchDocuments.searchJobGroups({
+      jobsPerOrganization: input.jobsPerOrganization,
       ...publicationDateRangeGenerator(params.publicationDate ?? null),
       ...params,
       ...(teamOrganizationIds !== undefined ? { teamOrganizationIds } : {}),

@@ -114,6 +114,17 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
       expect(second.data[0].organizationId).toBe("org-acme");
       expect(second.data[0].totalJobs).toBe(200);
       expect(second.data[0].jobs).toHaveLength(5);
+      const wide = await repository.searchJobGroups({
+        startDate: 10000,
+        page: 2,
+        limit: 1,
+        jobsPerOrganization: 25,
+      });
+      expect(wide.total).toBe(second.total);
+      expect(wide.totalJobs).toBe(second.totalJobs);
+      expect(wide.data[0].jobs.map(job => job.id)).toEqual(
+        Array.from({ length: 25 }, (_, i) => `stack-org-acme-${199 - i}`),
+      );
       const olderOrganizationPage = await repository.searchJobs({
         organizationId: "org-acme",
         page: 2,

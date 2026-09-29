@@ -1404,13 +1404,16 @@ export class SearchDocumentRepository {
   }
 
   async searchJobGroups(
-    params: JobSearchParams,
+    params: JobSearchParams & { jobsPerOrganization?: number },
   ): Promise<JobFeedPage<JobFeedGroup>> {
     const where = this.jobPredicates(params);
     const page = Math.max(1, Math.trunc(params.page || 1));
     const limit = Math.min(20, Math.max(1, Math.trunc(params.limit || 10)));
     const limitParam = where.bind(limit);
     const offsetParam = where.bind((page - 1) * limit);
+    const jobsLimit = where.bind(
+      Math.min(25, Math.max(1, Math.trunc(params.jobsPerOrganization || 5))),
+    );
     const [result] = await this.postgres.query<{
       total: string;
       totalJobs: string;
@@ -1442,7 +1445,7 @@ export class SearchDocumentRepository {
         CROSS JOIN LATERAL (
           SELECT job_node_id, published_timestamp FROM eligible
           WHERE eligible.group_key = selected.group_key
-          ORDER BY published_timestamp DESC NULLS LAST, job_node_id LIMIT 5
+          ORDER BY published_timestamp DESC NULLS LAST, job_node_id LIMIT ${jobsLimit}
         ) picked
         JOIN job_search_documents job ON job.job_node_id = picked.job_node_id
         ${jobEmployerJoins()}
