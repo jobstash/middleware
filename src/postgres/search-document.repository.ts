@@ -1455,7 +1455,17 @@ export class SearchDocumentRepository {
         (SELECT count(*) FROM eligible) AS "totalJobs",
         COALESCE((SELECT jsonb_agg(jsonb_build_object(
           'key', group_key, 'organizationId', organization_id,
-          'totalJobs', job_count, 'jobs', jobs
+          'totalJobs', job_count, 'jobs', jobs, 'importRunId', NULL,
+          'jobTitles', (
+            SELECT jsonb_agg(jsonb_build_object(
+              'id', job.structured_jobpost_id, 'shortUUID', job.short_uuid,
+              'title', job.title, 'location', job.location,
+              'seniority', job.seniority, 'classification', job.payload ->> 'classification'
+            ) ORDER BY eligible.published_timestamp DESC NULLS LAST, eligible.job_node_id)
+            FROM eligible
+            JOIN job_search_documents job ON job.job_node_id = eligible.job_node_id
+            WHERE eligible.group_key = entries.group_key
+          )
         ) ORDER BY newest DESC NULLS LAST, group_key) FROM entries), '[]'::jsonb) AS data
     `,
       where.parameters,

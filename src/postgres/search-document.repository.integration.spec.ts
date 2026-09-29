@@ -172,6 +172,36 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
       expect(empty.totalJobs).toBe(206);
     });
 
+    it("keeps open jobs from older imports in complete stacks with every title", async () => {
+      for (let i = 0; i < 7; i++)
+        await insertJob({
+          id: `older-open-${i}`,
+          title: `Engineer ${i}`,
+          access: "public",
+          organizationId: "org-acme",
+          organizationName: "Acme",
+          organizationHasExpertJobs: false,
+          salary: 100000,
+          publishedTimestamp: 10000 + i,
+          tags: ["typescript"],
+          projectNames: [],
+        });
+      const page = await repository.searchJobGroups({
+        startDate: 10000,
+        limit: 1,
+      });
+      expect(page.totalJobs).toBe(7);
+      expect(page.data[0].importRunId).toBeNull();
+      expect(page.data[0].jobTitles.map(job => job.id)).toEqual(
+        [6, 5, 4, 3, 2, 1, 0].map(i => `older-open-${i}`),
+      );
+      expect(page.data[0].jobs).toHaveLength(5);
+      const discoveries = await repository.searchLatestImportJobGroups({
+        startDate: 10000,
+      });
+      expect(discoveries.totalJobs).toBe(0);
+    });
+
     it("intersects explicit filters with pillar criteria instead of broadening the pillar", async () => {
       const result = await repository.searchJobGroups({
         organizations: ["beta"],
