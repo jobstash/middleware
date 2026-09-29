@@ -75,7 +75,7 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
   });
 
   describe("organization feed", () => {
-    it("selects five matching jobs per organization and paginates whole groups", async () => {
+    it("returns every latest-batch title, one full card, and paginates whole groups", async () => {
       for (const [organizationId, count, base] of [
         ["org-acme", 200, 10000],
         ["org-beta", 6, 20000],
@@ -94,12 +94,35 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
             projectNames: [],
           });
       }
-      const first = await repository.searchJobGroups({
+      await postgres.query(`
+        INSERT INTO jobpost_import_runs (
+          id, trigger, status, completed_at, source_key, idempotency_key, input_fingerprint
+        ) VALUES (
+          '00000000-0000-0000-0000-000000000001', 'all', 'completed', now(),
+          'jobposts', 'feed-fixture', 'feed-fixture'
+        );
+        INSERT INTO jobpost_import_run_items (
+          run_id, jobsite_id, organization_id, jobsite_url, source_type,
+          employer_label, employer_id, status, item_kind, stable_external_id, input_fingerprint
+        ) SELECT '00000000-0000-0000-0000-000000000001'::uuid,
+            structured_jobpost_id || ':fixture-jobsite', organization_id,
+            'https://fixture.invalid/jobs', 'custom', 'Organization', organization_id, 'succeeded',
+            'jobsite', structured_jobpost_id || ':fixture-jobsite', structured_jobpost_id
+          FROM job_search_documents WHERE structured_jobpost_id LIKE 'stack-%';
+        INSERT INTO jobpost_import_run_discoveries (run_id, jobsite_id, discovery_key)
+          SELECT run_id, jobsite_id,
+            'https://fixture.invalid/jobs/' || replace(jobsite_id, ':fixture-jobsite', '')
+          FROM jobpost_import_run_items;
+        UPDATE job_search_documents
+          SET jobsite_id = structured_jobpost_id || ':fixture-jobsite'
+          WHERE structured_jobpost_id LIKE 'stack-%';
+      `);
+      const first = await repository.searchLatestImportJobGroups({
         startDate: 10000,
         page: 1,
         limit: 1,
       });
-      const second = await repository.searchJobGroups({
+      const second = await repository.searchLatestImportJobGroups({
         startDate: 10000,
         page: 2,
         limit: 1,
@@ -108,12 +131,18 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
       expect(first.totalJobs).toBe(206);
       expect(first.data[0].organizationId).toBe("org-beta");
       expect(first.data[0].totalJobs).toBe(6);
-      expect(first.data[0].jobs.map(job => job.id)).toEqual(
-        [5, 4, 3, 2, 1].map(i => `stack-org-beta-${i}`),
+      expect(first.data[0].jobTitles.map(job => job.id)).toEqual(
+        [5, 4, 3, 2, 1, 0].map(i => `stack-org-beta-${i}`),
       );
+      expect(first.data[0].jobs.map(job => job.id)).toEqual([
+        "stack-org-beta-5",
+      ]);
       expect(second.data[0].organizationId).toBe("org-acme");
       expect(second.data[0].totalJobs).toBe(200);
-      expect(second.data[0].jobs).toHaveLength(5);
+      expect(second.data[0].jobs).toHaveLength(1);
+      expect(second.data[0].jobTitles.map(job => job.id)).toEqual(
+        Array.from({ length: 200 }, (_, i) => `stack-org-acme-${199 - i}`),
+      );
       const olderOrganizationPage = await repository.searchJobs({
         organizationId: "org-acme",
         page: 2,
@@ -126,15 +155,15 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
           job => job.timestamp < Date.now() - 90 * 86400000,
         ),
       ).toBe(true);
-      const filtered = await repository.searchJobGroups({
+      const filtered = await repository.searchLatestImportJobGroups({
         startDate: 10000,
         minSalaryRange: 150000,
       });
       expect(filtered.totalJobs).toBe(6);
-      expect(filtered.data[0].jobs.map(job => job.id)).toEqual(
+      expect(filtered.data[0].jobTitles.map(job => job.id)).toEqual(
         [2, 1, 0].map(i => `stack-org-beta-${i}`),
       );
-      const empty = await repository.searchJobGroups({
+      const empty = await repository.searchLatestImportJobGroups({
         startDate: 10000,
         page: 3,
         limit: 1,
@@ -2481,7 +2510,9 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
   }, 120_000);
 
   async function resetDatabase(): Promise<void> {
-    await postgres.query(`TRUNCATE TABLE graph_nodes RESTART IDENTITY CASCADE`);
+    await postgres.query(
+      `TRUNCATE TABLE jobpost_import_runs, graph_nodes RESTART IDENTITY CASCADE`,
+    );
   }
 
   async function createNode(label: string, key: string): Promise<string> {

@@ -1,3 +1,6 @@
+import { plainToInstance } from "class-transformer";
+import { validate } from "class-validator";
+import { JobFeedParams } from "./job-feed.input";
 import { shouldGroupJobs } from "./job-feed.input";
 import { JobListParams } from "./job-list.input";
 
@@ -72,5 +75,17 @@ describe("feed grouping policy", () => {
       true,
     );
     expect(shouldGroupJobs({ publicationDate: "past-3-months" })).toBe(true);
+  });
+});
+
+describe("organization feed input", () => {
+  it("ignores the retired stack cap query parameter", async () => {
+    const value = plainToInstance(JobFeedParams, {
+      jobsPerOrganization: "25",
+      pillar: "remote",
+    });
+    expect(await validate(value, { whitelist: true })).toEqual([]);
+    expect(value.pillar).toBe("remote");
+    expect(value).not.toHaveProperty("jobsPerOrganization");
   });
 });
