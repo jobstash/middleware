@@ -305,7 +305,9 @@ export class JobsService {
       ]);
       const configs = new JobFilterConfigsEntity({
         ...(await this.addTeamRange(values)),
-        tags: popularTags.map(tag => tag.name),
+        // The scoped values already contain valid tags. Popularity only narrows
+        // their ordering/selection and must not take down every filter on failure.
+        ...(popularTags ? { tags: popularTags.map(tag => tag.name) } : {}),
       }).getProperties();
       await this.cacheManager?.set(
         cacheKey,
