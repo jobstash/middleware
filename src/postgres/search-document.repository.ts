@@ -1583,23 +1583,29 @@ export class SearchDocumentRepository {
             ELSE 'job:' || job_node_id::text END AS group_key
         FROM job_search_documents
         ${where.toSql()}
-      ), batch_jobs AS MATERIALIZED (
-        SELECT DISTINCT eligible.*, latest.run_id
-        FROM latest_batches latest
-        JOIN jobpost_import_run_items item ON item.run_id = latest.run_id
+      ), eligible_import_jobs AS MATERIALIZED (
+        -- Start with published structured jobs. Older discoveries must not drive
+        -- tens of thousands of raw-job URL lookups before visibility is checked.
+        SELECT eligible.job_node_id, latest.run_id, item.jobsite_id,
+          raw_job.properties ->> 'url' AS source_url
+        FROM eligible
+        JOIN latest_batches latest ON latest.organization_id = eligible.organization_id
           AND latest.source_key = 'jobposts'
-          AND COALESCE(item.employer_id, item.organization_id) = latest.organization_id
+        JOIN jobpost_import_run_items item ON item.run_id = latest.run_id
+          AND item.jobsite_id = eligible.jobsite_id
+          AND COALESCE(item.employer_id, item.organization_id) = eligible.organization_id
           AND COALESCE(item.employer_label, 'Organization') = 'Organization'
-        JOIN jobpost_import_run_discoveries discovery
-          ON discovery.run_id = item.run_id AND discovery.jobsite_id = item.jobsite_id
-        JOIN graph_nodes raw_job ON raw_job.label = 'Jobpost'
-          AND raw_job.properties ? 'url'
-          AND raw_job.properties ->> 'url' = discovery.discovery_key
-        JOIN graph_relationships structured
-          ON structured.source_id = raw_job.id AND structured.type = 'HAS_STRUCTURED_JOBPOST'
-        JOIN eligible ON eligible.job_node_id = structured.target_id
-          AND eligible.organization_id = latest.organization_id
-          AND eligible.jobsite_id = item.jobsite_id
+        JOIN graph_relationships structured ON structured.target_id = eligible.job_node_id
+          AND structured.type = 'HAS_STRUCTURED_JOBPOST'
+        JOIN graph_nodes raw_job ON raw_job.id = structured.source_id
+          AND raw_job.label = 'Jobpost'
+      ), batch_jobs AS MATERIALIZED (
+        SELECT DISTINCT eligible.*, imported.run_id
+        FROM eligible_import_jobs imported
+        JOIN jobpost_import_run_discoveries discovery ON discovery.run_id = imported.run_id
+          AND discovery.jobsite_id = imported.jobsite_id
+          AND discovery.discovery_key = imported.source_url
+        JOIN eligible ON eligible.job_node_id = imported.job_node_id
         UNION ALL
         SELECT DISTINCT eligible.*, latest.run_id
         FROM latest_batches latest
