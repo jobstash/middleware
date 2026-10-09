@@ -108,6 +108,7 @@ it("issues a login token even if one refresh cannot determine crypto-native stat
     >[0]),
   ).resolves.toEqual({
     token: "test-session",
+    privyDid: "test-user",
     cryptoNative: false,
     permissions: ["user"],
     hasVerifiedEmail: true,

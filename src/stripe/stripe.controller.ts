@@ -18,6 +18,7 @@ import { PBACGuard } from "src/auth/pbac.guard";
 import { CheckWalletPermissions } from "src/shared/constants";
 import { Permissions, Session } from "src/shared/decorators";
 import { SessionObject } from "src/shared/interfaces";
+import { SubscriptionService as CandidateSubscriptionService } from "src/companion/subscription.service";
 
 @Controller("stripe")
 export class StripeController {
@@ -28,6 +29,7 @@ export class StripeController {
     @Inject("STRIPE_WEBHOOK_SECRET")
     private readonly webhookSecret: string,
     private readonly stripeService: StripeService,
+    private readonly candidateSubscriptions: CandidateSubscriptionService,
   ) {}
 
   @Post("agency-workspaces/:workspaceId/checkout")
@@ -63,6 +65,7 @@ export class StripeController {
         this.webhookSecret,
       );
       this.logger.log(`Received webhook event: ${event.type}`);
+      if (await this.candidateSubscriptions.webhook(event)) return;
       switch (event.type) {
         case "checkout.session.completed":
           await this.stripeService.handleCheckoutSessionCompleted(
