@@ -96,7 +96,7 @@ export class SubscriptionService {
   // Only in-flight work is shared. No completed result or entitlement is cached.
   async refresh(owner: string): Promise<void> {
     const current = this.refreshing.get(owner);
-    if (current) return current;
+    if (current !== undefined) return current;
     const work = this.refreshOwner(owner);
     this.refreshing.set(owner, work);
     try {

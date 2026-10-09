@@ -140,7 +140,7 @@ export function canonicalJSON(value: unknown): string {
   if (value !== null && typeof value === "object")
     return `{${Object.keys(value)
       .filter(key => (value as Record<string, unknown>)[key] !== undefined)
-      .sort()
+      .sort((left, right) => (left < right ? -1 : left > right ? 1 : 0))
       .map(
         key =>
           `${JSON.stringify(key)}:${canonicalJSON((value as Record<string, unknown>)[key])}`,
