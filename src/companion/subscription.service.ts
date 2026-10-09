@@ -187,7 +187,9 @@ export class SubscriptionService {
       throw new ServiceUnavailableException(
         "Membership price must be live USD9.99 per month",
       );
-    const origin = new URL(this.config.getOrThrow<string>("ORG_ADMIN_DOMAIN"));
+    const origin = new URL(
+      this.config.getOrThrow<string>("RECRUITERS_PUBLIC_ORIGIN"),
+    );
     if (origin.origin !== "https://recruiters.rip")
       throw new ServiceUnavailableException("Invalid membership return origin");
     await this.refresh(owner);

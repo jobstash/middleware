@@ -50,6 +50,9 @@ const envSchema = Joi.object({
     .max(5)
     .default(5),
   ORG_ADMIN_DOMAIN: Joi.string().required(),
+  RECRUITERS_PUBLIC_ORIGIN: Joi.string()
+    .valid("https://recruiters.rip")
+    .optional(),
   PRIVY_APP_ID: Joi.string().required(),
   PRIVY_APP_SECRET: Joi.string().required(),
   PRIVY_WEBHOOK_KEY: Joi.string().required(),

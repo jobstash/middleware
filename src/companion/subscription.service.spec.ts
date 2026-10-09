@@ -40,7 +40,8 @@ function billing(): BillingHarness {
     db,
     new ConfigService({
       STRIPE_CANDIDATE_PRICE_ID: "price_live",
-      ORG_ADMIN_DOMAIN: "https://recruiters.rip",
+      ORG_ADMIN_DOMAIN: "https://admin.jobstash.xyz",
+      RECRUITERS_PUBLIC_ORIGIN: "https://recruiters.rip",
     }),
     stripe,
   );
@@ -66,6 +67,28 @@ function completedEvent(): Stripe.Event {
 }
 
 describe("candidate billing authority", () => {
+  it("returns candidate checkout to its own product when the administrative domain differs", async () => {
+    const { service, query, create } = billing();
+    query.mockImplementation(async sql =>
+      sql.startsWith("SELECT id::text") ? [{ id: "123" }] : [],
+    );
+    create.mockResolvedValue({
+      id: "cs_candidate",
+      livemode: true,
+      url: "https://checkout.stripe.com/c/pay/candidate",
+    });
+    await service.checkout("wallet", {
+      requestId: "3b7837f3-2e09-4b86-a2c5-51b53b3d0a61",
+    });
+    const checkout = create.mock.calls[0][0];
+    expect(checkout.success_url).toBe(
+      "https://recruiters.rip/onboarding/membership/return",
+    );
+    expect(checkout.cancel_url).toBe(
+      "https://recruiters.rip/onboarding/membership/return",
+    );
+  });
+
   it("requires an authenticated unique existing account", async () => {
     const { service, query } = billing();
     await expect(service.owner("")).rejects.toThrow("Account required");
