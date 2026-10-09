@@ -83,8 +83,10 @@ Release order:
 2. Reuse `STRIPE_API_KEY` and `STRIPE_WEBHOOK_SECRET`. Set
    `STRIPE_CANDIDATE_PRICE_ID` to an active live USD 999-cent monthly recurring
    price, interval count one, without a trial. Keep existing Stripe products
-   intact. `ORG_ADMIN_DOMAIN` must be `https://recruiters.rip`. No new merchant
-   secret, provider credential or frontend billing secret is introduced.
+   intact. `RECRUITERS_PUBLIC_ORIGIN` must be `https://recruiters.rip`, independent
+   of `ORG_ADMIN_DOMAIN`. The candidate website belongs to `recruiters-rip-frontend`;
+   the downloadable app belongs to `recruiters-rip-companion`. Neither belongs to
+   org-admin. No new merchant secret or frontend billing secret is introduced.
 3. Keep the verified webhook at `POST /stripe/webhook`. Enable checkout session
    completed/expired/asynchronous success/failure, invoice payment success/failure,
    and customer subscription created/updated/deleted events on that same endpoint.
