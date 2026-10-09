@@ -1,5 +1,61 @@
 /** Every HTTP operation registered from AppModule. */
 export const RELEASE_ROUTE_MANIFEST = [
+  [
+    "CompanionProfileController",
+    "devicesList",
+    "GET",
+    "profile/devices",
+    "active",
+  ],
+  [
+    "CompanionProfileController",
+    "pair",
+    "POST",
+    "profile/devices/pair",
+    "active",
+  ],
+  [
+    "CompanionProfileController",
+    "revoke",
+    "POST",
+    "profile/devices/:id/revoke",
+    "active",
+  ],
+  [
+    "CompanionProfileController",
+    "status",
+    "GET",
+    "profile/subscription",
+    "active",
+  ],
+  [
+    "CompanionProfileController",
+    "checkout",
+    "POST",
+    "profile/subscription/checkout",
+    "active",
+  ],
+  [
+    "CompanionDeviceController",
+    "activate",
+    "POST",
+    "device/activate",
+    "active",
+  ],
+  [
+    "CompanionDeviceController",
+    "heartbeat",
+    "POST",
+    "device/heartbeat",
+    "active",
+  ],
+  [
+    "CompanionDeviceController",
+    "platform",
+    "POST",
+    "device/platform",
+    "active",
+  ],
   ["JobsController", "getJobFeed", "GET", "jobs/feed", "active"],
   ["JobsController", "getJobsRevision", "GET", "jobs/revision", "active"],
   [

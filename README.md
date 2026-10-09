@@ -65,3 +65,74 @@ To discuss problems, shoot a message to the `#discuss-problems` channel on Slack
 may list, grant, or revoke it through `GET`, `PUT`, and `DELETE`
 `/users/threat-intel-access`. These routes manage access only; threat source,
 signals, and analyst state are not stored in middleware.
+
+## Recruiters companion release
+
+The additive companion surface uses the existing account JWT, PostgreSQL job
+projections and production Stripe merchant. Existing organization/agency routes
+and billing products remain unchanged. No private CV, evidence, scores, drafts,
+provider credentials or inference payloads are stored by this module.
+
+Release order:
+
+1. Apply `scripts/sql/companion.sql` using the normal schema-release credentials,
+   after the graph/search schema. The transaction is repeatable and creates only
+   `candidate_devices`, `candidate_device_nonces`, `candidate_subscriptions` and
+   `candidate_payment_events`, with account foreign keys and application grants.
+   No fixture memberships, account rewrites or data repairs are needed.
+2. Reuse `STRIPE_API_KEY` and `STRIPE_WEBHOOK_SECRET`. Set
+   `STRIPE_CANDIDATE_PRICE_ID` to an active live USD 999-cent monthly recurring
+   price, interval count one, without a trial. Keep existing Stripe products
+   intact. `ORG_ADMIN_DOMAIN` must be `https://recruiters.rip`. No new merchant
+   secret, provider credential or frontend billing secret is introduced.
+3. Keep the verified webhook at `POST /stripe/webhook`. Enable checkout session
+   completed/expired/asynchronous success/failure, invoice payment success/failure,
+   and customer subscription created/updated/deleted events on that same endpoint.
+   Candidate events are reconciled from Stripe live state; foreign charges are
+   never assigned from webhook metadata. Duplicate events are transactionally
+   ignored. Missing webhooks recover on status and signed data reads.
+4. Deploy middleware and the additive recruiters frontend. The return URL is
+   `/onboarding/membership/return`; checkout is restricted to
+   `https://checkout.stripe.com`. The account holder completes real checkout;
+   deployment must not create a payment or grant access on their behalf.
+
+Authenticated `GET /profile/subscription` returns `{advanced,price,subscription}`;
+`POST /profile/subscription/checkout` accepts `{requestId}` and returns
+`{checkoutUrl}`. UUID request IDs also make checkout creation idempotent at Stripe.
+Billing lifecycle is separate from paid access: recoverable `past_due`, `unpaid`,
+paused and incomplete Stripe agreements block a second checkout. The account
+holder must recover payment using their existing Stripe invoice link or contact
+support to cancel the prior agreement; middleware never automatically cancels it.
+Only expired checkout sessions and canceled/incomplete-expired subscriptions are
+terminal. The idempotent schema also adds `billing_state` to existing metadata;
+old rows start unresolved and must be provider-verified before replacement.
+Terminal history is excluded from refresh. Concurrent owner reads share only
+in-flight refresh work; completed results are not cached. Relevant agreement
+reads retain row-lock ordering against webhook writes.
+Pairing uses `GET /profile/devices`, `POST /profile/devices/pair` with
+`{requestId,deviceId,publicKey,label}`, and `POST /profile/devices/:id/revoke`
+with `{requestId}`. Keys are Ed25519 SPKI DER encoded as 59-character base64url.
+The pairing reply is `{deviceId,challenge,expiresAt,account:{id,label}}`; the
+native app must explicitly approve that account and sign activation.
+The `/privy/check-wallet` response includes `privyDid` from the guard-verified
+Privy user, so the frontend can seal the backend session to the displayed identity.
+
+`POST /device/activate`, `/device/heartbeat` and `/device/platform` accept only
+the existing Ed25519 raw-body protocol (`x-device-id`, `x-device-time`,
+`x-device-nonce`, `x-device-signature`), with no cookie/bearer/query transport.
+Requests expire after 30 seconds; nonces cannot be replayed. Request bodies are
+limited to 16 KiB and platform responses to 8 MiB. An oversized original is
+rejected, never truncated. Platform operations are `status`,
+`matching_catalogue`, `matching_jobs` (at most ten canonical IDs) and `job_read`.
+The catalogue uses publication time, newest first, for the latest fourteen days;
+explicit canonical reads retain previously selected full originals and role
+location evidence even when they age out of the catalogue.
+
+Raw data requires an owned active device and a live paid subscription before and
+after reads. A historical payment, test-mode object, trial, pending invoice,
+expired membership or revoked device cannot authorize it. Provider failures fail
+closed; they never extend a cached entitlement. Status remains available without
+paid access. Parent release gates should include build, route manifest tests,
+`src/companion` boundary tests, schema application review and the user-completed
+live checkout/return/pairing flow.
+

@@ -64,6 +64,9 @@ const envSchema = Joi.object({
   SKILL_THRESHOLD: Joi.number().required(),
   STRIPE_API_KEY: Joi.string().required(),
   STRIPE_WEBHOOK_SECRET: Joi.string().required(),
+  STRIPE_CANDIDATE_PRICE_ID: Joi.string()
+    .pattern(/^price_[A-Za-z0-9]+$/)
+    .optional(),
   SWAGGER_USER: Joi.string().required(),
   SWAGGER_PASSWORD: Joi.string().required(),
   TEST_DB_MANAGER_URL: Joi.string(),

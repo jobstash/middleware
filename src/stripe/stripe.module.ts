@@ -8,6 +8,7 @@ import { SubscriptionsModule } from "src/subscriptions/subscriptions.module";
 import { AuthModule } from "src/auth/auth.module";
 import { ProfileModule } from "src/auth/profile/profile.module";
 import { UserModule } from "src/user/user.module";
+import { SubscriptionService as CandidateSubscriptionService } from "src/companion/subscription.service";
 
 @Module({
   controllers: [StripeController],
@@ -21,6 +22,7 @@ import { UserModule } from "src/user/user.module";
   ],
   providers: [
     StripeService,
+    CandidateSubscriptionService,
     {
       provide: "STRIPE_CLIENT",
       useFactory: async (configService: ConfigService): Promise<Stripe> =>
@@ -44,6 +46,6 @@ import { UserModule } from "src/user/user.module";
       inject: [ConfigService],
     },
   ],
-  exports: [StripeService],
+  exports: [StripeService, CandidateSubscriptionService],
 })
 export class StripeModule {}

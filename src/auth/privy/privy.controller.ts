@@ -63,9 +63,13 @@ export class PrivyController {
   @Get("check-wallet")
   @UseGuards(PrivyGuard)
   @HttpCode(HttpStatus.OK)
-  async checkWallet(
-    @PrivySession() user: User,
-  ): Promise<SessionObject & { token: string; hasVerifiedEmail: boolean }> {
+  async checkWallet(@PrivySession() user: User): Promise<
+    SessionObject & {
+      token: string;
+      hasVerifiedEmail: boolean;
+      privyDid: string;
+    }
+  > {
     await this.threatSync.syncUser(user);
     const embeddedWallet =
       await this.privyService.getOrCreateUserEmbeddedWallet(user);
@@ -103,6 +107,7 @@ export class PrivyController {
         const hasVerifiedEmail =
           await this.userService.hasVerifiedEmail(embeddedWallet);
         return {
+          privyDid: user.id,
           token,
           cryptoNative,
           permissions,
@@ -116,6 +121,7 @@ export class PrivyController {
       }
     } else {
       return {
+        privyDid: user.id,
         token: this.authService.createToken({
           address: null,
           cryptoNative: false,

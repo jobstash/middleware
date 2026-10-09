@@ -38,6 +38,7 @@ import { PeopleIntelligenceModule } from "./people-intelligence/people-intellige
 import { HealthModule } from "./health/health.module";
 import { AdminIngestionModule } from "./admin-ingestion/admin-ingestion.module";
 import { AccessWorkspacesModule } from "./access-workspaces/access-workspaces.module";
+import { CompanionModule } from "./companion/companion.module";
 
 @Module({
   imports: [
@@ -92,6 +93,7 @@ import { AccessWorkspacesModule } from "./access-workspaces/access-workspaces.mo
     EcosystemsModule,
     WhiteLabelBoardsModule,
     AccountModule,
+    CompanionModule,
   ],
   controllers: [AppController],
   providers: [AppService],
