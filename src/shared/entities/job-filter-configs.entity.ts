@@ -304,6 +304,10 @@ export class JobFilterConfigsEntity {
         "classifications",
         "classificationLabels",
       ),
+      organizationClassifications: {
+        ...this.configPresets.organizationClassifications,
+        paramKey: this.paramKeyPresets.organizationClassifications,
+      },
       commitments: this.getKeyedPresets("commitments", "commitmentLabels"),
       ecosystems: this.getKeyedPresets("ecosystems", "ecosystemLabels"),
       seniority: this.getMultiValuePresetsWithTransform("seniority"),

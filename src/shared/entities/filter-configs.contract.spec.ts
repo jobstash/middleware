@@ -5,6 +5,26 @@ import {
 } from "./index";
 
 describe("filter config response contracts", () => {
+  it("publishes all canonical employer classifications independently of role facets", () => {
+    const result = new JobFilterConfigsEntity({}).getProperties();
+    expect(result.organizationClassifications).toMatchObject({
+      label: "Organization classification",
+      paramKey: "organizationClassifications",
+      show: true,
+      options: [
+        { label: "Crypto", value: "crypto" },
+        { label: "Fintech", value: "fintech" },
+        { label: "AI", value: "ai" },
+        { label: "Robotics", value: "robotics" },
+        { label: "Banking", value: "banking" },
+        { label: "Web2", value: "tech" },
+        { label: "Out of scope", value: "out_of_scope" },
+        { label: "Unclassified", value: "unclassified" },
+      ],
+    });
+    expect(result.classifications.options).toEqual([]);
+  });
+
   it("round-trips every job range and option family", () => {
     const result = new JobFilterConfigsEntity({
       minSalaryRange: 90_000,

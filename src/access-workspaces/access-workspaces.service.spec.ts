@@ -95,6 +95,7 @@ describe("AccessWorkspacesService", () => {
       workspaceId: "workspace",
       role: "viewer",
       entitled: true,
+      alertsEnabled: false,
     });
 
     await expect(
@@ -112,6 +113,7 @@ describe("AccessWorkspacesService", () => {
       workspaceId: "workspace",
       role: "viewer",
       entitled: true,
+      alertsEnabled: false,
     });
     repo.listBountyOpportunities.mockResolvedValue({
       summary: {
@@ -200,6 +202,7 @@ describe("AccessWorkspacesService", () => {
         workspaceId: "workspace",
         role: "viewer",
         entitled: false,
+        alertsEnabled: false,
       },
     });
     await expect(
@@ -211,6 +214,7 @@ describe("AccessWorkspacesService", () => {
         workspaceId: "workspace",
         role: "viewer",
         entitled: true,
+        alertsEnabled: false,
       },
       payload: {
         slug: "acme",
@@ -244,6 +248,7 @@ describe("AccessWorkspacesService", () => {
         workspaceId: "workspace",
         role: "viewer",
         entitled: true,
+        alertsEnabled: false,
       },
     });
     await expect(
@@ -255,6 +260,7 @@ describe("AccessWorkspacesService", () => {
         workspaceId: "workspace",
         role: "analyst",
         entitled: true,
+        alertsEnabled: false,
       },
       payload: { info: { email: "private@example.com" } },
       recentRevealCount: 10,
@@ -268,6 +274,7 @@ describe("AccessWorkspacesService", () => {
         workspaceId: "workspace",
         role: "analyst",
         entitled: true,
+        alertsEnabled: false,
       },
       payload: { info: { email: "private@example.com" } },
       recentRevealCount: 0,

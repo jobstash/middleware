@@ -1405,6 +1405,9 @@ export const PUBLIC_API_SCHEMAS = {
       classifications: {
         $ref: getSchemaPath(MultiSelectFilter),
       },
+      organizationClassifications: {
+        $ref: getSchemaPath(MultiSelectFilter),
+      },
       commitments: {
         $ref: getSchemaPath(MultiSelectFilter),
       },

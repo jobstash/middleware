@@ -1,6 +1,7 @@
 import { performance } from "node:perf_hooks";
 import { JobFilterConfigsEntity } from "src/shared/entities";
 import { publicationDateRangeGenerator } from "src/shared/helpers";
+import { ORGANIZATION_VERTICALS } from "src/shared/organization-classifications";
 import {
   attachStructuredJobToEmployerFixture,
   createOwnedJobsiteFixture,
@@ -72,6 +73,116 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
   beforeEach(async () => {
     await resetDatabase();
     await seedCoreDocuments();
+  });
+
+  describe("canonical employer classification filters", () => {
+    beforeEach(async () => {
+      await postgres.query(`
+        UPDATE graph_nodes employer
+        SET properties = employer.properties || jsonb_build_object(
+          'vertical', CASE organization.organization_id
+            WHEN 'org-acme' THEN 'ai' ELSE 'fintech' END
+        )
+        FROM organization_search_documents organization
+        WHERE employer.id = organization.organization_node_id;
+        UPDATE graph_nodes employer
+        SET properties = employer.properties || '{"vertical":"crypto"}'::jsonb
+        FROM project_search_documents project
+        WHERE employer.id = project.project_node_id;
+        UPDATE job_search_documents
+        SET organization_id = NULL, organization_name = NULL,
+          project_id = 'project-alpha', organization_has_expert_jobs = false
+        WHERE structured_jobpost_id = 'job-public-acme';
+      `);
+    });
+
+    it.each(ORGANIZATION_VERTICALS)(
+      "matches the exact stored %s value for organization and project employers",
+      async vertical => {
+        await postgres.query(
+          `
+          UPDATE graph_nodes employer
+          SET properties = employer.properties || jsonb_build_object(
+            'vertical', $1::text
+          )
+          WHERE employer.id IN (
+            SELECT organization_node_id FROM organization_search_documents
+            WHERE organization_id = 'org-acme'
+            UNION ALL
+            SELECT project_node_id FROM project_search_documents
+            WHERE project_id = 'project-alpha'
+          )
+        `,
+          [vertical],
+        );
+        const result = await repository.searchJobs({
+          organizationClassifications: [vertical],
+        });
+        const expected = ["job-protected", "job-public-acme"];
+        if (vertical === "fintech") expected.push("job-public-beta");
+        expect(result.data.map(job => job.id).sort()).toEqual(expected.sort());
+        expect(result.total).toBe(expected.length);
+      },
+    );
+
+    it("uses actual employer classification, not sibling organizations, roles, or titles", async () => {
+      await postgres.query(`
+        UPDATE job_search_documents
+        SET title = 'AI Engineer', classifications = ARRAY['engineering']
+      `);
+      const ai = await repository.searchJobs({
+        organizationClassifications: ["ai"],
+      });
+      expect(ai.data.map(job => job.id)).toEqual(["job-protected"]);
+      const crypto = await repository.searchJobs({
+        organizationClassifications: ["crypto"],
+      });
+      expect(crypto.data.map(job => job.id)).toEqual(["job-public-acme"]);
+      await postgres.query(`
+        UPDATE graph_nodes SET properties = properties - 'vertical'
+        WHERE id IN (SELECT project_node_id FROM project_search_documents)
+      `);
+      expect(
+        (
+          await repository.searchJobs({
+            organizationClassifications: ["unclassified"],
+          })
+        ).total,
+      ).toBe(0);
+    });
+
+    it("ORs classifications, ANDs other filters, and preserves unique totals across pages", async () => {
+      const params: JobSearchParams = {
+        organizationClassifications: ["ai", "crypto", "ai"],
+        limit: 1,
+      };
+      const first = await repository.searchJobs({ ...params, page: 1 });
+      const second = await repository.searchJobs({ ...params, page: 2 });
+      const empty = await repository.searchJobs({ ...params, page: 3 });
+      expect(first.total).toBe(2);
+      expect(second.total).toBe(2);
+      expect(empty).toMatchObject({ total: 2, count: 0, data: [] });
+      expect(
+        new Set([...first.data, ...second.data].map(job => job.id)).size,
+      ).toBe(2);
+      const filtered = await repository.searchJobs({
+        ...params,
+        tags: ["typescript"],
+      });
+      expect(filtered.total).toBe(1);
+      expect(filtered.data.map(job => job.id)).toEqual(["job-public-acme"]);
+      expect(
+        (
+          await repository.searchJobs({
+            ...params,
+            classifications: ["marketing"],
+          })
+        ).total,
+      ).toBe(0);
+      const grouped = await repository.searchJobGroups(params);
+      expect(grouped.total).toBe(2);
+      expect(grouped.totalJobs).toBe(2);
+    });
   });
 
   describe("organization feed", () => {
@@ -170,6 +281,25 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
       });
       expect(empty.data).toEqual([]);
       expect(empty.totalJobs).toBe(206);
+      await postgres.query(`
+        UPDATE graph_nodes employer
+        SET properties = employer.properties || '{"vertical":"ai"}'::jsonb
+        FROM organization_search_documents organization
+        WHERE employer.id = organization.organization_node_id
+          AND organization.organization_id = 'org-acme'
+      `);
+      const classified = await repository.searchLatestImportJobGroups({
+        startDate: 10000,
+        organizationClassifications: ["ai"],
+        minSalaryRange: 150000,
+        limit: 1,
+      });
+      expect(classified.total).toBe(1);
+      expect(classified.totalJobs).toBe(3);
+      expect(classified.data[0].organizationId).toBe("org-acme");
+      expect(classified.data[0].jobTitles.map(job => job.id)).toEqual(
+        [2, 1, 0].map(i => `stack-org-acme-${i}`),
+      );
     });
 
     it("keeps open jobs from older imports in complete stacks with every title", async () => {

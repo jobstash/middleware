@@ -29,6 +29,7 @@ export interface WorkspaceAuthorization {
   workspaceId: string;
   role: "owner" | "admin" | "analyst" | "viewer";
   entitled: boolean;
+  alertsEnabled: boolean;
 }
 
 type DomainTransferResult =
@@ -100,6 +101,7 @@ export class AccessWorkspacesRepository {
           'stripeQuantity', workspace.stripe_quantity,
           'unlimitedSeats', true,
           'entitlementEnabled', workspace.entitlement_enabled,
+          'alertsEnabled', workspace.alerts_enabled AND NOT COALESCE(jsonb_boolean_value(profile.properties, 'banned'), false),
           'currentRole', requester.role,
           'members', COALESCE((
             SELECT jsonb_agg(jsonb_build_object(
@@ -141,6 +143,7 @@ export class AccessWorkspacesRepository {
           'stripeQuantity', workspace.stripe_quantity,
           'unlimitedSeats', true,
           'entitlementEnabled', workspace.entitlement_enabled,
+          'alertsEnabled', workspace.alerts_enabled AND NOT COALESCE(jsonb_boolean_value(profile.properties, 'banned'), false),
           'currentRole', requester.role
         ) AS value
         FROM access_workspaces workspace
@@ -416,7 +419,11 @@ export class AccessWorkspacesRepository {
       `
         SELECT workspace.id::text AS "workspaceId", member.role,
           (workspace.status = 'active'
-            AND workspace.entitlement_enabled) AS entitled
+            AND workspace.entitlement_enabled) AS entitled,
+          (workspace.alerts_enabled AND workspace.plan_code = 'agency'
+            AND EXISTS (SELECT 1 FROM graph_nodes profile
+              WHERE profile.id = workspace.primary_profile_node_id AND profile.label = 'EntityProfile'
+                AND NOT COALESCE(jsonb_boolean_value(profile.properties, 'banned'), false))) AS "alertsEnabled"
         FROM access_workspaces workspace
         JOIN access_workspace_members member
           ON member.workspace_id = workspace.id

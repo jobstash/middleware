@@ -29,6 +29,142 @@ Here are the steps you need to take to get the project setup on your local devel
 - Swagger for documentation
 - Prettier for code formatting
 
+## Employer classification job filters
+
+`GET /jobs/list` and `GET /jobs/feed` accept `organizationClassifications` as a
+comma-separated string or repeated query parameter. Values are combined with OR;
+this filter is combined with all other job filters using AND. For example:
+`/jobs/list?organizationClassifications=ai,crypto&classifications=engineering`.
+The existing `classifications` parameter remains the job-role filter.
+
+`GET /jobs/filters` publishes every canonical choice under
+`organizationClassifications.options`, including choices with no current jobs:
+`ai` (AI), `crypto` (Crypto), `fintech` (Fintech), `robotics` (Robotics),
+`banking` (Banking), `tech` (Web2), `out_of_scope` (Out of scope), and
+`unclassified` (Unclassified). Web2 is a display label, not a new stored value.
+Unknown values receive the standard query validation error.
+
+Filtering reads the existing `vertical` property of the actual projected
+Organization or Project employer through its corresponding search document.
+It does not inherit another entity's classification from a shared profile,
+infer classifications from job titles, or treat a missing classification as
+`unclassified`. Selection happens before results, group counts, and pagination;
+multiple selections never duplicate jobs. No schema migration or classification
+backfill is required.
+
+## Agency Alert
+
+Alert is for manually approved partner agencies, at no charge. Approval is a
+separate `access_workspaces.alerts_enabled` flag; it never sets
+`entitlement_enabled`, creates a Stripe subscription, or changes the existing
+$299 paid Agency contract or candidate access.
+
+### Install and operate
+
+Apply `scripts/sql/agency-alerts.sql` to the existing graph/search/workspace
+database before deploying this middleware revision. The migration is
+idempotent and takes a write-blocking lock on `graph_nodes` and
+`job_search_documents` while baselining **all existing StructuredJobpost
+identities**, including offline/unprojected jobs, and installing the publication
+trigger. Schedule this brief lock appropriately; do not remove or clear the
+publication ledger on projection rebuilds or deployments. The trigger runs with
+the projection writer's permissions; the migration grants the existing
+`jobstash_app` role publication access. Any different ETL writer role also needs
+`INSERT` on `agency_alert_publications`.
+
+Existing configuration is reused: `EMAIL`, `SENDGRID_API_KEY`, `FE_DOMAIN`,
+`MW_DOMAIN`, `ORG_ADMIN_DOMAIN`, and `JWT_SECRET`. Set `ORG_ADMIN_DOMAIN` to
+`https://admin.jobstash.xyz`; `MW_DOMAIN` must be the externally reachable
+middleware origin for email unsubscribe links. No new billing/environment
+toggle is required. Delivery runs each minute only when
+`ENVIRONMENT=production` and `MIDDLEWARE_SCHEDULE_OWNER=1`. Keep the existing
+single-owner process convention; committed database claims also prevent
+duplicate role sends across simultaneous workers.
+
+### Approval, personal follows, and stopping
+
+Only a current `SUPER_ADMIN` can use `GET/POST /agency-alerts/admin/workspaces`.
+Provisioning takes `{primaryProfileId, ownerUserId, domain}` and validates an
+existing nonbanned EntityProfile and an existing account wallet. It creates or
+reuses the matching workspace, records the approving administrator/time, and
+does not infer agency status from a classifier. A profile/domain owned by a
+different workspace cannot be reassigned through this endpoint.
+`POST /agency-alerts/admin/workspaces/:workspaceId/approval` with
+`{enabled:false}` revokes approval; `{enabled:true}` approves a workspace with an
+available, nonbanned profile. Stripe billing status does not gate free Alert.
+The admin member/remove-member POST endpoints accept existing account wallets
+only, cannot replace/remove the owner, and are independent of paid access.
+
+Members read `GET /access-workspaces/:workspaceId/alerts`, search
+`GET .../alerts/organizations?q=...`, and use POST `.../alerts/follows` or
+`.../alerts/unfollow` with `{organizationId}`. POST `.../alerts/unsubscribe`
+removes all of that member's follows in that workspace. Read/stop controls remain
+available after approval is revoked; search/follow require current approval.
+Follows are personal, not a workspace-wide mailing list. No endpoint accepts a
+recipient email or another member's identity. The recipient is the current
+account's verified `UserEmail`; Privy email linking followed by check-wallet
+refresh uses the existing verification sync. Missing email is reported as
+`emailAvailable:false`. Changing/removing the selected email pauses existing
+follows instead of silently redirecting them; explicitly unfollow/re-follow to
+subscribe with the current verified email.
+
+Email links offer a confirmation GET and signed POST unsubscribe; GET never
+changes preferences. One-click unsubscribe headers use that same POST endpoint.
+Unsubscribing never changes candidate email preferences or other members' follows.
+Membership deletion cascades personal follows, and delivery rechecks membership,
+nonbanned agency profile, whitelist approval, exact verified recipient, organization
+ownership, and current public-role visibility immediately before sending.
+Already handed-off messages cannot be recalled.
+
+### Publication and delivery guarantees
+
+The trigger records each stable `shortUUID` only once, when its projection first
+has public organization-owned visibility: online, not blocked, list-eligible,
+tagged, public access, no direct Project owner, and no expert-organization
+suppression. Direct Project jobs are not assigned to an inferred organization.
+The effective first-public time is the later of discovery and the initial
+publication timestamp; future-dated candidates become due without a catalogue
+poll. A follow made after discovery but before that future publication is
+eligible. Ordinary edits, reopening, retries, and projection reconstruction do
+not generate another event. Follow/re-follow never backfills earlier public
+roles. Roles withdrawn, reassigned, or no longer public at their delivery
+recheck are skipped; an already consumed identity is not resent if reopened.
+
+Each minute processes at most 20 organization/recipient batches of at most 50
+roles, queried from indexed publication events. Normally delivery is attempted
+on the next minute tick after JobStash discovers the public role, not immediately
+when an external employer publishes it. Backlog, ETL delay, and provider delay can
+extend that time. First-public timestamps are fixed and are not rewritten by
+later metadata edits.
+
+A delivery claim is committed before calling the existing SendGrid MailService.
+It is never automatically reopened after a crash, timeout, or provider error:
+an ambiguous provider response may already represent acceptance. This prevents
+unconditional duplicate resends but can lose an alert on a pre-send crash or
+failed attempt. `agency_alert_deliveries.status` distinguishes `claimed`,
+`accepted`, `skipped`, and `failed_unknown`; `accepted` means provider acceptance,
+not inbox receipt. Investigate failed/stale claims without blindly replaying
+them. Existing SendGrid unsubscribe/suppression handling is not bypassed.
+
+### Controlled verification
+
+Run the Alert service/controller tests and the real-SQL
+`agency-alerts.integration.spec.ts` with `AGENCY_ALERTS_TEST_DATABASE_URL` pointing
+to a **disposable localhost database whose name includes `test`**. The fixture
+isolates its schema and covers migration baseline/reapply, future publication,
+deduplication across two workers, late commits, recipient changes, whitelist
+revocation, removed members, and personal unsubscribe. No integration fixture
+sends email.
+
+For an authorized, single-recipient staging smoke: sign in as a superadmin,
+approve an existing test agency profile and test account; sign in as that
+account, verify its email, follow a test organization, and publish two genuinely
+new public test roles through the normal ingestion path. Observe one claimed
+organization batch and provider acceptance, then independently check the
+controlled inbox. Edit/reopen those roles and confirm no additional attempt.
+Unfollow or revoke approval before another new role to confirm no send. Do not
+backfill existing customer follows or email real customers for verification.
+
 ## Versioning & Deployment
 
 Production changes are deployed from reviewed pushes to `main`. The existing

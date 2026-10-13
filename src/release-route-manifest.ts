@@ -1,3 +1,18 @@
+type GroupRoute = readonly [
+  handler: string,
+  method: "GET" | "POST",
+  suffix: string,
+];
+const activeRouteGroup = (
+  controller: string,
+  basePath: string,
+  routes: readonly GroupRoute[],
+): readonly (readonly [string, string, "GET" | "POST", string, "active"])[] =>
+  routes.map(
+    ([handler, method, suffix]) =>
+      [controller, handler, method, `${basePath}${suffix}`, "active"] as const,
+  );
+
 /** Every HTTP operation registered from AppModule. */
 export const RELEASE_ROUTE_MANIFEST = [
   [
@@ -165,6 +180,36 @@ export const RELEASE_ROUTE_MANIFEST = [
     "access-workspaces/:workspaceId/members/:userId",
     "active",
   ],
+  ...activeRouteGroup(
+    "AgencyAlertsController",
+    "access-workspaces/:workspaceId/alerts",
+    [
+      ["state", "GET", ""],
+      ["search", "GET", "/organizations"],
+      ["follow", "POST", "/follows"],
+      ["unfollow", "POST", "/unfollow"],
+      ["unsubscribe", "POST", "/unsubscribe"],
+    ],
+  ),
+  ...activeRouteGroup(
+    "AgencyAlertUnsubscribeController",
+    "agency-alerts/unsubscribe",
+    [
+      ["page", "GET", ""],
+      ["unsubscribe", "POST", ""],
+    ],
+  ),
+  ...activeRouteGroup(
+    "AgencyAlertsAdminController",
+    "agency-alerts/admin/workspaces",
+    [
+      ["list", "GET", ""],
+      ["provision", "POST", ""],
+      ["approve", "POST", "/:workspaceId/approval"],
+      ["putMember", "POST", "/:workspaceId/members"],
+      ["removeMember", "POST", "/:workspaceId/remove-member"],
+    ],
+  ),
   [
     "AccountController",
     "acceptDelegateAccessRequest",
