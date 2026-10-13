@@ -1,3 +1,5 @@
+import { ORGANIZATION_VERTICALS } from "../src/shared/organization-classifications";
+
 export type MatrixPrimitive = string | number | boolean;
 
 export type MatrixValue = {
@@ -193,6 +195,11 @@ const jobParameters = (): MatrixParameter[] => [
   arrayParameter("ecosystems", "ethereum", "solana"),
   arrayParameter("projects", "ethereum", "uniswap"),
   arrayParameter("classifications", "engineering", "marketing"),
+  enumParameter(
+    "organizationClassifications",
+    [...ORGANIZATION_VERTICALS, "ai,crypto"],
+    true,
+  ),
   arrayParameter("commitments", "fulltime", "contract"),
   arrayParameter("fundingRounds", "series-a", "seed"),
   arrayParameter("fundingStages", "series-a", "seed"),

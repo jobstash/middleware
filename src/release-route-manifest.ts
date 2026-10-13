@@ -1,3 +1,18 @@
+type GroupRoute = readonly [
+  handler: string,
+  method: "GET" | "POST",
+  suffix: string,
+];
+const activeRouteGroup = (
+  controller: string,
+  basePath: string,
+  routes: readonly GroupRoute[],
+): readonly (readonly [string, string, "GET" | "POST", string, "active"])[] =>
+  routes.map(
+    ([handler, method, suffix]) =>
+      [controller, handler, method, `${basePath}${suffix}`, "active"] as const,
+  );
+
 /** Every HTTP operation registered from AppModule. */
 export const RELEASE_ROUTE_MANIFEST = [
   [
@@ -165,90 +180,36 @@ export const RELEASE_ROUTE_MANIFEST = [
     "access-workspaces/:workspaceId/members/:userId",
     "active",
   ],
-  [
+  ...activeRouteGroup(
     "AgencyAlertsController",
-    "state",
-    "GET",
     "access-workspaces/:workspaceId/alerts",
-    "active",
-  ],
-  [
-    "AgencyAlertsController",
-    "search",
-    "GET",
-    "access-workspaces/:workspaceId/alerts/organizations",
-    "active",
-  ],
-  [
-    "AgencyAlertsController",
-    "follow",
-    "POST",
-    "access-workspaces/:workspaceId/alerts/follows",
-    "active",
-  ],
-  [
-    "AgencyAlertsController",
-    "unfollow",
-    "POST",
-    "access-workspaces/:workspaceId/alerts/unfollow",
-    "active",
-  ],
-  [
-    "AgencyAlertsController",
-    "unsubscribe",
-    "POST",
-    "access-workspaces/:workspaceId/alerts/unsubscribe",
-    "active",
-  ],
-  [
+    [
+      ["state", "GET", ""],
+      ["search", "GET", "/organizations"],
+      ["follow", "POST", "/follows"],
+      ["unfollow", "POST", "/unfollow"],
+      ["unsubscribe", "POST", "/unsubscribe"],
+    ],
+  ),
+  ...activeRouteGroup(
     "AgencyAlertUnsubscribeController",
-    "page",
-    "GET",
     "agency-alerts/unsubscribe",
-    "active",
-  ],
-  [
-    "AgencyAlertUnsubscribeController",
-    "unsubscribe",
-    "POST",
-    "agency-alerts/unsubscribe",
-    "active",
-  ],
-  [
+    [
+      ["page", "GET", ""],
+      ["unsubscribe", "POST", ""],
+    ],
+  ),
+  ...activeRouteGroup(
     "AgencyAlertsAdminController",
-    "list",
-    "GET",
     "agency-alerts/admin/workspaces",
-    "active",
-  ],
-  [
-    "AgencyAlertsAdminController",
-    "provision",
-    "POST",
-    "agency-alerts/admin/workspaces",
-    "active",
-  ],
-  [
-    "AgencyAlertsAdminController",
-    "approve",
-    "POST",
-    "agency-alerts/admin/workspaces/:workspaceId/approval",
-    "active",
-  ],
-  [
-    "AgencyAlertsAdminController",
-    "putMember",
-    "POST",
-    "agency-alerts/admin/workspaces/:workspaceId/members",
-    "active",
-  ],
-  [
-    "AgencyAlertsAdminController",
-    "removeMember",
-    "POST",
-    "agency-alerts/admin/workspaces/:workspaceId/remove-member",
-    "active",
-  ],
+    [
+      ["list", "GET", ""],
+      ["provision", "POST", ""],
+      ["approve", "POST", "/:workspaceId/approval"],
+      ["putMember", "POST", "/:workspaceId/members"],
+      ["removeMember", "POST", "/:workspaceId/remove-member"],
+    ],
+  ),
   [
     "AccountController",
     "acceptDelegateAccessRequest",
