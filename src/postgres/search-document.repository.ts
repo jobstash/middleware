@@ -1187,6 +1187,35 @@ export class SearchDocumentRepository {
       "classifications",
       params.classifications,
     );
+    if (params.organizationClassifications?.length) {
+      const classifications = where.bind(params.organizationClassifications);
+      // Resolve only the projected employer, not other entities in its profile.
+      // EXISTS keeps jobs and totals unique even if graph relations multiply.
+      where.add(`(
+        EXISTS (
+          SELECT 1
+          FROM organization_search_documents classification_organization
+          JOIN graph_nodes classification_employer
+            ON classification_employer.id =
+              classification_organization.organization_node_id
+           AND classification_employer.label = 'Organization'
+          WHERE classification_organization.organization_id =
+            job_search_documents.organization_id
+            AND classification_employer.properties ->> 'vertical'
+              = ANY(${classifications}::text[])
+        )
+        OR EXISTS (
+          SELECT 1
+          FROM project_search_documents classification_project
+          JOIN graph_nodes classification_employer
+            ON classification_employer.id = classification_project.project_node_id
+           AND classification_employer.label = 'Project'
+          WHERE classification_project.project_id = job_search_documents.project_id
+            AND classification_employer.properties ->> 'vertical'
+              = ANY(${classifications}::text[])
+        )
+      )`);
+    }
     where.addFacetKeyOverlap("commitments", "commitments", params.commitments);
     const workModes = normalizeList(params.workModes);
     if (workModes?.length) {

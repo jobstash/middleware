@@ -1,4 +1,5 @@
 import { AI_CATEGORIES, AiCategory } from "../../shared/ai-categories";
+import { ORGANIZATION_VERTICALS } from "../../shared/organization-classifications";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
   IsArray,
@@ -11,17 +12,6 @@ import {
   MaxLength,
   ValidateIf,
 } from "class-validator";
-
-export const ORGANIZATION_VERTICALS = [
-  "crypto",
-  "fintech",
-  "ai",
-  "robotics",
-  "banking",
-  "tech",
-  "out_of_scope",
-  "unclassified",
-] as const;
 
 export class UpdateOrganizationClassificationInput {
   @IsOptional()

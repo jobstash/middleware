@@ -53,6 +53,7 @@ describe("UserController Agency Talent Pool entitlement", () => {
             workspaceId,
             role: "analyst",
             entitled: true,
+            alertsEnabled: false,
           })
         : jest
             .fn()

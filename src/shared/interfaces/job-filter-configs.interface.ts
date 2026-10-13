@@ -51,6 +51,7 @@ export class JobFilterConfigs {
     investors: MultiSelectFilter.MultiSelectFilterType,
     ecosystems: MultiSelectFilter.MultiSelectFilterType,
     classifications: MultiSelectFilter.MultiSelectFilterType,
+    organizationClassifications: MultiSelectFilter.MultiSelectFilterType,
     commitments: MultiSelectFilter.MultiSelectFilterType,
     fundingRounds: MultiSelectFilter.MultiSelectFilterType,
     organizations: MultiSelectFilter.MultiSelectFilterType,
@@ -113,6 +114,8 @@ export class JobFilterConfigs {
   @ApiProperty()
   classifications: MultiSelectFilter;
   @ApiProperty()
+  organizationClassifications: MultiSelectFilter;
+  @ApiProperty()
   commitments: MultiSelectFilter;
   @ApiProperty()
   tvl: RangeFilter;
@@ -170,6 +173,7 @@ export class JobFilterConfigs {
       investors,
       ecosystems,
       classifications,
+      organizationClassifications,
       onboardIntoWeb3,
       expertJobs,
       commitments,
@@ -222,6 +226,7 @@ export class JobFilterConfigs {
     this.monthlyRevenue = monthlyRevenue;
     this.publicationDate = publicationDate;
     this.classifications = classifications;
+    this.organizationClassifications = organizationClassifications;
     this.commitments = commitments;
 
     if (isLeft(result)) {

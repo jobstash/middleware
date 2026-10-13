@@ -142,6 +142,7 @@ describe("AccessWorkspacesRepository", () => {
         workspaceId: "workspace",
         role,
         entitled: true,
+        alertsEnabled: false,
       });
 
       await expect(
@@ -169,6 +170,7 @@ describe("AccessWorkspacesRepository", () => {
         workspaceId: "workspace",
         role,
         entitled: true,
+        alertsEnabled: false,
       });
 
       await expect(
@@ -192,6 +194,7 @@ describe("AccessWorkspacesRepository", () => {
       workspaceId: "workspace",
       role: "viewer",
       entitled: true,
+      alertsEnabled: false,
     });
 
     await expect(
@@ -206,6 +209,7 @@ describe("AccessWorkspacesRepository", () => {
         workspaceId: "workspace",
         role: "viewer",
         entitled: true,
+        alertsEnabled: false,
       },
     });
     expect(query).not.toHaveBeenCalled();
@@ -229,6 +233,7 @@ describe("AccessWorkspacesRepository", () => {
       workspaceId: "workspace",
       role: "analyst",
       entitled: true,
+      alertsEnabled: false,
     });
 
     const result = await repository.inspectProfile({

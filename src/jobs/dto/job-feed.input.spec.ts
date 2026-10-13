@@ -3,6 +3,7 @@ import { validate } from "class-validator";
 import { JobFeedParams } from "./job-feed.input";
 import { shouldGroupJobs } from "./job-feed.input";
 import { JobListParams } from "./job-list.input";
+import { ORGANIZATION_VERTICALS } from "src/shared/organization-classifications";
 
 describe("feed grouping policy", () => {
   it.each(["tags", "organizations", "projects", "cities"])(
@@ -16,6 +17,7 @@ describe("feed grouping policy", () => {
   );
   it.each([
     "classifications",
+    "organizationClassifications",
     "commitments",
     "seniority",
     "countries",
@@ -88,4 +90,38 @@ describe("organization feed input", () => {
     expect(value.pillar).toBe("remote");
     expect(value).not.toHaveProperty("jobsPerOrganization");
   });
+});
+
+describe("organization classification input", () => {
+  it.each([JobListParams, JobFeedParams])(
+    "accepts canonical comma-separated and repeated values in %p",
+    async Input => {
+      for (const query of [
+        ORGANIZATION_VERTICALS.join(","),
+        [...ORGANIZATION_VERTICALS],
+      ]) {
+        const value = plainToInstance(Input, {
+          organizationClassifications: query,
+          classifications: "engineering",
+        });
+        expect(await validate(value, { whitelist: true })).toEqual([]);
+        expect(value.organizationClassifications).toEqual(
+          ORGANIZATION_VERTICALS,
+        );
+        expect(value.classifications).toEqual(["engineering"]);
+      }
+    },
+  );
+
+  it.each(["web2", "engineering", "AI", "ai_robotics", "ai,unknown"])(
+    "rejects noncanonical organization classification %s",
+    async organizationClassifications => {
+      const errors = await validate(
+        plainToInstance(JobListParams, { organizationClassifications }),
+      );
+      expect(errors.map(error => error.property)).toContain(
+        "organizationClassifications",
+      );
+    },
+  );
 });

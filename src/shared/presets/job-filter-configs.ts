@@ -1,4 +1,5 @@
 import { TEAM_SIGNAL_SINGLE_SELECT_OPTIONS } from "./team-signal-filter-options";
+import { ORGANIZATION_CLASSIFICATION_OPTIONS } from "../organization-classifications";
 
 export enum FilterKind {
   SINGLE_SELECT = "SINGLE_SELECT",
@@ -72,6 +73,14 @@ export const FILTER_CONFIG_PRESETS = {
     show: true,
     googleAnalyticsEventName: "filter_joblist_classifications",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
+  },
+  organizationClassifications: {
+    position: 1.5,
+    label: "Organization classification",
+    show: true,
+    googleAnalyticsEventName: "filter_joblist_organization_classifications",
+    kind: FilterKind.MULTI_SELECT,
+    options: ORGANIZATION_CLASSIFICATION_OPTIONS,
   },
   commitments: {
     position: 2,
@@ -402,6 +411,7 @@ export const FILTER_PARAM_KEY_PRESETS = {
   ecosystems: "ecosystems",
   projects: "projects",
   classifications: "classifications",
+  organizationClassifications: "organizationClassifications",
   commitments: "commitments",
   tvl: {
     lowest: "minTvl",

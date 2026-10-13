@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { Transform, Type } from "class-transformer";
 import {
+  IsArray,
   IsBoolean,
   IsIn,
   IsNumber,
@@ -12,6 +13,10 @@ import { WORK_MODES } from "src/shared/interfaces";
 import { toList } from "src/shared/helpers";
 import { DateRange, ListOrder, JobListOrderBy } from "src/shared/types";
 import { Compare } from "src/shared/validators";
+import {
+  ORGANIZATION_VERTICALS,
+  OrganizationVertical,
+} from "src/shared/organization-classifications";
 
 const JOB_WORK_MODE_FILTERS = [...WORK_MODES, "fully-remote"] as const;
 
@@ -202,6 +207,19 @@ export class JobListParams {
   @Type(() => String)
   @Transform(toList)
   classifications?: string[] | null = null;
+
+  @ApiPropertyOptional({
+    description:
+      "Canonical employer classifications from /jobs/filters; OR within this filter, AND with other filters",
+    enum: ORGANIZATION_VERTICALS,
+    isArray: true,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsIn(ORGANIZATION_VERTICALS, { each: true })
+  @Type(() => String)
+  @Transform(toList)
+  organizationClassifications?: OrganizationVertical[] | null = null;
 
   @ApiPropertyOptional()
   @IsOptional()
