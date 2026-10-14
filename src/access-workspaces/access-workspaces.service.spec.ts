@@ -88,25 +88,56 @@ describe("AccessWorkspacesService", () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it("requires an entitled workspace membership without legacy fallbacks", async () => {
-    const repo = repository();
-    const service = new AccessWorkspacesService(repo);
-    repo.authorize.mockResolvedValueOnce(null).mockResolvedValueOnce({
+  it.each([
+    { entitled: false, alertsEnabled: true },
+    { entitled: true, alertsEnabled: false },
+    { entitled: true, alertsEnabled: true },
+  ])(
+    "allows Agency product access with %o without changing paid state",
+    async state => {
+      const repo = repository();
+      const service = new AccessWorkspacesService(repo);
+      const authorization = {
+        workspaceId: "workspace",
+        role: "viewer" as const,
+        ...state,
+      };
+      repo.authorize.mockResolvedValue(authorization);
+
+      await expect(
+        service.requireAgencyAccess("workspace", "viewer"),
+      ).resolves.toBe(authorization);
+    },
+  );
+
+  it.each([
+    null,
+    {
       workspaceId: "workspace",
-      role: "viewer",
-      entitled: true,
+      role: "viewer" as const,
+      entitled: false,
       alertsEnabled: false,
-    });
+    },
+  ])(
+    "denies Agency products without membership or either grant: %o",
+    async authorization => {
+      const repo = repository();
+      repo.authorize.mockResolvedValue(authorization);
+      const service = new AccessWorkspacesService(repo);
 
-    await expect(
-      service.requireAgencyEntitlement("workspace", "outsider"),
-    ).rejects.toBeInstanceOf(ForbiddenException);
-    await expect(
-      service.requireAgencyEntitlement("workspace", "viewer"),
-    ).resolves.toMatchObject({ role: "viewer", entitled: true });
-  });
+      await expect(
+        service.requireAgencyAccess("workspace", "outsider"),
+      ).rejects.toThrow(
+        "Agency partner approval or an active Agency subscription is required",
+      );
+      await expect(
+        service.listBountyOpportunities("workspace", "outsider", 50),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(repo.listBountyOpportunities).not.toHaveBeenCalled();
+    },
+  );
 
-  it("checks Agency entitlement before loading bounty opportunities and caps the limit", async () => {
+  it("checks Agency access before loading bounty opportunities and caps the limit", async () => {
     const repo = repository();
     const service = new AccessWorkspacesService(repo);
     repo.authorize.mockResolvedValue({
@@ -194,7 +225,7 @@ describe("AccessWorkspacesService", () => {
     });
   });
 
-  it("requires an active Agency entitlement and strips email-like data", async () => {
+  it("keeps private inspection paid-only even for approved partners and strips email-like data", async () => {
     const repo = repository();
     const service = new AccessWorkspacesService(repo);
     repo.inspectProfile.mockResolvedValueOnce({
@@ -202,7 +233,7 @@ describe("AccessWorkspacesService", () => {
         workspaceId: "workspace",
         role: "viewer",
         entitled: false,
-        alertsEnabled: false,
+        alertsEnabled: true,
       },
     });
     await expect(

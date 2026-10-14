@@ -52,12 +52,13 @@ infer classifications from job titles, or treat a missing classification as
 multiple selections never duplicate jobs. No schema migration or classification
 backfill is required.
 
-## Agency Alert
+## Agency partners and job alerts
 
-Alert is for manually approved partner agencies, at no charge. Approval is a
-separate `access_workspaces.alerts_enabled` flag; it never sets
-`entitlement_enabled`, creates a Stripe subscription, or changes the existing
-$299 paid Agency contract or candidate access.
+Manually approved partner agencies receive job alerts, available placement
+bounties, the GitHub candidate checker, and the opted-in talent pool at no charge.
+Approval uses the existing `access_workspaces.alerts_enabled` flag; it never sets
+`entitlement_enabled`, creates a Stripe subscription, changes the $299 paid Agency
+contract, or grants a Recruiters.rip candidate subscription.
 
 ### Install and operate
 
@@ -94,6 +95,18 @@ different workspace cannot be reassigned through this endpoint.
 available, nonbanned profile. Stripe billing status does not gate free Alert.
 The admin member/remove-member POST endpoints accept existing account wallets
 only, cannot replace/remove the owner, and are independent of paid access.
+
+`requireAgencyAccess` authorizes the existing bounty-opportunities, available/top
+talent, opted-in candidate-report, and GitHub candidate-report APIs for current
+workspace members with either manual partner approval or active paid Agency
+entitlement. Revoking approval removes free access immediately; an independent
+active paid entitlement still grants the paid products. Removing membership denies
+both paths. JWT permissions are refreshed from the account, not trusted as a way to
+claim employer or administrator access.
+
+The separate private-profile inspection/contact-reveal endpoints remain paid-only,
+with their existing member-role restrictions. Agency product access does not grant
+employer organization management, employer shortlists, or platform administration.
 
 Members read `GET /access-workspaces/:workspaceId/alerts`, search
 `GET .../alerts/organizations?q=...`, and use POST `.../alerts/follows` or
@@ -153,8 +166,12 @@ Run the Alert service/controller tests and the real-SQL
 to a **disposable localhost database whose name includes `test`**. The fixture
 isolates its schema and covers migration baseline/reapply, future publication,
 deduplication across two workers, late commits, recipient changes, whitelist
-revocation, removed members, and personal unsubscribe. No integration fixture
-sends email.
+revocation, removed members, and personal unsubscribe. It also exercises the real
+HTTP authorization and PostgreSQL membership checks for approved/unpaid and paid
+agency products, revocation with the same JWT, outsiders, forged permissions, and
+private-profile/employer/admin boundaries. Bounty reads use actual SQL; candidate
+payload retrieval is isolated at the service boundary. No integration fixture sends
+email.
 
 For an authorized, single-recipient staging smoke: sign in as a superadmin,
 approve an existing test agency profile and test account; sign in as that

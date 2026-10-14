@@ -122,7 +122,7 @@ export class AccessWorkspacesController {
   @Header("Expires", "0")
   @ApiOkResponse({
     description:
-      "Returns placement-bounty companies and current jobs to an entitled Agency workspace member",
+      "Returns placement-bounty companies and current jobs to an approved partner or subscribed Agency workspace member",
     schema: responseSchemaWrapper({
       $ref: getSchemaPath(AgencyBountyOpportunities),
     }),
