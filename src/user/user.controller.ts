@@ -227,7 +227,7 @@ export class UserController {
   @UseInterceptors(new CacheHeaderInterceptor({ mode: "no-store" }))
   @ApiOkResponse({
     description:
-      "Returns opted-in candidates with one verified contact email to an entitled Agency workspace",
+      "Returns opted-in candidates with one verified contact email to an approved partner or subscribed Agency workspace",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(TalentPoolData) }),
   })
   async getUsersAvailableForWork(
@@ -241,7 +241,7 @@ export class UserController {
         message: "Access denied",
       });
     }
-    await this.accessWorkspaces.requireAgencyEntitlement(
+    await this.accessWorkspaces.requireAgencyAccess(
       params.workspaceId,
       address,
     );
@@ -255,7 +255,7 @@ export class UserController {
   @UseInterceptors(new CacheHeaderInterceptor({ mode: "no-store" }))
   @ApiOkResponse({
     description:
-      "Returns up to 50 opted-in candidates with one verified contact email to an entitled Agency workspace",
+      "Returns up to 50 opted-in candidates with one verified contact email to an approved partner or subscribed Agency workspace",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(TalentPoolData) }),
   })
   async getTopUsers(
@@ -268,7 +268,7 @@ export class UserController {
         message: "Access denied",
       });
     }
-    await this.accessWorkspaces.requireAgencyEntitlement(workspaceId, address);
+    await this.accessWorkspaces.requireAgencyAccess(workspaceId, address);
     this.logger.log(`/users/available/top`);
     return this.userService.getTopUsers();
   }
@@ -279,7 +279,7 @@ export class UserController {
   @UseInterceptors(new CacheHeaderInterceptor({ mode: "no-store" }))
   @ApiOkResponse({
     description:
-      "Returns a candidate report for an opted-in candidate to an entitled Agency workspace member",
+      "Returns a candidate report for an opted-in candidate to an approved partner or subscribed Agency workspace member",
     schema: responseSchemaWrapper({
       $ref: getSchemaPath(AgencyCandidateReport),
     }),
@@ -295,7 +295,7 @@ export class UserController {
         message: "Access denied",
       });
     }
-    await this.accessWorkspaces.requireAgencyEntitlement(workspaceId, address);
+    await this.accessWorkspaces.requireAgencyAccess(workspaceId, address);
     return this.userService.getAgencyCandidateReport(wallet);
   }
 
@@ -326,7 +326,7 @@ export class UserController {
         message: "Access denied",
       });
     }
-    await this.accessWorkspaces.requireAgencyEntitlement(workspaceId, address);
+    await this.accessWorkspaces.requireAgencyAccess(workspaceId, address);
     return this.scorerService.getCandidateReport(github, wallet);
   }
 

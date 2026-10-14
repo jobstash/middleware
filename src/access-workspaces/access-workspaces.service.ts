@@ -110,7 +110,7 @@ export class AccessWorkspacesService {
     return this.repository.listForMember(actorUserId);
   }
 
-  async requireAgencyEntitlement(
+  async requireAgencyAccess(
     workspaceId: string,
     actorUserId: string,
   ): Promise<WorkspaceAuthorization> {
@@ -118,8 +118,10 @@ export class AccessWorkspacesService {
       workspaceId,
       actorUserId,
     );
-    if (!authorization?.entitled) {
-      throw new ForbiddenException("An active Agency entitlement is required");
+    if (!authorization?.alertsEnabled && !authorization?.entitled) {
+      throw new ForbiddenException(
+        "Agency partner approval or an active Agency subscription is required",
+      );
     }
     return authorization;
   }
@@ -130,7 +132,7 @@ export class AccessWorkspacesService {
     requestedLimit: number,
     includeOffline = false,
   ): Promise<AgencyBountyOpportunities> {
-    await this.requireAgencyEntitlement(workspaceId, actorUserId);
+    await this.requireAgencyAccess(workspaceId, actorUserId);
     return this.repository.listBountyOpportunities(
       bountyOpportunityLimit(requestedLimit),
       includeOffline,
