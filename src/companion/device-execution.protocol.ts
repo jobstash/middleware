@@ -15,6 +15,7 @@ interface DeviceInputs {
   };
   revoke: { requestId: string };
   checkout: { requestId: string };
+  cancel: { requestId: string };
   activate: { challenge: string; account: { id: string; label: string } };
   empty: Record<string, never>;
   platform:
@@ -62,6 +63,7 @@ const schemas = {
   }),
   revoke: object({ requestId: uuid }),
   checkout: object({ requestId: uuid }),
+  cancel: object({ requestId: uuid }),
   activate: object({
     challenge: Joi.string()
       .length(43)

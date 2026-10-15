@@ -40,9 +40,11 @@ export function readStripeSubscription(
       "Membership must be USD9.99 per month without a trial",
     );
   const invoice = subscription.latest_invoice;
-  const cancelledAt = subscription.canceled_at
-    ? new Date(subscription.canceled_at * 1000).toISOString()
-    : null;
+  const cancelledAt =
+    subscription.canceled_at &&
+    (subscription.cancel_at_period_end || subscription.status === "canceled")
+      ? new Date(subscription.canceled_at * 1000).toISOString()
+      : null;
   if (["canceled", "incomplete_expired"].includes(subscription.status))
     return {
       status: "expired",

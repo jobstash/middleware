@@ -21,7 +21,11 @@ import {
   DeviceActivation,
   DeviceHeartbeat,
 } from "./device-execution.service";
-import { SubscriptionService, MembershipStatus } from "./subscription.service";
+import {
+  SubscriptionService,
+  MembershipStatus,
+  MembershipCancellation,
+} from "./subscription.service";
 
 @Controller("profile")
 @UseGuards(PBACGuard)
@@ -63,6 +67,14 @@ export class CompanionProfileController {
     @Body() body: unknown,
   ): Promise<{ checkoutUrl: string }> {
     return this.subscriptions.checkout(address, body);
+  }
+  @Post("subscription/cancel")
+  @HttpCode(200)
+  cancel(
+    @Session() { address }: SessionObject,
+    @Body() body: unknown,
+  ): Promise<MembershipCancellation> {
+    return this.subscriptions.cancel(address, body);
   }
 }
 

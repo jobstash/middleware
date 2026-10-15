@@ -254,10 +254,18 @@ Release order:
 Authenticated `GET /profile/subscription` returns `{advanced,price,subscription}`;
 `POST /profile/subscription/checkout` accepts `{requestId}` and returns
 `{checkoutUrl}`. UUID request IDs also make checkout creation idempotent at Stripe.
+`POST /profile/subscription/cancel` accepts only `{requestId}` and schedules
+`cancel_at_period_end:true` on the authenticated candidate's verified Stripe
+agreement. It returns `{cancelAtPeriodEnd:true,paidUntil,cancelledAt}` only after
+Stripe confirms scheduling without changing the paid period. Current paid access
+continues until that period ends; devices and private local records are not revoked.
+Cancellation requests bind to their original checkout in the existing
+`candidate_payment_events` ledger (`cancellation.requested`), so retries cannot
+cancel a replacement agreement. No new schema, secret or environment value is required.
 Billing lifecycle is separate from paid access: recoverable `past_due`, `unpaid`,
-paused and incomplete Stripe agreements block a second checkout. The account
-holder must recover payment using their existing Stripe invoice link or contact
-support to cancel the prior agreement; middleware never automatically cancels it.
+paused and incomplete Stripe agreements block a second checkout. Account holders
+can recover payment through their existing Stripe invoice link or explicitly
+cancel renewal from account settings; middleware never cancels it automatically.
 Only expired checkout sessions and canceled/incomplete-expired subscriptions are
 terminal. The idempotent schema also adds `billing_state` to existing metadata;
 old rows start unresolved and must be provider-verified before replacement.

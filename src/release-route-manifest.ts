@@ -51,6 +51,13 @@ export const RELEASE_ROUTE_MANIFEST = [
     "active",
   ],
   [
+    "CompanionProfileController",
+    "cancel",
+    "POST",
+    "profile/subscription/cancel",
+    "active",
+  ],
+  [
     "CompanionDeviceController",
     "activate",
     "POST",

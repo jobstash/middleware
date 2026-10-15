@@ -8,6 +8,7 @@ interface SubscriptionFixture {
   id: string;
   livemode: boolean;
   status: string;
+  cancel_at_period_end: boolean;
   canceled_at: number | null;
   trial_start: number | null;
   trial_end: number | null;
@@ -50,6 +51,7 @@ function subscription(): SubscriptionFixture {
     id: "sub_owned",
     livemode: true,
     status: "active",
+    cancel_at_period_end: false,
     canceled_at: null,
     trial_start: null,
     trial_end: null,
@@ -183,5 +185,21 @@ describe("live Stripe membership state", () => {
     const value = subscription();
     value.items.data[0].current_period_end = now / 1000;
     expect(parse(value).status).toBe("expired");
+  });
+  it("retains paid access and its end date when renewal is cancelled", () => {
+    const value = subscription();
+    value.cancel_at_period_end = true;
+    value.canceled_at = now / 1000;
+    expect(parse(value)).toEqual({
+      status: "active",
+      paidUntil: new Date(end * 1000).toISOString(),
+      cancelledAt: new Date(now).toISOString(),
+      billingState: "agreement",
+    });
+  });
+  it("does not present a resumed agreement as still scheduled for cancellation", () => {
+    const value = subscription();
+    value.canceled_at = now / 1000 - 100;
+    expect(parse(value).cancelledAt).toBeNull();
   });
 });

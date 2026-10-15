@@ -1,3 +1,8 @@
+## 2026-10-15
+
+- Add authenticated candidate membership cancellation at the end of the Stripe paid period. Preserve current access, bind retry requests to the original agreement, and report scheduled cancellation in membership status.
+- Reuse the existing payment-event ledger; no schema migration or new deployment configuration.
+
 # [2.11.0](https://github.com/jobstash/middleware/compare/v2.10.1...v2.11.0) (2024-03-21)
 
 

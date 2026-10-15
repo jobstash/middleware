@@ -1,10 +1,11 @@
 import "reflect-metadata";
 import { ExecutionContext, ForbiddenException } from "@nestjs/common";
-import { GUARDS_METADATA } from "@nestjs/common/constants";
+import { GUARDS_METADATA, PATH_METADATA, METHOD_METADATA } from "@nestjs/common/constants";
 import { generateKeyPairSync, randomUUID, sign } from "node:crypto";
 import { PBACGuard } from "src/auth/pbac.guard";
 import { EntityManager } from "typeorm";
 import { PostgresService } from "src/postgres/postgres.service";
+import { SessionObject } from "src/shared/interfaces";
 import { SubscriptionService } from "./subscription.service";
 import {
   CompanionProfileController,
@@ -41,6 +42,23 @@ describe("hosted companion boundary", () => {
     expect(
       Reflect.getMetadata(GUARDS_METADATA, CompanionDeviceController),
     ).toContain(DeviceAuthGuard);
+  });
+
+  it("registers cancellation under the account guard and forwards only its session identity", async () => {
+    const cancel = jest.fn().mockResolvedValue({
+      cancelAtPeriodEnd: true,
+      paidUntil: "2026-11-15T00:00:00.000Z",
+      cancelledAt: "2026-10-15T00:00:00.000Z",
+    });
+    const controller = new CompanionProfileController(
+      {} as DeviceExecutionService,
+      { cancel } as unknown as SubscriptionService,
+    );
+    const body = { requestId: "617773b0-77be-4d96-8f7a-fb63393946b9" };
+    expect(Reflect.getMetadata(PATH_METADATA, controller.cancel)).toBe("subscription/cancel");
+    expect(Reflect.getMetadata(METHOD_METADATA, controller.cancel)).toBe(1);
+    await controller.cancel({ address: "session-wallet" } as SessionObject, body);
+    expect(cancel).toHaveBeenCalledWith("session-wallet", body);
   });
 
   it.each([

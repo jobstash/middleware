@@ -26,6 +26,12 @@ export interface MembershipStatus {
   subscription: MembershipRecord | null;
 }
 
+export interface MembershipCancellation {
+  cancelAtPeriodEnd: true;
+  paidUntil: string | null;
+  cancelledAt: string;
+}
+
 @Injectable()
 export class SubscriptionService {
   private readonly refreshing = new Map<string, Promise<void>>();
@@ -50,7 +56,10 @@ export class SubscriptionService {
   private async liveState(
     sessionId: string,
     owner: string,
-  ): Promise<CandidateSubscriptionState & { subscriptionId: string | null }> {
+  ): Promise<CandidateSubscriptionState & {
+    subscriptionId: string | null;
+    subscription?: Stripe.Subscription;
+  }> {
     const session = await this.stripe.checkout.sessions.retrieve(
       sessionId,
       { expand: ["subscription.latest_invoice"] },
@@ -90,6 +99,7 @@ export class SubscriptionService {
     return {
       ...readStripeSubscription(subscription, priceId, owner),
       subscriptionId: subscription.id,
+      subscription,
     };
   }
 
@@ -158,6 +168,90 @@ export class SubscriptionService {
       price: { amount: "9.99", currency: "USD", interval: "month" },
       subscription: subscription ?? null,
     };
+  }
+
+  async cancel(wallet: string, raw: unknown): Promise<MembershipCancellation> {
+    const { requestId } = deviceInput("cancel", raw);
+    const owner = await this.owner(wallet);
+    const requestKey = `recruiters-cancel:${owner}:${requestId.toLowerCase()}`;
+    const priceId = this.config.get<string>("STRIPE_CANDIDATE_PRICE_ID");
+    if (!priceId)
+      throw new ServiceUnavailableException("Candidate billing is not configured");
+
+    // Commit the request's target before contacting Stripe. A failed response or
+    // database write must never let a retry target a replacement subscription.
+    const checkoutId = await this.db.transaction(async db => {
+      await db.query(
+        "SELECT id FROM graph_nodes WHERE id=$1 AND label='User' FOR UPDATE",
+        [owner],
+      );
+      const [prior] = await db.query(
+        "SELECT checkout_id FROM candidate_payment_events WHERE id=$1 AND event_type='cancellation.requested'",
+        [requestKey],
+      );
+      if (prior) return prior.checkout_id as string;
+      const agreements = await db.query(
+        "SELECT checkout_id FROM candidate_subscriptions WHERE user_node_id=$1 AND billing_state IN ('agreement','unresolved') ORDER BY created_at DESC",
+        [owner],
+      );
+      if (agreements.length !== 1)
+        throw new ConflictException("A unique membership billing agreement is required");
+      const target = agreements[0].checkout_id as string;
+      await db.query(
+        "INSERT INTO candidate_payment_events(id,checkout_id,event_type,occurred_at) VALUES($1,$2,'cancellation.requested',now())",
+        [requestKey, target],
+      );
+      return target;
+    });
+    return this.db.transaction(async db => {
+      // Use the subscription lock shared by status refresh and webhook writes.
+      const [owned] = await db.query(
+        "SELECT checkout_id FROM candidate_subscriptions WHERE checkout_id=$1 AND user_node_id=$2 FOR UPDATE",
+        [checkoutId, owner],
+      );
+      if (!owned) throw new ForbiddenException("Subscription ownership changed");
+      try {
+        const before = await this.liveState(checkoutId, owner);
+        const subscription = before.subscription;
+        if (!subscription || before.billingState !== "agreement")
+          throw new ConflictException("No renewable membership was found");
+        const updated = subscription.cancel_at_period_end
+          ? subscription
+          : await this.stripe.subscriptions.update(
+              subscription.id,
+              { cancel_at_period_end: true, expand: ["latest_invoice"] },
+              {
+                idempotencyKey: requestKey,
+                timeout: 12000,
+                maxNetworkRetries: 0,
+              },
+            );
+        const state = readStripeSubscription(updated, priceId, owner);
+        if (
+          updated.id !== subscription.id ||
+          updated.cancel_at_period_end !== true ||
+          state.billingState !== "agreement" ||
+          !state.cancelledAt ||
+          state.status !== before.status ||
+          state.paidUntil !== before.paidUntil
+        )
+          throw new ServiceUnavailableException("Membership cancellation was not confirmed");
+        const response: MembershipCancellation = {
+          cancelAtPeriodEnd: true,
+          paidUntil: state.paidUntil,
+          cancelledAt: state.cancelledAt,
+        };
+        await db.query(
+          "UPDATE candidate_subscriptions SET status=$2,paid_until=$3,cancelled_at=$4,subscription_id=$5,billing_state=$6,reconciled_at=now() WHERE checkout_id=$1",
+          [checkoutId, state.status, state.paidUntil, state.cancelledAt, updated.id, state.billingState],
+        );
+        return response;
+      } catch (error) {
+        if (error instanceof ConflictException || error instanceof ServiceUnavailableException)
+          throw error;
+        throw new ServiceUnavailableException("Membership cancellation could not be confirmed. Retry the same request.");
+      }
+    });
   }
 
   async checkout(
