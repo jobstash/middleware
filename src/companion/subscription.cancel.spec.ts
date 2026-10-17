@@ -8,10 +8,11 @@ import { deviceInput } from "./device-execution.protocol";
 const requestId = "617773b0-77be-4d96-8f7a-fb63393946b9";
 const requestKey = `recruiters-cancel:123:${requestId}`;
 
-function cancellationHarness() {
+function cancellationHarness(configuredPriceId = "price_live") {
   const now = Math.floor(Date.now() / 1000);
   const subscription = {
     id: "sub_owned",
+    customer: "cus_owned",
     livemode: true,
     status: "active",
     canceled_at: null as number | null,
@@ -21,21 +22,29 @@ function cancellationHarness() {
     metadata: { candidateId: "123", purpose: "recruiters-membership" },
     items: { data: [{
       quantity: 1,
+      id: "si_owned",
       current_period_start: now - 100,
       current_period_end: now + 86400,
-      price: { id: "price_live", currency: "usd", unit_amount: 999,
+      price: { id: "price_live", livemode: true, currency: "usd", unit_amount: 999, product: "recruiters_rip_candidate_month_v1",
         recurring: { interval: "month", interval_count: 1 } },
     }] },
     latest_invoice: {
+      id: "in_owned", customer: "cus_owned",
+      parent: { type: "subscription_details", subscription_details: { subscription: "sub_owned" } },
       livemode: true, status: "paid", currency: "usd", amount_paid: 999,
-      amount_remaining: 0,
-      lines: { data: [{ quantity: 1, pricing: { price_details: { price: "price_live" } },
+      amount_remaining: 0, amount_due: 999, total: 999,
+      lines: { has_more: false, data: [{ id: "il_owned", livemode: true, invoice: "in_owned", subscription: "sub_owned",
+        currency: "usd", amount: 999,
+        parent: { type: "subscription_item_details", subscription_item_details: { subscription: "sub_owned", subscription_item: "si_owned", proration: false } },
+        quantity: 1, pricing: { price_details: { price: "price_live" } },
         period: { start: now - 100, end: now + 86400 } }] },
     },
   };
   const session = { livemode: true, mode: "subscription", status: "complete",
     client_reference_id: "123",
-    metadata: { candidateId: "123", purpose: "recruiters-membership" }, subscription };
+    metadata: { candidateId: "123", purpose: "recruiters-membership" }, subscription,
+    line_items: { has_more: false, data: [{ quantity: 1, price: structuredClone(subscription.items.data[0].price) }] },
+  };
   const requests = new Map<string, string>();
   const agreements = [{ checkout_id: "cs_owned" }];
   let ownsSubscription = true;
@@ -78,7 +87,7 @@ function cancellationHarness() {
   } as unknown as Stripe;
   const service = new SubscriptionService(
     { query, transaction } as unknown as PostgresService,
-    new ConfigService({ STRIPE_CANDIDATE_PRICE_ID: "price_live" }), stripe,
+    new ConfigService({ STRIPE_CANDIDATE_PRICE_ID: configuredPriceId }), stripe,
   );
   return { service, query, transaction, retrieve, update, requests, agreements, subscription, session,
     paidUntil: new Date((now + 86400) * 1000).toISOString(),
@@ -95,10 +104,12 @@ describe("candidate cancel-at-period-end", () => {
       cancelledAt: new Date(h.subscription.canceled_at! * 1000).toISOString() });
     expect(h.query.mock.calls[0][1]).toEqual(["authenticated-wallet"]);
     expect(h.update).toHaveBeenCalledWith("sub_owned",
-      { cancel_at_period_end: true, expand: ["latest_invoice"] },
+      { cancel_at_period_end: true, expand: [
+        "latest_invoice.discounts", "latest_invoice.lines.data.discounts", "discounts", "items.data.discounts",
+      ] },
       { idempotencyKey: requestKey, timeout: 12000, maxNetworkRetries: 0 });
     const persisted = h.query.mock.calls.find(([sql]) => sql.startsWith("UPDATE candidate_subscriptions"));
-    expect(persisted?.[1]).toEqual(["cs_owned", "active", h.paidUntil, result.cancelledAt, "sub_owned", "agreement"]);
+    expect(persisted?.[1]).toEqual(["cs_owned", "active", h.paidUntil, result.cancelledAt, "sub_owned", "agreement", "month", null]);
     expect(h.requests.get(requestKey)).toBe("cs_owned");
   });
 
@@ -216,4 +227,33 @@ describe("candidate cancel-at-period-end", () => {
     expect(h.retrieve).not.toHaveBeenCalled();
     expect(h.update).not.toHaveBeenCalled();
   });
+  it("preserves cancellation and paid access for the original monthly price after configuration changes", async () => {
+    const h = cancellationHarness("price_new_candidate_month");
+    await expect(h.service.cancel("wallet", { requestId })).resolves.toMatchObject({
+      cancelAtPeriodEnd: true, paidUntil: h.paidUntil,
+    });
+    expect(h.update).toHaveBeenCalledTimes(1);
+    expect(h.update.mock.calls[0][0]).toBe("sub_owned");
+  });
+
+  it("cancels a yearly agreement at period end without shortening its verified paid period", async () => {
+    const h = cancellationHarness();
+    const price = h.subscription.items.data[0].price;
+    price.id = "price_year";
+    price.unit_amount = 9590;
+    price.recurring.interval = "year";
+    price.product = "recruiters_rip_candidate_year_v1";
+    h.session.line_items.data[0].price = structuredClone(price);
+    h.subscription.latest_invoice.amount_paid = 9590;
+    h.subscription.latest_invoice.amount_due = 9590;
+    h.subscription.latest_invoice.total = 9590;
+    h.subscription.latest_invoice.lines.data[0].amount = 9590;
+    h.subscription.latest_invoice.lines.data[0].pricing.price_details.price = "price_year";
+    await expect(h.service.cancel("wallet", { requestId })).resolves.toMatchObject({
+      cancelAtPeriodEnd: true, paidUntil: h.paidUntil,
+    });
+    const persisted = h.query.mock.calls.find(([sql]) => sql.startsWith("UPDATE candidate_subscriptions"));
+    expect(persisted?.[1]?.[6]).toBe("year");
+  });
+
 });

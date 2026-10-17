@@ -14,15 +14,31 @@ import {
   readStripeSubscription,
 } from "./stripe-subscription";
 
+type BillingInterval = "month" | "year";
+const membershipPrices = {
+  month: { amount: "9.99", currency: "USD", interval: "month" },
+  year: { amount: "95.90", currency: "USD", interval: "year" },
+} as const;
+const subscriptionExpansions = [
+  "latest_invoice.discounts",
+  "latest_invoice.lines.data.discounts",
+  "discounts",
+  "items.data.discounts",
+];
+
 type MembershipRecord = {
   status: "pending" | "active" | "expired";
   paidUntil: Date | null;
   cancelledAt: Date | null;
   checkoutUrl: string;
+  interval: BillingInterval;
+  provider: "stripe";
+  discount: CandidateSubscriptionState["discount"];
 };
 export interface MembershipStatus {
   advanced: boolean;
-  price: { amount: "9.99"; currency: "USD"; interval: "month" };
+  price: (typeof membershipPrices)[BillingInterval];
+  prices: typeof membershipPrices;
   subscription: MembershipRecord | null;
 }
 
@@ -58,11 +74,12 @@ export class SubscriptionService {
     owner: string,
   ): Promise<CandidateSubscriptionState & {
     subscriptionId: string | null;
+    boundPriceId: string;
     subscription?: Stripe.Subscription;
   }> {
     const session = await this.stripe.checkout.sessions.retrieve(
       sessionId,
-      { expand: ["subscription.latest_invoice"] },
+      { expand: ["line_items.data.price", "subscription.latest_invoice"] },
       { timeout: 12000, maxNetworkRetries: 0 },
     );
     if (
@@ -75,6 +92,18 @@ export class SubscriptionService {
       throw new ServiceUnavailableException(
         "Checkout account binding does not match",
       );
+    const lines = session.line_items;
+    const line = lines?.data[0];
+    const price = line?.price;
+    const interval = price?.recurring?.interval;
+    if (
+      !lines || lines.has_more || lines.data.length !== 1 ||
+      line?.quantity !== 1 || !price || price.currency !== "usd" ||
+      price.recurring?.interval_count !== 1 ||
+      !((interval === "month" && price.unit_amount === 999) ||
+        (interval === "year" && price.unit_amount === 9590))
+    )
+      throw new ServiceUnavailableException("Checkout membership price does not match");
     if (session.status !== "complete" || !session.subscription)
       return {
         status: session.status === "expired" ? "expired" : "pending",
@@ -82,25 +111,71 @@ export class SubscriptionService {
         cancelledAt: null,
         subscriptionId: null,
         billingState: session.status === "expired" ? "terminal" : "open",
+        interval,
+        discount: null,
+        boundPriceId: price.id,
       };
-    const subscription =
+    let subscription =
       typeof session.subscription === "string"
         ? await this.stripe.subscriptions.retrieve(
             session.subscription,
-            { expand: ["latest_invoice"] },
+            { expand: subscriptionExpansions },
             { timeout: 12000, maxNetworkRetries: 0 },
           )
         : session.subscription;
-    const priceId = this.config.get<string>("STRIPE_CANDIDATE_PRICE_ID");
-    if (!priceId)
-      throw new ServiceUnavailableException(
-        "Candidate billing is not configured",
+    const invoice = subscription.latest_invoice;
+    const discounts = [
+      ...(subscription.discounts ?? []),
+      ...subscription.items.data.flatMap(item => item.discounts ?? []),
+      ...(invoice && typeof invoice !== "string"
+        ? [...(invoice.discounts ?? []),
+          ...invoice.lines.data.flatMap(value => value.discounts ?? [])]
+        : []),
+    ];
+    if (discounts.some(discount => typeof discount === "string"))
+      subscription = await this.stripe.subscriptions.retrieve(
+        subscription.id,
+        { expand: subscriptionExpansions },
+        { timeout: 12000, maxNetworkRetries: 0 },
       );
+    await this.hydrateCoupons(subscription);
     return {
-      ...readStripeSubscription(subscription, priceId, owner),
+      ...readStripeSubscription(subscription, price.id, owner),
+      boundPriceId: price.id,
       subscriptionId: subscription.id,
       subscription,
     };
+  }
+
+  // Stripe leaves applies_to out of embedded coupons. Retrieve it explicitly
+  // before the parser enforces candidate-product and finite-discount policy.
+  private async hydrateCoupons(subscription: Stripe.Subscription): Promise<void> {
+    const invoice = subscription.latest_invoice;
+    const discounts = [
+      ...(subscription.discounts ?? []),
+      ...subscription.items.data.flatMap(item => item.discounts ?? []),
+      ...(invoice && typeof invoice !== "string"
+        ? [...(invoice.discounts ?? []),
+          ...invoice.lines.data.flatMap(line => line.discounts ?? [])]
+        : []),
+    ];
+    const coupons = new Map<string, Stripe.Coupon>();
+    for (const discount of discounts) {
+      if (typeof discount === "string")
+        throw new ServiceUnavailableException("Membership discount evidence is unavailable");
+      const id = discount.coupon?.id;
+      if (!id)
+        throw new ServiceUnavailableException("Membership coupon evidence is unavailable");
+      let coupon = coupons.get(id);
+      if (!coupon) {
+        coupon = await this.stripe.coupons.retrieve(
+          id, { expand: ["applies_to"] },
+          { timeout: 12000, maxNetworkRetries: 0 },
+        );
+        coupons.set(id, coupon);
+      }
+      discount.coupon = coupon;
+    }
   }
 
   // Only in-flight work is shared. No completed result or entitlement is cached.
@@ -134,7 +209,7 @@ export class SubscriptionService {
         // Terminal history never needs a provider call or holds a SQL connection.
         const state = await this.liveState(subscription.checkout_id, owner);
         await db.query(
-          "UPDATE candidate_subscriptions SET status=$2,paid_until=$3,cancelled_at=$4,subscription_id=$5,billing_state=$6,reconciled_at=now() WHERE checkout_id=$1",
+          "UPDATE candidate_subscriptions SET status=$2,paid_until=$3,cancelled_at=$4,subscription_id=$5,billing_state=$6,billing_interval=$7,discount=$8,reconciled_at=now() WHERE checkout_id=$1",
           [
             subscription.checkout_id,
             state.status,
@@ -142,6 +217,8 @@ export class SubscriptionService {
             state.cancelledAt,
             state.subscriptionId,
             state.billingState,
+            state.interval,
+            state.discount,
           ],
         );
       });
@@ -160,12 +237,13 @@ export class SubscriptionService {
     const owner = await this.owner(wallet);
     await this.refresh(owner);
     const [subscription] = await this.db.query<MembershipRecord>(
-      `SELECT CASE WHEN status='active' AND paid_until<=clock_timestamp() THEN 'expired' ELSE status END AS status,paid_until AS "paidUntil",cancelled_at AS "cancelledAt",checkout_url AS "checkoutUrl" FROM candidate_subscriptions WHERE user_node_id=$1 ORDER BY (status='active' AND paid_until>clock_timestamp()) DESC,created_at DESC LIMIT 1`,
+      `SELECT CASE WHEN status='active' AND paid_until<=clock_timestamp() THEN 'expired' ELSE status END AS status,paid_until AS "paidUntil",cancelled_at AS "cancelledAt",checkout_url AS "checkoutUrl",billing_interval AS interval,'stripe' AS provider,discount FROM candidate_subscriptions WHERE user_node_id=$1 ORDER BY (status='active' AND paid_until>clock_timestamp()) DESC,created_at DESC LIMIT 1`,
       [owner],
     );
     return {
       advanced: await this.entitled(owner),
-      price: { amount: "9.99", currency: "USD", interval: "month" },
+      price: membershipPrices[subscription?.interval ?? "month"],
+      prices: membershipPrices,
       subscription: subscription ?? null,
     };
   }
@@ -174,9 +252,6 @@ export class SubscriptionService {
     const { requestId } = deviceInput("cancel", raw);
     const owner = await this.owner(wallet);
     const requestKey = `recruiters-cancel:${owner}:${requestId.toLowerCase()}`;
-    const priceId = this.config.get<string>("STRIPE_CANDIDATE_PRICE_ID");
-    if (!priceId)
-      throw new ServiceUnavailableException("Candidate billing is not configured");
 
     // Commit the request's target before contacting Stripe. A failed response or
     // database write must never let a retry target a replacement subscription.
@@ -219,14 +294,15 @@ export class SubscriptionService {
           ? subscription
           : await this.stripe.subscriptions.update(
               subscription.id,
-              { cancel_at_period_end: true, expand: ["latest_invoice"] },
+              { cancel_at_period_end: true, expand: subscriptionExpansions },
               {
                 idempotencyKey: requestKey,
                 timeout: 12000,
                 maxNetworkRetries: 0,
               },
             );
-        const state = readStripeSubscription(updated, priceId, owner);
+        await this.hydrateCoupons(updated);
+        const state = readStripeSubscription(updated, before.boundPriceId, owner);
         if (
           updated.id !== subscription.id ||
           updated.cancel_at_period_end !== true ||
@@ -242,8 +318,8 @@ export class SubscriptionService {
           cancelledAt: state.cancelledAt,
         };
         await db.query(
-          "UPDATE candidate_subscriptions SET status=$2,paid_until=$3,cancelled_at=$4,subscription_id=$5,billing_state=$6,reconciled_at=now() WHERE checkout_id=$1",
-          [checkoutId, state.status, state.paidUntil, state.cancelledAt, updated.id, state.billingState],
+          "UPDATE candidate_subscriptions SET status=$2,paid_until=$3,cancelled_at=$4,subscription_id=$5,billing_state=$6,billing_interval=$7,discount=$8,reconciled_at=now() WHERE checkout_id=$1",
+          [checkoutId, state.status, state.paidUntil, state.cancelledAt, updated.id, state.billingState, state.interval, state.discount],
         );
         return response;
       } catch (error) {
@@ -258,28 +334,35 @@ export class SubscriptionService {
     wallet: string,
     raw: unknown,
   ): Promise<{ checkoutUrl: string }> {
-    const { requestId } = deviceInput("checkout", raw);
+    const { requestId, interval } = deviceInput("checkout", raw);
     const owner = await this.owner(wallet);
-    const priceId = this.config.get<string>("STRIPE_CANDIDATE_PRICE_ID");
+    const priceId = this.config.get<string>(
+      interval === "month" ? "STRIPE_CANDIDATE_PRICE_ID" : "STRIPE_CANDIDATE_YEARLY_PRICE_ID",
+    );
     if (!priceId)
       throw new ServiceUnavailableException(
         "Candidate billing is not configured",
       );
     const price = await this.stripe.prices.retrieve(
       priceId,
-      {},
+      { expand: ["product"] },
       { timeout: 12000, maxNetworkRetries: 0 },
     );
+    const product = price.product;
     if (
       !price.livemode ||
       !price.active ||
       price.currency !== "usd" ||
-      price.unit_amount !== 999 ||
-      price.recurring?.interval !== "month" ||
-      price.recurring.interval_count !== 1
+      price.unit_amount !== (interval === "month" ? 999 : 9590) ||
+      price.recurring?.interval !== interval ||
+      price.recurring.interval_count !== 1 ||
+      typeof product === "string" || !("active" in product) ||
+      !product.active || !product.livemode ||
+      product.id !== `recruiters_rip_candidate_${interval}_v1` ||
+      product.metadata?.purpose !== "recruiters-rip-candidate-v1"
     )
       throw new ServiceUnavailableException(
-        "Membership price must be live USD9.99 per month",
+        "Membership price must match the live candidate USD plan",
       );
     const origin = new URL(
       this.config.getOrThrow<string>("RECRUITERS_PUBLIC_ORIGIN"),
@@ -292,6 +375,12 @@ export class SubscriptionService {
         "SELECT id FROM graph_nodes WHERE id=$1 AND label='User' FOR UPDATE",
         [owner],
       );
+      // Order the agreement check against webhook/refresh transitions of open
+      // sessions. Account locks alone do not protect subscription row writers.
+      await db.query(
+        "SELECT checkout_id FROM candidate_subscriptions WHERE user_node_id=$1 AND billing_state<>'terminal' ORDER BY created_at DESC FOR UPDATE",
+        [owner],
+      );
       const [agreement] = await db.query(
         "SELECT checkout_id FROM candidate_subscriptions WHERE user_node_id=$1 AND billing_state IN ('agreement','unresolved') LIMIT 1",
         [owner],
@@ -301,25 +390,42 @@ export class SubscriptionService {
           "An existing membership billing agreement must be resolved before starting another. Update its payment method using your Stripe invoice link, or contact support to cancel it. No second subscription was created.",
         );
       const [prior] = await db.query(
-        "SELECT checkout_url,billing_state FROM candidate_subscriptions WHERE user_node_id=$1 AND request_id=$2",
+        "SELECT checkout_url,billing_state,billing_interval FROM candidate_subscriptions WHERE user_node_id=$1 AND request_id=$2",
         [owner, requestId],
       );
-      if (prior?.billing_state === "open")
+      if (prior?.billing_state === "open" && prior.billing_interval === interval)
         return { checkoutUrl: prior.checkout_url };
       if (prior)
         throw new ConflictException(
-          "Checkout request has expired; start a new checkout",
+          "Checkout request has expired or changed interval; start a new checkout",
         );
-      const [pending] = await db.query(
-        "SELECT checkout_url FROM candidate_subscriptions WHERE user_node_id=$1 AND billing_state='open' ORDER BY created_at DESC LIMIT 1",
+      const pending = await db.query(
+        "SELECT checkout_id,checkout_url,billing_interval FROM candidate_subscriptions WHERE user_node_id=$1 AND billing_state='open' ORDER BY created_at DESC FOR UPDATE",
         [owner],
       );
-      if (pending) return { checkoutUrl: pending.checkout_url };
+      const matching = pending.find(row => row.billing_interval === interval);
+      if (matching) return { checkoutUrl: matching.checkout_url };
+      for (const old of pending) {
+        // Expiring an already-completed session fails at Stripe: do not create a
+        // replacement until its newly established agreement is reconciled.
+        const expired = await this.stripe.checkout.sessions.expire(
+          old.checkout_id, {},
+          { timeout: 12000, maxNetworkRetries: 0 },
+        );
+        if (expired.id !== old.checkout_id || !expired.livemode || expired.status !== "expired")
+          throw new ServiceUnavailableException("Previous checkout expiration was not confirmed");
+        await db.query(
+          "UPDATE candidate_subscriptions SET status='expired',billing_state='terminal',reconciled_at=now() WHERE checkout_id=$1",
+          [old.checkout_id],
+        );
+      }
       const returnUrl = `${origin.origin}/onboarding/membership/return`;
       const metadata = { candidateId: owner, purpose: "recruiters-membership" };
       const session = await this.stripe.checkout.sessions.create(
         {
           mode: "subscription",
+          allow_promotion_codes: true,
+          payment_method_collection: "if_required",
           client_reference_id: owner,
           metadata,
           subscription_data: { metadata },
@@ -343,8 +449,8 @@ export class SubscriptionService {
       )
         throw new ServiceUnavailableException("Invalid checkout URL");
       await db.query(
-        "INSERT INTO candidate_subscriptions(checkout_id,user_node_id,request_id,checkout_url) VALUES($1,$2,$3,$4)",
-        [session.id, owner, requestId, url.href],
+        "INSERT INTO candidate_subscriptions(checkout_id,user_node_id,request_id,checkout_url,billing_interval) VALUES($1,$2,$3,$4,$5)",
+        [session.id, owner, requestId, url.href, interval],
       );
       return { checkoutUrl: url.href };
     });
@@ -407,7 +513,7 @@ export class SubscriptionService {
       if (!claimed || row.billing_state === "terminal") return;
       const state = await this.liveState(owned.checkout_id, owned.user_node_id);
       await db.query(
-        "UPDATE candidate_subscriptions SET status=$2,paid_until=$3,cancelled_at=$4,subscription_id=$5,billing_state=$6,reconciled_at=now() WHERE checkout_id=$1",
+        "UPDATE candidate_subscriptions SET status=$2,paid_until=$3,cancelled_at=$4,subscription_id=$5,billing_state=$6,billing_interval=$7,discount=$8,reconciled_at=now() WHERE checkout_id=$1",
         [
           owned.checkout_id,
           state.status,
@@ -415,6 +521,8 @@ export class SubscriptionService {
           state.cancelledAt,
           state.subscriptionId,
           state.billingState,
+          state.interval,
+          state.discount,
         ],
       );
     });

@@ -70,6 +70,9 @@ const envSchema = Joi.object({
   STRIPE_CANDIDATE_PRICE_ID: Joi.string()
     .pattern(/^price_[A-Za-z0-9]+$/)
     .optional(),
+  STRIPE_CANDIDATE_YEARLY_PRICE_ID: Joi.string()
+    .pattern(/^price_[A-Za-z0-9]+$/)
+    .optional(),
   SWAGGER_USER: Joi.string().required(),
   SWAGGER_PASSWORD: Joi.string().required(),
   TEST_DB_MANAGER_URL: Joi.string(),

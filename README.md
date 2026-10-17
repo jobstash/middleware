@@ -233,13 +233,18 @@ Release order:
    `candidate_devices`, `candidate_device_nonces`, `candidate_subscriptions` and
    `candidate_payment_events`, with account foreign keys and application grants.
    No fixture memberships, account rewrites or data repairs are needed.
+   Before enabling monthly/yearly checkout, also apply
+   `scripts/sql/companion-billing-intervals.sql`. It adds billing-interval and
+   verified-discount metadata without resetting existing paid periods.
 2. Reuse `STRIPE_API_KEY` and `STRIPE_WEBHOOK_SECRET`. Set
-   `STRIPE_CANDIDATE_PRICE_ID` to an active live USD 999-cent monthly recurring
-   price, interval count one, without a trial. Keep existing Stripe products
-   intact. `RECRUITERS_PUBLIC_ORIGIN` must be `https://recruiters.rip`, independent
-   of `ORG_ADMIN_DOMAIN`. The candidate website belongs to `recruiters-rip-frontend`;
-   the downloadable app belongs to `recruiters-rip-companion`. Neither belongs to
-   org-admin. No new merchant secret or frontend billing secret is introduced.
+   `STRIPE_CANDIDATE_PRICE_ID` to the active live USD 999-cent monthly price and
+   `STRIPE_CANDIDATE_YEARLY_PRICE_ID` to the active live USD 9590-cent yearly price
+   (20% off twelve months, rounded to cents), interval count one, without trials.
+   Use separate candidate products for the two prices so first-month discounts
+   cannot waive a yearly invoice. Keep organization/agency products intact.
+   `RECRUITERS_PUBLIC_ORIGIN` remains `https://recruiters.rip`, independent of
+   `ORG_ADMIN_DOMAIN`. The website belongs to `recruiters-rip-frontend`; the app
+   belongs to `recruiters-rip-companion`. No new merchant or frontend secret is introduced.
 3. Keep the verified webhook at `POST /stripe/webhook`. Enable checkout session
    completed/expired/asynchronous success/failure, invoice payment success/failure,
    and customer subscription created/updated/deleted events on that same endpoint.
@@ -251,9 +256,13 @@ Release order:
    `https://checkout.stripe.com`. The account holder completes real checkout;
    deployment must not create a payment or grant access on their behalf.
 
-Authenticated `GET /profile/subscription` returns `{advanced,price,subscription}`;
-`POST /profile/subscription/checkout` accepts `{requestId}` and returns
-`{checkoutUrl}`. UUID request IDs also make checkout creation idempotent at Stripe.
+Authenticated `GET /profile/subscription` returns `{advanced,price,prices,subscription}`,
+including monthly/yearly offers and the subscription's verified interval, provider
+and percentage discount/end date. `POST /profile/subscription/checkout` accepts
+exactly `{requestId,interval:"month"|"year"}` and returns `{checkoutUrl}`. UUID
+request IDs make checkout creation idempotent at Stripe. Promotion codes are
+entered in Stripe checkout; a provider-confirmed active subscription with a
+paid zero-total invoice qualifies for access just like a paid full-price invoice.
 `POST /profile/subscription/cancel` accepts only `{requestId}` and schedules
 `cancel_at_period_end:true` on the authenticated candidate's verified Stripe
 agreement. It returns `{cancelAtPeriodEnd:true,paidUntil,cancelledAt}` only after
@@ -261,7 +270,7 @@ Stripe confirms scheduling without changing the paid period. Current paid access
 continues until that period ends; devices and private local records are not revoked.
 Cancellation requests bind to their original checkout in the existing
 `candidate_payment_events` ledger (`cancellation.requested`), so retries cannot
-cancel a replacement agreement. No new schema, secret or environment value is required.
+cancel a replacement agreement. Cancellation itself needs no additional secret.
 Billing lifecycle is separate from paid access: recoverable `past_due`, `unpaid`,
 paused and incomplete Stripe agreements block a second checkout. Account holders
 can recover payment through their existing Stripe invoice link or explicitly
@@ -298,4 +307,43 @@ closed; they never extend a cached entitlement. Status remains available without
 paid access. Parent release gates should include build, route manifest tests,
 `src/companion` boundary tests, schema application review and the user-completed
 live checkout/return/pairing flow.
+
+
+### Candidate partner promotion codes
+
+Use `scripts/candidate-stripe-offers.ts` with the existing `STRIPE_API_KEY`.
+The script changes only dedicated candidate products, prices and discounts:
+
+```sh
+# Create/reuse the candidate products and emit the two price environment values.
+node -r ts-node/register scripts/candidate-stripe-offers.ts setup --execute
+
+# Reusable forever-free code for any customer, monthly or yearly.
+node -r ts-node/register scripts/candidate-stripe-offers.ts promo \
+  --shared --duration forever --percent-off 100 --request-id "$REQUEST_ID" \
+  --code "$PARTNER_CODE" --execute
+
+# Reusable 70% off the first monthly invoice, then ordinary monthly renewal.
+node -r ts-node/register scripts/candidate-stripe-offers.ts promo \
+  --shared --duration month --percent-off 70 --request-id "$REQUEST_ID" \
+  --code "$FIRST_MONTH_CODE" --execute
+```
+
+Use a different UUID for each offer; retain that UUID and exact arguments for
+safe retries. `--help` needs no credentials and makes no requests. `--execute`
+is explicit authorization to write real Stripe configuration; tests use synthetic
+transports and never create charges or subscriptions.
+
+Shared codes have no customer or total-redemption restriction: anyone holding
+one can redeem it. Distribute them privately and deactivate the promotion in
+Stripe if it leaks. `forever` discounts subscription renewals while the agreement
+remains in effect; `month` uses Stripe's `once` duration. Finite discounts are
+restricted to the monthly product; forever offers cover both candidate products.
+Stripe coupon `applies_to` must be explicitly expanded when verifying scope.
+
+For a single selected customer instead, use `--customer cus_ID` instead of
+`--shared`; that customer must carry the script's candidate-purpose and owner
+metadata and the offer is redeemable once. `--duration months --months N` supports
+a chosen number of free monthly payments. `--expires-at UNIX_SECONDS` limits the
+redemption window, not the length of the discount.
 
