@@ -341,5 +341,4 @@ export class AdminIngestionController {
   ): Promise<unknown> {
     return this.ingestion.getInferenceRunItems(id);
   }
-
 }

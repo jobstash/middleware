@@ -1,3 +1,4 @@
+import { explicitRecommendationConstraintsSql } from "./recommendation-constraints.sql";
 import { recommendationSemanticCtes } from "./recommendation-semantic.sql";
 import { RECOMMENDATION_EMBEDDING_VERSION } from "../recommendation-embedding.repository";
 import {
@@ -9,26 +10,23 @@ import {
 export const recommendationVectorSearchSettings =
   "SET LOCAL hnsw.iterative_scan = strict_order; SET LOCAL hnsw.ef_search = 100; SET LOCAL jit = off";
 
-export const recommendedJobsSql = `
-  WITH target_user AS MATERIALIZED (
-    SELECT account.id, account.properties, COALESCE($4::timestamptz, now()) AS ranked_at
-    FROM graph_nodes account
-    WHERE account.label = 'User'
-      AND lower(account.properties ->> 'wallet') = lower($1)
-    ORDER BY account.id
-    LIMIT 1
-  ), weighted_activity AS MATERIALIZED (
+// Shared by feed ranking and initial career-category selections.
+export const recommendationCategoryAffinityCtes = `weighted_activity AS MATERIALIZED (
     SELECT
       event.job_node_id,
       CASE event.event_type
         WHEN 'job_apply' THEN 8.0
-        WHEN 'job_bookmark' THEN 5.0
+        WHEN 'job_bookmark' THEN 1.0
+        WHEN 'job_interest' THEN 5.0
+        WHEN 'job_uninterest' THEN -5.0
+        WHEN 'job_application_confirmed' THEN 8.0
+        WHEN 'job_dismiss' THEN -4.0
         WHEN 'job_view' THEN CASE
           WHEN event.dwell_ms IS NULL OR event.dwell_ms >= 5000 THEN 2.0
           ELSE 0.5
         END
         WHEN 'job_impression' THEN 0.15
-        WHEN 'job_unbookmark' THEN -3.0
+        WHEN 'job_unbookmark' THEN -1.0
         ELSE 0.0
       END * exp(
         -extract(epoch FROM (target_user.ranked_at - event.occurred_at)) /
@@ -41,10 +39,12 @@ export const recommendedJobsSql = `
     FROM user_activity_events event
     JOIN target_user ON target_user.id = event.user_node_id
     WHERE event.job_node_id IS NOT NULL
+      AND COALESCE(event.metadata->>'undone','false')<>'true'
       AND event.occurred_at BETWEEN target_user.ranked_at - interval '18 months' AND target_user.ranked_at
       AND event.event_type IN (
         'job_apply', 'job_bookmark', 'job_unbookmark',
-        'job_view', 'job_impression'
+        'job_view', 'job_impression', 'job_interest', 'job_uninterest',
+        'job_application_confirmed', 'job_dismiss'
       )
   ), classification_affinity AS MATERIALIZED (
     SELECT lower(label.value) AS label_key,
@@ -57,7 +57,17 @@ export const recommendedJobsSql = `
       COALESCE(source_job.filter_labels -> 'classifications', '{}'::jsonb)
     ) label
     GROUP BY lower(label.value)
-  ), tag_affinity AS MATERIALIZED (
+  )`;
+
+export const recommendedJobsSql = `
+  WITH target_user AS MATERIALIZED (
+    SELECT account.id, account.properties, COALESCE($4::timestamptz, now()) AS ranked_at
+    FROM graph_nodes account
+    WHERE account.label = 'User'
+      AND lower(account.properties ->> 'wallet') = lower($1)
+    ORDER BY account.id
+    LIMIT 1
+  ), ${recommendationCategoryAffinityCtes}, tag_affinity AS MATERIALIZED (
     SELECT lower(label.value) AS label_key,
       max(label.value) AS label,
       sum(activity.weight) AS weight
@@ -326,6 +336,7 @@ export const recommendedJobsSql = `
       AND job_vectors.version='${RECOMMENDATION_EMBEDDING_VERSION}'
       AND job_vectors.content_hash=md5(recommendation_embedding_content('job',document.job_node_id))
     WHERE document.online
+      ${explicitRecommendationConstraintsSql}
       AND NOT EXISTS (
         SELECT 1 FROM excluded_employers employer
         WHERE employer.node_id = COALESCE(organization.organization_node_id, project.project_node_id)
@@ -394,6 +405,12 @@ export const recommendedJobsSql = `
         WHERE event.user_node_id = target_user.id
           AND event.job_node_id = document.job_node_id
           AND event.event_type IN ('job_apply', 'job_dismiss')
+          AND COALESCE(event.metadata->>'undone','false')<>'true'
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM candidate_applications application
+        WHERE application.user_node_id=target_user.id AND application.job_node_id=document.job_node_id
+          AND (application.state->>'passed'='true' OR application.state->>'status' IN ('applied','interview','offer','rejected','withdrawn'))
       )
       AND NOT EXISTS (
         SELECT 1

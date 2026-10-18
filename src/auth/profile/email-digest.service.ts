@@ -11,6 +11,7 @@ import { button, emailBuilder, text } from "src/shared/helpers";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { ProfileService } from "./profile.service";
 import { isRecentWeeklyJob, weeklyJobsEmail } from "./weekly-jobs-email";
+import { candidateOrigin } from "src/career-agent/candidate-origin";
 
 const CONFIRMATION_LIFETIME_MS = 48 * 60 * 60 * 1000;
 const WEEKLY_DIGEST_CRON = "0 8 * * 1";
@@ -142,6 +143,7 @@ export class EmailDigestService {
         from: this.from,
         to: recipient.email,
         frontend: this.frontend,
+        candidateFrontend: candidateOrigin(this.config),
         unsubscribeUrl,
         jobs,
       });

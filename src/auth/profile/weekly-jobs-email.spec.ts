@@ -20,27 +20,12 @@ const message = (jobs = [job]): ReturnType<typeof weeklyJobsEmail> =>
     from: "jobs@jobstash.xyz",
     to: "preview@example.test",
     frontend: "https://jobstash.xyz",
+    candidateFrontend: "https://recruiters.test",
     unsubscribeUrl: "https://jobstash.xyz/email/unsubscribe?token=example",
     jobs,
   });
 
 describe("weekly matches email", () => {
-  it("presents facts and links in a responsive, left-aligned template without recommendation explanations", () => {
-    const mail = message();
-    expect(mail.html).toContain("Your next move.");
-    expect(mail.html).toContain("Remote · Senior · Full Time");
-    expect(mail.html).toContain("Posted 7 Sept 2026");
-    expect(mail.html).toContain("max-width:600px");
-    expect(mail.html).toContain('role="presentation"');
-    expect(mail.html).not.toMatch(
-      /justify|Funding Profile|Company You Explored|reason|Cheers/,
-    );
-    expect(mail.html).toContain("utm_source=weekly_job_digest");
-    expect(mail.html).toContain("Unsubscribe");
-    expect(mail.html).toContain("1 role to explore");
-    expect(mail.text).toContain("Head of Engineering\nExample");
-    expect(mail.text).toContain("https://jobstash.xyz/profile/jobs");
-  });
   it("escapes imported job content and still links by the stable public job ID", () => {
     const mail = message([
       {

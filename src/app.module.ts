@@ -39,6 +39,10 @@ import { HealthModule } from "./health/health.module";
 import { AdminIngestionModule } from "./admin-ingestion/admin-ingestion.module";
 import { AccessWorkspacesModule } from "./access-workspaces/access-workspaces.module";
 
+// Candidate content, credentials and SDP never enter request-body error reporting.
+const credentialRequestPath =
+  /\/(?:profile\/(?:ai-connections|voice|candidate|career|applications|browser-applications|devices)|device|mcp\/(?:data|candidate)|internal\/career-agent)(?:[/?]|$)/;
+
 @Module({
   imports: [
     SentryModule.forRoot(),
@@ -100,6 +104,7 @@ export class AppModule implements OnModuleInit {
   constructor(private readonly configService: ConfigService) {}
   onModuleInit(): void {
     Sentry.init({
+      enabled: this.configService.get<string>("LOCAL_ONLY") !== "true",
       dsn: this.configService.get<string>("SENTRY_DSN"),
       tracesSampleRate: parseInt(
         this.configService.get<string>("SENTRY_TRACES_SAMPLE_RATE") ?? "0.2",
@@ -109,6 +114,14 @@ export class AppModule implements OnModuleInit {
       ),
       profileLifecycle: "trace",
       sendDefaultPii: true,
+      beforeSend: event =>
+        credentialRequestPath.test(event.request?.url ?? "")
+          ? null
+          : event,
+      beforeSendTransaction: event =>
+        credentialRequestPath.test(event.request?.url ?? "")
+          ? null
+          : event,
       integrations: [
         nodeProfilingIntegration(),
         Sentry.captureConsoleIntegration(),

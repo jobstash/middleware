@@ -24,7 +24,7 @@ describe("EmailDigestService", () => {
     getOrThrow: jest.fn((key: string) =>
       key === "EMAIL" ? "jobs@jobstash.xyz" : "https://jobstash.xyz",
     ),
-    get: jest.fn(() => "production"),
+    get: jest.fn((key: string) => key === "RECRUITERS_PUBLIC_ORIGIN" ? "https://recruiters.test" : "production"),
   };
 
   const service = new EmailDigestService(
@@ -36,7 +36,7 @@ describe("EmailDigestService", () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
-    config.get.mockReturnValue("production");
+    config.get.mockImplementation((key: string) => key === "RECRUITERS_PUBLIC_ORIGIN" ? "https://recruiters.test" : "production");
     repository.setUnsubscribeToken.mockResolvedValue(true);
     repository.getState.mockResolvedValue({
       email: "person@example.com",

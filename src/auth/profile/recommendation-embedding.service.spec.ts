@@ -20,6 +20,8 @@ describe("sentence embedding refresh", () => {
     store: jest.Mock;
     fail: jest.Mock;
     withWorkerLock: jest.Mock;
+    refreshArchetypes: jest.Mock;
+    refreshCvScores: jest.Mock;
   };
   let service: RecommendationEmbeddingService;
   let concurrency: number;
@@ -37,6 +39,8 @@ describe("sentence embedding refresh", () => {
       store: jest.fn().mockResolvedValue(true),
       fail: jest.fn().mockResolvedValue(undefined),
       withWorkerLock: jest.fn(async work => work()),
+      refreshArchetypes: jest.fn().mockResolvedValue(undefined),
+      refreshCvScores: jest.fn().mockResolvedValue(undefined),
     };
     service = new RecommendationEmbeddingService(
       repository as never,

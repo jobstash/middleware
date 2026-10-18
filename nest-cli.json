@@ -4,7 +4,7 @@
   "sourceRoot": "src",
   "compilerOptions": {
     "deleteOutDir": true,
-    "assets": ["postgres/sql/*.sql"],
+    "assets": ["postgres/sql/*.sql", "career-agent/assets/*"],
     "watchAssets": true
   }
 }

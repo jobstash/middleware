@@ -43,10 +43,11 @@ export const weeklyJobsEmail = (input: {
   from: string;
   to: string;
   frontend: string;
+  candidateFrontend: string;
   unsubscribeUrl: string;
   jobs: WeeklyEmailJob[];
 }): MailDataRequired => {
-  const matchesUrl = `${input.frontend}/profile/jobs`;
+  const matchesUrl = `${input.candidateFrontend}/onboarding`;
   const roles = input.jobs.map(job => {
     const title = job.title || "Open role";
     const employer = job.organization?.name || job.project?.name || "JobStash";

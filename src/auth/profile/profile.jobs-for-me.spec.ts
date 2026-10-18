@@ -48,6 +48,7 @@ describe("ProfileService Jobs For Me contract", () => {
       {} as never,
       {} as never,
       {} as never,
+      { allocate: async (_wallet: string, jobs: unknown[]) => jobs } as never,
     );
 
     const result = await service.getJobsForMe("wallet");

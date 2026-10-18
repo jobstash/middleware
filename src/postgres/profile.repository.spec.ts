@@ -4,14 +4,17 @@ import { ProfileRepository } from "./profile.repository";
 describe("ProfileRepository", () => {
   it("sets vector search options only inside the recommendation transaction", async () => {
     const manager = { query: jest.fn().mockResolvedValue([]) };
-    const postgres = { transaction: jest.fn(async work => work(manager)) };
+    const postgres = {
+      query: jest.fn().mockResolvedValue([{ version: "test" }]),
+      transaction: jest.fn(async work => work(manager)),
+    };
     const repository = new ProfileRepository(postgres as never);
     await repository.getRecommendedJobCandidates("user", 10);
     expect(postgres.transaction).toHaveBeenCalledTimes(1);
     expect(manager.query.mock.calls[0][0]).toContain(
       "SET LOCAL hnsw.iterative_scan",
     );
-    expect(manager.query.mock.calls[1][1]).toEqual(["user", 10, false]);
+    expect(manager.query.mock.calls[1][1]).toEqual(["user", 10, false, null]);
   });
   it("lists canonical Profiles with their ProfileInfo and exact child links", async () => {
     const query = jest.fn().mockResolvedValue([

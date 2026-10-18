@@ -1,3 +1,5 @@
+import { stackJobsSql, cvJobsSql } from "./sql/stack-jobs.sql";
+import { RecommendationCache } from "./recommendation-cache";
 import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
 import { EntityManager } from "typeorm";
@@ -9,6 +11,7 @@ import {
   WorkLocationOption,
 } from "src/shared/interfaces";
 import { PostgresService } from "./postgres.service";
+import { addCareerEvidence, mergeCareer } from "src/career-agent/merge-career";
 import {
   jobEmployerJoins,
   jobEmployerPayload,
@@ -71,6 +74,9 @@ const queryRows = async <T>(
 
 @Injectable()
 export class ProfileRepository {
+  private readonly recommendationCache = new RecommendationCache<
+    Array<{ job: JobListResult; score: number; reasonLabels: string[] }>
+  >();
   constructor(private readonly postgres: PostgresService) {}
 
   async getEntityProfilesForAdminGrid(options: {
@@ -461,9 +467,10 @@ export class ProfileRepository {
 
   async getJobPreferences(
     wallet: string,
+    executor: QueryExecutor = this.postgres,
   ): Promise<Record<string, unknown> | null> {
     const [row] = await queryRows<Record<string, unknown>>(
-      this.postgres,
+      executor,
       `
         SELECT jsonb_build_object(
           'workModes', COALESCE(
@@ -529,8 +536,41 @@ export class ProfileRepository {
     wallet: string,
     input: RecommendationCareerInput,
   ): Promise<boolean> {
-    const { profile, preferences, ...career } = input;
+    const { profile, preferences } = input;
     return this.postgres.transaction(async manager => {
+      const [account] = await manager.query(
+        `SELECT id,properties->'recommendationCareer' AS career FROM graph_nodes
+        WHERE label='User' AND lower(properties->>'wallet')=lower($1) FOR UPDATE`,
+        [wallet],
+      );
+      if (!account) return false;
+      const career = mergeCareer(account.career ?? {}, input);
+      const [canonical] = await manager.query(
+        `SELECT evidence FROM candidate_career_profiles WHERE user_node_id=$1`,
+        [account.id],
+      );
+      const historical = addCareerEvidence(
+        canonical?.evidence ?? [],
+        mergeCareer(
+          {},
+          {
+            roles: account.career?.roles ?? [],
+            educationLevel: account.career?.educationLevel ?? null,
+          },
+        ),
+        "existing_profile",
+      );
+      const evidence = addCareerEvidence(
+        historical,
+        { roles: input.roles, educationLevel: input.educationLevel },
+        "candidate",
+      );
+      await manager.query(
+        `INSERT INTO candidate_career_profiles(user_node_id,evidence,revision) VALUES($1,$2,1)
+        ON CONFLICT(user_node_id) DO UPDATE SET evidence=EXCLUDED.evidence,revision=candidate_career_profiles.revision+1,updated_at=now()
+        WHERE candidate_career_profiles.evidence<>EXCLUDED.evidence`,
+        [account.id, JSON.stringify(evidence)],
+      );
       const rows = await queryRows(
         manager,
         `
@@ -538,10 +578,6 @@ export class ProfileRepository {
         UPDATE graph_nodes SET properties = properties || jsonb_build_object('recommendationCareer', $2::jsonb)
         WHERE label = 'User' AND lower(properties ->> 'wallet') = lower($1)
         RETURNING id
-      ), removed AS (
-        DELETE FROM recommendation_embedding_documents
-        WHERE kind='user' AND node_id IN (SELECT id FROM updated)
-          AND COALESCE(jsonb_array_length($2::jsonb -> 'roles'),0)=0
       ) SELECT id FROM updated
     `,
         [wallet, JSON.stringify(career)],
@@ -602,11 +638,22 @@ export class ProfileRepository {
     });
   }
 
+  private readonly catalogueFreshness = new RecommendationCache<unknown>(
+    1024 * 1024,
+    2000,
+  );
   async getRecommendedJobCandidates(
     wallet: string,
     limit: number | null = 60,
     weeklyEmail = false,
     rankedAt: Date | null = null,
+    stackFilters?: {
+      documentId?: string;
+      all?: string[];
+      any?: string[];
+      exclude?: string[];
+      filters?: import("src/career-agent/stack-filters").StackFilters;
+    },
   ): Promise<
     Array<{
       job: JobListResult;
@@ -614,15 +661,101 @@ export class ProfileRepository {
       reasonLabels: string[];
     }>
   > {
-    return this.postgres.transaction(async manager => {
-      await manager.query(recommendationVectorSearchSettings);
-      return queryRows(manager, recommendedJobsSql, [
-        wallet,
-        limit === null ? null : Math.max(1, Math.min(limit, 500)),
-        weeklyEmail,
-        rankedAt,
-      ]);
-    });
+    const catalogueVersion = await this.catalogueFreshness.get(
+      "catalogue",
+      async () => {
+        const [row] = await queryRows<{ version: unknown }>(
+          this.postgres,
+          `SELECT jsonb_build_array(
+        (SELECT count(*) FROM job_search_documents),
+        (SELECT count(*) FROM graph_nodes WHERE label IN ('Organization','Project')),
+        (SELECT max(updated_at)::text FROM job_search_documents),
+        (SELECT max(updated_at)::text FROM graph_nodes WHERE label IN ('Organization','Project','Jobpost','StructuredJobpost','Tag','ProfileInfo'))) AS version`,
+        );
+        return row?.version;
+      },
+    );
+    const [state] = await queryRows<{ version: unknown }>(
+      this.postgres,
+      `
+      SELECT jsonb_build_array(account.updated_at::text,preferences.updated_at::text,career.revision,
+        (SELECT max(occurred_at)::text FROM user_activity_events WHERE user_node_id=account.id),
+        (SELECT count(*) FROM user_activity_events WHERE user_node_id=account.id),
+        (SELECT md5(COALESCE(jsonb_agg(jsonb_build_array(id,type,target_id,properties) ORDER BY id)::text,'')) FROM graph_relationships WHERE source_id=account.id)) AS version
+      FROM graph_nodes account
+      LEFT JOIN user_job_preferences preferences ON preferences.user_node_id=account.id
+      LEFT JOIN candidate_career_profiles career ON career.user_node_id=account.id
+      WHERE account.label='User' AND lower(account.properties->>'wallet')=lower($1) LIMIT 1`,
+      [wallet],
+    );
+    const key = JSON.stringify([
+      wallet.toLowerCase(),
+      limit,
+      weeklyEmail,
+      rankedAt?.toISOString() ?? "current",
+      state?.version,
+      catalogueVersion,
+      stackFilters,
+      stackFilters?.documentId
+        ? await queryRows(
+            this.postgres,
+            `SELECT cached.status,cached.updated_at,(SELECT max(score.updated_at) FROM candidate_cv_job_scores score WHERE score.document_id=d.id) AS scored_at FROM candidate_documents d JOIN graph_nodes u ON u.id=d.user_node_id LEFT JOIN recommendation_embedding_documents cached ON cached.kind='cv' AND cached.node_id=d.embedding_node_id WHERE d.id=$1 AND lower(u.properties->>'wallet')=lower($2)`,
+            [stackFilters.documentId, wallet],
+          )
+        : null,
+    ]);
+    const ranked = await this.recommendationCache.get(key, () =>
+      this.postgres.transaction(async manager => {
+        await manager.query(recommendationVectorSearchSettings);
+        return queryRows(
+          manager,
+          stackFilters?.documentId
+            ? cvJobsSql
+            : stackFilters
+              ? stackJobsSql
+              : recommendedJobsSql,
+          [
+            wallet,
+            limit === null ? null : Math.max(1, Math.min(limit, 500)),
+            weeklyEmail,
+            rankedAt,
+            ...(stackFilters ? [JSON.stringify(stackFilters)] : []),
+          ],
+        );
+      }),
+    );
+    if (!ranked.length) return ranked;
+    const eligible = await queryRows<{ short_uuid: string }>(
+      this.postgres,
+      `SELECT j.short_uuid FROM job_search_documents j
+      LEFT JOIN organization_search_documents o ON o.organization_id=j.organization_id
+      LEFT JOIN project_search_documents p ON p.project_id=j.project_id
+      WHERE j.short_uuid=ANY($1::text[]) AND j.online AND NOT j.blocked
+        AND j.published_timestamp BETWEEN extract(epoch FROM $2::timestamptz - $3::interval)*1000 AND extract(epoch FROM $2::timestamptz)*1000
+        AND lower(COALESCE(o.payload#>>'{profileStatus,name}',o.payload->>'profileStatus',p.payload#>>'{status,name}',p.payload->>'status','')) NOT IN ('dead','inactive','closed','shutdown','shut down','discontinued','defunct','support ended')
+        AND NOT EXISTS(SELECT 1 FROM graph_relationships e JOIN graph_nodes status ON status.id=e.target_id
+          WHERE e.source_id=COALESCE(o.organization_node_id,p.project_node_id) AND e.type IN ('HAS_STATUS','HAS_PROFILE_STATUS')
+          AND lower(status.properties->>'name') IN ('dead','inactive','closed','shutdown','shut down','discontinued','defunct','support ended'))`,
+      [
+        ranked.map(row => row.job.shortUUID),
+        rankedAt ?? new Date(),
+        weeklyEmail || stackFilters ? "21 days" : "1 month",
+      ],
+    );
+    const ids = new Set(eligible.map(row => row.short_uuid));
+    return ranked.filter(row => ids.has(row.job.shortUUID));
+  }
+
+  async withLockedProfile<T>(
+    wallet: string,
+    work: (db: EntityManager) => Promise<T>,
+    executor?: EntityManager,
+  ): Promise<T> {
+    const locked = async (db: EntityManager) => {
+      await db.query("SELECT id FROM graph_nodes WHERE label='User' AND lower(properties->>'wallet')=lower($1) FOR UPDATE", [wallet]);
+      return work(db);
+    };
+    return executor ? locked(executor) : this.postgres.transaction(locked);
   }
 
   async updateJobPreferences(
@@ -653,8 +786,16 @@ export class ProfileRepository {
       commitments?: string[];
       showcaseRepositories?: string[];
     },
-    options: { executor?: QueryExecutor; fillMissing?: boolean } = {},
+    options: { executor?: QueryExecutor; fillMissing?: boolean; explicitFields?: string[] } = {},
   ): Promise<boolean> {
+    if (options.explicitFields?.length) {
+      await queryRows(options.executor ?? this.postgres,
+        `UPDATE graph_nodes SET properties=jsonb_set(properties,'{explicitProfileFields}',
+          COALESCE(properties->'explicitProfileFields','{}'::jsonb) || $2::jsonb)
+         WHERE label='User' AND lower(properties->>'wallet')=lower($1)`,
+        [wallet, JSON.stringify(Object.fromEntries(options.explicitFields.map(field => [field, true])))],
+      );
+    }
     const columns = [
       "work_modes",
       "residence_country",
@@ -2164,21 +2305,24 @@ export class ProfileRepository {
   async updateLocation(
     wallet: string,
     properties: Record<string, unknown>,
+    executor?: EntityManager,
   ): Promise<boolean> {
-    return this.updateOwnedNode(
+    return this.withLockedProfile(wallet, db => this.updateOwnedNode(
       wallet,
       "HAS_LOCATION",
       "UserLocation",
       properties,
-    );
+      db,
+    ), executor);
   }
 
   async updateAvailability(
     wallet: string,
     available: boolean,
+    executor: QueryExecutor = this.postgres,
   ): Promise<boolean> {
     const rows = await queryRows<{ id: string }>(
-      this.postgres,
+      executor,
       `
         UPDATE graph_nodes
         SET properties = properties || $2::jsonb, updated_at = now()
@@ -2826,6 +2970,18 @@ export class ProfileRepository {
         [shortUuid],
       );
       if (!account || !job) return false;
+      await manager.query("SELECT id FROM graph_nodes WHERE id=$1 FOR UPDATE", [
+        account.nodeId,
+      ]);
+      if (type === "BOOKMARKED") {
+        await manager.query(
+          `INSERT INTO candidate_applications(id,user_node_id,job_node_id,state)
+          VALUES($1,$2,$3,'{"saved":true,"interested":false,"passed":false,"status":null}')
+          ON CONFLICT(user_node_id,job_node_id) DO UPDATE SET state=candidate_applications.state||'{"saved":true}'::jsonb,
+            revision=candidate_applications.revision+1,updated_at=now() WHERE candidate_applications.state->>'saved'<>'true'`,
+          [randomUUID(), account.nodeId, job.nodeId],
+        );
+      }
       await this.insertRelationship(manager, account.nodeId, job.nodeId, type, {
         createdTimestamp: Date.now(),
       });
@@ -2969,6 +3125,10 @@ export class ProfileRepository {
     type: "APPLIED_TO" | "BOOKMARKED" | "VIEWED_DETAILS",
   ): Promise<boolean> {
     return this.postgres.transaction(async manager => {
+      await manager.query(
+        `SELECT id FROM graph_nodes WHERE label='User' AND lower(properties->>'wallet')=lower($1) FOR UPDATE`,
+        [wallet],
+      );
       const rows = await queryRows<{
         id: string;
         userNodeId: string;
@@ -2992,6 +3152,11 @@ export class ProfileRepository {
       );
       if (rows.length === 0) return false;
       if (type === "BOOKMARKED") {
+        await manager.query(
+          `UPDATE candidate_applications SET state=state||'{"saved":false}'::jsonb,revision=revision+1,updated_at=now()
+          WHERE user_node_id=$1 AND job_node_id=$2 AND state->>'saved'='true'`,
+          [rows[0].userNodeId, rows[0].jobNodeId],
+        );
         await this.insertActivityEvent(manager, {
           userNodeId: rows[0].userNodeId,
           jobNodeId: rows[0].jobNodeId,
@@ -3149,8 +3314,9 @@ export class ProfileRepository {
     relationshipType: string,
     label: string,
     properties: Record<string, unknown>,
+    executor?: EntityManager,
   ): Promise<boolean> {
-    return this.postgres.transaction(async manager => {
+    const work = async (manager: EntityManager) => {
       const account = await this.findNode("User", { wallet }, manager);
       if (!account) return false;
       await this.upsertOwnedNode(
@@ -3161,7 +3327,8 @@ export class ProfileRepository {
         properties,
       );
       return true;
-    });
+    };
+    return executor ? work(executor) : this.postgres.transaction(work);
   }
 
   private async replaceOwnedNodes(

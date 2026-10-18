@@ -1,3 +1,4 @@
+import { EntityManager } from "typeorm";
 import {
   BadRequestException,
   Injectable,
@@ -8,6 +9,7 @@ import axios from "axios";
 import { now, uniqBy } from "lodash";
 import { ProfileRepository } from "src/postgres/profile.repository";
 import { UserRepository } from "src/postgres/user.repository";
+import { CareerRepository } from "src/career-agent/career.repository";
 import { ScorerService } from "src/scorer/scorer.service";
 import {
   JobListResultEntity,
@@ -66,6 +68,10 @@ import {
 
 @Injectable()
 export class ProfileService {
+  private readonly recommendationPayloads = new WeakMap<
+    object,
+    RecommendedJobsResponse["jobs"][number]["job"]
+  >();
   private readonly logger = new CustomLogger(ProfileService.name);
 
   constructor(
@@ -74,7 +80,28 @@ export class ProfileService {
     private scorerService: ScorerService,
     private configService: ConfigService,
     private githubUserService: GithubUserService,
+    private readonly career: CareerRepository,
   ) {}
+
+  async getCareerContext(wallet: string): Promise<Record<string, unknown>> {
+    const [profile, preferences, skills, workHistory, showcases] =
+      await Promise.all([
+        this.getUserProfile(wallet),
+        this.getJobPreferences(wallet),
+        this.profiles.getSkills(wallet),
+        this.profiles.getWorkHistory(wallet),
+        this.profiles.getShowcases(wallet),
+      ]);
+    return {
+      profile: "data" in profile ? profile.data : null,
+      preferences,
+      skills,
+      workHistory,
+      showcases,
+      provenance:
+        "Existing JobStash account records. Repository activity does not establish employment; inferred claims require confirmation.",
+    };
+  }
 
   async getJobPreferences(wallet: string): Promise<JobPreferences | null> {
     return (await this.profiles.getJobPreferences(
@@ -85,27 +112,40 @@ export class ProfileService {
   async updateJobPreferences(
     wallet: string,
     preferences: UpdateJobPreferencesInput,
+    executor?: EntityManager,
+    sourceFacts = false,
   ): Promise<JobPreferences | null> {
-    const current = await this.getJobPreferences(wallet);
-    const mergedPreferences: JobPreferences = {
-      ...EMPTY_RECOMMENDATION_PROFILE,
-      ...current,
-      ...preferences,
-    };
-    if (
-      mergedPreferences.companySizeMin !== null &&
-      mergedPreferences.companySizeMax !== null &&
-      mergedPreferences.companySizeMax < mergedPreferences.companySizeMin
-    ) {
-      throw new BadRequestException(
-        "Maximum company size must be at least the minimum company size",
-      );
-    }
-    const updated = await this.profiles.updateJobPreferences(
-      wallet,
-      mergedPreferences,
-    );
-    return updated ? this.getJobPreferences(wallet) : null;
+    return this.profiles.withLockedProfile(wallet, async db => {
+      const current = await this.profiles.getJobPreferences(wallet, db);
+      const mergedPreferences: JobPreferences = {
+        workModes: ["remote", "hybrid", "onsite"],
+        residenceCountry: null,
+        utcOffset: null,
+        workAuthorization: null,
+        requiresSponsorship: null,
+        attendancePreference: null,
+        travelTolerance: null,
+        ...EMPTY_RECOMMENDATION_PROFILE,
+        ...current,
+        ...Object.fromEntries(
+          Object.entries(preferences).filter(([, value]) => value !== undefined),
+        ),
+      };
+      if (
+        mergedPreferences.companySizeMin !== null &&
+        mergedPreferences.companySizeMax !== null &&
+        mergedPreferences.companySizeMax < mergedPreferences.companySizeMin
+      ) {
+        throw new BadRequestException(
+          "Maximum company size must be at least the minimum company size",
+        );
+      }
+      const updated = await this.profiles.updateJobPreferences(wallet, mergedPreferences, {
+        executor: db,
+        explicitFields: sourceFacts ? [] : Object.keys(preferences).filter(field => preferences[field] !== undefined),
+      });
+      return updated ? await this.profiles.getJobPreferences(wallet, db) as unknown as JobPreferences : null;
+    }, executor);
   }
 
   async getJobsForMe(wallet: string, limit = 100): Promise<JobsForMeResponse> {
@@ -152,6 +192,21 @@ export class ProfileService {
       );
       if (match) groups[match.group].push(match.item);
     }
+    const allocated = await this.career.allocate(wallet, [
+      ...groups.confirmedMatches,
+      ...groups.timezoneNearMisses,
+      ...groups.needsChecking,
+    ]);
+    const allowedIds = new Set(allocated.map(item => item.job.shortUUID));
+    groups.confirmedMatches = groups.confirmedMatches.filter(item =>
+      allowedIds.has(item.job.shortUUID),
+    );
+    groups.timezoneNearMisses = groups.timezoneNearMisses.filter(item =>
+      allowedIds.has(item.job.shortUUID),
+    );
+    groups.needsChecking = groups.needsChecking.filter(item =>
+      allowedIds.has(item.job.shortUUID),
+    );
     const summary = {
       confirmedMatches: groups.confirmedMatches.length,
       timezoneNearMisses: groups.timezoneNearMisses.length,
@@ -179,6 +234,16 @@ export class ProfileService {
     surface: "web" | "weekly_email" = "web",
     page = 1,
     rankedAt?: string,
+    stack?: {
+      documentId?: string;
+      intent?: string;
+      filters?: import("src/career-agent/stack-filters").StackFilters;
+      keywords?: { all?: string[]; any?: string[]; exclude?: string[] };
+      classifications?: string[];
+      allowedJobs?: string[];
+      workModes?: ("remote" | "hybrid" | "onsite")[];
+    },
+    allResults = false,
   ): Promise<RecommendedJobsResponse> {
     const requestedLimit = Math.max(1, Math.min(limit, 50));
     const requestedPage = Number.isSafeInteger(page) && page > 0 ? page : 1;
@@ -195,20 +260,33 @@ export class ProfileService {
         wallet,
         surface === "weekly_email" ? 500 : null,
         surface === "weekly_email",
-        rankingTime,
+        rankedAt ? rankingTime : null,
+        ...(stack
+          ? [
+              {
+                ...stack.keywords,
+                filters: stack.filters ?? {},
+                ...(stack.documentId ? { documentId: stack.documentId } : {}),
+              },
+            ]
+          : []),
       ),
       this.profiles.hasJobPreferences(wallet),
       this.getJobPreferences(wallet),
     ]);
 
-    const jobs: RecommendedJobsResponse["jobs"] = [];
+    let jobs: RecommendedJobsResponse["jobs"] = [];
     const employers = new Set<string>();
     for (const candidate of candidates) {
       if (surface === "weekly_email" && jobs.length >= requestedLimit) break;
       try {
-        const job = new JobListResultEntity(candidate.job).getProperties();
+        let job = this.recommendationPayloads.get(candidate.job);
+        if (!job) {
+          job = new JobListResultEntity(candidate.job).getProperties();
+          this.recommendationPayloads.set(candidate.job, job);
+        }
         let locationReason: string | undefined;
-        if (hasPreferences && preferences) {
+        if (hasPreferences && preferences && !stack?.documentId) {
           const arrangement = job.workArrangement as unknown as {
             classification?: WorkArrangementClassification;
             remoteOptions?: WorkLocationOption[];
@@ -221,6 +299,11 @@ export class ProfileService {
             ...(arrangement?.onsiteOptions ?? []),
           ];
           const eligible = options.some(option => {
+            if (
+              stack?.workModes?.length &&
+              !stack.workModes.includes(option.mode)
+            )
+              return false;
             const match = matchWorkLocationOptions(
               job,
               [option],
@@ -238,6 +321,19 @@ export class ProfileService {
           if (!eligible) {
             continue;
           }
+        }
+        if (!hasPreferences && stack?.workModes?.length) {
+          const arrangement = job.workArrangement as unknown as {
+            remoteOptions?: unknown[];
+            hybridOptions?: unknown[];
+            onsiteOptions?: unknown[];
+          };
+          if (
+            !stack.workModes.some(
+              mode => (arrangement?.[`${mode}Options`]?.length ?? 0) > 0,
+            )
+          )
+            continue;
         }
         const employer =
           job.organization?.orgId ?? job.project?.id ?? job.shortUUID;
@@ -266,16 +362,45 @@ export class ProfileService {
         });
       }
     }
+    if (
+      stack &&
+      ["direction", "adjacent"].includes(stack.intent) &&
+      !stack.classifications.length
+    )
+      jobs = [];
+    if (stack?.allowedJobs)
+      jobs = jobs.filter(({ job }) =>
+        stack.allowedJobs.includes(job.shortUUID),
+      );
+    if (stack?.classifications?.length) {
+      const allowed = await this.career.classifiedJobs(
+        wallet,
+        stack.classifications,
+        stack.intent === "adjacent",
+      );
+      jobs = jobs.filter(({ job }) => allowed.has(job.shortUUID));
+    }
+    if (stack?.intent === "fresh")
+      jobs.sort((a, b) => (b.job.timestamp ?? 0) - (a.job.timestamp ?? 0));
+    jobs = await this.career.allocate(wallet, jobs);
     if (surface === "weekly_email")
-      return { jobs, total: jobs.length, rankingVersion: "sentences-v1" };
+      return {
+        jobs,
+        total: jobs.length,
+        rankingVersion: stack?.documentId
+          ? "cv-original-ad-sentences-v1"
+          : "original-ad-sentences-v2",
+      };
     const offset = (requestedPage - 1) * requestedLimit;
     return {
-      jobs: jobs.slice(offset, offset + requestedLimit),
+      jobs: allResults ? jobs : jobs.slice(offset, offset + requestedLimit),
       total: jobs.length,
       page: requestedPage,
       hasMore: offset + requestedLimit < jobs.length,
       rankedAt: rankingTime.toISOString(),
-      rankingVersion: "sentences-v1",
+      rankingVersion: stack?.documentId
+        ? "cv-original-ad-sentences-v1"
+        : "original-ad-sentences-v2",
     };
   }
 
@@ -902,9 +1027,14 @@ export class ProfileService {
   async updateUserLocationInfo(
     wallet: string,
     dto: UpdateDevLocationInput,
+    executor?: EntityManager,
   ): Promise<ResponseWithNoData> {
     try {
-      const updated = await this.profiles.updateLocation(wallet, { ...dto });
+      const updated = await this.profiles.updateLocation(
+        wallet,
+        { ...dto },
+        executor,
+      );
       return {
         success: updated,
         message: updated
@@ -933,11 +1063,13 @@ export class ProfileService {
   async updateUserAvailability(
     wallet: string,
     availability: boolean,
+    executor?: EntityManager,
   ): Promise<ResponseWithNoData> {
     try {
       const updated = await this.profiles.updateAvailability(
         wallet,
         availability,
+        executor,
       );
 
       return {

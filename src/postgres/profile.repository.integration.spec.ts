@@ -63,6 +63,7 @@ describePostgres("ProfileRepository PostgreSQL integration", () => {
           message: "ok",
         }),
       } as unknown as GithubUserService,
+      { allocate: async (_wallet: string, jobs: unknown[]) => jobs } as never,
     );
   });
 

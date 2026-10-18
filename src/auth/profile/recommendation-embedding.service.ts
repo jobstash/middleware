@@ -23,8 +23,12 @@ export class RecommendationEmbeddingService implements OnApplicationBootstrap {
     void this.refresh();
   }
   @Cron("*/5 * * * *", { name: "recommendation-embeddings" })
-  async refresh(): Promise<void> {
-    if (this.running || process.env.MIDDLEWARE_SCHEDULE_OWNER !== "1") return;
+  async refresh(documentWritten = false): Promise<void> {
+    if (
+      this.running ||
+      (!documentWritten && process.env.MIDDLEWARE_SCHEDULE_OWNER !== "1")
+    )
+      return;
     this.running = true;
     try {
       await this.repository.withWorkerLock(async () => {
@@ -45,7 +49,11 @@ export class RecommendationEmbeddingService implements OnApplicationBootstrap {
           const inputs = await this.repository.pending(
             this.config.get<number>("RECOMMENDATION_EMBEDDING_BATCH_SIZE", 100),
           );
-          if (!inputs.length) break;
+          if (!inputs.length) {
+            await this.repository.refreshCvScores();
+            await this.repository.refreshArchetypes();
+            break;
+          }
           const started = Date.now();
           let completed = 0;
           let failed = 0;

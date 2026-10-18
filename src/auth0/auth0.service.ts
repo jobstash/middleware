@@ -32,9 +32,19 @@ export class Auth0Service {
           audience,
           grant_type: "client_credentials",
         });
-        if (response.data) {
+        if (
+          typeof response.data?.access_token === "string" &&
+          response.data.access_token
+        ) {
           const authToken = response.data.access_token;
-          await this.cacheManager.set("etl-token", authToken, 43_200_000);
+          const expiresIn = Number(response.data.expires_in);
+          // Refresh before the provider expiry; never assume every grant lasts 12h.
+          if (Number.isFinite(expiresIn) && expiresIn > 60)
+            await this.cacheManager.set(
+              "etl-token",
+              authToken,
+              Math.min(43_200_000, (expiresIn - 60) * 1000),
+            );
           return authToken;
         } else {
           throw new Error("Error fetching auth token");

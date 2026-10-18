@@ -17,6 +17,7 @@ import { JobMarketRepository } from "./job-market.repository";
 import { AccessWorkspaceBillingRepository } from "./access-workspace-billing.repository";
 import { EmailDigestRepository } from "./email-digest.repository";
 import { RecommendationEmbeddingRepository } from "./recommendation-embedding.repository";
+import { CareerRepository } from "src/career-agent/career.repository";
 
 @Global()
 @Module({})
@@ -48,6 +49,7 @@ export class PostgresModule {
         AccessWorkspaceBillingRepository,
         EmailDigestRepository,
         RecommendationEmbeddingRepository,
+        CareerRepository,
       ],
       exports: [
         PostgresService,
@@ -67,6 +69,7 @@ export class PostgresModule {
         AccessWorkspaceBillingRepository,
         EmailDigestRepository,
         RecommendationEmbeddingRepository,
+        CareerRepository,
       ],
     };
   }

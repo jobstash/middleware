@@ -1,3 +1,22 @@
+## Unreleased
+
+### Bug Fixes
+
+* **career:** separate user-selected chat/CV models from Terra bulk matching. Discover compatible account models without generation, persist optimistic model choices and pin queued interactive work without interrupting existing calls.
+* **matching:** read source-backed current residence and explicit relocation constraints, reuse canonical remote/geolocation eligibility before scoring, and require structured practical eligibility plus required/preferred requirement evidence. Preserve historical assessments while excluding obsolete or unresolved matches from current recommendations.
+* **career:** preserve complete source-bound CV history while rendering readable CareerCup-style role/company/date columns with 11-point serif body text and no page-count ceiling. Retain Unicode, explicit contact overrides and complete text across page breaks.
+* **career:** trust source-grounded extraction, remove live fact/wording approval gates and review intents, and provide single-document editing with optional STAR enrichment. Literal answers have revision-bound citations; source ownership, exclusions, stale-data checks and immutable historical exports remain enforced.
+* **companion:** expose and export every saved job assessment, including older, move-required, zero-fit and insufficient-input records. Full CSV export is independent of chat pagination and does not trigger scoring.
+* **companion:** require evidence-bound screening and adversarial CV review before export, invalidate prior reviews when selected evidence is refreshed, and keep unresolved factual requirements outside employer-facing prose. Reuse locally saved candidate answers across applications and reject obvious source-attribution leakage.
+* **career:** skip hosted worker claims while the scheduling lock is held, preventing a long screening snapshot from claiming work after the worker's HTTP deadline. Browser scheduling, lease freshness and authorization checks are unchanged.
+* **career:** reuse one live eligibility query for full screening snapshots, queued-job checks and saved recommendations. Result polling checks only completed interview assessments and their current original-ad hashes before global ranking and pagination; it no longer ranks or loads advertisements for the whole catalogue. Full snapshots remain uncapped, with existing CV-vector priority and lexical fallback.
+* **career:** preserve exact assessment snapshots while ignoring bookkeeping revision changes in semantic context and cache identity. Changed preferences, goals, directions or usable source-grounded evidence still invalidate assessments.
+* **career:** expose the selected pending application tracker to its source-bound worker before a CV draft exists, preserving isolation from unrelated applications.
+* **career:** use the supported GPT-6 Astra default for ChatGPT-funded candidate conversations, with low reasoning effort; preserve explicit model configuration and independent research behavior.
+* **career:** bound screening explanations and excerpts while retaining every assessment dimension, exact source evidence, uncertainty and recommendation rules.
+* **career:** prevent a cancelled hosted approval from returning a pending connection after its worker finishes starting.
+* **candidate migration:** route new consent, billing returns, reviews and digest links to the candidate frontend. The local runtime can restore a complete PostgreSQL backup and preserve current provider credentials, documents and saved state through an explicit guarded cutover.
+
 # [2.11.0](https://github.com/jobstash/middleware/compare/v2.10.1...v2.11.0) (2024-03-21)
 
 

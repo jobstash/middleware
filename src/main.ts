@@ -1,5 +1,6 @@
 import type { Cluster } from "node:cluster";
 import { availableParallelism } from "node:os";
+import { NestExpressApplication } from "@nestjs/platform-express";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
 import "@sentry/tracing";
@@ -44,10 +45,11 @@ const ironOptions: IronSessionOptions = {
 };
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true,
     bodyParser: true,
   });
+  app.useBodyParser("json", { limit: "12mb" });
   app.useGlobalPipes(
     new ValidationPipe({
       enableDebugMessages: process.env.NODE_ENV === "production" ? false : true,

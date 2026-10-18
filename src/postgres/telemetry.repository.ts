@@ -38,7 +38,17 @@ export class TelemetryRepository {
       recommendationMetricsSql,
       [days, k],
     );
-    return row.data;
+    const agent = await this.postgres.query(
+      `SELECT date_trunc('day',r.created_at)::date::text AS day,c.provider,
+      count(*)::int AS requests,count(*) FILTER(WHERE r.status IN ('failed','interrupted','paused'))::int AS failures,
+      count(*) FILTER(WHERE r.status='cancelled')::int AS cancelled
+      FROM candidate_agent_requests r JOIN candidate_agent_sessions s ON s.id=r.session_id
+      JOIN candidate_ai_connections c ON c.id=s.connection_id
+      WHERE r.created_at>=now()-make_interval(days=>$1::integer)
+      GROUP BY 1,2 ORDER BY 1 DESC,2`,
+      [days],
+    );
+    return { ...(row.data as Record<string, unknown>), agent };
   }
 
   /**

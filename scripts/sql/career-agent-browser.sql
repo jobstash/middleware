@@ -1,0 +1,4 @@
+-- Historical browser-only transition superseded by user-authorized hosted execution.
+-- Kept as a no-op so applying the release scripts cannot erase connected users'
+-- encrypted provider credentials or interrupt their hosted work.
+-- Browser and hosted connections are distinguished by public_state.execution.

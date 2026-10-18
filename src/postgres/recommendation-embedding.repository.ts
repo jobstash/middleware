@@ -14,6 +14,55 @@ type EmbeddedSentence = RecommendationSentence & { embedding: number[] };
 @Injectable()
 export class RecommendationEmbeddingRepository {
   constructor(private readonly postgres: PostgresService) {}
+  /** Background vector arithmetic across every open job; no model calls. */
+  async refreshCvScores(): Promise<void> {
+    const documents = await this.postgres.query<{
+      id: string;
+      nodeId: string;
+      hash: string;
+    }>(
+      `SELECT d.id,d.embedding_node_id::text AS "nodeId",e.content_hash AS hash FROM candidate_documents d JOIN recommendation_embedding_documents e ON e.kind='cv' AND e.node_id=d.embedding_node_id AND e.status='ready' AND e.version=$1 AND e.content_hash=md5(recommendation_embedding_content('cv',e.node_id))`,
+      [RECOMMENDATION_EMBEDDING_VERSION],
+    );
+    for (const doc of documents) {
+      while (true) {
+        const jobs = await this.postgres.query<{ id: string }>(
+          `SELECT j.job_node_id::text AS id FROM job_search_documents j JOIN recommendation_embedding_documents e ON e.kind='job' AND e.node_id=j.job_node_id AND e.status='ready' AND e.version=$1
+          LEFT JOIN candidate_cv_job_scores score ON score.document_id=$2 AND score.job_node_id=j.job_node_id
+          WHERE j.online AND NOT j.blocked AND (j.published_timestamp IS NULL OR j.published_timestamp<=extract(epoch FROM now())*1000)
+            AND (score.document_id IS NULL OR score.cv_hash<>$3 OR score.job_hash<>e.content_hash) ORDER BY j.job_node_id LIMIT 50`,
+          [RECOMMENDATION_EMBEDDING_VERSION, doc.id, doc.hash],
+        );
+        if (!jobs.length) break;
+        await this.postgres.query(
+          `WITH job_sentences AS MATERIALIZED (
+          SELECT s.* FROM recommendation_sentence_embeddings s WHERE s.kind='job' AND s.node_id=ANY($4::bigint[]) AND s.weight>=0.35
+        ), frequency AS MATERIALIZED (
+          SELECT repeated.text_hash,count(DISTINCT repeated.node_id) AS documents FROM recommendation_sentence_embeddings repeated
+          JOIN (SELECT DISTINCT text_hash FROM job_sentences) wanted USING(text_hash) WHERE repeated.kind='job' GROUP BY repeated.text_hash
+        ), pairs AS MATERIALIZED (
+          SELECT j.node_id,j.sentence_hash,j.weight,cv.similarity,cv.evidence_weight,frequency.documents,
+            row_number() OVER(PARTITION BY j.node_id,cv.sentence_hash ORDER BY cv.similarity*j.weight DESC,j.sentence_hash) AS evidence_rank
+          FROM job_sentences j JOIN frequency USING(text_hash)
+          LEFT JOIN LATERAL (SELECT s.sentence_hash,s.weight AS evidence_weight,1-(s.embedding<=>j.embedding) AS similarity
+            FROM recommendation_sentence_embeddings s WHERE s.kind='cv' AND s.node_id=$2 AND s.weight>=0.35 ORDER BY s.embedding<=>j.embedding LIMIT 1) cv ON true
+        ), scores AS (
+          SELECT node_id,sum(least(1.0,greatest(0,(similarity-0.65)/0.30))*weight*evidence_weight/sqrt(greatest(documents,1))) AS strength,
+          count(*) FILTER(WHERE similarity>=0.8)::integer AS supported FROM pairs WHERE evidence_rank=1 GROUP BY node_id
+        ) INSERT INTO candidate_cv_job_scores(document_id,job_node_id,cv_hash,job_hash,score,supported_sentences)
+          SELECT $1,e.node_id,$3,e.content_hash,18.0*COALESCE(s.strength,0)/greatest(e.weight_sum,3),COALESCE(s.supported,0)
+          FROM recommendation_embedding_documents e LEFT JOIN scores s ON s.node_id=e.node_id WHERE e.kind='job' AND e.node_id=ANY($4::bigint[])
+          ON CONFLICT(document_id,job_node_id) DO UPDATE SET cv_hash=EXCLUDED.cv_hash,job_hash=EXCLUDED.job_hash,score=EXCLUDED.score,supported_sentences=EXCLUDED.supported_sentences,updated_at=now()`,
+          [doc.id, doc.nodeId, doc.hash, jobs.map(j => j.id)],
+        );
+      }
+    }
+  }
+  async refreshArchetypes(): Promise<void> {
+    await this.postgres.query(
+      "SELECT refresh_candidate_archetype_requirements()",
+    );
+  }
   async pending(limit: number): Promise<EmbeddingInput[]> {
     return this.postgres.query<EmbeddingInput & Record<string, unknown>>(
       `
@@ -40,7 +89,7 @@ export class RecommendationEmbeddingRepository {
       SELECT DISTINCT ON (sentence.sentence_hash) sentence.sentence_hash AS hash,sentence.embedding::text::jsonb AS embedding
       FROM recommendation_sentence_embeddings sentence JOIN recommendation_embedding_documents doc USING (kind,node_id)
       WHERE doc.version=$1 AND sentence.sentence_hash=ANY($2::text[])
-        AND ((sentence.kind=$3 AND sentence.node_id=$4) OR (sentence.kind <> 'user' AND $3 <> 'user'))
+        AND ((sentence.kind=$3 AND sentence.node_id=$4) OR (sentence.kind IN ('job','employer') AND $3 IN ('job','employer')))
       ORDER BY sentence.sentence_hash,sentence.node_id
     `,
       [RECOMMENDATION_EMBEDDING_VERSION, hashes, input.kind, input.nodeId],

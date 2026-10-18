@@ -382,7 +382,11 @@ export class AdminIngestionService {
     const retryableImportRequest =
       method === "POST" && path === "/imports/runs";
     let error: unknown;
-    for (let attempt = 0; attempt < (retryableImportRequest ? 2 : 1); attempt++) {
+    for (
+      let attempt = 0;
+      attempt < (retryableImportRequest ? 2 : 1);
+      attempt++
+    ) {
       try {
         const response = await axios.request<T>(config);
         return response.data;

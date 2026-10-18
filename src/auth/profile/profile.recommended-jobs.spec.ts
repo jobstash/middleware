@@ -32,6 +32,7 @@ describe("ProfileService recommended jobs", () => {
       {} as never,
       {} as never,
       {} as never,
+      { allocate: async (_wallet: string, jobs: unknown[]) => jobs } as never,
     );
     const result = await service.getRecommendedJobs("wallet");
     expect(result.jobs).toHaveLength(30);
@@ -42,7 +43,7 @@ describe("ProfileService recommended jobs", () => {
       "wallet",
       null,
       false,
-      expect.any(Date),
+      null,
     );
     expect((await service.getRecommendedJobs("wallet", 10)).jobs).toHaveLength(
       10,
@@ -101,6 +102,7 @@ describe("ProfileService recommended jobs", () => {
       {} as never,
       {} as never,
       {} as never,
+      { allocate: async (_wallet: string, jobs: unknown[]) => jobs } as never,
     );
     const result = await service.getRecommendedJobs(
       "wallet",
@@ -112,7 +114,7 @@ describe("ProfileService recommended jobs", () => {
       "wallet",
       500,
       true,
-      expect.any(Date),
+      null,
     );
   });
 
@@ -141,6 +143,7 @@ describe("ProfileService recommended jobs", () => {
       {} as never,
       {} as never,
       {} as never,
+      { allocate: async (_wallet: string, jobs: unknown[]) => jobs } as never,
     );
     expect(
       (await service.getRecommendedJobs("wallet", 3, "weekly_email")).jobs,
@@ -182,6 +185,7 @@ describe("ProfileService recommended jobs", () => {
       {} as never,
       {} as never,
       {} as never,
+      { allocate: async (_wallet: string, jobs: unknown[]) => jobs } as never,
     );
 
     await expect(service.getRecommendedJobs("wallet", 10)).resolves.toEqual({
@@ -195,7 +199,7 @@ describe("ProfileService recommended jobs", () => {
       page: 1,
       hasMore: false,
       rankedAt: expect.any(String),
-      rankingVersion: "sentences-v1",
+      rankingVersion: "original-ad-sentences-v2",
     });
   });
   it("accepts a valid alternative even when another option needs geographic checking", async () => {
@@ -246,6 +250,7 @@ describe("ProfileService recommended jobs", () => {
       {} as never,
       {} as never,
       {} as never,
+      { allocate: async (_wallet: string, jobs: unknown[]) => jobs } as never,
     );
     const result = await service.getRecommendedJobs("wallet", 3);
     expect(result.jobs).toHaveLength(1);
@@ -262,6 +267,7 @@ describe("ProfileService recommended jobs", () => {
       {} as never,
       {} as never,
       {} as never,
+      { allocate: async (_wallet: string, jobs: unknown[]) => jobs } as never,
     );
 
     await expect(
@@ -295,12 +301,14 @@ describe("ProfileService recommended jobs", () => {
       preferredSkills: ["TypeScript"],
       targetOrganizations: ["Protocol Labs"],
     };
+    let stored: Record<string, unknown> = existing;
     const profiles = {
-      getJobPreferences: jest
-        .fn()
-        .mockResolvedValueOnce(existing)
-        .mockResolvedValueOnce({ ...existing, utcOffset: 2 }),
-      updateJobPreferences: jest.fn().mockResolvedValue(true),
+      withLockedProfile: async (_wallet: string, work: (db: unknown) => Promise<unknown>) => work({}),
+      getJobPreferences: jest.fn(async () => stored),
+      updateJobPreferences: jest.fn(async (_wallet, preferences) => {
+        stored = preferences;
+        return true;
+      }),
     };
     const service = new ProfileService(
       profiles as never,
@@ -308,9 +316,10 @@ describe("ProfileService recommended jobs", () => {
       {} as never,
       {} as never,
       {} as never,
+      { allocate: async (_wallet: string, jobs: unknown[]) => jobs } as never,
     );
 
-    await service.updateJobPreferences("wallet", {
+    const saved = await service.updateJobPreferences("wallet", {
       workModes: ["remote"],
       residenceCountry: "NL",
       utcOffset: 2,
@@ -318,15 +327,14 @@ describe("ProfileService recommended jobs", () => {
       requiresSponsorship: false,
       attendancePreference: "remote_only",
       travelTolerance: null,
+      preferredSkills: undefined,
+      targetOrganizations: undefined,
     });
 
-    expect(profiles.updateJobPreferences).toHaveBeenCalledWith(
-      "wallet",
-      expect.objectContaining({
-        utcOffset: 2,
-        preferredSkills: ["TypeScript"],
-        targetOrganizations: ["Protocol Labs"],
-      }),
-    );
+    expect(saved).toMatchObject({
+      utcOffset: 2,
+      preferredSkills: ["TypeScript"],
+      targetOrganizations: ["Protocol Labs"],
+    });
   });
 });

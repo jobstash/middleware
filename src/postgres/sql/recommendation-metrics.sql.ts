@@ -5,7 +5,7 @@ WITH exposures AS MATERIALIZED (
     surface, COALESCE(metadata ->> 'rankingVersion', 'legacy') AS version,
     occurred_at AS exposed_at, position
   FROM user_activity_events
-  WHERE event_type = 'job_impression' AND surface = 'jobs_for_me'
+  WHERE event_type = 'job_impression' AND surface IN ('jobs_for_me','discover_cards','discover_list','stack_cards','stack_list','applications')
     AND position >= 0 AND position < $2
     AND occurred_at >= now() - make_interval(days => $1::integer)
   UNION ALL
@@ -30,14 +30,18 @@ WITH exposures AS MATERIALIZED (
       AND exposure.job_node_id = action.job_node_id
       AND action.occurred_at >= exposure.exposed_at
       AND action.occurred_at < exposure.exposed_at + interval '7 days'
-  WHERE action.event_type IN ('job_view', 'job_apply', 'job_bookmark')
+  WHERE action.event_type IN ('job_view','job_apply','job_bookmark','job_interest','job_application_confirmed','job_outcome')
+    AND COALESCE(action.metadata->>'undone','false')<>'true'
     AND action.occurred_at >= now() - make_interval(days => $1::integer)
   ORDER BY action.id, exposure.exposed_at DESC, exposure.surface
 ), converted AS (
   SELECT user_node_id, job_node_id, day, surface, version,
     bool_or(event_type = 'job_view') AS clicked,
     bool_or(event_type = 'job_apply') AS applied,
-    bool_or(event_type = 'job_bookmark') AS saved
+    bool_or(event_type = 'job_bookmark') AS saved,
+    bool_or(event_type = 'job_interest') AS interested,
+    bool_or(event_type = 'job_application_confirmed') AS confirmed,
+    bool_or(event_type = 'job_outcome') AS outcome
   FROM attributed GROUP BY user_node_id, job_node_id, day, surface, version
 ), first_applies AS (
   SELECT exposure.user_node_id, exposure.day, exposure.surface, exposure.version,
@@ -53,6 +57,10 @@ WITH exposures AS MATERIALIZED (
     count(*) FILTER (WHERE converted.clicked)::integer AS clicks,
     count(*) FILTER (WHERE converted.applied)::integer AS applies,
     count(*) FILTER (WHERE converted.saved)::integer AS saves,
+    count(*) FILTER (WHERE converted.applied)::integer AS "outboundClicks",
+    count(*) FILTER (WHERE converted.interested)::integer AS interests,
+    count(*) FILTER (WHERE converted.confirmed)::integer AS "confirmedApplications",
+    count(*) FILTER (WHERE converted.outcome)::integer AS outcomes,
     count(*) FILTER (WHERE converted.clicked)::float / NULLIF(count(*), 0) AS "clickRate",
     count(*) FILTER (WHERE converted.applied)::float / NULLIF(count(*), 0) AS "applyRate",
     count(*) FILTER (WHERE converted.saved)::float / NULLIF(count(*), 0) AS "saveRate",
@@ -82,6 +90,18 @@ WITH exposures AS MATERIALIZED (
 )
 SELECT jsonb_build_object(
   'days', $1::integer, 'k', $2::integer, 'attributionDays', 7,
+  'actions', COALESCE((SELECT jsonb_agg(to_jsonb(actions) ORDER BY day DESC,surface,version) FROM (
+    SELECT date_trunc('day',occurred_at)::date::text AS day,COALESCE(surface,'unknown') AS surface,
+      COALESCE(metadata->>'rankingVersion','legacy') AS version,
+      count(*) FILTER(WHERE event_type='job_interest')::int AS interest,
+      count(*) FILTER(WHERE event_type='job_bookmark')::int AS saves,
+      count(*) FILTER(WHERE event_type='job_apply')::int AS "outboundClicks",
+      count(*) FILTER(WHERE event_type='job_application_confirmed')::int AS "confirmedApplications",
+      count(*) FILTER(WHERE event_type='job_outcome')::int AS outcomes
+    FROM user_activity_events WHERE occurred_at>=now()-make_interval(days=>$1::integer)
+      AND event_type IN('job_interest','job_bookmark','job_apply','job_application_confirmed','job_outcome')
+      AND COALESCE(metadata->>'undone','false')<>'true'
+    GROUP BY 1,2,3) actions),'[]'),
   'daily', COALESCE((SELECT jsonb_agg(to_jsonb(daily) ORDER BY day DESC, surface, version) FROM daily), '[]'::jsonb),
   'email', (SELECT jsonb_build_object('sent', count(*),
     'unsubscribed', count(*) FILTER (WHERE unsubscribed),
