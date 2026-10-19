@@ -168,7 +168,6 @@ export function readStripeSubscription(
     !invoice.lines.has_more &&
     line?.livemode === true &&
     line.invoice === invoice.id &&
-    providerId(line.subscription) === subscription.id &&
     line.parent?.type === "subscription_item_details" &&
     parent?.subscription === subscription.id &&
     parent.subscription_item === item.id &&

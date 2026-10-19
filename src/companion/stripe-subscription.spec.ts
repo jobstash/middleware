@@ -72,7 +72,7 @@ interface SubscriptionFixture {
         id: string;
         livemode: boolean;
         invoice: string;
-        subscription: string;
+        subscription: string | null;
         currency: string;
         amount: number;
         discount_amounts: {
@@ -149,7 +149,7 @@ function subscription(): SubscriptionFixture {
             id: "il_owned",
             livemode: true,
             invoice: "in_paid",
-            subscription: "sub_owned",
+            subscription: null,
             currency: "usd",
             amount: 999,
             discount_amounts: [],
@@ -456,7 +456,8 @@ describe("live Stripe membership state", () => {
       value.latest_invoice.parent.subscription_details.subscription = "sub_other";
     },
     (value: SubscriptionFixture) => {
-      value.latest_invoice.lines.data[0].subscription = "sub_other";
+      value.latest_invoice.lines.data[0].parent.subscription_item_details.subscription =
+        "sub_other";
     },
     (value: SubscriptionFixture) => {
       value.latest_invoice.lines.data[0].parent.subscription_item_details.subscription_item =
