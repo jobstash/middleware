@@ -160,7 +160,7 @@ suite("signed companion CV sharing on production main", () => {
        (1,'User','{"privyId":"did:privy:synthetic","name":"Candidate"}'),
        (2,'EntityProfile','{"slug":"example-labs","aliases":["Ex Labs"]}'),
        (3,'ProfileInfo','{"displayName":"Example Labs","canonicalSite":"https://example.test"}'),
-       (4,'Organization','{"name":"Example Labs"}'),
+       (4,'Organization','{"name":"Example Labs","normalizedName":"example-labs"}'),
        (5,'Organization','{"name":"Banned","banned":true}'),
        (6,'UserShowCase','{"label":"CV","url":"https://old.test/cv"}'),
        (7,'LinkedAccount','{"github":"synthetic-dev"}');
@@ -283,25 +283,34 @@ suite("signed companion CV sharing on production main", () => {
     }).expect(200);
     expect(status.body.github).toEqual({ login: "synthetic-dev" });
   });
-  it("resolves a child organization to its parent profile slug and refuses ambiguous, banned or unknown refs", async () => {
+  it("resolves profiles and children to the ecosystem.vision page key and refuses ambiguous, banned or unknown refs", async () => {
     const resolve = (ref: string): request.Test =>
       signed("/device/platform", {
         operation: "employer_profile",
         args: { ref },
       });
-    expect((await resolve("profile:2").expect(200)).body).toEqual({
+    const page = {
+      kind: "organization",
       slug: "example-labs",
       name: "Example Labs",
-    });
-    expect((await resolve("organization:4").expect(200)).body).toEqual({
-      slug: "example-labs",
-      name: "Example Labs",
-    });
+    };
+    expect((await resolve("profile:2").expect(200)).body).toEqual(page);
+    expect((await resolve("organization:4").expect(200)).body).toEqual(page);
     await resolve("organization:5").expect(404);
     await resolve("profile:999").expect(404);
     await resolve("profile:4").expect(404);
+    // A profile linked to two children is ambiguous; a profile with none has no page.
+    await client.query(`INSERT INTO graph_nodes(id,label,properties) VALUES (8,'Project','{"name":"Example App","normalizedName":"example-app"}'),
+      (9,'EntityProfile','{"slug":"lonely"}'); INSERT INTO graph_relationships(source_id,target_id,type) VALUES (2,8,'PROFILE_HAS_PROJECT');`);
+    await resolve("profile:2").expect(404);
+    await resolve("profile:9").expect(404);
+    expect((await resolve("project:8").expect(200)).body).toEqual({
+      kind: "project",
+      slug: "example-app",
+      name: "Example App",
+    });
     await client.query("UPDATE candidate_subscriptions SET status='expired'");
-    // Opening a profile link needs pairing, not membership: saved history stays navigable after expiry.
-    await resolve("profile:2").expect(200);
+    // Opening a page needs pairing, not membership: saved history stays navigable after expiry.
+    await resolve("organization:4").expect(200);
   });
 });
