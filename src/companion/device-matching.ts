@@ -1,4 +1,5 @@
 import { JobSalary, projectJobSalary } from "./job-card-details";
+import { MatchingCatalogueArgs } from "./device-execution.protocol";
 
 interface LocationEvidence {
   rawLocations?: unknown[];
@@ -65,6 +66,12 @@ export interface MatchingJob {
 export interface MatchingCatalogue {
   jobs: CatalogueJob[];
   total: number;
+  nextOffset: number | null;
+  publicationWindow: {
+    range: MatchingCatalogueArgs["publicationRange"];
+    since: string | null;
+    until: string;
+  };
 }
 export interface MatchingBatch {
   jobs: MatchingJob[];
@@ -221,25 +228,65 @@ export const termsJoins = `LEFT JOIN LATERAL (
     ) advertised
   ) places ON true`;
 
+// Transport page size, never a limit on the selected publication scope.
+export const matchingCataloguePageSize = 1000;
 export async function matchingCatalogue(
   db: Catalogue,
+  args: MatchingCatalogueArgs,
 ): Promise<MatchingCatalogue> {
-  const rows =
-    await db.query<Row>(`SELECT 'node:' || j.job_node_id::text AS id,j.title,${companyName} AS company,
-    j.published_timestamp AS "publishedTimestamp",j.payload->>'url' AS "applyUrl",${termsColumns}
-    ${catalogueJoins} ${termsJoins} ${jobOriginalsJoin(false)}
-    WHERE j.online AND NOT j.blocked AND j.published_timestamp BETWEEN
-      extract(epoch FROM statement_timestamp()-interval '14 days')*1000 AND extract(epoch FROM statement_timestamp())*1000
-    ORDER BY j.published_timestamp DESC,('node:' || j.job_node_id::text) COLLATE "C"`);
-  const jobs = rows.map(
-    ({ publishedTimestamp, applyUrl, salaryPayload, ...job }) => ({
+  const publicationWindow = {
+    range: args.publicationRange,
+    since: args.since,
+    until: args.until,
+  };
+  const parameters = [
+    args.since === null ? null : Date.parse(args.since),
+    Date.parse(args.until),
+  ];
+  const predicate = `j.online AND NOT j.blocked
+    AND ($1::bigint IS NULL OR j.published_timestamp >= $1::bigint)
+    AND j.published_timestamp < $2::bigint`;
+  if (args.countOnly) {
+    const [row] = await db.query<{ total: string }>(
+      `SELECT count(*) AS total FROM job_search_documents j WHERE ${predicate}`,
+      parameters,
+    );
+    return { total: Number(row.total), jobs: [], nextOffset: null, publicationWindow };
+  }
+  const offset = args.offset ?? 0;
+  // Count and page share a statement snapshot, including empty/out-of-range pages.
+  const rows = await db.query<Row & { total: string }>(
+    `WITH scoped AS MATERIALIZED (
+      SELECT j.job_node_id,j.published_timestamp FROM job_search_documents j WHERE ${predicate}
+    ), page AS (
+      SELECT * FROM scoped ORDER BY published_timestamp DESC,('node:' || job_node_id::text) COLLATE "C"
+      LIMIT $3 OFFSET $4
+    ) SELECT total.total,CASE WHEN j.job_node_id IS NOT NULL THEN 'node:' || j.job_node_id::text END AS id,
+      j.title,${companyName} AS company,j.published_timestamp AS "publishedTimestamp",
+      j.payload->>'url' AS "applyUrl",${termsColumns}
+      FROM (SELECT count(*) AS total FROM scoped) total LEFT JOIN page ON true
+      LEFT JOIN job_search_documents j ON j.job_node_id=page.job_node_id
+      LEFT JOIN organization_search_documents o ON o.organization_id=j.organization_id
+      LEFT JOIN project_search_documents p ON p.project_id=j.project_id
+      ${termsJoins} ${jobOriginalsJoin(false)}
+      ORDER BY j.published_timestamp DESC,('node:' || j.job_node_id::text) COLLATE "C"`,
+    [...parameters, matchingCataloguePageSize, offset],
+  );
+  const total = Number(rows[0].total);
+  const jobs = rows.filter(row => row.id !== null).map(
+    ({ total: _total, publishedTimestamp, applyUrl, salaryPayload, ...job }) => ({
       ...job,
       salary: projectJobSalary(salaryPayload),
       publishedAt: new Date(Number(publishedTimestamp)).toISOString(),
       ...(applyUrl ? { applyUrl } : {}),
     }),
   );
-  return { jobs, total: jobs.length };
+  return {
+    total,
+    jobs,
+    nextOffset: offset + jobs.length < total ? offset + jobs.length : null,
+    publicationWindow,
+  };
 }
 
 // Curated role and employer facts leave SQL. Original ads and location constraints are never compacted.

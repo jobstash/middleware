@@ -6,6 +6,22 @@ export interface DeviceIdentity {
   id: string;
   owner: string;
 }
+export const publicationRanges = [
+  "today",
+  "yesterday",
+  "past_3_days",
+  "past_week",
+  "past_2_weeks",
+  "past_month",
+  "all",
+] as const;
+export interface MatchingCatalogueArgs {
+  publicationRange: (typeof publicationRanges)[number];
+  since: string | null;
+  until: string;
+  offset?: number;
+  countOnly?: boolean;
+}
 interface DeviceInputs {
   pair: {
     requestId: string;
@@ -19,10 +35,8 @@ interface DeviceInputs {
   activate: { challenge: string; account: { id: string; label: string } };
   empty: Record<string, never>;
   platform:
-    | {
-        operation: "status" | "matching_catalogue";
-        args: Record<string, never>;
-      }
+    | { operation: "status"; args: Record<string, never> }
+    | { operation: "matching_catalogue"; args: MatchingCatalogueArgs }
     | { operation: "job_read"; args: { id: string } }
     | { operation: "matching_jobs"; args: { ids: string[] } };
 }
@@ -37,6 +51,12 @@ const object = (fields: Record<string, Joi.Schema>): Joi.ObjectSchema =>
 const matchingId = Joi.string()
   .pattern(/^node:[1-9][0-9]{0,18}$(?![\s\S])/)
   .required();
+const publicationTimestamp = Joi.string()
+  .max(24)
+  .pattern(
+    /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,3})?Z$(?![\s\S])/,
+  )
+  .required();
 export const devicePlatformOperations = [
   "status",
   "job_read",
@@ -45,7 +65,13 @@ export const devicePlatformOperations = [
 ] as const;
 const platformArgs = {
   status: object({}),
-  matching_catalogue: object({}),
+  matching_catalogue: object({
+    publicationRange: Joi.string().valid(...publicationRanges).required(),
+    since: publicationTimestamp.allow(null),
+    until: publicationTimestamp,
+    offset: Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER),
+    countOnly: Joi.boolean(),
+  }),
   job_read: object({ id: matchingId }),
   matching_jobs: object({
     ids: Joi.array().items(matchingId).min(1).max(10).unique().required(),
@@ -97,6 +123,29 @@ export function deviceInput<K extends keyof DeviceInputs>(
 ): DeviceInputs[K] {
   const parsed = schemas[kind].validate(value, { convert: false });
   if (parsed.error) throw new BadRequestException("Invalid companion input");
+  if (kind === "platform") {
+    const input = parsed.value as DeviceInputs["platform"];
+    if (input.operation === "matching_catalogue") {
+      const { publicationRange, since, until } = input.args;
+      const validTimestamp = (timestamp: string): boolean => {
+        const time = Date.parse(timestamp);
+        const normalized = timestamp.replace(
+          /(?:\.([0-9]{1,3}))?Z$/,
+          (_, fraction = "") => `.${fraction.padEnd(3, "0")}Z`,
+        );
+        return Number.isFinite(time) && new Date(time).toISOString() === normalized;
+      };
+      if (
+        !validTimestamp(until) ||
+        (publicationRange === "all"
+          ? since !== null
+          : since === null ||
+            !validTimestamp(since) ||
+            Date.parse(since) >= Date.parse(until))
+      )
+        throw new BadRequestException("Invalid publication window");
+    }
+  }
   return parsed.value;
 }
 export function sha256(value: string | Buffer): string {

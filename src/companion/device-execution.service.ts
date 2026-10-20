@@ -308,7 +308,7 @@ export class DeviceExecutionService {
         providerRequired: false,
       };
     if (operation === "matching_catalogue")
-      result = await matchingCatalogue(this.db);
+      result = await matchingCatalogue(this.db, args);
     else if (operation === "matching_jobs")
       result = await matchingJobs(this.db, args.ids);
     else {

@@ -296,9 +296,20 @@ Requests expire after 30 seconds; nonces cannot be replayed. Request bodies are
 limited to 16 KiB and platform responses to 8 MiB. An oversized original is
 rejected, never truncated. Platform operations are `status`,
 `matching_catalogue`, `matching_jobs` (at most ten canonical IDs) and `job_read`.
-The catalogue uses publication time, newest first, for the latest fourteen days;
-explicit canonical reads retain previously selected full originals and role
-location evidence even when they age out of the catalogue.
+`matching_catalogue` requires `{publicationRange,since,until,offset?,countOnly?}`.
+Ranges are `today`, `yesterday`, `past_3_days`, `past_week`, `past_2_weeks`,
+`past_month` and `all`; the companion defaults to `past_3_days`. Bounds are
+validated UTC timestamps, inclusive `since` and exclusive `until`; only `all`
+uses `since:null`. Returns are `{total,jobs,nextOffset,publicationWindow}` with
+the exact requested bounds. Count-only requests return the SQL count without
+job metadata. Fixed 1,000-row transport pages exhaust the selected scope using
+`nextOffset`; there is no total job-count cap or hidden catalogue-age cutoff.
+Count and page share one SQL statement snapshot, ordered newest first with
+canonical-ID tie breaking. Explicit canonical reads retain previously selected
+full originals and role location evidence even when they age out of the scope.
+Run `COMPANION_TEST_DATABASE_URL=postgresql://USER@127.0.0.1:PORT/companion_test yarn test --runInBand src/companion`
+against a disposable local test database for publication-boundary and
+100,001-job paging integration coverage.
 
 Raw data requires an owned active device and a live paid subscription before and
 after reads. A historical payment, test-mode object, trial, pending invoice,
