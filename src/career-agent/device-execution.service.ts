@@ -133,7 +133,7 @@ export class DeviceExecutionService {
         account: { id: device.owner, label: String(account.label).replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, 200) },
         membership: { active: await this.career.entitled(device.owner) }, providerRequired: false };
     } else if (operation === "matching_catalogue") {
-      result = await matchingCatalogue(this.db);
+      result = await matchingCatalogue(this.db, args);
     } else if (operation === "matching_jobs") {
       result = await matchingJobs(this.db, args.ids);
     } else if (operation === "search_jobs" || operation === "job_read") {

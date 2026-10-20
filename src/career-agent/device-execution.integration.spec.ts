@@ -17,7 +17,7 @@ import { PostgresService } from "src/postgres/postgres.service";
 import { prepareMcpTestTables } from "src/mcp/mcp-test-fixture";
 import { CareerRepository } from "./career.repository";
 import { DeviceExecutionService } from "./device-execution.service";
-import { canonicalJSON, deviceCanonicalRequest, sha256 } from "./device-execution.protocol";
+import { canonicalJSON, deviceCanonicalRequest, MatchingCatalogueArgs, sha256 } from "./device-execution.protocol";
 import { matchingCatalogue, matchingJobs } from "./device-matching";
 import { candidateScreeningSource, unknownDocumentProvenance } from "./candidate-document-provenance";
 import { CandidateInvocationContext } from "./candidate-context";
@@ -199,6 +199,10 @@ const databaseUrl = process.env.CAREER_TEST_DATABASE_URL;
   describe("batch matching catalogue", () => {
     const fourteenDays = 14 * 86400000;
     const download = (ctx: CandidateInvocationContext, id: string) => documents.download(ctx, id);
+    function catalogueArgs(): MatchingCatalogueArgs {
+      const until = new Date().toISOString();
+      return { publicationRange: "past_2_weeks", since: new Date(Date.parse(until) - fourteenDays).toISOString(), until };
+    }
     beforeEach(async () => {
       await db.query("TRUNCATE job_search_documents,organization_search_documents,project_search_documents");
     });
@@ -220,9 +224,11 @@ const databaseUrl = process.env.CAREER_TEST_DATABASE_URL;
       }).send(body);
     }
 
-    it("returns every recent visible job newest first, without pages, personal filters or alias deduplication", async () => {
-      const device = await paired(), published = Date.now() - 60000;
-      expect((await signedCall(device, { operation: "matching_catalogue", args: {} }).expect(201)).body).toEqual({ total: 0, jobs: [] });
+    it("returns selected visible jobs newest first without personal filters or alias deduplication", async () => {
+      const device = await paired(), published = Date.now() - 60000, scope = catalogueArgs();
+      const publicationWindow = { range: scope.publicationRange, since: scope.since, until: scope.until };
+      expect((await signedCall(device, { operation: "matching_catalogue", args: scope }).expect(201)).body)
+        .toEqual({ total: 0, jobs: [], nextOffset: null, publicationWindow });
       const expected: { id: string; timestamp: number }[] = [];
       for (let index = 0; index < 125; index++) {
         const timestamp = published - Math.floor(index / 3) * 1000;
@@ -240,26 +246,41 @@ const databaseUrl = process.env.CAREER_TEST_DATABASE_URL;
         await job(hidden, published);
         await db.query("UPDATE job_search_documents SET online=$2,blocked=$3 WHERE short_uuid=$1", [hidden, hidden !== "offline", hidden === "blocked"]);
       }
-      const catalogue = (await signedCall(device, { operation: "matching_catalogue", args: {} }).expect(201)).body;
+      const catalogue = (await signedCall(device, { operation: "matching_catalogue", args: scope }).expect(201)).body;
       expect(await devices.connections(device.identity)).toEqual([]);
       expected.sort((a, b) => b.timestamp - a.timestamp || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-      expect(catalogue).toEqual({ total: 127, jobs: expected.map(item => ({
+      expect(catalogue).toEqual({ total: 127, nextOffset: null, publicationWindow, jobs: expected.map(item => ({
         id: item.id, title: "Unrelated role", company: "Canonical employer", publishedAt: new Date(item.timestamp).toISOString(),
         salary: null, city: null, location: null, workMode: null,
       })) });
     });
 
-    it("uses inclusive fourteen-day boundaries from one database statement clock", async () => {
-      await db.query(`WITH boundary AS (SELECT floor(extract(epoch FROM statement_timestamp())*1000)::bigint AS time),
-        nodes AS (INSERT INTO graph_nodes(label,properties)
-          SELECT 'StructuredJobpost',jsonb_build_object('offset',value) FROM unnest(ARRAY[0,1,-1]::int[]) value RETURNING id,properties)
-        INSERT INTO job_search_documents(job_node_id,title,payload,published_timestamp)
-          SELECT id,'Boundary','{}',time-$1::bigint+(properties->>'offset')::bigint FROM nodes CROSS JOIN boundary`, [fourteenDays]);
-      // A fixed SQL statement clock exercises the production predicate at its exact boundary.
-      const [{ boundary }] = await db.query("SELECT min(published_timestamp)+$1::bigint+1 AS boundary FROM job_search_documents", [fourteenDays]);
-      const result = await matchingCatalogue({ query: (sql, parameters) => db.query(
-        sql.replaceAll("statement_timestamp()", `to_timestamp(${Number(boundary)} / 1000.0)`), parameters) });
-      expect(result.total).toBe(2);
+    it("uses caller calendar [since,until) bounds for today/yesterday and includes older month/all jobs", async () => {
+      const midnight = Date.parse("2026-10-19T22:00:00.000Z"), until = "2026-10-20T12:00:00.000Z";
+      const timestamps = [midnight - 86400000 - 1, midnight - 86400000, midnight - 1, midnight,
+        Date.parse(until) - 1, Date.parse(until), midnight - 20 * 86400000, midnight - 100 * 86400000];
+      for (let index = 0; index < timestamps.length; index++) await job(`boundary-${index}`, timestamps[index]);
+      const scopes: [MatchingCatalogueArgs, number[]][] = [
+        [{ publicationRange: "today", since: new Date(midnight).toISOString(), until }, [4, 3]],
+        [{ publicationRange: "yesterday", since: new Date(midnight - 86400000).toISOString(), until: new Date(midnight).toISOString() }, [2, 1]],
+        [{ publicationRange: "past_month", since: new Date(Date.parse(until) - 30 * 86400000).toISOString(), until }, [4, 3, 2, 1, 0, 6]],
+        [{ publicationRange: "all", since: null, until }, [4, 3, 2, 1, 0, 6, 7]],
+      ];
+      for (const [args, indexes] of scopes) {
+        const result = await matchingCatalogue(db, args);
+        expect(result.total).toBe(indexes.length);
+        expect(result.jobs.map(item => item.publishedAt)).toEqual(indexes.map(index => new Date(timestamps[index]).toISOString()));
+        expect(result.nextOffset).toBeNull();
+        expect(await matchingCatalogue(db, { ...args, countOnly: true })).toEqual({
+          total: indexes.length, jobs: [], nextOffset: null,
+          publicationWindow: { range: args.publicationRange, since: args.since, until: args.until },
+        });
+      }
+      const old = (await matchingCatalogue(db, scopes[3][0])).jobs.at(-1)!;
+      await original(old.id.slice(5), "  Complete hundred-day-old original.\n");
+      expect((await matchingJobs(db, [old.id])).jobs[0]).toMatchObject({
+        id: old.id, ad: "  Complete hundred-day-old original.\n",
+      });
     });
 
     it("fetches ten jobs in one SQL query and accounts for unavailable IDs in requested order", async () => {
@@ -323,7 +344,7 @@ const databaseUrl = process.env.CAREER_TEST_DATABASE_URL;
         await original(node, ad);
         ids.push(`node:${node}`);
       }
-      const catalogue = (await signedCall(device, { operation: "matching_catalogue", args: {} }).expect(201)).body;
+      const catalogue = (await signedCall(device, { operation: "matching_catalogue", args: catalogueArgs() }).expect(201)).body;
       const batch = (await signedCall(device, { operation: "matching_jobs", args: { ids } }).expect(201)).body;
       expect(catalogue.total).toBe(cases.length);
       expect(batch.remainingIds).toEqual([]);
@@ -354,7 +375,7 @@ const databaseUrl = process.env.CAREER_TEST_DATABASE_URL;
         [employer.id, { name: "Employer", location: "Employer HQ canary", city: "Employer HQ canary" }]);
       await db.query("UPDATE job_search_documents SET organization_id='location-employer'");
       const ids = [stripe, okx, unstated].map(id => `node:${id}`);
-      const catalogue = (await signedCall(device, { operation: "matching_catalogue", args: {} }).expect(201)).body;
+      const catalogue = (await signedCall(device, { operation: "matching_catalogue", args: catalogueArgs() }).expect(201)).body;
       const batch = (await signedCall(device, { operation: "matching_jobs", args: { ids } }).expect(201)).body;
       const expected = [
         { location: offices, city: null, workMode: "HYBRID", locationEvidence: [
@@ -510,21 +531,25 @@ const databaseUrl = process.env.CAREER_TEST_DATABASE_URL;
       await original(ids[3].slice(5), "x".repeat(8 * 1024 * 1024));
       expect((await signedCall(device, { operation: "matching_jobs", args: { ids: [ids[3]] } }).expect(400)).body.code).toBe("matching_capacity_exceeded");
       await db.query("UPDATE job_search_documents SET title=$1", ["x".repeat(8 * 1024 * 1024)]);
-      expect((await signedCall(device, { operation: "matching_catalogue", args: {} }).expect(400)).body.code).toBe("matching_capacity_exceeded");
+      expect((await signedCall(device, { operation: "matching_catalogue", args: catalogueArgs() }).expect(400)).body.code).toBe("matching_capacity_exceeded");
     });
 
     it("requires strict inputs, signed ownership and membership before and after matching and detailed reads", async () => {
       const device = await paired(), id = `node:${await job("authorized", Date.now() - 10000)}`;
-      const valid = [{ operation: "matching_catalogue", args: {} }, { operation: "matching_jobs", args: { ids: [id] } },
-        { operation: "job_read", args: { id } }];
+      const valid = [
+        { operation: "matching_catalogue", args: catalogueArgs() },
+        { operation: "matching_catalogue", args: { ...catalogueArgs(), countOnly: true } },
+        { operation: "matching_jobs", args: { ids: [id] } }, { operation: "job_read", args: { id } },
+      ];
       for (const body of valid) {
         await http(app.getHttpServer()).post("/device/platform").send(body).expect(403);
         await expect(devices.platform({ id: device.identity.id, owner: foreignOwner }, body, download)).rejects.toBeInstanceOf(ForbiddenException);
       }
       for (const body of [
         { operation: "evaluation_manifest", args: {} }, { operation: "evaluation_context", args: { id } },
-        { operation: "matching_catalogue", args: { limit: 50 } },
-        { operation: "matching_catalogue", args: { query: "engineer" } },
+        { operation: "matching_catalogue", args: {} },
+        { operation: "matching_catalogue", args: { ...catalogueArgs(), limit: 50 } },
+        { operation: "matching_catalogue", args: { ...catalogueArgs(), query: "engineer" } },
         { operation: "matching_jobs", args: { ids: [id], owner } },
         { operation: "matching_jobs", args: { ids: [id], candidate: { headline: "Private" } } },
         { operation: "matching_jobs", args: { ids: [] } },

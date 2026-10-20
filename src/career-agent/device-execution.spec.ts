@@ -3,10 +3,18 @@ import {
   DeviceEventInput,
   DeviceToolInput,
 } from "./device-execution.dto";
-import { deviceInput } from "./device-execution.protocol";
+import { deviceInput, MatchingCatalogueArgs, publicationRanges } from "./device-execution.protocol";
 import { randomUUID } from "node:crypto";
 import { replySuggestions } from "./reply-suggestions";
-import { matchingJobs, projectLocationEvidence } from "./device-matching";
+import { matchingCatalogue, matchingCataloguePageSize, matchingJobs, projectLocationEvidence } from "./device-matching";
+import { DeviceExecutionService } from "./device-execution.service";
+import { ForbiddenException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { CareerRepository } from "./career.repository";
+import { PostgresService } from "src/postgres/postgres.service";
+const publicationArgs: MatchingCatalogueArgs = {
+  publicationRange: "past_month", since: "2026-09-20T12:00:00.000Z", until: "2026-10-20T12:00:00.000Z",
+};
 const pipe = new ValidationPipe({
   transform: true,
   whitelist: true,
@@ -15,13 +23,25 @@ const pipe = new ValidationPipe({
 describe("device execution HTTP schemas", () => {
   it("accepts only catalogue reads and bounded distinct canonical matching IDs without candidate data", () => {
     for (const value of [
-      { operation: "matching_catalogue", args: {} },
+      ...publicationRanges.map(publicationRange => ({ operation: "matching_catalogue", args: {
+        ...publicationArgs, publicationRange, since: publicationRange === "all" ? null : publicationArgs.since,
+        offset: 100000, countOnly: true,
+      } })),
       { operation: "matching_jobs", args: { ids: Array.from({ length: 10 }, (_, index) => `node:${index + 1}`) } },
     ]) expect(deviceInput("platform", value)).toEqual(value);
     for (const value of [
       { operation: "evaluation_manifest", args: {} },
       { operation: "evaluation_context", args: { id: "node:1" } },
       { operation: "matching_catalogue", args: { limit: 10 } },
+      { operation: "matching_catalogue", args: {} },
+      ...[
+        { publicationRange: "week" }, { since: null }, { publicationRange: "all" },
+        { since: publicationArgs.until }, { since: "2026-10-21T12:00:00.000Z" },
+        { since: "2026-02-30T12:00:00.000Z" }, { until: "not-a-date" },
+        { until: "2026-10-20T12:00:00+00:00" }, { until: "2026-10-20T12:00:00.000Z\n" },
+        { offset: -1 }, { offset: 0.5 }, { offset: Number.MAX_SAFE_INTEGER + 1 },
+        { countOnly: "true" }, { limit: 1000 }, { owner: "foreign" }, { candidate: "Private" },
+      ].map(changed => ({ operation: "matching_catalogue", args: { ...publicationArgs, ...changed } })),
       { operation: "matching_jobs", args: { ids: ["node:1"], candidate: { name: "Private" } } },
       { operation: "matching_jobs", args: { ids: [] } },
       { operation: "matching_jobs", args: { ids: ["node:1", "node:1"] } },
@@ -29,7 +49,7 @@ describe("device execution HTTP schemas", () => {
       ...["node:0", "node:01", "node:1\n", "public-alias", "node:1 OR true", 1].map(id => ({
         operation: "matching_jobs", args: { ids: [id] },
       })),
-    ]) expect(() => deviceInput("platform", value)).toThrow("Invalid device input");
+    ]) expect(() => deviceInput("platform", value)).toThrow();
   });
   it("accepts only bounded suggestion labels, never hidden action payloads", async () => {
     const valid = {
@@ -116,6 +136,130 @@ describe("device execution HTTP schemas", () => {
         { type: "body", metatype: DeviceToolInput },
       ),
     ).rejects.toThrow();
+  });
+});
+
+describe("selected publication catalogue transport", () => {
+  const row = (id: number, total: number, publishedTimestamp = Date.parse("2026-09-25T12:00:00.000Z")) => ({
+    id: `node:${id}`, total: String(total), title: "Complete title", company: "Employer",
+    publishedTimestamp, salaryPayload: {}, city: null, location: "Role location", workMode: null,
+  });
+  it.each([
+    { publicationRange: "today", since: "2026-10-19T22:00:00.000Z", until: "2026-10-20T12:00:00.000Z" },
+    { publicationRange: "yesterday", since: "2026-10-18T22:00:00.000Z", until: "2026-10-19T22:00:00.000Z" },
+    publicationArgs,
+    { publicationRange: "all", since: null, until: publicationArgs.until },
+  ] as MatchingCatalogueArgs[])("parameterizes exact $publicationRange bounds without a server rolling cutoff", async args => {
+    const query = jest.fn(async () => [{ total: "100001" }]);
+    expect(deviceInput("platform", { operation: "matching_catalogue", args })).toBeDefined();
+    expect(await matchingCatalogue({ query }, { ...args, countOnly: true })).toEqual({
+      total: 100001, jobs: [], nextOffset: null, publicationWindow: { range: args.publicationRange, since: args.since, until: args.until },
+    });
+    const [sql, parameters] = query.mock.calls[0] as unknown as [string, unknown[]];
+    expect(parameters).toEqual([args.since === null ? null : Date.parse(args.since), Date.parse(args.until)]);
+    expect(sql).toContain("j.online AND NOT j.blocked");
+    expect(sql).toContain("($1::bigint IS NULL OR j.published_timestamp >= $1::bigint)");
+    expect(sql).toContain("j.published_timestamp < $2::bigint");
+    expect(sql).not.toMatch(/interval|statement_timestamp|now\(|LIMIT|OFFSET|candidate_|graph_nodes/i);
+  });
+
+  it("retrieves all 100001 metadata records through transport-sized pages, preserving exact totals", async () => {
+    const total = 100001, ids = new Set<string>();
+    const query = jest.fn(async (_sql: string, parameters: unknown[] = []) => {
+      const [,, limit, offset] = parameters as [unknown, unknown, number, number];
+      return Array.from({ length: Math.min(limit, total - offset) }, (_, index) => row(offset + index + 1, total));
+    });
+    let offset: number | null = 0;
+    while (offset !== null) {
+      const result = await matchingCatalogue({ query }, { ...publicationArgs, offset });
+      expect(result.total).toBe(total);
+      expect(result.jobs.length).toBeLessThanOrEqual(matchingCataloguePageSize);
+      result.jobs.forEach(job => ids.add(job.id));
+      offset = result.nextOffset;
+    }
+    expect(ids.size).toBe(total);
+    expect(query).toHaveBeenCalledTimes(101);
+    const [sql, parameters] = query.mock.calls[100];
+    expect(parameters).toEqual([Date.parse(publicationArgs.since!), Date.parse(publicationArgs.until), 1000, 100000]);
+    expect(sql).toContain('ORDER BY published_timestamp DESC,(\'node:\' || job_node_id::text) COLLATE "C"');
+    expect(sql).toContain("LIMIT $3 OFFSET $4");
+    expect(sql).not.toMatch(/interval|statement_timestamp|now\(/i);
+  });
+
+  it("retains exact scope totals for empty and exhausted pages", async () => {
+    for (const total of [0, 100001]) {
+      const query = jest.fn(async () => [{ total: String(total), id: null }]);
+      expect(await matchingCatalogue({ query }, { ...publicationArgs, offset: 100001 })).toEqual({
+        total, jobs: [], nextOffset: null,
+        publicationWindow: { range: publicationArgs.publicationRange, since: publicationArgs.since, until: publicationArgs.until },
+      });
+    }
+  });
+
+  it("returns complete older online original ads without a publication cutoff", async () => {
+    const ad = "  Complete older original.\n\tFinal condition.  ";
+    const query = jest.fn(async () => [{ ...row(1, 1, Date.parse("2020-01-01T00:00:00.000Z")), ad }]);
+    const result = await matchingJobs({ query }, ["node:1"]);
+    expect(result.jobs[0]).toMatchObject({ id: "node:1", publishedAt: "2020-01-01T00:00:00.000Z", ad });
+    expect(result.remainingIds).toEqual([]);
+    const [sql] = query.mock.calls[0] as unknown as [string];
+    expect(sql).toContain("WHERE j.online AND NOT j.blocked");
+    expect(sql).not.toMatch(/interval|statement_timestamp|now\(/i);
+  });
+});
+
+describe("publication read authorization and byte capacity", () => {
+  const identity = { id: "synthetic-device", owner: "1" };
+  function fixture() {
+    const query = jest.fn(async (sql: string) => sql.includes("FROM graph_nodes WHERE id=$1 AND label='User'")
+      ? [{ wallet: "synthetic-wallet" }] : [{ total: "0", id: null }]);
+    const authorizeCandidate = jest.fn(async () => undefined);
+    const service = new DeviceExecutionService({ query } as unknown as PostgresService,
+      { authorizeCandidate } as unknown as CareerRepository, new ConfigService());
+    return { service, query, authorizeCandidate, download: jest.fn() };
+  }
+  it.each([
+    { operation: "matching_catalogue", args: { ...publicationArgs, countOnly: true } },
+    { operation: "matching_catalogue", args: publicationArgs },
+    { operation: "matching_jobs", args: { ids: ["node:1"] } },
+    { operation: "job_read", args: { id: "node:1" } },
+  ])("does not bypass paid-device authority for $operation", async input => {
+    for (const reason of ["Advanced subscription required", "Device is no longer paired", "Candidate identity changed"]) {
+      const { service, query, authorizeCandidate, download } = fixture();
+      authorizeCandidate.mockRejectedValueOnce(new ForbiddenException(reason));
+      await expect(service.platform(identity, input, download)).rejects.toThrow(reason);
+      expect(query).toHaveBeenCalledTimes(1);
+      expect(download).not.toHaveBeenCalled();
+    }
+  });
+  it.each([false, true])("checks authority again after metadata/count reads (countOnly=%s)", async countOnly => {
+    const { service, query, authorizeCandidate, download } = fixture();
+    authorizeCandidate.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new ForbiddenException("Device is no longer paired"));
+    await expect(service.platform(identity, { operation: "matching_catalogue", args: { ...publicationArgs, countOnly } }, download))
+      .rejects.toThrow("Device is no longer paired");
+    expect(authorizeCandidate).toHaveBeenCalledTimes(2);
+    expect(query).toHaveBeenCalledTimes(2);
+  });
+  it("passes canonical job reads through the existing age-filter bypass and checks authority twice", async () => {
+    const { service, query, authorizeCandidate, download } = fixture();
+    query.mockResolvedValueOnce([{ wallet: "synthetic-wallet" }]).mockResolvedValueOnce([{
+      id: "node:1", identityMatches: 1, description: "  Complete older ad.\n", salaryPayload: {},
+    }] as never);
+    expect(await service.platform(identity, { operation: "job_read", args: { id: "node:1" } }, download))
+      .toMatchObject({ id: "node:1", description: "  Complete older ad.\n" });
+    expect(query.mock.calls[1][0]).toContain("AND ($6::boolean OR (");
+    expect((query.mock.calls[1] as unknown as [string, unknown[]])[1][5]).toBe(true);
+    expect(authorizeCandidate).toHaveBeenCalledTimes(2);
+  });
+  it("fails an oversized metadata page explicitly without truncating it", async () => {
+    const { service, query, authorizeCandidate, download } = fixture();
+    query.mockResolvedValueOnce([{ wallet: "synthetic-wallet" }]).mockResolvedValueOnce([{
+      total: "1", id: "node:1", publishedTimestamp: Date.parse(publicationArgs.until) - 1,
+      title: "x".repeat(8 * 1024 * 1024), salaryPayload: {},
+    }] as never);
+    await expect(service.platform(identity, { operation: "matching_catalogue", args: publicationArgs }, download))
+      .rejects.toMatchObject({ response: { code: "matching_capacity_exceeded" } });
+    expect(authorizeCandidate).toHaveBeenCalledTimes(2);
   });
 });
 

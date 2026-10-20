@@ -13,11 +13,25 @@ const usage = object({ model, inputTokens: count, outputTokens: count, cachedTok
 export const devicePlatformOperations = ["status", "search_jobs", "job_read", "matching_catalogue", "matching_jobs", "legacy_sources", "legacy_source_read", "legacy_career", "legacy_applications", "legacy_application_read"] as const;
 const page = { limit: { type: "integer", minimum: 1, maximum: 50 }, offset: { type: "integer", minimum: 0, maximum: 10000 } };
 const matchingId = { type: "string", pattern: "^node:[1-9][0-9]{0,18}$(?![\\s\\S])", maxLength: 24 };
+export const publicationRanges = ["today", "yesterday", "past_3_days", "past_week", "past_2_weeks", "past_month", "all"] as const;
+export interface MatchingCatalogueArgs {
+  publicationRange: typeof publicationRanges[number];
+  since: string | null;
+  until: string;
+  offset?: number;
+  countOnly?: boolean;
+}
+const publicationTimestamp = { type: "string", maxLength: 24,
+  pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,3})?Z$(?![\\s\\S])" };
 const platformArgs = {
   status: object({}),
   search_jobs: object({ query: text(200), ...page }, []),
   job_read: object({ id: text(100) }),
-  matching_catalogue: object({}),
+  matching_catalogue: object({
+    publicationRange: { enum: publicationRanges }, since: { anyOf: [{ type: "null" }, publicationTimestamp] },
+    until: publicationTimestamp, offset: { type: "integer", minimum: 0, maximum: Number.MAX_SAFE_INTEGER },
+    countOnly: { type: "boolean" },
+  }, ["publicationRange", "since", "until"]),
   matching_jobs: object({ ids: { type: "array", minItems: 1, maxItems: 10, uniqueItems: true, items: matchingId } }),
   legacy_sources: object(page, []),
   legacy_source_read: object({ id: uuid }),
@@ -41,6 +55,18 @@ const ajv = new Ajv({ allErrors: false });
 const validators = Object.fromEntries(Object.entries(deviceSchemas).map(([name, schema]) => [name, ajv.compile(schema)]));
 export function deviceInput<T extends Record<string, any> = Record<string, any>>(kind: keyof typeof deviceSchemas, value: unknown): T {
   if (!validators[kind](value)) throw new BadRequestException("Invalid device input");
+  const input = value as Record<string, any>;
+  if (kind === "platform" && input.operation === "matching_catalogue") {
+    const { publicationRange, since, until } = input.args as MatchingCatalogueArgs;
+    const validTimestamp = (timestamp: string) => {
+      const time = Date.parse(timestamp);
+      const normalized = timestamp.replace(/(?:\.([0-9]{1,3}))?Z$/, (_, fraction = "") => `.${fraction.padEnd(3, "0")}Z`);
+      return Number.isFinite(time) && new Date(time).toISOString() === normalized;
+    };
+    if (!validTimestamp(until) || (publicationRange === "all" ? since !== null :
+      since === null || !validTimestamp(since) || Date.parse(since) >= Date.parse(until)))
+      throw new BadRequestException("Invalid publication window");
+  }
   return value as T;
 }
 export function sha256(value: string | Buffer): string { return createHash("sha256").update(value).digest("hex"); }
