@@ -299,11 +299,22 @@ suite("signed companion CV sharing on production main", () => {
     await resolve("organization:5").expect(404);
     await resolve("profile:999").expect(404);
     await resolve("profile:4").expect(404);
-    // A profile linked to two children is ambiguous; a profile with none has no page.
+    // Projects are products: the profile keeps resolving to its organization however many projects it owns,
+    // falls back to a lone project when it has no organization, and is ambiguous with several projects and none.
     await client.query(`INSERT INTO graph_nodes(id,label,properties) VALUES (8,'Project','{"name":"Example App","normalizedName":"example-app"}'),
-      (9,'EntityProfile','{"slug":"lonely"}'); INSERT INTO graph_relationships(source_id,target_id,type) VALUES (2,8,'PROFILE_HAS_PROJECT');`);
-    await resolve("profile:2").expect(404);
+      (9,'EntityProfile','{"slug":"lonely"}'),(10,'EntityProfile','{"slug":"products-only"}'),(11,'Project','{"name":"Second App","normalizedName":"second-app"}');
+      INSERT INTO graph_relationships(source_id,target_id,type) VALUES (2,8,'PROFILE_HAS_PROJECT'),(2,11,'PROFILE_HAS_PROJECT'),(10,8,'PROFILE_HAS_PROJECT');`);
+    expect((await resolve("profile:2").expect(200)).body).toEqual(page);
     await resolve("profile:9").expect(404);
+    expect((await resolve("profile:10").expect(200)).body).toEqual({
+      kind: "project",
+      slug: "example-app",
+      name: "Example App",
+    });
+    await client.query(
+      "INSERT INTO graph_relationships(source_id,target_id,type) VALUES (10,11,'PROFILE_HAS_PROJECT')",
+    );
+    await resolve("profile:10").expect(404);
     expect((await resolve("project:8").expect(200)).body).toEqual({
       kind: "project",
       slug: "example-app",

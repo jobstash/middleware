@@ -155,7 +155,8 @@ export interface EmployerPage {
 }
 
 /** Resolve a saved entity reference to the ecosystem.vision page key: an Organization/Project `normalizedName`.
- * A profile ref resolves through its linked child; ambiguity (several children) is a 404, never a guess. */
+ * A profile resolves to its single linked Organization (the employer); its Projects are products, used only
+ * when the profile has no organization and exactly one project. Ambiguity is a 404, never a guess. */
 export async function employerProfile(
   db: Catalogue,
   ref: string,
@@ -176,12 +177,19 @@ export async function employerProfile(
        AND NOT entity_property_is_banned(entity.properties)
        AND entity.properties->>'normalizedName' ~ '^[a-z0-9][a-z0-9-]*$'
        AND length(entity.properties->>'normalizedName') <= 300
-     ORDER BY kind, slug LIMIT 2`,
+     ORDER BY kind, slug`,
     [parts[2], cvEmploymentKinds[parts[1]]],
   )) as EmployerPage[];
-  if (rows.length !== 1)
+  const organizations = rows.filter(row => row.kind === "organization");
+  const page =
+    organizations.length === 1
+      ? organizations[0]
+      : organizations.length === 0 && rows.length === 1
+        ? rows[0]
+        : null;
+  if (!page)
     throw new NotFoundException(
       "This employer has no unambiguous public ecosystem.vision page",
     );
-  return rows[0];
+  return page;
 }
