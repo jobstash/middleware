@@ -19,6 +19,9 @@ type Row = LocationEvidence & Record<string, unknown> & {
   city: string | null;
   location: string | null;
   workMode: string | null;
+  seniority: string | null;
+  commitment: string | null;
+  classification: string | null;
   description?: string | null;
   headcount?: unknown;
   stage?: string | null;
@@ -40,6 +43,9 @@ export interface CatalogueJob {
   city: string | null;
   location: string | null;
   workMode: string | null;
+  seniority: string | null;
+  commitment: string | null;
+  classification: string | null;
   publishedAt: string;
   applyUrl?: string;
 }
@@ -58,6 +64,9 @@ export interface MatchingJob {
   city: string | null;
   location: string | null;
   workMode: string | null;
+  seniority: string | null;
+  commitment: string | null;
+  classification: string | null;
   locationEvidence: string[];
   publishedAt: string | null;
   applyUrl: string | null;
@@ -210,7 +219,10 @@ export const termsColumns = `jsonb_build_object(
         THEN terms.payload#>>'{workArrangement,classification}' END])
       WITH ORDINALITY modes(value,ordinal)
     WHERE btrim(value)<>'' AND lower(btrim(value)) NOT IN ('unknown','unspecified','unstated','n/a','null')
-    ORDER BY ordinal LIMIT 1)) AS "workMode"`;
+    ORDER BY ordinal LIMIT 1)) AS "workMode",
+  NULLIF(btrim(terms.payload->>'seniority'),'') AS seniority,
+  NULLIF(btrim(terms.payload->>'commitment'),'') AS commitment,
+  NULLIF(btrim(terms.payload->>'classification'),'') AS classification`;
 export const termsJoins = `LEFT JOIN LATERAL (
     SELECT COALESCE(j.detail_payload,'{}'::jsonb) || j.payload AS payload
   ) terms ON true
@@ -373,6 +385,9 @@ export async function matchingJobs(
       city: row.city ?? null,
       location: row.location ?? null,
       workMode: row.workMode ?? null,
+      seniority: row.seniority ?? null,
+      commitment: row.commitment ?? null,
+      classification: row.classification ?? null,
       locationEvidence: projectLocationEvidence(row),
       publishedAt:
         row.publishedTimestamp == null

@@ -102,20 +102,24 @@ describeDatabase("companion catalogue executed in isolated PostgreSQL", () => {
     });
   });
 
-  it("keeps older originals and current salary, role-city and work-mode projections", async () => {
+  it("keeps older originals and current salary, role-city, work-mode and card-term projections", async () => {
     await client.query(`INSERT INTO organization_search_documents VALUES ('org','{"name":"Org","location":"Employer HQ"}', '{}');
       INSERT INTO graph_nodes VALUES (10,'Jobpost','{"content":"Full older original advertisement","location":"France only"}');
       INSERT INTO graph_relationships VALUES (10,1,'HAS_STRUCTURED_JOBPOST');`);
     await client.query(`INSERT INTO job_search_documents(job_node_id,organization_id,published_timestamp,payload,detail_payload)
-      VALUES (1,'org',$1,'{"extractedMinimumSalary":90,"extractedMaximumSalary":70,"salaryCurrency":"EUR","payRate":"HOURLY","url":"https://example.test/apply"}',
-        '{"minimumSalary":200000,"availability":[{"placeKind":"city","placeName":"Paris","workMode":"hybrid"}]}')`, [end-100*day]);
+      VALUES (1,'org',$1,'{"extractedMinimumSalary":90,"extractedMaximumSalary":70,"salaryCurrency":"EUR","payRate":"HOURLY","url":"https://example.test/apply","seniority":"3","commitment":"FULL_TIME","classification":"SMART_CONTRACTS"}',
+        '{"minimumSalary":200000,"availability":[{"placeKind":"city","placeName":"Paris","workMode":"hybrid"}]}'),
+      (2,'org',$2,'{"seniority":" ","title":"Bare"}','{}')`, [end-100*day, end-101*day]);
     const page = await matchingCatalogue(db, args(null));
     expect(page.jobs[0]).toMatchObject({ id: "node:1", company: "Org", city: "Paris", location: "France only",
       workMode: "hybrid", salary: { minimum: 70, maximum: 90, stated: null, currency: "EUR", period: "hour" },
-      applyUrl: "https://example.test/apply" });
+      applyUrl: "https://example.test/apply", seniority: "3", commitment: "FULL_TIME", classification: "SMART_CONTRACTS" });
+    expect(page.jobs[1]).toMatchObject({ id: "node:2", seniority: null, commitment: null, classification: null });
     expect((await matchingCatalogue(db, args(new Date(end-14*day).toISOString(), "past_2_weeks"))).total).toBe(0);
-    const details = await matchingJobs(db, ["node:1"]);
-    expect(details.jobs[0]).toMatchObject({ ad: "Full older original advertisement", city: "Paris", location: "France only", workMode: "hybrid" });
+    const details = await matchingJobs(db, ["node:1", "node:2"]);
+    expect(details.jobs[0]).toMatchObject({ ad: "Full older original advertisement", city: "Paris", location: "France only", workMode: "hybrid",
+      seniority: "3", commitment: "FULL_TIME", classification: "SMART_CONTRACTS" });
     expect(details.jobs[0].locationEvidence).toContain("Raw advertised role location: France only");
+    expect(details.jobs[1]).toMatchObject({ id: "node:2", seniority: null, commitment: null, classification: null });
   });
 });

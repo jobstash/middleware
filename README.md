@@ -305,8 +305,13 @@ the exact requested bounds. Count-only requests return the SQL count without
 job metadata. Fixed 1,000-row transport pages exhaust the selected scope using
 `nextOffset`; there is no total job-count cap or hidden catalogue-age cutoff.
 Count and page share one SQL statement snapshot, ordered newest first with
-canonical-ID tie breaking. Explicit canonical reads retain previously selected
-full originals and role location evidence even when they age out of the scope.
+canonical-ID tie breaking. Catalogue and `matching_jobs` rows carry the same
+advertised terms: `salary`, `city`, `location`, `workMode`, `publishedAt`,
+`applyUrl` plus the raw payload strings `seniority` (JobStash code `1`–`5`),
+`commitment` and `classification`; blank or missing values are `null` and the
+companion maps them to display labels. Explicit canonical reads retain
+previously selected full originals and role location evidence even when they
+age out of the scope.
 Run `COMPANION_TEST_DATABASE_URL=postgresql://USER@127.0.0.1:PORT/companion_test yarn test --runInBand src/companion`
 against a disposable local test database for publication-boundary and
 100,001-job paging integration coverage.
