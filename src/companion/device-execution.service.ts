@@ -11,6 +11,7 @@ import { PostgresService } from "src/postgres/postgres.service";
 import { SubscriptionService } from "./subscription.service";
 import {
   canonicalJSON,
+  DEVICE_CV_BODY_LIMIT,
   DeviceIdentity,
   deviceCanonicalRequest,
   deviceInput,
@@ -19,6 +20,7 @@ import {
   verifyDeviceSignature,
 } from "./device-execution.protocol";
 import { matchingCatalogue, matchingJobs } from "./device-matching";
+import { employerSearch } from "./employer-search";
 
 export interface DeviceAccount {
   id: string;
@@ -168,11 +170,15 @@ export class DeviceExecutionService {
       !uuid.test(input.nonce) ||
       !/^\d{13}$/.test(input.time) ||
       Math.abs(Date.now() - Number(input.time)) > 30000 ||
-      !["/device/activate", "/device/heartbeat", "/device/platform"].includes(
-        input.path,
-      ) ||
+      ![
+        "/device/activate",
+        "/device/heartbeat",
+        "/device/platform",
+        "/device/cv",
+      ].includes(input.path) ||
       input.method !== "POST" ||
-      input.body.length > 16 * 1024
+      input.body.length >
+        (input.path === "/device/cv" ? DEVICE_CV_BODY_LIMIT : 16 * 1024)
     )
       throw new ForbiddenException("Invalid device request");
     return this.db.transaction(async db => {
@@ -267,29 +273,11 @@ export class DeviceExecutionService {
       lastSeenAt: row.last_seen_at,
     };
   }
-  async platform(device: DeviceIdentity, raw: unknown): Promise<unknown> {
-    const { operation, args } = deviceInput("platform", raw);
-    if (Buffer.byteLength(JSON.stringify(raw)) > 16 * 1024)
-      throw new PayloadTooLargeException("Platform request exceeds limit");
-    const authorize = async (): Promise<DeviceAccount> => {
-      const [account] = await this.db.query<{ label: string }>(
-        `SELECT COALESCE(NULLIF(btrim(u.properties->>'name'),''),NULLIF(btrim(u.properties->>'email'),''),'Your account') AS label
-        FROM candidate_devices d JOIN graph_nodes u ON u.id=d.user_node_id AND u.label='User' WHERE d.id=$1 AND d.user_node_id=$2 AND d.status='active'`,
-        [device.id, device.owner],
-      );
-      if (!account) throw new ForbiddenException("Device is no longer paired");
-      if (
-        operation !== "status" &&
-        !(await this.subscriptions.entitled(device.owner))
-      )
-        throw new ForbiddenException("An active paid membership is required");
-      return {
-        id: device.owner,
-        label: String(account.label)
-          .replace(/[\u0000-\u001f\u007f]/g, " ")
-          .slice(0, 200),
-      };
-    };
+  /** Paired-device authority: an active owned device and, unless only status is read, live paid membership. */
+  async authorize(
+    device: DeviceIdentity,
+    membership: boolean,
+  ): Promise<DeviceAccount> {
     // Reject revoked devices before contacting the merchant, then verify live payment.
     const [paired] = await this.db.query(
       "SELECT id FROM candidate_devices WHERE id=$1 AND user_node_id=$2 AND status='active'",
@@ -297,17 +285,51 @@ export class DeviceExecutionService {
     );
     if (!paired) throw new ForbiddenException("Device is no longer paired");
     await this.subscriptions.refresh(device.owner);
-    const account = await authorize();
+    const [account] = await this.db.query<{ label: string }>(
+      `SELECT COALESCE(NULLIF(btrim(u.properties->>'name'),''),NULLIF(btrim(u.properties->>'email'),''),'Your account') AS label
+      FROM candidate_devices d JOIN graph_nodes u ON u.id=d.user_node_id AND u.label='User' WHERE d.id=$1 AND d.user_node_id=$2 AND d.status='active'`,
+      [device.id, device.owner],
+    );
+    if (!account) throw new ForbiddenException("Device is no longer paired");
+    if (membership && !(await this.subscriptions.entitled(device.owner)))
+      throw new ForbiddenException("An active paid membership is required");
+    return {
+      id: device.owner,
+      label: String(account.label)
+        .replace(/[\u0000-\u001f\u007f]/g, " ")
+        .slice(0, 200),
+    };
+  }
+  async platform(device: DeviceIdentity, raw: unknown): Promise<unknown> {
+    const { operation, args } = deviceInput("platform", raw);
+    if (Buffer.byteLength(JSON.stringify(raw)) > 16 * 1024)
+      throw new PayloadTooLargeException("Platform request exceeds limit");
+    const account = await this.authorize(device, operation !== "status");
     let result: unknown;
-    if (operation === "status")
+    if (operation === "status") {
+      // The GitHub username the Privy webhook synchronizes, else the linked indexer account.
+      const [github] = await this.db.query<{ login: string | null }>(
+        `SELECT COALESCE(
+          (SELECT NULLIF(btrim(account.properties->>'github'),'') FROM graph_relationships link
+            JOIN graph_nodes account ON account.id=link.target_id AND account.label='LinkedAccount'
+            WHERE link.source_id=$1 AND link.type='HAS_LINKED_ACCOUNT' ORDER BY account.id LIMIT 1),
+          (SELECT NULLIF(btrim(account.properties->>'login'),'') FROM graph_relationships link
+            JOIN graph_nodes account ON account.id=link.target_id AND account.label='GithubUser'
+            WHERE link.source_id=$1 AND link.type='HAS_GITHUB_USER' ORDER BY account.id LIMIT 1)) AS login`,
+        [device.owner],
+      );
       return {
         mode: "direct-app",
         deviceId: device.id,
         account,
         membership: { active: await this.subscriptions.entitled(device.owner) },
         providerRequired: false,
+        github: github?.login ? { login: github.login } : null,
       };
-    if (operation === "matching_catalogue")
+    }
+    if (operation === "employer_search")
+      result = await employerSearch(this.db, args.queries);
+    else if (operation === "matching_catalogue")
       result = await matchingCatalogue(this.db, args);
     else if (operation === "matching_jobs")
       result = await matchingJobs(this.db, args.ids);
@@ -328,8 +350,7 @@ export class DeviceExecutionService {
       throw new PayloadTooLargeException(
         "Platform response exceeds limit; request fewer jobs",
       );
-    await this.subscriptions.refresh(device.owner);
-    await authorize();
+    await this.authorize(device, true);
     return result;
   }
 }

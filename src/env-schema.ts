@@ -50,6 +50,11 @@ const envSchema = Joi.object({
     .max(5)
     .default(5),
   ORG_ADMIN_DOMAIN: Joi.string().required(),
+  // JobStash resume bucket for companion CV shares; /device/cv answers 503 without it.
+  R2_ENDPOINT: Joi.string().allow("").optional(),
+  R2_ACCESS_KEY_ID: Joi.string().allow("").optional(),
+  R2_SECRET_ACCESS_KEY: Joi.string().allow("").optional(),
+  R2_BUCKET_NAME: Joi.string().allow("").optional(),
   RECRUITERS_PUBLIC_ORIGIN: Joi.string()
     .valid("https://recruiters.rip")
     .optional(),

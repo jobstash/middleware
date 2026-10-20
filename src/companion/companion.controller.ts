@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   HttpCode,
   Param,
   Post,
@@ -13,6 +14,7 @@ import { Permissions, Session } from "src/shared/decorators";
 import { CheckWalletPermissions } from "src/shared/constants";
 import { SessionObject } from "src/shared/interfaces";
 import { DeviceAuthGuard, DeviceRequest } from "./device-execution.guard";
+import { CvShareResult, CvShareService } from "./cv-share.service";
 import {
   DeviceExecutionService,
   DeviceRecord,
@@ -81,7 +83,10 @@ export class CompanionProfileController {
 @Controller("device")
 @UseGuards(DeviceAuthGuard)
 export class CompanionDeviceController {
-  constructor(private readonly devices: DeviceExecutionService) {}
+  constructor(
+    private readonly devices: DeviceExecutionService,
+    private readonly cvShares: CvShareService,
+  ) {}
   @Post("activate")
   @HttpCode(200)
   activate(
@@ -105,5 +110,15 @@ export class CompanionDeviceController {
     @Body() body: unknown,
   ): Promise<unknown> {
     return this.devices.platform(request.device, body);
+  }
+  /** Consented CV share approved natively in the companion; the signed body may be up to 7.5 MiB. */
+  @Post("cv")
+  @HttpCode(200)
+  @Header("Cache-Control", "private, no-store")
+  cv(
+    @Req() request: DeviceRequest,
+    @Body() body: unknown,
+  ): Promise<CvShareResult> {
+    return this.cvShares.share(request.device, body);
   }
 }

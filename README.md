@@ -223,8 +223,9 @@ signals, and analyst state are not stored in middleware.
 
 The additive companion surface uses the existing account JWT, PostgreSQL job
 projections and production Stripe merchant. Existing organization/agency routes
-and billing products remain unchanged. No private CV, evidence, scores, drafts,
-provider credentials or inference payloads are stored by this module.
+and billing products remain unchanged. The single private-data write is an
+explicitly consented CV share, approved in the companion before dispatch.
+Evidence, scores, drafts, provider credentials and inference payloads remain local.
 
 Release order:
 
@@ -289,13 +290,14 @@ native app must explicitly approve that account and sign activation.
 The `/privy/check-wallet` response includes `privyDid` from the guard-verified
 Privy user, so the frontend can seal the backend session to the displayed identity.
 
-`POST /device/activate`, `/device/heartbeat` and `/device/platform` accept only
-the existing Ed25519 raw-body protocol (`x-device-id`, `x-device-time`,
+`POST /device/activate`, `/device/heartbeat`, `/device/platform` and `/device/cv`
+accept only the existing Ed25519 raw-body protocol (`x-device-id`, `x-device-time`,
 `x-device-nonce`, `x-device-signature`), with no cookie/bearer/query transport.
-Requests expire after 30 seconds; nonces cannot be replayed. Request bodies are
-limited to 16 KiB and platform responses to 8 MiB. An oversized original is
-rejected, never truncated. Platform operations are `status`,
-`matching_catalogue`, `matching_jobs` (at most ten canonical IDs) and `job_read`.
+Requests expire after 30 seconds; nonces cannot be replayed. Ordinary request
+bodies are limited to 16 KiB and responses to 8 MiB. The CV route alone accepts
+7.5 MiB JSON envelopes. Originals are rejected when oversized, never truncated.
+Platform operations are `status`, `matching_catalogue`, `matching_jobs` (at most
+ten canonical IDs), `job_read` and `employer_search`.
 `matching_catalogue` requires `{publicationRange,since,until,offset?,countOnly?}`.
 Ranges are `today`, `yesterday`, `past_3_days`, `past_week`, `past_2_weeks`,
 `past_month` and `all`; the companion defaults to `past_3_days`. Bounds are
@@ -323,6 +325,45 @@ closed; they never extend a cached entitlement. Status remains available without
 paid access. Parent release gates should include build, route manifest tests,
 `src/companion` boundary tests, schema application review and the user-completed
 live checkout/return/pairing flow.
+
+### Consented JobStash CV sharing
+
+`employer_search` accepts `{queries:[{name,website?}]}` (1–20 queries), returns
+at most five public candidates per query, and prefers EntityProfiles over their
+Organization/Project children. The connected agent performs extraction and
+identity judgment locally; ambiguous employers are dropped rather than guessed.
+`status.github` reports the Privy-synchronized linked GitHub username, or null.
+
+`POST /device/cv` accepts `{document,employment,consent}`. Documents are PDF/DOCX
+original bytes as base64 (5 MiB decoded, matching magic) or text (100,000 characters).
+Each matched role names a `profile:<nodeId>`, `organization:<nodeId>` or
+`project:<nodeId>`, a title, start date (`YYYY` or `YYYY-MM`), end date (same format
+or null), and `current` (true requires a null end). Consent is
+`{version:1,grantedAt:<ISO timestamp>}`. The owner comes only from the signed device;
+the CV is attached to that existing Privy-linked User, never a supplied owner ID.
+
+Originals use the existing JobStash R2 layout `<uuid>/<filename>`, served by
+`FE_DOMAIN/api/resume/<uuid>`. Configure `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`,
+`R2_SECRET_ACCESS_KEY`, and `R2_BUCKET_NAME` to the same bucket as the JobStash
+webapp. Missing storage configuration returns 503 before writes. No new schema
+migration is required: the existing CV showcase is replaced and `CV_EMPLOYMENT`
+edges are written to `graph_relationships`. Each edge carries title, dates,
+current, documentId, source `companion_cv`, consentVersion and sharedAt.
+Its relationship key hashes `title\nstartDate\nendDate\ncurrent` (null is literal
+`null`), permitting multiple roles at one employer. Consent is recorded as
+`User.properties.cvSharingConsent`. Other showcase items and relationship types
+are untouched.
+
+All entity references are validated before object upload and again under row
+locks. CV showcase, employment replacement and consent commit together; failure
+removes the new, unreferenced object. Device ownership and current membership are
+checked again after upload. Withdrawal in the companion stops future uploads
+only; it does not delete existing shares. Introductions are planned, not live.
+
+Run `COMPANION_TEST_DATABASE_URL=postgresql://USER@127.0.0.1:PORT/companion_test yarn test --runInBand src/companion`
+against an isolated local PostgreSQL database to exercise signed uploads, profile
+replacement, employer searches, revocation/expiry races, and input boundaries.
+
 
 
 ### Candidate partner promotion codes

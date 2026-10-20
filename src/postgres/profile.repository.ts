@@ -2246,6 +2246,35 @@ export class ProfileRepository {
     return rows.length > 0;
   }
 
+  /** Points the account's CV showcase at a new resume URL, creating it when absent. Other showcase entries stay. */
+  async replaceCvShowcase(
+    manager: EntityManager,
+    accountNodeId: string,
+    url: string,
+  ): Promise<void> {
+    const updated = await queryRows<{ nodeId: string }>(
+      manager,
+      `
+        UPDATE graph_nodes showcase
+        SET properties = showcase.properties || $2::jsonb, updated_at = now()
+        FROM graph_relationships relationship
+        WHERE relationship.source_id = $1
+          AND relationship.type = 'HAS_SHOWCASE'
+          AND showcase.id = relationship.target_id
+          AND showcase.label = 'UserShowCase'
+          AND showcase.properties ->> 'label' = 'CV'
+        RETURNING showcase.id::text AS "nodeId"
+      `,
+      [accountNodeId, JSON.stringify({ url })],
+    );
+    if (updated.length) return;
+    const node = await this.insertNode(manager, "UserShowCase", {
+      label: "CV",
+      url,
+    });
+    await this.insertRelationship(manager, accountNodeId, node, "HAS_SHOWCASE");
+  }
+
   async replaceShowcases(
     wallet: string,
     showcases: Record<string, unknown>[],
