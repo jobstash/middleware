@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Header, Param, ParseUUIDPipe, Post, Req, UseGuards, UsePipes, ValidationPipe } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Header, HttpCode, Param, ParseUUIDPipe, Post, Req, UseGuards, UsePipes, ValidationPipe } from "@nestjs/common";
 import { PBACGuard } from "src/auth/pbac.guard";
 import { Permissions, Session } from "src/shared/decorators";
 import { CheckWalletPermissions } from "src/shared/constants";
@@ -7,7 +7,7 @@ import { ConnectionInputGuard } from "./connection-input.guard";
 import { DeviceAuthGuard, DeviceRequest } from "./device-execution.guard";
 import { DeviceExecutionService } from "./device-execution.service";
 import { DeviceEventInput, DeviceLeaseInput, DevicePlatformInput, DeviceToolInput } from "./device-execution.dto";
-import { deviceInput } from "./device-execution.protocol";
+import { CvShareInput, deviceInput } from "./device-execution.protocol";
 import { AgentService } from "./agent.service";
 import { CareerToolService } from "./career-tools.service";
 import { CandidateDocumentsService } from "./candidate-documents.service";
@@ -34,6 +34,14 @@ export class DeviceExecutionController {
   @Header("Cache-Control", "private, no-store")
   @Post("platform") platform(@Req() request: DeviceRequest, @Body() input: DevicePlatformInput) {
     return this.devices.platform(request.device, input, (context, id) => this.documents.download(context, id));
+  }
+  /** Consented CV share approved natively in the companion; body bytes are signature-verified (7.5 MiB). */
+  @Header("Cache-Control", "private, no-store")
+  @HttpCode(200)
+  @Post("cv") async cv(@Req() request: DeviceRequest, @Body() raw: unknown) {
+    const input = deviceInput<CvShareInput>("cv", raw);
+    const { context } = await this.devices.candidateContext(request.device);
+    return this.documents.shareFromDevice(context, input);
   }
   @Post("activate") activate(@Req() request: DeviceRequest, @Body() input: unknown) { return this.devices.activate(request.device, input); }
   @Post("heartbeat") heartbeat(@Req() request: DeviceRequest, @Body() input: unknown) { return this.devices.heartbeat(request.device, input); }

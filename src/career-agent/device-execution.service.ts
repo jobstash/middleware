@@ -8,9 +8,10 @@ import { CareerRepository } from "./career.repository";
 import { CandidateInvocationContext } from "./candidate-context";
 import { candidateScreeningSource } from "./candidate-document-provenance";
 import { selectedProviderModel } from "./provider-config";
-import { canonicalJSON, DeviceIdentity, deviceCanonicalRequest, deviceInput, devicePublicKey, sha256, verifyDeviceSignature } from "./device-execution.protocol";
+import { canonicalJSON, DEVICE_CV_BODY_LIMIT, DeviceIdentity, deviceCanonicalRequest, deviceInput, devicePublicKey, sha256, verifyDeviceSignature } from "./device-execution.protocol";
 import { jobOriginalsJoin, locationEvidenceColumns, matchingCatalogue, matchingJobs, projectLocationEvidence, termsColumns, termsJoins } from "./device-matching";
 import { projectJobSalary } from "./job-card-details";
+import { employerSearch } from "./employer-search";
 
 type Row = Record<string, any>;
 @Injectable()
@@ -71,7 +72,7 @@ export class DeviceExecutionService {
         !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.nonce) ||
         !/^\d{13}$/.test(input.time) || Math.abs(Date.now() - Number(input.time)) > 30000 ||
         !/^\/device\/[A-Za-z0-9/-]+$/.test(input.path) || !["GET", "POST"].includes(input.method) ||
-        input.body.length > (input.path === "/device/platform" ? 16 * 1024 : 8 * 1024 * 1024))
+        input.body.length > (input.path === "/device/platform" ? 16 * 1024 : input.path === "/device/cv" ? DEVICE_CV_BODY_LIMIT : 8 * 1024 * 1024))
       throw new ForbiddenException("Invalid device request");
     return this.db.transaction(async db => {
       const [row] = await db.query("SELECT * FROM candidate_devices WHERE id=$1 FOR SHARE", [input.id]);
@@ -105,18 +106,23 @@ export class DeviceExecutionService {
     await this.reconcile(device.owner);
     return { deviceId: device.id, status: "active", lastSeenAt: row.last_seen_at };
   }
+  /** The paired account as a candidate invocation; authority is rechecked by every consumer. */
+  async candidateContext(device: DeviceIdentity): Promise<{ context: CandidateInvocationContext; label: string }> {
+    const [account] = await this.db.query(`SELECT properties->>'wallet' AS wallet,
+      COALESCE(NULLIF(btrim(properties->>'name'),''),NULLIF(btrim(properties->>'email'),''),'Your account') AS label
+      FROM graph_nodes WHERE id=$1 AND label='User'`, [device.owner]);
+    if (!account || typeof account.wallet !== "string" || !account.wallet) throw new ForbiddenException("Candidate identity changed");
+    const context: CandidateInvocationContext = { kind: "device", owner: device.owner, wallet: account.wallet, deviceId: device.id };
+    return { context, label: String(account.label) };
+  }
 
   /** Direct-app authority is paired account + membership, never a provider lease. */
   async platform(device: DeviceIdentity, raw: unknown,
     download: (context: CandidateInvocationContext, id: string) => Promise<{ bytes: Buffer; filename: string; contentType: string }>) {
     const { operation, args } = deviceInput("platform", raw);
     if (Buffer.byteLength(JSON.stringify(raw)) > 16 * 1024) throw new BadRequestException("Platform request exceeds limit");
-    const [account] = await this.db.query(`SELECT properties->>'wallet' AS wallet,
-      COALESCE(NULLIF(btrim(properties->>'name'),''),NULLIF(btrim(properties->>'email'),''),'Your account') AS label
-      FROM graph_nodes WHERE id=$1 AND label='User'`, [device.owner]);
-    if (!account || typeof account.wallet !== "string" || !account.wallet) throw new ForbiddenException("Candidate identity changed");
-    const wallet = account.wallet;
-    const context: CandidateInvocationContext = { kind: "device", owner: device.owner, wallet, deviceId: device.id };
+    const { context, label } = await this.candidateContext(device);
+    const wallet = context.wallet;
     // Status remains available to explain an expired membership. All data reads
     // use the existing device/membership authorizer before and after the read.
     const authorize = async () => {
@@ -129,9 +135,19 @@ export class DeviceExecutionService {
     const limit = args.limit ?? 20, offset = args.offset ?? 0;
     let result: unknown;
     if (operation === "status") {
+      const [github] = await this.db.query(`SELECT COALESCE(
+        (SELECT NULLIF(btrim(account.properties->>'github'),'') FROM graph_relationships link
+          JOIN graph_nodes account ON account.id=link.target_id AND account.label='LinkedAccount'
+          WHERE link.source_id=$1 AND link.type='HAS_LINKED_ACCOUNT' ORDER BY account.id LIMIT 1),
+        (SELECT NULLIF(btrim(account.properties->>'login'),'') FROM graph_relationships link
+          JOIN graph_nodes account ON account.id=link.target_id AND account.label='GithubUser'
+          WHERE link.source_id=$1 AND link.type='HAS_GITHUB_USER' ORDER BY account.id LIMIT 1)) AS login`, [device.owner]);
       result = { mode: "direct-app", deviceId: device.id,
-        account: { id: device.owner, label: String(account.label).replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, 200) },
-        membership: { active: await this.career.entitled(device.owner) }, providerRequired: false };
+        account: { id: device.owner, label: label.replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, 200) },
+        membership: { active: await this.career.entitled(device.owner) }, providerRequired: false,
+        github: github?.login ? { login: github.login } : null };
+    } else if (operation === "employer_search") {
+      result = await employerSearch(this.db, args.queries);
     } else if (operation === "matching_catalogue") {
       result = await matchingCatalogue(this.db, args);
     } else if (operation === "matching_jobs") {

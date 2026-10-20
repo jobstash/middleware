@@ -469,14 +469,19 @@ export class CareerRepository {
     });
   }
 
-  /** One owned source document is the current recruiter-facing resume. */
-  async linkResume(wallet: string, input: LinkResumeInput) {
+  /** One owned source document is the current recruiter-facing resume.
+   * A caller that already holds the owner lock passes its transaction. */
+  async linkResume(
+    wallet: string,
+    input: LinkResumeInput,
+    transaction?: EntityManager,
+  ) {
     const allowed = ["https://jobstash.xyz", "https://www.jobstash.xyz"];
     if (process.env.NODE_ENV === "development")
       allowed.push("http://localhost:3000", "http://127.0.0.1:3000");
     if (!allowed.includes(input.origin))
       throw new BadRequestException("Invalid resume origin");
-    return this.postgres.transaction(async db => {
+    const link = async (db: EntityManager) => {
       const owner = await this.owner(wallet, db, true);
       const [document] = await db.query(
         "SELECT id,storage_kind FROM candidate_documents WHERE id=$1 AND user_node_id=$2",
@@ -518,7 +523,8 @@ export class CareerRepository {
         );
       }
       return { linked: true, url };
-    });
+    };
+    return transaction ? link(transaction) : this.postgres.transaction(link);
   }
 
   async pasteCv(
@@ -579,6 +585,7 @@ export class CareerRepository {
     input: DocumentInput,
     storageKind: "object" | "text" = "object",
     mutation?: MutationInput,
+    transaction?: EntityManager,
   ): Promise<{ id: string; filename: string }> {
     const work = async (db: EntityManager, owner: string) => {
       const [existing] = await db.query(
@@ -613,6 +620,8 @@ export class CareerRepository {
       );
       return document;
     };
+    if (transaction)
+      return work(transaction, await this.owner(wallet, transaction, true));
     return mutation
       ? this.mutate(wallet, "source-register", { ...mutation, document: input, storageKind } as MutationInput, work)
       : this.postgres.transaction(async db => {

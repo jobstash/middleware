@@ -5,7 +5,7 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { assertPlatformInferenceEnabled } from "./provider-config";
 import { GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import { createHash, createHmac } from "node:crypto";
+import { createHash, createHmac, randomUUID } from "node:crypto";
 import { isUUID } from "class-validator";
 import { EntityManager } from "typeorm";
 import { PostgresService } from "src/postgres/postgres.service";
@@ -23,10 +23,12 @@ import {
   CANDIDATE_MATCHING_EXTRACTION_SCHEMA, CANDIDATE_MATCHING_EXTRACTION_SYSTEM_PROMPT,
   parseAndValidateMatchingExtraction, CandidateDocumentExtraction,
 } from "./candidate-document-codec";
-import { CandidateScreeningSource, candidateScreeningSource, unknownDocumentProvenance } from "./candidate-document-provenance";
+import { CandidateDocumentProvenance, CandidateScreeningSource, candidateScreeningSource, unknownDocumentProvenance } from "./candidate-document-provenance";
 import { CandidateDocumentObjectTransport, LocalCandidateDocumentStorage } from "./candidate-document-storage";
 import { candidateSourceParseReady, candidateSourceProfileReady, CANDIDATE_SOURCE_MATCHING_VERSION, CANDIDATE_SOURCE_PROFILE_VERSION, SOURCE_PROFILE_PREFERENCE_COLUMNS } from "./candidate-source-location";
 import { applySourceProfileFacts } from "./profile-tools";
+import { CvShareInput, DEVICE_CV_TEXT_CHARACTERS } from "./device-execution.protocol";
+import { assertCvEmploymentRefs, recordCvShareConsent, replaceCvEmployment } from "./cv-sharing";
 
 export const CANDIDATE_DOCUMENT_OBJECT_TRANSPORT = "CANDIDATE_DOCUMENT_OBJECT_TRANSPORT";
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -73,8 +75,9 @@ export class CandidateDocumentsService {
     this.agent.registerStructuredCompletion((owner, id) => this.reconcileDeviceParses(owner, id));
   }
 
-  private async authorize(context: CandidateInvocationContext, write: boolean, advanced: boolean, db?: EntityManager) {
-    if (context.kind !== "session" && context.kind !== "oauth" && !(context.kind === "device" && !write))
+  /** Devices read documents. Their only write is the companion's explicit, natively approved CV share. */
+  private async authorize(context: CandidateInvocationContext, write: boolean, advanced: boolean, db?: EntityManager, deviceShare = false) {
+    if (context.kind !== "session" && context.kind !== "oauth" && !(context.kind === "device" && (!write || deviceShare)))
       throw new ForbiddenException("Document transfer requires candidate action");
     const scope = write ? "career:write" : "career:read";
     if (context.kind === "oauth" && !context.scopes.includes(scope))
@@ -283,6 +286,65 @@ export class CandidateDocumentsService {
       if (error instanceof BadRequestException || error instanceof ConflictException || error instanceof ForbiddenException || error instanceof NotFoundException) throw error;
       throw new ServiceUnavailableException("Your file could not be saved. Retry this upload request.");
     }
+  }
+
+  /** Consented CV share from a paired device: the same validation, extraction, storage and registration as an
+   * upload, then the JobStash CV showcase, CV-derived employment edges and consent in one transaction. */
+  async shareFromDevice(context: CandidateInvocationContext, input: CvShareInput) {
+    if (context.kind !== "device") throw new ForbiddenException("Document transfer requires candidate action");
+    await this.authorize(context, true, true, undefined, true);
+    // Unknown or banned employers reject the whole share before any storage write.
+    await assertCvEmploymentRefs(this.db, input.employment);
+    const origin = this.config.get<string>("FE_DOMAIN")?.replace(/\/$/, "");
+    if (!origin) throw new ServiceUnavailableException("JobStash origin is not configured");
+    const { document } = input;
+    let source: { id: string; filename: string; contentHash: string; sourceText: string; storageKind: "object" | "text" };
+    let stored: { owner: string; contentType: string; byteLength: number; provenance: CandidateDocumentProvenance } | null = null;
+    if ("text" in document) {
+      if (!document.text.trim() || document.text.length > DEVICE_CV_TEXT_CHARACTERS || /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(document.text))
+        throw new BadRequestException("Share CV text without control characters");
+      source = { id: randomUUID(), filename: `${document.filename.trim().replace(/\.txt$/i, "")}.txt`, storageKind: "text",
+        contentHash: createHash("sha256").update("pasted-cv-v1\n").update(document.text).digest("hex"), sourceText: document.text };
+    } else {
+      const buffer = Buffer.from(document.contentBase64, "base64");
+      if (!buffer.length || buffer.length > MAX_BYTES || buffer.toString("base64") !== document.contentBase64)
+        throw new BadRequestException("The document encoding is invalid");
+      const file = { buffer, originalname: document.filename, mimetype: document.mediaType, size: buffer.length };
+      const validated = this.codec.validate(file);
+      const extracted = await this.codec.extract(buffer, validated.contentType);
+      const hash = createHash("sha256").update(buffer).digest("hex");
+      const owner = await this.objectOwner(context.owner);
+      const [existing] = await this.db.query<DocumentRow>("SELECT * FROM candidate_documents WHERE user_node_id=$1 AND content_hash=$2", [context.owner, hash]);
+      if (existing && existing.storage_kind !== "object") throw new ConflictException("Document storage does not match this source");
+      source = { id: existing?.id ?? this.documentId(owner, hash), filename: validated.filename, contentHash: hash,
+        sourceText: extracted.text, storageKind: "object" };
+      await this.authorize(context, true, true, undefined, true);
+      await this.saveObject(source.id, file, validated.filename, validated.contentType, owner, hash);
+      stored = { owner, contentType: validated.contentType, byteLength: buffer.length, provenance: extracted.provenance };
+    }
+    const sharedAt = new Date().toISOString();
+    return this.db.transaction(async db => {
+      await this.career.owner(context.wallet, db, true);
+      await this.authorize(context, true, true, db, true);
+      await assertCvEmploymentRefs(db, input.employment, true);
+      const { storageKind, ...registration } = source;
+      const saved = await this.career.registerDocument(context.wallet, registration, storageKind, undefined, db);
+      if (stored) {
+        // The stored object is keyed by the expected ID; a concurrently registered legacy ID is retried, not guessed.
+        if (saved.id !== source.id) throw new ConflictException("Your CV changed while it was being shared. Share it again.");
+        const current = await this.document(context.owner, saved.id, db);
+        const provenance = { ...stored.provenance,
+          source_text_hash: createHash("sha256").update(current.source_text ?? source.sourceText).digest("hex") };
+        await db.query(`UPDATE candidate_documents SET object_owner=$3,object_content_type=$4,object_byte_length=$5,
+          source_text=COALESCE(source_text,$6),extraction_provenance=$7 WHERE id=$1 AND user_node_id=$2`,
+        [saved.id, context.owner, stored.owner, stored.contentType, stored.byteLength, source.sourceText, JSON.stringify(provenance)]);
+      }
+      await this.career.linkResume(context.wallet, { documentId: saved.id, origin, onlyIfMissing: false }, db);
+      await replaceCvEmployment(db, context.owner, input, saved.id, sharedAt);
+      await recordCvShareConsent(db, context.owner, input, sharedAt);
+      await this.authorize(context, true, true, db, true);
+      return { documentId: saved.id, attached: true, employment: input.employment.length };
+    });
   }
 
   private async objectBytes(context: CandidateInvocationContext, document: DocumentRow) {

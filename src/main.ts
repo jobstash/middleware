@@ -19,6 +19,7 @@ import {
   BROWSER_CORS_HEADERS,
   BROWSER_CORS_METHODS,
 } from "./shared/constants/cors";
+import { deviceCvBodyParser } from "./career-agent/device-execution.protocol";
 dotenv.config();
 
 // This project intentionally compiles without `esModuleInterop`. Node exposes
@@ -49,6 +50,8 @@ async function bootstrap(): Promise<void> {
     rawBody: true,
     bodyParser: true,
   });
+  // The signed CV share has its own 7.5 MiB limit and must run before the global parser.
+  app.use("/device/cv", deviceCvBodyParser());
   app.useBodyParser("json", { limit: "12mb" });
   app.useGlobalPipes(
     new ValidationPipe({

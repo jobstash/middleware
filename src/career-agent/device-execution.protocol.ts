@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException } from "@nestjs/common";
 import { createHash, createPublicKey, verify } from "node:crypto";
 import * as Ajv from "ajv";
+import { json, RequestHandler } from "express";
 
 export interface DeviceIdentity { id: string; owner: string }
 export const uuid = { type: "string", format: "uuid", minLength: 36, maxLength: 36 };
@@ -10,7 +11,7 @@ const text = (maxLength: number) => ({ type: "string", minLength: 1, maxLength, 
 const object = (properties: Record<string, unknown>, required = Object.keys(properties)) => ({ type: "object", additionalProperties: false, properties, required });
 const count = { type: "integer", minimum: 0, maximum: 1000000000 };
 const usage = object({ model, inputTokens: count, outputTokens: count, cachedTokens: count }, ["model"]);
-export const devicePlatformOperations = ["status", "search_jobs", "job_read", "matching_catalogue", "matching_jobs", "legacy_sources", "legacy_source_read", "legacy_career", "legacy_applications", "legacy_application_read"] as const;
+export const devicePlatformOperations = ["status", "search_jobs", "job_read", "matching_catalogue", "matching_jobs", "legacy_sources", "legacy_source_read", "legacy_career", "legacy_applications", "legacy_application_read", "employer_search"] as const;
 const page = { limit: { type: "integer", minimum: 1, maximum: 50 }, offset: { type: "integer", minimum: 0, maximum: 10000 } };
 const matchingId = { type: "string", pattern: "^node:[1-9][0-9]{0,18}$(?![\\s\\S])", maxLength: 24 };
 export const publicationRanges = ["today", "yesterday", "past_3_days", "past_week", "past_2_weeks", "past_month", "all"] as const;
@@ -23,6 +24,29 @@ export interface MatchingCatalogueArgs {
 }
 const publicationTimestamp = { type: "string", maxLength: 24,
   pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,3})?Z$(?![\\s\\S])" };
+export interface EmployerSearchQuery { name: string; website?: string }
+const employerQuery = object({ name: text(200), website: text(300) }, ["name"]);
+/** Signed CV share: 5 MiB decoded document, JSON/base64 framing and employment within 7.5 MiB. */
+export const DEVICE_CV_BODY_LIMIT = 7.5 * 1024 * 1024;
+export const DEVICE_CV_DOCUMENT_BYTES = 5 * 1024 * 1024;
+export const DEVICE_CV_TEXT_CHARACTERS = 100000;
+export const CV_SHARE_CONSENT_VERSION = 1;
+export const cvEmploymentKinds: Record<string, string> = { profile: "EntityProfile", organization: "Organization", project: "Project" };
+export interface CvEmploymentItem { ref: string; title: string; startDate: string; endDate: string | null; current: boolean }
+export type CvShareDocument =
+  | { filename: string; mediaType: "application/pdf" | "application/vnd.openxmlformats-officedocument.wordprocessingml.document"; contentBase64: string }
+  | { filename: string; mediaType: "text/plain"; text: string };
+export interface CvShareInput { document: CvShareDocument; employment: CvEmploymentItem[]; consent: { version: 1; grantedAt: string } }
+const cvDate = { type: "string", maxLength: 7, pattern: "^[0-9]{4}(-(0[1-9]|1[0-2]))?$(?![\\s\\S])" };
+const cvEmployment = object({
+  ref: { type: "string", maxLength: 32, pattern: "^(profile|organization|project):[1-9][0-9]{0,18}$(?![\\s\\S])" },
+  title: text(200), startDate: cvDate, endDate: { anyOf: [{ type: "null" }, cvDate] }, current: { type: "boolean" },
+});
+const cvDocument = { oneOf: [
+  object({ filename: text(255), mediaType: { enum: ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"] },
+    contentBase64: { type: "string", minLength: 4, maxLength: Math.ceil(DEVICE_CV_DOCUMENT_BYTES / 3) * 4 } }),
+  object({ filename: text(255), mediaType: { const: "text/plain" }, text: { type: "string", minLength: 1, maxLength: DEVICE_CV_TEXT_CHARACTERS } }),
+] };
 const platformArgs = {
   status: object({}),
   search_jobs: object({ query: text(200), ...page }, []),
@@ -38,6 +62,7 @@ const platformArgs = {
   legacy_career: object({}),
   legacy_applications: object(page, []),
   legacy_application_read: object({ id: uuid, ...page }, ["id"]),
+  employer_search: object({ queries: { type: "array", minItems: 1, maxItems: 20, items: employerQuery } }),
 };
 export const deviceSchemas = {
   pair: object({ requestId: uuid, deviceId: uuid, publicKey: { type: "string", pattern: "^[A-Za-z0-9_-]{59}$(?![\\s\\S])" }, label: text(100) }),
@@ -50,24 +75,59 @@ export const deviceSchemas = {
   claim: object({ connectionId: uuid, requestId: uuid }, ["connectionId"]),
   lease: object({ leaseId: uuid }),
   result: object({ leaseId: uuid, eventId: uuid, result: {}, usage: { type: "array", maxItems: 100, items: usage }, model, reasoningEffort: effort }, ["leaseId", "eventId", "result", "model", "reasoningEffort"]),
+  cv: object({ document: cvDocument, employment: { type: "array", maxItems: 50, items: cvEmployment },
+    consent: object({ version: { const: CV_SHARE_CONSENT_VERSION }, grantedAt: publicationTimestamp }) }),
 };
 const ajv = new Ajv({ allErrors: false });
 const validators = Object.fromEntries(Object.entries(deviceSchemas).map(([name, schema]) => [name, ajv.compile(schema)]));
+const validTimestamp = (timestamp: string) => {
+  const time = Date.parse(timestamp);
+  const normalized = timestamp.replace(/(?:\.([0-9]{1,3}))?Z$/, (_, fraction = "") => `.${fraction.padEnd(3, "0")}Z`);
+  return Number.isFinite(time) && new Date(time).toISOString() === normalized;
+};
+/** Partial dates compare on their common precision: "2021" overlaps "2021-03". */
+export function cvDatesOrdered(startDate: string, endDate: string | null): boolean {
+  if (endDate === null) return true;
+  const length = Math.min(startDate.length, endDate.length);
+  return startDate.slice(0, length) <= endDate.slice(0, length);
+}
+/** Several roles at one entity stay distinct; an identical role is one edge. */
+export function cvEmploymentKey(item: CvEmploymentItem): string {
+  return sha256(`${item.title}\n${item.startDate}\n${item.endDate}\n${item.current}`);
+}
 export function deviceInput<T extends Record<string, any> = Record<string, any>>(kind: keyof typeof deviceSchemas, value: unknown): T {
   if (!validators[kind](value)) throw new BadRequestException("Invalid device input");
   const input = value as Record<string, any>;
   if (kind === "platform" && input.operation === "matching_catalogue") {
     const { publicationRange, since, until } = input.args as MatchingCatalogueArgs;
-    const validTimestamp = (timestamp: string) => {
-      const time = Date.parse(timestamp);
-      const normalized = timestamp.replace(/(?:\.([0-9]{1,3}))?Z$/, (_, fraction = "") => `.${fraction.padEnd(3, "0")}Z`);
-      return Number.isFinite(time) && new Date(time).toISOString() === normalized;
-    };
     if (!validTimestamp(until) || (publicationRange === "all" ? since !== null :
       since === null || !validTimestamp(since) || Date.parse(since) >= Date.parse(until)))
       throw new BadRequestException("Invalid publication window");
   }
+  if (kind === "platform" && input.operation === "employer_search" &&
+      (input.args.queries as EmployerSearchQuery[]).some(query => !query.name.trim() || (query.website !== undefined && !query.website.trim())))
+    throw new BadRequestException("Invalid employer search");
+  if (kind === "cv") {
+    const { document, employment, consent } = input as CvShareInput;
+    if (!document.filename.trim() || /[\\/]/.test(document.filename)) throw new BadRequestException("Choose a file with a valid filename");
+    if (!validTimestamp(consent.grantedAt)) throw new BadRequestException("Invalid consent time");
+    const keys = new Set<string>();
+    for (const item of employment) {
+      if (!item.title.trim() || (item.current && item.endDate !== null) || !cvDatesOrdered(item.startDate, item.endDate) ||
+          BigInt(item.ref.split(":")[1]) > 9223372036854775807n)
+        throw new BadRequestException("Invalid employment entry");
+      const key = `${item.ref}:${cvEmploymentKey(item)}`;
+      if (keys.has(key)) throw new BadRequestException("Duplicate employment entry");
+      keys.add(key);
+    }
+  }
   return value as T;
+}
+/** Route-scoped JSON parser for the signed CV share; keeps the exact bytes for signature verification. */
+export function deviceCvBodyParser(): RequestHandler {
+  const parser = json({ limit: DEVICE_CV_BODY_LIMIT, verify: (request, _response, body) => { Object.assign(request, { rawBody: body }); } });
+  // A distinct name keeps Nest's global "jsonParser" registration for every other route.
+  return function deviceCvJson(request, response, next) { return parser(request, response, next); };
 }
 export function sha256(value: string | Buffer): string { return createHash("sha256").update(value).digest("hex"); }
 export function deviceCanonicalRequest(time: string, nonce: string, method: string, path: string, body: Buffer): string {

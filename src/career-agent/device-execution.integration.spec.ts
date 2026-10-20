@@ -13,32 +13,40 @@ import { DeviceAuthGuard } from "./device-execution.guard";
 import { DeviceExecutionController, ProfileDevicesController } from "./device-execution.controller";
 import { generateKeyPairSync, randomUUID, sign } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { mkdtemp, readdir, realpath, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { PDFDocument } from "pdf-lib";
 import { PostgresService } from "src/postgres/postgres.service";
 import { prepareMcpTestTables } from "src/mcp/mcp-test-fixture";
 import { CareerRepository } from "./career.repository";
 import { DeviceExecutionService } from "./device-execution.service";
-import { canonicalJSON, deviceCanonicalRequest, MatchingCatalogueArgs, sha256 } from "./device-execution.protocol";
+import { canonicalJSON, deviceCanonicalRequest, deviceCvBodyParser, MatchingCatalogueArgs, sha256 } from "./device-execution.protocol";
 import { matchingCatalogue, matchingJobs } from "./device-matching";
 import { candidateScreeningSource, unknownDocumentProvenance } from "./candidate-document-provenance";
 import { CandidateInvocationContext } from "./candidate-context";
-
+import { CandidateDocumentCodec } from "./candidate-document-codec";
+import { LocalCandidateDocumentStorage } from "./candidate-document-storage";
 import { CandidateDocumentsService } from "./candidate-documents.service";
 const databaseUrl = process.env.CAREER_TEST_DATABASE_URL;
 (databaseUrl ? describe : describe.skip)("Paired device access (isolated PostgreSQL)", () => {
   const schema = `device_${randomUUID().replace(/-/g, "")}`;
   const origin = "http://127.0.0.1:3001";
-  const config = new ConfigService({ RECRUITERS_PUBLIC_ORIGIN: origin });
+  const config = new ConfigService({ RECRUITERS_PUBLIC_ORIGIN: origin, FE_DOMAIN: "https://jobstash.xyz",
+    CAREER_DOCUMENT_ID_KEY: "private-device-share-test-key-1234567890" });
   let db: PostgresService, career: CareerRepository, devices: DeviceExecutionService, documents: CandidateDocumentsService, app: INestApplication;
-  let owner: string, foreignOwner: string;
+  let owner: string, foreignOwner: string, storageDirectory: string;
   beforeAll(async () => {
     const url = new URL(databaseUrl!);
     if (url.hostname !== "127.0.0.1" || !["/career_agent_test", "/jobstash_hosted_career_test"].includes(url.pathname))
       throw new Error("Dedicated local career test database required");
     db = new PostgresService({ url: databaseUrl!, applicationName: "device-execution-tests", maxConnections: 8, statementTimeoutMs: 10000 });
     const source = db.getDataSource();
-    source.setOptions({ extra: { ...source.options.extra, options: `-c jit=off -c search_path=${schema}` } });
+    // Catalogue SQL helpers (pg_trgm, unaccent) resolve through public, as in the shared database.
+    source.setOptions({ extra: { ...source.options.extra, options: `-c jit=off -c search_path=${schema},public` } });
     await db.onModuleInit();
     await db.query(`CREATE SCHEMA ${schema}`);
+    await db.query("CREATE EXTENSION IF NOT EXISTS pg_trgm SCHEMA public; CREATE EXTENSION IF NOT EXISTS unaccent SCHEMA public");
     await prepareMcpTestTables(db);
     await db.query(readFileSync("scripts/sql/candidate-document-provenance.sql", "utf8"));
     await db.query(`ALTER TABLE candidate_documents ADD COLUMN IF NOT EXISTS object_content_type text;
@@ -58,11 +66,29 @@ const databaseUrl = process.env.CAREER_TEST_DATABASE_URL;
         application_id uuid REFERENCES candidate_applications(id),cv_version_id uuid REFERENCES candidate_cv_versions(id),revision integer DEFAULT 1,
         content jsonb,created_at timestamptz DEFAULT now(),updated_at timestamptz DEFAULT now());
       CREATE TABLE candidate_exports(id uuid PRIMARY KEY,user_node_id bigint REFERENCES graph_nodes(id),
-        document_id uuid REFERENCES candidate_application_documents(id),document_revision integer,kind text,filename text,bytes bytea,created_at timestamptz DEFAULT now());`);
+        document_id uuid REFERENCES candidate_application_documents(id),document_revision integer,kind text,filename text,bytes bytea,created_at timestamptz DEFAULT now());
+      ALTER TABLE candidate_documents ADD COLUMN IF NOT EXISTS object_byte_length integer,ADD COLUMN IF NOT EXISTS object_owner text;
+      ALTER TABLE graph_nodes ADD COLUMN IF NOT EXISTS labels text[] DEFAULT '{}',ADD COLUMN IF NOT EXISTS node_key text,
+        ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+      ALTER TABLE organization_search_documents ADD COLUMN name text DEFAULT '',ADD COLUMN names text[] DEFAULT '{}',
+        ADD COLUMN search_text text DEFAULT '',ADD COLUMN search_vector tsvector DEFAULT '',ADD COLUMN detail_payload jsonb;
+      ALTER TABLE project_search_documents ADD COLUMN name text DEFAULT '',ADD COLUMN names text[] DEFAULT '{}',
+        ADD COLUMN search_text text DEFAULT '',ADD COLUMN search_vector tsvector DEFAULT '',ADD COLUMN detail_payload jsonb;
+      CREATE FUNCTION slugify_text(value text) RETURNS text LANGUAGE sql STABLE AS $$
+        SELECT CASE WHEN value IS NULL THEN '' ELSE COALESCE(NULLIF(trim(BOTH '-' FROM
+          regexp_replace(lower(unaccent(value)), '[^a-z0-9]+', '-', 'g')), ''), lower(trim(value))) END $$;
+      CREATE FUNCTION normalized_url_host(value text) RETURNS text LANGUAGE sql IMMUTABLE AS $$
+        SELECT NULLIF(regexp_replace(lower(split_part(split_part(regexp_replace(COALESCE(value, ''),
+          '^[a-z][a-z0-9+.-]*://', '', 'i'), '/', 1), ':', 1)), '^www[.]', ''), '') $$;
+      CREATE FUNCTION entity_property_is_banned(properties jsonb) RETURNS boolean LANGUAGE sql IMMUTABLE AS $$
+        SELECT lower(COALESCE(properties ->> 'banned', 'false')) IN ('true', '1', 'yes', 'on') $$;`);
     career = new CareerRepository(db);
     devices = new DeviceExecutionService(db, career, config);
     const agent = new AgentService(db, career, config, undefined, devices);
-    documents = new CandidateDocumentsService(db, career, undefined as never, agent, undefined as never, config, undefined as never);
+    // Private storage rejects symlinked ancestors (macOS /var -> /private/var).
+    storageDirectory = await realpath(await mkdtemp(join(tmpdir(), "device-cv-share-")));
+    documents = new CandidateDocumentsService(db, career, undefined as never, agent, new CandidateDocumentCodec(), config, undefined as never,
+      new LocalCandidateDocumentStorage(storageDirectory));
     const rows = await db.query("INSERT INTO graph_nodes(label,properties) VALUES('User','{\"wallet\":\"device-alice\",\"name\":\"Alice\"}'),('User','{\"wallet\":\"device-bob\"}') RETURNING id::text");
     owner = String(rows[0].id); foreignOwner = String(rows[1].id);
     await db.query("INSERT INTO candidate_subscriptions(charge_id,user_node_id,status,paid_until) VALUES('alice',$1,'active',now()+interval '1 day'),('bob',$2,'active',now()+interval '1 day')", [owner, foreignOwner]);
@@ -70,7 +96,7 @@ const databaseUrl = process.env.CAREER_TEST_DATABASE_URL;
       controllers: [DeviceExecutionController, ProfileDevicesController, AgentController],
       providers: [DeviceAuthGuard, PBACGuard, ConnectionInputGuard,
         { provide: DeviceExecutionService, useValue: devices },
-        { provide: CandidateDocumentsService, useValue: { download: documents.download.bind(documents) } },
+        { provide: CandidateDocumentsService, useValue: { download: documents.download.bind(documents), shareFromDevice: documents.shareFromDevice.bind(documents) } },
         { provide: AgentService, useValue: agent },
         { provide: CareerToolService, useValue: { mcp: jest.fn() } },
         { provide: ConfigService, useValue: config },
@@ -80,10 +106,15 @@ const databaseUrl = process.env.CAREER_TEST_DATABASE_URL;
       ],
     }).compile();
     app = module.createNestApplication({ rawBody: true });
+    app.use("/device/cv", deviceCvBodyParser());
     app.useLogger(false);
     await app.init();
   });
-  afterAll(async () => { if (app) await app.close(); if (db) { await db.query(`DROP SCHEMA ${schema} CASCADE`); await db.onModuleDestroy(); } });
+  afterAll(async () => {
+    if (app) await app.close();
+    if (db) { await db.query(`DROP SCHEMA ${schema} CASCADE`); await db.onModuleDestroy(); }
+    if (storageDirectory) await rm(storageDirectory, { recursive: true, force: true });
+  });
   beforeEach(async () => {
     await db.query("TRUNCATE candidate_agent_requests,candidate_device_tasks CASCADE");
     await db.query("UPDATE candidate_ai_connections SET execution_lease=NULL,execution_lease_until=NULL");
@@ -857,5 +888,153 @@ const databaseUrl = process.env.CAREER_TEST_DATABASE_URL;
     expect(await db.query("SELECT status,generation,device_id FROM candidate_ai_connections WHERE id=$1", [a.connectionId]))
       .toEqual([{ status: "connected", generation: 0, device_id: a.identity.id }]);
     expect(await db.query("SELECT column_name FROM information_schema.columns WHERE table_schema=$1 AND table_name IN ('candidate_ai_connections','candidate_voice_connections') AND column_name IN ('credential_ciphertext','credential_lease','credential_lease_until')", [schema])).toEqual([]);
+  });
+
+  describe("employer search and consented CV sharing", () => {
+    type Device = { request: (path: string, body: unknown) => { id: string; time: string; nonce: string; signature: string } };
+    const node = async (label: string, properties: Record<string, unknown>) =>
+      String((await db.query("INSERT INTO graph_nodes(label,properties) VALUES($1,$2) RETURNING id", [label, JSON.stringify(properties)]))[0].id);
+    const edge = (source: string, target: string, type: string) =>
+      db.query("INSERT INTO graph_relationships(source_id,target_id,type,relationship_key,properties) VALUES($1,$2,$3,'','{}')", [source, target, type]);
+    const profile = async (slug: string, info: Record<string, unknown>, properties: Record<string, unknown> = {}) => {
+      const id = await node("EntityProfile", { slug, ...properties });
+      await edge(id, await node("ProfileInfo", info), "HAS_PROFILE_INFO");
+      return id;
+    };
+    const searchDocument = (table: "organization" | "project", id: string, name: string, names: string[], text: string, detail: Record<string, unknown> = {}) =>
+      db.query(`INSERT INTO ${table}_search_documents(${table}_node_id,${table}_id,name,names,search_text,search_vector,payload,detail_payload)
+        VALUES($1,$2,$3,$4,$5,to_tsvector('simple',$5),$6,$7)`, [id, `share-${table}-${id}`, name, names, text, JSON.stringify({ name }), JSON.stringify({ name, ...detail })]);
+    const post = (device: Device, path: string, body: unknown, sent: unknown = body) => {
+      const signed = device.request(path, body);
+      return http(app.getHttpServer()).post(path).set({
+        "X-Device-Id": signed.id, "X-Device-Time": signed.time, "X-Device-Nonce": signed.nonce, "X-Device-Signature": signed.signature,
+      }).send(sent as object);
+    };
+    const role = (ref: string, changed: Record<string, unknown> = {}) =>
+      ({ ref, title: "Senior Engineer", startDate: "2021-03", endDate: "2024-01", current: false, ...changed });
+    const consent = { version: 1, grantedAt: "2026-10-20T19:00:00.000Z" };
+    const counts = async (user: string) => (await db.query(`SELECT
+      (SELECT count(*)::int FROM candidate_documents WHERE user_node_id=$1) AS documents,
+      (SELECT count(*)::int FROM graph_relationships WHERE source_id=$1 AND type='HAS_SHOWCASE') AS showcases,
+      (SELECT count(*)::int FROM graph_relationships WHERE source_id=$1 AND type='CV_EMPLOYMENT') AS employment,
+      (SELECT properties->'cvSharingConsent' FROM graph_nodes WHERE id=$1) AS consent`, [user]))[0];
+
+    it("returns profile-first candidates with parent profiles, excluding banned entities and duplicated children", async () => {
+      const device = await paired();
+      const flow = await profile("flow-traders", { displayName: "Flow Traders", canonicalSite: "https://www.flowtraders.com" }, { aliases: ["flowtraders"] });
+      const flowOrganization = await node("Organization", { name: "Flow Traders" });
+      await edge(flow, flowOrganization, "PROFILE_HAS_ORGANIZATION");
+      await edge(flowOrganization, await node("Website", { url: "https://flowtraders.com/careers" }), "HAS_WEBSITE");
+      await searchDocument("organization", flowOrganization, "Flow Traders", ["flow-traders"], "Flow Traders market maker");
+      const banned = await node("Organization", { name: "Flow Traders", banned: true });
+      await searchDocument("organization", banned, "Flow Traders", ["flow-traders"], "Flow Traders imitation");
+      const dapper = await profile("dapper-labs", { name: "Dapper Labs" });
+      await profile("flow-protocol", { displayName: "Flow Protocol" }, { banned: "true" });
+      const flowProject = await node("Project", { name: "Flow Protocol" });
+      await edge(dapper, flowProject, "PROFILE_HAS_PROJECT");
+      await searchDocument("project", flowProject, "Flow Protocol", ["flow-protocol", "flow-blockchain"], "Flow Protocol layer one", { aliases: ["Flow Blockchain"] });
+      const queries = [{ name: " Flow Traders ", website: "flowtraders.com" }, { name: "Flow Protocol" }, { name: "flowtraders" },
+        { name: "Acme Holdings", website: "https://jobs.flowtraders.com/apply" }, { name: "Nobody Known Here" }];
+      const { results } = (await post(device, "/device/platform", { operation: "employer_search", args: { queries } }).expect(201)).body;
+      expect(results.map((result: { name: string }) => result.name)).toEqual(["Flow Traders", "Flow Protocol", "flowtraders", "Acme Holdings", "Nobody Known Here"]);
+      const flowCandidate = { ref: `profile:${flow}`, kind: "profile", name: "Flow Traders", aliases: ["flowtraders"],
+        website: "https://www.flowtraders.com", match: "exact_name", profile: null };
+      expect(results[0].candidates[0]).toEqual(flowCandidate);
+      expect(results[1].candidates[0]).toEqual({ ref: `project:${flowProject}`, kind: "project", name: "Flow Protocol",
+        aliases: ["Flow Blockchain"], website: null, match: "exact_name", profile: { ref: `profile:${dapper}`, name: "Dapper Labs" } });
+      expect(results[2].candidates[0]).toEqual({ ...flowCandidate, match: "alias" });
+      expect(results[3].candidates[0]).toEqual({ ...flowCandidate, match: "website" });
+      expect(results[4].candidates).toEqual([]);
+      for (const { candidates } of results) {
+        expect(candidates.length).toBeLessThanOrEqual(5);
+        const refs = candidates.map((candidate: { ref: string }) => candidate.ref);
+        expect(refs).not.toContain(`organization:${banned}`);
+        if (refs.includes(`profile:${flow}`)) expect(refs).not.toContain(`organization:${flowOrganization}`);
+        expect(new Set(refs).size).toBe(refs.length);
+      }
+      const organizationOnly = (await post(device, "/device/platform", { operation: "employer_search", args: { queries: [{ name: "Flow Traders B.V.", website: "careers.flowtraders.com" }] } }).expect(201)).body;
+      expect(organizationOnly.results[0].candidates[0]).toMatchObject({ ref: `profile:${flow}`, match: "website" });
+      await post(device, "/device/platform", { operation: "employer_search", args: { queries: [{ name: "Flow", email: "private@example.test" }] } }).expect(400);
+      expect((await post(device, "/device/platform", { operation: "status", args: {} }).expect(201)).body.github).toBeNull();
+      const linked = await node("LinkedAccount", { github: "jane-dev", email: null });
+      await edge(owner, linked, "HAS_LINKED_ACCOUNT");
+      expect((await post(device, "/device/platform", { operation: "status", args: {} }).expect(201)).body.github).toEqual({ login: "jane-dev" });
+    });
+
+    it("stores a consented CV share, attaches it and replaces CV employment only after every reference resolves", async () => {
+      await db.query(`UPDATE graph_nodes SET properties=properties || '{"privyId":"did:privy:device-alice"}' WHERE id=$1`, [owner]);
+      const device = await paired();
+      const employer = await node("EntityProfile", { slug: "share-employer" });
+      const organization = await node("Organization", { name: "Share Organization" });
+      const banned = await node("Organization", { name: "Banned Organization", banned: true });
+      const pdf = await PDFDocument.create();
+      pdf.addPage([612, 792]).drawText("Jane Doe - Senior Engineer at Share Organization", { x: 30, y: 740, size: 12 });
+      const bytes = Buffer.from(await pdf.save());
+      const document = { filename: "Jane Doe CV.pdf", mediaType: "application/pdf", contentBase64: bytes.toString("base64") };
+      const employment = [role(`profile:${employer}`), role(`profile:${employer}`, { title: "Staff Engineer", startDate: "2024", endDate: null, current: true }),
+        role(`organization:${organization}`, { startDate: "2018-01", endDate: "2021-02" })];
+      const before = await counts(owner);
+      for (const invalid of [`project:${organization}`, `organization:${banned}`, "organization:999999999"])
+        await post(device, "/device/cv", { document, employment: [...employment, role(invalid)], consent }).expect(400);
+      await post(device, "/device/cv", { document, employment: [role(`profile:${employer}`, { current: true })], consent }).expect(400);
+      expect(await counts(owner)).toEqual(before);
+      expect(await readdir(storageDirectory)).toEqual([]);
+
+      const shared = (await post(device, "/device/cv", { document, employment, consent }).expect(200)).body;
+      expect(shared).toEqual({ documentId: expect.any(String), attached: true, employment: 3 });
+      const [stored] = await db.query<{ source_text: string; extraction_provenance: unknown }>(
+        "SELECT * FROM candidate_documents WHERE id=$1 AND user_node_id=$2", [shared.documentId, owner]);
+      expect(stored).toMatchObject({ storage_kind: "object", filename: "Jane Doe CV.pdf", content_hash: sha256(bytes),
+        object_content_type: "application/pdf", object_byte_length: bytes.length, object_owner: sha256("did:privy:device-alice") });
+      expect(stored.source_text).toContain("Jane Doe");
+      expect(stored.extraction_provenance).toMatchObject({ source_text_hash: sha256(stored.source_text) });
+      expect((await documents.download({ kind: "device", owner, wallet: "device-alice", deviceId: device.identity.id }, shared.documentId)).bytes.equals(bytes)).toBe(true);
+      const showcase = () => db.query(`SELECT n.properties->>'url' AS url,n.properties->>'documentId' AS "documentId" FROM graph_relationships r
+        JOIN graph_nodes n ON n.id=r.target_id WHERE r.source_id=$1 AND r.type='HAS_SHOWCASE' AND n.properties->>'label'='CV'`, [owner]);
+      expect(await showcase()).toEqual([{ url: `https://jobstash.xyz/api/resume/${shared.documentId}`, documentId: shared.documentId }]);
+      const edges = () => db.query<{ target: string; key: string; properties: Record<string, unknown> }>(`SELECT target_id::text AS target,relationship_key AS key,properties FROM graph_relationships
+        WHERE source_id=$1 AND type='CV_EMPLOYMENT' ORDER BY target_id,properties->>'startDate'`, [owner]);
+      const first = await edges();
+      expect(first).toHaveLength(3);
+      expect(first).toEqual(expect.arrayContaining(employment.map(item => ({
+        target: item.ref.split(":")[1],
+        key: sha256(`${item.title}\n${item.startDate}\n${item.endDate}\n${item.current}`),
+        properties: { title: item.title, startDate: item.startDate, endDate: item.endDate, current: item.current, documentId: shared.documentId,
+          source: "companion_cv", consentVersion: 1, sharedAt: expect.any(String) },
+      }))));
+      expect((await counts(owner)).consent).toEqual({ consentVersion: 1, grantedAt: consent.grantedAt, sharedAt: first[0].properties.sharedAt });
+      expect((await post(device, "/device/cv", { document, employment, consent }).expect(200)).body.documentId).toBe(shared.documentId);
+
+      const text = { filename: "Jane Doe CV", mediaType: "text/plain", text: "Jane Doe\nPrincipal Engineer at Share Organization" };
+      const replaced = (await post(device, "/device/cv", { document: text, employment: [role(`organization:${organization}`, { title: "Principal Engineer", endDate: null, current: true })],
+        consent: { version: 1, grantedAt: "2026-10-21T08:00:00Z" } }).expect(200)).body;
+      expect(replaced).toEqual({ documentId: expect.any(String), attached: true, employment: 1 });
+      expect(replaced.documentId).not.toBe(shared.documentId);
+      expect(await db.query("SELECT storage_kind,filename,source_text FROM candidate_documents WHERE id=$1", [replaced.documentId]))
+        .toEqual([{ storage_kind: "text", filename: "Jane Doe CV.txt", source_text: text.text }]);
+      expect(await showcase()).toEqual([{ url: `https://jobstash.xyz/api/profile/resume/text/${replaced.documentId}`, documentId: replaced.documentId }]);
+      expect((await edges()).map(row => [row.target, row.properties.title, row.properties.documentId])).toEqual([[organization, "Principal Engineer", replaced.documentId]]);
+      expect((await counts(owner)).consent).toMatchObject({ consentVersion: 1, grantedAt: "2026-10-21T08:00:00Z" });
+    });
+
+    it("rejects non-member devices, tampered bodies and oversized shares without writing", async () => {
+      const [carol] = await db.query<{ id: string }>(`INSERT INTO graph_nodes(label,properties) VALUES('User','{"wallet":"device-carol","privyId":"did:privy:device-carol"}') RETURNING id::text`);
+      const nonMember = await paired("device-carol");
+      const organization = await node("Organization", { name: "Membership Organization" });
+      const body = { document: { filename: "CV.txt", mediaType: "text/plain", text: "Carol CV" }, employment: [role(`organization:${organization}`)], consent };
+      const before = await counts(carol.id);
+      await post(nonMember, "/device/cv", body).expect(403);
+      expect(await counts(carol.id)).toEqual(before);
+      const member = await paired();
+      const ownerBefore = await counts(owner);
+      await post(member, "/device/cv", body, { ...body, employment: [] }).expect(403);
+      expect(await counts(owner)).toEqual(ownerBefore);
+      const signed = member.request("/device/cv", {});
+      await http(app.getHttpServer()).post("/device/cv").set({
+        "X-Device-Id": signed.id, "X-Device-Time": signed.time, "X-Device-Nonce": signed.nonce, "X-Device-Signature": signed.signature,
+        "Content-Type": "application/json",
+      }).send(JSON.stringify({ ...body, document: { ...body.document, text: "x".repeat(8 * 1024 * 1024) } })).expect(413);
+      expect(await counts(owner)).toEqual(ownerBefore);
+    });
   });
 });
