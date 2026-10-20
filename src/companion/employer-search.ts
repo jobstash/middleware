@@ -174,7 +174,8 @@ export async function employerProfile(
      WHERE requested.id=$1 AND requested.label=$2
        AND NOT entity_property_is_banned(requested.properties)
        AND NOT entity_property_is_banned(entity.properties)
-       AND entity.properties->>'normalizedName' ~ '^[a-z0-9][a-z0-9-]{0,299}$'
+       AND entity.properties->>'normalizedName' ~ '^[a-z0-9][a-z0-9-]*$'
+       AND length(entity.properties->>'normalizedName') <= 300
      ORDER BY kind, slug LIMIT 2`,
     [parts[2], cvEmploymentKinds[parts[1]]],
   )) as EmployerPage[];
