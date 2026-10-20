@@ -297,7 +297,8 @@ Requests expire after 30 seconds; nonces cannot be replayed. Ordinary request
 bodies are limited to 16 KiB and responses to 8 MiB. The CV route alone accepts
 7.5 MiB JSON envelopes. Originals are rejected when oversized, never truncated.
 Platform operations are `status`, `matching_catalogue`, `matching_jobs` (at most
-ten canonical IDs), `job_read` and `employer_search`.
+ten canonical IDs), `job_read`, `employer_search` and `employer_profile` (resolves a saved
+employment ref to its canonical public profile slug; needs pairing, not membership).
 `matching_catalogue` requires `{publicationRange,since,until,offset?,countOnly?}`.
 Ranges are `today`, `yesterday`, `past_3_days`, `past_week`, `past_2_weeks`,
 `past_month` and `all`; the companion defaults to `past_3_days`. Bounds are

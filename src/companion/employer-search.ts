@@ -1,4 +1,8 @@
-import { EmployerSearchQuery } from "./device-execution.protocol";
+import { BadRequestException, NotFoundException } from "@nestjs/common";
+import {
+  cvEmploymentKinds,
+  EmployerSearchQuery,
+} from "./device-execution.protocol";
 
 type Catalogue = {
   query(sql: string, parameters?: unknown[]): Promise<unknown[]>;
@@ -142,4 +146,37 @@ export async function employerSearch(
     results.push({ name, candidates });
   }
   return { results };
+}
+
+/** Resolve a saved entity reference to its canonical public profile, never a guessed name-based URL. */
+export async function employerProfile(
+  db: Catalogue,
+  ref: string,
+): Promise<{ slug: string; name: string }> {
+  const parts = /^(profile|organization|project):([1-9]\d{0,18})$/.exec(ref);
+  if (!parts || BigInt(parts[2]) > 9223372036854775807n)
+    throw new BadRequestException("Invalid employer reference");
+  const rows = (await db.query(
+    `SELECT DISTINCT profile.properties->>'slug' AS slug,
+       COALESCE(info.properties->>'displayName',info.properties->>'name',profile.properties->>'slug') AS name
+     FROM graph_nodes entity
+     JOIN graph_nodes profile ON profile.label='EntityProfile' AND
+       (profile.id=entity.id OR EXISTS (
+         SELECT 1 FROM graph_relationships link
+         WHERE link.source_id=profile.id AND link.target_id=entity.id
+           AND link.type IN ('PROFILE_HAS_ORGANIZATION','PROFILE_HAS_PROJECT')))
+     JOIN graph_relationships info_link ON info_link.source_id=profile.id AND info_link.type='HAS_PROFILE_INFO'
+     JOIN graph_nodes info ON info.id=info_link.target_id AND info.label='ProfileInfo'
+     WHERE entity.id=$1 AND entity.label=$2
+       AND NOT entity_property_is_banned(entity.properties)
+       AND NOT entity_property_is_banned(profile.properties)
+       AND NULLIF(btrim(profile.properties->>'slug'),'') IS NOT NULL
+     LIMIT 2`,
+    [parts[2], cvEmploymentKinds[parts[1]]],
+  )) as { slug: string; name: string }[];
+  if (rows.length !== 1)
+    throw new NotFoundException(
+      "This employer has no unambiguous public JobStash profile",
+    );
+  return rows[0];
 }

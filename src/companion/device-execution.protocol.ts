@@ -76,6 +76,7 @@ interface DeviceInputs {
     | { operation: "matching_catalogue"; args: MatchingCatalogueArgs }
     | { operation: "job_read"; args: { id: string } }
     | { operation: "matching_jobs"; args: { ids: string[] } }
+    | { operation: "employer_profile"; args: { ref: string } }
     | {
         operation: "employer_search";
         args: { queries: EmployerSearchQuery[] };
@@ -105,6 +106,7 @@ export const devicePlatformOperations = [
   "matching_catalogue",
   "matching_jobs",
   "employer_search",
+  "employer_profile",
 ] as const;
 const cvDate = Joi.string()
   .max(7)
@@ -160,6 +162,11 @@ const platformArgs = {
       .items(object({ name: text(200), website: text(300).optional() }))
       .min(1)
       .max(20)
+      .required(),
+  }),
+  employer_profile: object({
+    ref: Joi.string()
+      .pattern(/^(?:profile|organization|project):[1-9][0-9]{0,18}$(?![\s\S])/)
       .required(),
   }),
 };

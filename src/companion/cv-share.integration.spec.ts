@@ -283,4 +283,25 @@ suite("signed companion CV sharing on production main", () => {
     }).expect(200);
     expect(status.body.github).toEqual({ login: "synthetic-dev" });
   });
+  it("resolves a child organization to its parent profile slug and refuses ambiguous, banned or unknown refs", async () => {
+    const resolve = (ref: string): request.Test =>
+      signed("/device/platform", {
+        operation: "employer_profile",
+        args: { ref },
+      });
+    expect((await resolve("profile:2").expect(200)).body).toEqual({
+      slug: "example-labs",
+      name: "Example Labs",
+    });
+    expect((await resolve("organization:4").expect(200)).body).toEqual({
+      slug: "example-labs",
+      name: "Example Labs",
+    });
+    await resolve("organization:5").expect(404);
+    await resolve("profile:999").expect(404);
+    await resolve("profile:4").expect(404);
+    await client.query("UPDATE candidate_subscriptions SET status='expired'");
+    // Opening a profile link needs pairing, not membership: saved history stays navigable after expiry.
+    await resolve("profile:2").expect(200);
+  });
 });

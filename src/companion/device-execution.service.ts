@@ -20,7 +20,7 @@ import {
   verifyDeviceSignature,
 } from "./device-execution.protocol";
 import { matchingCatalogue, matchingJobs } from "./device-matching";
-import { employerSearch } from "./employer-search";
+import { employerProfile, employerSearch } from "./employer-search";
 
 export interface DeviceAccount {
   id: string;
@@ -304,7 +304,9 @@ export class DeviceExecutionService {
     const { operation, args } = deviceInput("platform", raw);
     if (Buffer.byteLength(JSON.stringify(raw)) > 16 * 1024)
       throw new PayloadTooLargeException("Platform request exceeds limit");
-    const account = await this.authorize(device, operation !== "status");
+    const requiresMembership =
+      operation !== "status" && operation !== "employer_profile";
+    const account = await this.authorize(device, requiresMembership);
     let result: unknown;
     if (operation === "status") {
       // The GitHub username the Privy webhook synchronizes, else the linked indexer account.
@@ -329,6 +331,8 @@ export class DeviceExecutionService {
     }
     if (operation === "employer_search")
       result = await employerSearch(this.db, args.queries);
+    else if (operation === "employer_profile")
+      result = await employerProfile(this.db, args.ref);
     else if (operation === "matching_catalogue")
       result = await matchingCatalogue(this.db, args);
     else if (operation === "matching_jobs")
@@ -350,7 +354,7 @@ export class DeviceExecutionService {
       throw new PayloadTooLargeException(
         "Platform response exceeds limit; request fewer jobs",
       );
-    await this.authorize(device, true);
+    await this.authorize(device, requiresMembership);
     return result;
   }
 }
