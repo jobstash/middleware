@@ -80,7 +80,8 @@ interface DeviceInputs {
     | {
         operation: "employer_search";
         args: { queries: EmployerSearchQuery[] };
-      };
+      }
+    | { operation: "intro_paths"; args: { jobIds: string[] } };
   cv: CvShareInput;
 }
 const uuid = Joi.string().guid().length(36).required();
@@ -107,6 +108,7 @@ export const devicePlatformOperations = [
   "matching_jobs",
   "employer_search",
   "employer_profile",
+  "intro_paths",
 ] as const;
 const cvDate = Joi.string()
   .max(7)
@@ -168,6 +170,9 @@ const platformArgs = {
     ref: Joi.string()
       .pattern(/^(?:profile|organization|project):[1-9][0-9]{0,18}$(?![\s\S])/)
       .required(),
+  }),
+  intro_paths: object({
+    jobIds: Joi.array().items(matchingId).min(1).max(10).unique().required(),
   }),
 };
 const schemas = {

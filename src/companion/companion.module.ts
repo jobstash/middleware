@@ -10,6 +10,7 @@ import { CvShareService } from "./cv-share.service";
 import { CV_OBJECT_STORAGE, r2CvObjectStorage } from "./cv-storage";
 import { DeviceAuthGuard } from "./device-execution.guard";
 import { DeviceExecutionService } from "./device-execution.service";
+import { INTRO_PATHS_HTTP, introPathsHttp } from "./intro-paths";
 
 @Module({
   imports: [AuthModule, StripeModule],
@@ -21,6 +22,11 @@ import { DeviceExecutionService } from "./device-execution.service";
     {
       provide: CV_OBJECT_STORAGE,
       useFactory: r2CvObjectStorage,
+      inject: [ConfigService],
+    },
+    {
+      provide: INTRO_PATHS_HTTP,
+      useFactory: introPathsHttp,
       inject: [ConfigService],
     },
   ],

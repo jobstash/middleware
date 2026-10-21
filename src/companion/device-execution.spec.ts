@@ -3,6 +3,7 @@ import {
   BadRequestException,
   ExecutionContext,
   ForbiddenException,
+  NotFoundException,
   PayloadTooLargeException,
 } from "@nestjs/common";
 import { GUARDS_METADATA, PATH_METADATA, METHOD_METADATA } from "@nestjs/common/constants";
@@ -29,6 +30,7 @@ interface DeviceHarness {
   query: jest.Mock<Promise<Record<string, unknown>[]>, [string]>;
   db: PostgresService;
   subscriptions: { refresh: jest.Mock; entitled: jest.Mock };
+  post: jest.Mock;
   service: DeviceExecutionService;
 }
 
@@ -130,7 +132,9 @@ describe("hosted companion boundary", () => {
         work(manager),
     } as unknown as PostgresService;
     const subscriptions = {} as unknown as SubscriptionService;
-    const service = new DeviceExecutionService(db, subscriptions);
+    const service = new DeviceExecutionService(db, subscriptions, {
+      post: jest.fn(),
+    } as never);
     const input = {
       id: device.id,
       time: String(Date.now()),
@@ -301,6 +305,7 @@ describe("hosted companion boundary", () => {
       refresh: jest.fn().mockResolvedValue(undefined),
       entitled: jest.fn().mockResolvedValue(paid),
     };
+    const post = jest.fn();
     // Platform only needs these repository/subscription methods.
     const db = { query } as unknown as PostgresService;
     const billing = subscriptions as unknown as SubscriptionService;
@@ -308,7 +313,8 @@ describe("hosted companion boundary", () => {
       query,
       db,
       subscriptions,
-      service: new DeviceExecutionService(db, billing),
+      post,
+      service: new DeviceExecutionService(db, billing, { post } as never),
     };
   }
 
@@ -435,5 +441,128 @@ describe("hosted companion boundary", () => {
         args: { ids: ["node:1"] },
       }),
     ).rejects.toBeInstanceOf(PayloadTooLargeException);
+  });
+
+  describe("intro paths", () => {
+    const scorerPath = {
+      hops: 1,
+      tier: "direct",
+      targetOrg: "anthropic",
+      target: { login: "friend", emails: [] },
+      via: null,
+      warmScore: 0.5,
+      pathStrength: 10,
+      edges: [],
+    };
+    // Owner lookup and employer lookup are recognised by their SQL, in any order.
+    function withGithubAndEmployers(
+      { query }: DeviceHarness,
+      login: string | null,
+      employers: { id: string; company: string; org_logins: string[] }[],
+    ): void {
+      query.mockImplementation(async (sql: string) => {
+        if (sql.startsWith("SELECT id")) return [{ id: device.id }];
+        if (sql.includes("HAS_LINKED_ACCOUNT")) return [{ login }];
+        if (sql.includes("HAS_GITHUB'")) return employers;
+        return [{ label: "Account" }];
+      });
+    }
+
+    it("denies unpaid owners before any lookup", async () => {
+      const { service, post, query } = harness(false);
+      await expect(service.platform(device, {
+        operation: "intro_paths",
+        args: { jobIds: ["node:1"] },
+      })).rejects.toThrow(new ForbiddenException("An active paid membership is required"));
+      expect(post).not.toHaveBeenCalled();
+      expect(query.mock.calls.some(([sql]) => sql.includes("HAS_GITHUB"))).toBe(false);
+    });
+
+    it("asks for a linked GitHub account instead of calling the graph", async () => {
+      const h = harness();
+      withGithubAndEmployers(h, null, []);
+      await expect(h.service.platform(device, {
+        operation: "intro_paths",
+        args: { jobIds: ["node:1"] },
+      })).resolves.toEqual({ github: null, reason: "github_required", jobs: [] });
+      expect(h.post).not.toHaveBeenCalled();
+    });
+
+    it("queries the scorer for the job's GitHub organizations and distributes paths per job", async () => {
+      const h = harness();
+      withGithubAndEmployers(h, "duckdegen", [
+        { id: "node:1", company: "Anthropic", org_logins: ["anthropic"] },
+        { id: "node:2", company: "No Github Inc", org_logins: [] },
+      ]);
+      h.post.mockResolvedValue({
+        data: {
+          available: true,
+          asOf: "2026-10-21T00:00:00.000Z",
+          source: "GitHub contribution graph",
+          inferred: true,
+          paths: [scorerPath, { ...scorerPath, targetOrg: "other" }],
+        },
+      });
+      await expect(h.service.platform(device, {
+        operation: "intro_paths",
+        args: { jobIds: ["node:1", "node:2"] },
+      })).resolves.toEqual({
+        github: { login: "duckdegen" },
+        available: true,
+        asOf: "2026-10-21T00:00:00.000Z",
+        source: "GitHub contribution graph",
+        inferred: true,
+        jobs: [
+          { jobId: "node:1", company: "Anthropic", orgLogins: ["anthropic"], paths: [scorerPath] },
+          { jobId: "node:2", company: "No Github Inc", orgLogins: [], paths: [] },
+        ],
+      });
+      expect(h.post).toHaveBeenCalledWith("/scorer/intro-paths/query", {
+        sourceLogin: "duckdegen",
+        targetOrgLogins: ["anthropic"],
+        limit: 50,
+      });
+      expect(h.subscriptions.entitled).toHaveBeenCalledTimes(2);
+    });
+
+    it("reports the graph unavailable instead of failing when the scorer rejects", async () => {
+      const h = harness();
+      withGithubAndEmployers(h, "duckdegen", [
+        { id: "node:1", company: "Anthropic", org_logins: ["anthropic"] },
+      ]);
+      h.post.mockRejectedValue(new Error("scorer down"));
+      await expect(h.service.platform(device, {
+        operation: "intro_paths",
+        args: { jobIds: ["node:1"] },
+      })).resolves.toEqual({
+        github: { login: "duckdegen" },
+        available: false,
+        jobs: [{ jobId: "node:1", company: "Anthropic", orgLogins: ["anthropic"], paths: [] }],
+      });
+    });
+
+    it("rejects unknown job ids with the job_read error", async () => {
+      const h = harness();
+      withGithubAndEmployers(h, "duckdegen", []);
+      await expect(h.service.platform(device, {
+        operation: "intro_paths",
+        args: { jobIds: ["node:1"] },
+      })).rejects.toThrow(new NotFoundException("Job not found"));
+      expect(h.post).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      { jobIds: Array.from({ length: 11 }, (_, i) => `node:${i + 1}`) },
+      { jobIds: ["local:abc"] },
+      { jobIds: [] },
+      { jobIds: ["node:1", "node:1"] },
+    ])("rejects malformed job ids before authorization %j", async args => {
+      const { service, subscriptions, query } = harness();
+      await expect(
+        service.platform(device, { operation: "intro_paths", args }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(query).not.toHaveBeenCalled();
+      expect(subscriptions.refresh).not.toHaveBeenCalled();
+    });
   });
 });

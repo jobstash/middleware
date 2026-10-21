@@ -1,5 +1,6 @@
 import { Client } from "pg";
 import { matchingCatalogue, matchingJobs } from "./device-matching";
+import { jobEmployerGithubLogins } from "./intro-paths";
 import { MatchingCatalogueArgs } from "./device-execution.protocol";
 
 const databaseUrl = process.env.COMPANION_TEST_DATABASE_URL;
@@ -28,7 +29,7 @@ describeDatabase("companion catalogue executed in isolated PostgreSQL", () => {
       CREATE TABLE job_search_documents (job_node_id bigint PRIMARY KEY, title text DEFAULT 'Engineer',
         organization_id text, organization_name text, project_id text, online boolean DEFAULT true,
         blocked boolean DEFAULT false, published_timestamp bigint, payload jsonb DEFAULT '{}', detail_payload jsonb DEFAULT '{}');
-      CREATE TABLE organization_search_documents (organization_id text PRIMARY KEY, payload jsonb, project_ids text[]);
+      CREATE TABLE organization_search_documents (organization_id text PRIMARY KEY, payload jsonb, project_ids text[], organization_node_id bigint);
       CREATE TABLE project_search_documents (project_id text PRIMARY KEY, payload jsonb);
       CREATE TABLE graph_nodes (id bigint PRIMARY KEY, label text, properties jsonb);
       CREATE TABLE graph_relationships (source_id bigint, target_id bigint, type text);`);
@@ -121,5 +122,19 @@ describeDatabase("companion catalogue executed in isolated PostgreSQL", () => {
       seniority: "3", commitment: "FULL_TIME", classification: "SMART_CONTRACTS" });
     expect(details.jobs[0].locationEvidence).toContain("Raw advertised role location: France only");
     expect(details.jobs[1]).toMatchObject({ id: "node:2", seniority: null, commitment: null, classification: null });
+  });
+
+  it("maps platform jobs to their employer's linked GitHub organizations", async () => {
+    await client.query(`INSERT INTO organization_search_documents VALUES ('org','{"name":"Org"}','{}',100),('bare','{"name":"Bare"}','{}',101);
+      INSERT INTO graph_nodes VALUES (200,'GithubOrganization','{"login":"OrgHQ"}'),(201,'GithubOrganization','{"login":"org-labs"}'),(202,'Website','{"url":"https://org.test"}');
+      INSERT INTO graph_relationships VALUES (100,200,'HAS_GITHUB'),(100,201,'HAS_GITHUB'),(100,202,'HAS_WEBSITE'),(101,202,'HAS_WEBSITE');`);
+    await client.query(`INSERT INTO job_search_documents(job_node_id,organization_id,organization_name,published_timestamp)
+      VALUES (1,'org','Org Inc',$1),(2,'bare','',$1),(3,NULL,NULL,$1)`, [end-day]);
+    const employers = await jobEmployerGithubLogins(db as never, ["node:1", "node:2", "node:3", "node:404", "node:99999999999999999999"]);
+    expect(employers.get("node:1")).toEqual({ company: "Org Inc", orgLogins: ["org-labs", "orghq"] });
+    expect(employers.get("node:2")).toEqual({ company: "Bare", orgLogins: [] });
+    expect(employers.get("node:3")).toEqual({ company: "", orgLogins: [] });
+    expect(employers.has("node:404")).toBe(false);
+    expect(employers.size).toBe(3);
   });
 });

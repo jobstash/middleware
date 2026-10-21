@@ -2,10 +2,12 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
   PayloadTooLargeException,
 } from "@nestjs/common";
+import { AxiosInstance } from "axios";
 import { randomBytes } from "node:crypto";
 import { PostgresService } from "src/postgres/postgres.service";
 import { SubscriptionService } from "./subscription.service";
@@ -21,6 +23,7 @@ import {
 } from "./device-execution.protocol";
 import { matchingCatalogue, matchingJobs } from "./device-matching";
 import { employerProfile, employerSearch } from "./employer-search";
+import { INTRO_PATHS_HTTP, introPaths, ownerGithubLogin } from "./intro-paths";
 
 export interface DeviceAccount {
   id: string;
@@ -59,6 +62,7 @@ export class DeviceExecutionService {
   constructor(
     private readonly db: PostgresService,
     private readonly subscriptions: SubscriptionService,
+    @Inject(INTRO_PATHS_HTTP) private readonly introHttp: AxiosInstance,
   ) {}
 
   async pair(wallet: string, raw: unknown): Promise<DevicePairing> {
@@ -309,24 +313,14 @@ export class DeviceExecutionService {
     const account = await this.authorize(device, requiresMembership);
     let result: unknown;
     if (operation === "status") {
-      // The GitHub username the Privy webhook synchronizes, else the linked indexer account.
-      const [github] = await this.db.query<{ login: string | null }>(
-        `SELECT COALESCE(
-          (SELECT NULLIF(btrim(account.properties->>'github'),'') FROM graph_relationships link
-            JOIN graph_nodes account ON account.id=link.target_id AND account.label='LinkedAccount'
-            WHERE link.source_id=$1 AND link.type='HAS_LINKED_ACCOUNT' ORDER BY account.id LIMIT 1),
-          (SELECT NULLIF(btrim(account.properties->>'login'),'') FROM graph_relationships link
-            JOIN graph_nodes account ON account.id=link.target_id AND account.label='GithubUser'
-            WHERE link.source_id=$1 AND link.type='HAS_GITHUB_USER' ORDER BY account.id LIMIT 1)) AS login`,
-        [device.owner],
-      );
+      const login = await ownerGithubLogin(this.db, device.owner);
       return {
         mode: "direct-app",
         deviceId: device.id,
         account,
         membership: { active: await this.subscriptions.entitled(device.owner) },
         providerRequired: false,
-        github: github?.login ? { login: github.login } : null,
+        github: login ? { login } : null,
       };
     }
     if (operation === "employer_search")
@@ -337,6 +331,13 @@ export class DeviceExecutionService {
       result = await matchingCatalogue(this.db, args);
     else if (operation === "matching_jobs")
       result = await matchingJobs(this.db, args.ids);
+    else if (operation === "intro_paths")
+      result = await introPaths(
+        this.db,
+        this.introHttp,
+        device.owner,
+        args.jobIds,
+      );
     else {
       const batch = await matchingJobs(this.db, [args.id]);
       const job = batch.jobs[0];

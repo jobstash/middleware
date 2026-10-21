@@ -9,6 +9,7 @@ import { ProfileRepository } from "src/postgres/profile.repository";
 import { CompanionDeviceController } from "./companion.controller";
 import { CvShareService } from "./cv-share.service";
 import { CV_OBJECT_STORAGE } from "./cv-storage";
+import { INTRO_PATHS_HTTP } from "./intro-paths";
 import { DeviceAuthGuard } from "./device-execution.guard";
 import {
   CvShareInput,
@@ -145,6 +146,7 @@ suite("signed companion CV sharing on production main", () => {
           useValue: { getOrThrow: (): string => "https://jobstash.xyz" },
         },
         { provide: CV_OBJECT_STORAGE, useValue: storage },
+        { provide: INTRO_PATHS_HTTP, useValue: { post: jest.fn() } },
       ],
     }).compile();
     app = module.createNestApplication({ rawBody: true });
