@@ -104,17 +104,17 @@ describeDatabase("companion catalogue executed in isolated PostgreSQL", () => {
   });
 
   it("keeps older originals and current salary, role-city, work-mode and card-term projections", async () => {
-    await client.query(`INSERT INTO organization_search_documents VALUES ('org','{"name":"Org","location":"Employer HQ","logoUrl":"https://cdn.example.test/org.png"}', '{}');
+    await client.query(`INSERT INTO organization_search_documents VALUES ('org','{"name":"Chainlink Labs","location":"Employer HQ","logoUrl":"https://cdn.example.test/org.png"}', '{}');
       INSERT INTO project_search_documents VALUES ('proj','{"name":"Proj","logoUrl":"javascript:alert(1)","website":"https://proj.example.test/"}');
       INSERT INTO graph_nodes VALUES (10,'Jobpost','{"content":"Full older original advertisement","location":"France only"}');
       INSERT INTO graph_relationships VALUES (10,1,'HAS_STRUCTURED_JOBPOST');`);
-    await client.query(`INSERT INTO job_search_documents(job_node_id,organization_id,project_id,published_timestamp,payload,detail_payload)
-      VALUES (1,'org',NULL,$1,'{"extractedMinimumSalary":90,"extractedMaximumSalary":70,"salaryCurrency":"EUR","payRate":"HOURLY","url":"https://example.test/apply","seniority":"3","commitment":"FULL_TIME","classification":"SMART_CONTRACTS"}',
+    await client.query(`INSERT INTO job_search_documents(job_node_id,organization_id,organization_name,project_id,published_timestamp,payload,detail_payload)
+      VALUES (1,'org','chainlink-labs',NULL,$1,'{"extractedMinimumSalary":90,"extractedMaximumSalary":70,"salaryCurrency":"EUR","payRate":"HOURLY","url":"https://example.test/apply","seniority":"3","commitment":"FULL_TIME","classification":"SMART_CONTRACTS"}',
         '{"minimumSalary":200000,"availability":[{"placeKind":"city","placeName":"Paris","workMode":"hybrid"}]}'),
-      (2,'org',NULL,$2,'{"seniority":" ","title":"Bare"}','{}'),
-      (3,NULL,'proj',$3,'{"title":"Project only"}','{}')`, [end-100*day, end-101*day, end-102*day]);
+      (2,'org','chainlink-labs',NULL,$2,'{"seniority":" ","title":"Bare"}','{}'),
+      (3,NULL,NULL,'proj',$3,'{"title":"Project only"}','{}')`, [end-100*day, end-101*day, end-102*day]);
     const page = await matchingCatalogue(db, args(null));
-    expect(page.jobs[0]).toMatchObject({ id: "node:1", company: "Org", city: "Paris", location: "France only",
+    expect(page.jobs[0]).toMatchObject({ id: "node:1", company: "Chainlink Labs", city: "Paris", location: "France only",
       workMode: "hybrid", salary: { minimum: 70, maximum: 90, stated: null, currency: "EUR", period: "hour" },
       applyUrl: "https://example.test/apply", seniority: "3", commitment: "FULL_TIME", classification: "SMART_CONTRACTS",
       logoUrl: "https://cdn.example.test/org.png" });
@@ -125,7 +125,7 @@ describeDatabase("companion catalogue executed in isolated PostgreSQL", () => {
     expect(details.jobs[0]).toMatchObject({ ad: "Full older original advertisement", city: "Paris", location: "France only", workMode: "hybrid",
       seniority: "3", commitment: "FULL_TIME", classification: "SMART_CONTRACTS" });
     expect(details.jobs[0].locationEvidence).toContain("Raw advertised role location: France only");
-    expect(details.jobs[0].company.logoUrl).toBe("https://cdn.example.test/org.png");
+    expect(details.jobs[0].company).toMatchObject({ name: "Chainlink Labs", logoUrl: "https://cdn.example.test/org.png" });
     expect(details.jobs[1]).toMatchObject({ id: "node:2", seniority: null, commitment: null, classification: null });
     expect(details.jobs[2].company).toMatchObject({ name: "Proj", logoUrl: "https://www.google.com/s2/favicons?domain=proj.example.test&sz=64" });
   });

@@ -92,7 +92,7 @@ export interface MatchingBatch {
   unavailableIds: string[];
 }
 const batchCharacters = 60000;
-const companyName = `COALESCE(NULLIF(j.organization_name,''),o.payload->>'name',p.payload->>'name','')`;
+const companyName = `COALESCE(NULLIF(o.payload->>'name',''),NULLIF(p.payload->>'name',''),NULLIF(j.organization_name,''),'')`;
 const companyLogo = `COALESCE(o.payload->>'logoUrl',p.payload->>'logoUrl') AS "logoUrl",
   COALESCE(NULLIF(o.payload->>'website',''),NULLIF(p.payload->>'website','')) AS "companyWebsite"`;
 const catalogueJoins = `FROM job_search_documents j
