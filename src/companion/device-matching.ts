@@ -1,4 +1,4 @@
-import { JobSalary, projectJobSalary } from "./job-card-details";
+import { JobSalary, projectJobSalary, safeUrl } from "./job-card-details";
 import { MatchingCatalogueArgs } from "./device-execution.protocol";
 
 interface LocationEvidence {
@@ -15,6 +15,7 @@ type Row = LocationEvidence & Record<string, unknown> & {
   company: string;
   publishedTimestamp: string | number | null;
   applyUrl: string | null;
+  logoUrl: string | null;
   salaryPayload: Record<string, unknown>;
   city: string | null;
   location: string | null;
@@ -39,6 +40,7 @@ export interface CatalogueJob {
   id: string;
   title: string;
   company: string;
+  logoUrl: string | null;
   salary: JobSalary | null;
   city: string | null;
   location: string | null;
@@ -59,6 +61,7 @@ export interface MatchingJob {
     stage: string | null;
     funding: unknown[];
     projects: unknown[];
+    logoUrl: string | null;
   };
   salary: JobSalary | null;
   city: string | null;
@@ -89,6 +92,7 @@ export interface MatchingBatch {
 }
 const batchCharacters = 60000;
 const companyName = `COALESCE(NULLIF(j.organization_name,''),o.payload->>'name',p.payload->>'name','')`;
+const companyLogo = `COALESCE(o.payload->>'logoUrl',p.payload->>'logoUrl')`;
 const catalogueJoins = `FROM job_search_documents j
   LEFT JOIN organization_search_documents o ON o.organization_id=j.organization_id
   LEFT JOIN project_search_documents p ON p.project_id=j.project_id`;
@@ -274,8 +278,8 @@ export async function matchingCatalogue(
       SELECT * FROM scoped ORDER BY published_timestamp DESC,('node:' || job_node_id::text) COLLATE "C"
       LIMIT $3 OFFSET $4
     ) SELECT total.total,CASE WHEN j.job_node_id IS NOT NULL THEN 'node:' || j.job_node_id::text END AS id,
-      j.title,${companyName} AS company,j.published_timestamp AS "publishedTimestamp",
-      j.payload->>'url' AS "applyUrl",${termsColumns}
+      j.title,${companyName} AS company,${companyLogo} AS "logoUrl",
+      j.published_timestamp AS "publishedTimestamp",j.payload->>'url' AS "applyUrl",${termsColumns}
       FROM (SELECT count(*) AS total FROM scoped) total LEFT JOIN page ON true
       LEFT JOIN job_search_documents j ON j.job_node_id=page.job_node_id
       LEFT JOIN organization_search_documents o ON o.organization_id=j.organization_id
@@ -286,8 +290,9 @@ export async function matchingCatalogue(
   );
   const total = Number(rows[0].total);
   const jobs = rows.filter(row => row.id !== null).map(
-    ({ total: _total, publishedTimestamp, applyUrl, salaryPayload, ...job }) => ({
+    ({ total: _total, publishedTimestamp, applyUrl, salaryPayload, logoUrl, ...job }) => ({
       ...job,
+      logoUrl: safeUrl(logoUrl),
       salary: projectJobSalary(salaryPayload),
       publishedAt: new Date(Number(publishedTimestamp)).toISOString(),
       ...(applyUrl ? { applyUrl } : {}),
@@ -311,13 +316,13 @@ export async function matchingJobs(
     SELECT id,ordinal,CASE WHEN substring(id FROM 6)::numeric <= 9223372036854775807
       THEN substring(id FROM 6)::bigint END AS node_id FROM unnest($1::text[]) WITH ORDINALITY input(id,ordinal)
   ), selected AS MATERIALIZED (
-    SELECT j.*,requested.id,requested.ordinal,${companyName} AS company,
+    SELECT j.*,requested.id,requested.ordinal,${companyName} AS company,${companyLogo} AS "logoUrl",
       COALESCE(o.payload,p.payload,'{}'::jsonb) AS employer,o.project_ids
     FROM requested JOIN job_search_documents j ON j.job_node_id=requested.node_id
     LEFT JOIN organization_search_documents o ON o.organization_id=j.organization_id
     LEFT JOIN project_search_documents p ON p.project_id=j.project_id
     WHERE j.online AND NOT j.blocked
-  ) SELECT j.id,j.title,j.company,j.published_timestamp AS "publishedTimestamp",
+  ) SELECT j.id,j.title,j.company,j."logoUrl",j.published_timestamp AS "publishedTimestamp",
     j.payload->>'url' AS "applyUrl",${termsColumns},${locationEvidenceColumns},
     left(COALESCE(NULLIF(j.employer->>'summary',''),j.employer->>'description'),800) AS description,j.employer->'headcountEstimate' AS headcount,
     j.employer->>'fundingStage' AS stage,COALESCE(funding.value,'[]'::jsonb) AS funding,
@@ -375,6 +380,7 @@ export async function matchingJobs(
       title: row.title,
       company: {
         name: row.company,
+        logoUrl: safeUrl(row.logoUrl),
         description: row.description ?? null,
         headcount: typeof row.headcount === "number" ? row.headcount : null,
         stage: row.stage ?? null,

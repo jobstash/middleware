@@ -27,6 +27,18 @@ const periodLabels: Record<string, string> = {
   MONTHLY: "month",
   YEARLY: "year",
 };
+// Employer-supplied links reach companions only as credential-free https URLs.
+export function safeUrl(value: unknown): string | null {
+  if (typeof value !== "string" || value.length > 2048) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && !url.username && !url.password
+      ? url.href
+      : null;
+  } catch {
+    return null;
+  }
+}
 
 export function projectJobSalary(payload: RecordValue): JobSalary | null {
   const payRate =
