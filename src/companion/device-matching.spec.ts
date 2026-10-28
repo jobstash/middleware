@@ -42,14 +42,20 @@ describe("production companion matching SQL", () => {
     expect(query.mock.calls[0][1]).toEqual([["node:1", "node:2", "node:3"]]);
   });
 
+  const favicon = "https://www.google.com/s2/favicons?domain=www.sunday.ai&sz=64";
   it.each([
-    ["https://cdn.example.test/logo.png", "https://cdn.example.test/logo.png"],
-    ["http://cdn.example.test/logo.png", null],
-    ["javascript:alert(1)", null],
-    ["https://user:secret@cdn.example.test/logo.png", null],
-    [null, null],
-  ])("passes catalogue logo %s through the https-only sanitizer", async (logoUrl, expected) => {
-    const row = { id: "node:1", title: "Engineer", company: "Org", logoUrl, publishedTimestamp: 1700000000000,
+    ["https://cdn.example.test/logo.png", null, "https://cdn.example.test/logo.png"],
+    ["https://cdn.example.test/logo.png", "https://www.sunday.ai", "https://cdn.example.test/logo.png"],
+    ["http://cdn.example.test/logo.png", null, null],
+    ["javascript:alert(1)", null, null],
+    ["https://user:secret@cdn.example.test/logo.png", null, null],
+    [null, null, null],
+    [null, "https://www.sunday.ai/about", favicon],
+    [null, "www.sunday.ai", favicon],
+    ["http://cdn.example.test/logo.png", "www.sunday.ai", favicon],
+    [null, "not a website", null],
+  ])("resolves logo %s with website %s like the public jobs API", async (logoUrl, companyWebsite, expected) => {
+    const row = { id: "node:1", title: "Engineer", company: "Org", logoUrl, companyWebsite, publishedTimestamp: 1700000000000,
       applyUrl: null, salaryPayload: {}, city: null, location: null, workMode: null, seniority: null,
       commitment: null, classification: null, funding: [], projects: [], ad: null };
     const catalogue = await matchingCatalogue({ query: jest.fn().mockResolvedValue([{ ...row, total: "1" }]) },

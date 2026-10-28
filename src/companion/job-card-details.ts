@@ -1,3 +1,5 @@
+import { getGoogleLogoUrl } from "src/shared/helpers";
+
 type RecordValue = Record<string, unknown>;
 export interface JobSalary {
   minimum: number | null;
@@ -35,6 +37,20 @@ export function safeUrl(value: unknown): string | null {
     return url.protocol === "https:" && !url.username && !url.password
       ? url.href
       : null;
+  } catch {
+    return null;
+  }
+}
+// Same fallback as the public jobs API: a stored logo, else the website's favicon.
+export function employerLogoUrl(
+  logoUrl: unknown,
+  website: unknown,
+): string | null {
+  const stored = safeUrl(logoUrl);
+  if (stored || typeof website !== "string" || !website.trim()) return stored;
+  try {
+    const favicon = getGoogleLogoUrl(website);
+    return favicon.includes("domain=&") ? null : safeUrl(favicon);
   } catch {
     return null;
   }

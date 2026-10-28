@@ -105,7 +105,7 @@ describeDatabase("companion catalogue executed in isolated PostgreSQL", () => {
 
   it("keeps older originals and current salary, role-city, work-mode and card-term projections", async () => {
     await client.query(`INSERT INTO organization_search_documents VALUES ('org','{"name":"Org","location":"Employer HQ","logoUrl":"https://cdn.example.test/org.png"}', '{}');
-      INSERT INTO project_search_documents VALUES ('proj','{"name":"Proj","logoUrl":"javascript:alert(1)"}');
+      INSERT INTO project_search_documents VALUES ('proj','{"name":"Proj","logoUrl":"javascript:alert(1)","website":"https://proj.example.test/"}');
       INSERT INTO graph_nodes VALUES (10,'Jobpost','{"content":"Full older original advertisement","location":"France only"}');
       INSERT INTO graph_relationships VALUES (10,1,'HAS_STRUCTURED_JOBPOST');`);
     await client.query(`INSERT INTO job_search_documents(job_node_id,organization_id,project_id,published_timestamp,payload,detail_payload)
@@ -119,7 +119,7 @@ describeDatabase("companion catalogue executed in isolated PostgreSQL", () => {
       applyUrl: "https://example.test/apply", seniority: "3", commitment: "FULL_TIME", classification: "SMART_CONTRACTS",
       logoUrl: "https://cdn.example.test/org.png" });
     expect(page.jobs[1]).toMatchObject({ id: "node:2", seniority: null, commitment: null, classification: null, logoUrl: "https://cdn.example.test/org.png" });
-    expect(page.jobs[2]).toMatchObject({ id: "node:3", company: "Proj", logoUrl: null });
+    expect(page.jobs[2]).toMatchObject({ id: "node:3", company: "Proj", logoUrl: "https://www.google.com/s2/favicons?domain=proj.example.test&sz=64" });
     expect((await matchingCatalogue(db, args(new Date(end-14*day).toISOString(), "past_2_weeks"))).total).toBe(0);
     const details = await matchingJobs(db, ["node:1", "node:2", "node:3"]);
     expect(details.jobs[0]).toMatchObject({ ad: "Full older original advertisement", city: "Paris", location: "France only", workMode: "hybrid",
@@ -127,7 +127,7 @@ describeDatabase("companion catalogue executed in isolated PostgreSQL", () => {
     expect(details.jobs[0].locationEvidence).toContain("Raw advertised role location: France only");
     expect(details.jobs[0].company.logoUrl).toBe("https://cdn.example.test/org.png");
     expect(details.jobs[1]).toMatchObject({ id: "node:2", seniority: null, commitment: null, classification: null });
-    expect(details.jobs[2].company).toMatchObject({ name: "Proj", logoUrl: null });
+    expect(details.jobs[2].company).toMatchObject({ name: "Proj", logoUrl: "https://www.google.com/s2/favicons?domain=proj.example.test&sz=64" });
   });
 
   it("maps platform jobs to their employer's linked GitHub organizations", async () => {
