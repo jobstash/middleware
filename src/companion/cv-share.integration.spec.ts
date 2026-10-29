@@ -2,7 +2,9 @@ import { INestApplication } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Test } from "@nestjs/testing";
 import { generateKeyPairSync, randomUUID, sign } from "node:crypto";
-import { Client, QueryResultRow } from "pg";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { Client, Pool, QueryResultRow } from "pg";
 import * as request from "supertest";
 import { PostgresService } from "src/postgres/postgres.service";
 import { ProfileRepository } from "src/postgres/profile.repository";
@@ -48,34 +50,88 @@ const payload = (): CvShareInput & {
 
 suite("signed companion CV sharing on production main", () => {
   let client: Client, app: INestApplication;
+  let pool: Pool;
   const schema = `companion_cv_test_${process.pid}`;
   const objects = new Map<string, Buffer>();
+  // Nonempty CV bytes and permanent zero-byte objects are modeled separately.
+  const fences = new Set<string>();
+  const requestHashes = new Map<string, string>();
+  let beforePut: (() => Promise<void>) | undefined;
+  let uploadBackendPid: number | undefined;
   let afterPut: (() => Promise<void>) | undefined;
+  let beforeDelete: (() => Promise<void>) | undefined;
   const storage = {
-    put: jest.fn(async (key: string, body: Buffer) => {
-      objects.set(key, body);
-      await afterPut?.();
-    }),
+    put: jest.fn(
+      async (
+        key: string,
+        body: Buffer,
+        _contentType: string,
+        requestHash: string,
+      ) => {
+        await beforePut?.();
+        // The condition is evaluated at commit, not when the PUT begins.
+        if (fences.has(key)) return false;
+        if (objects.has(key)) {
+          if (requestHashes.get(key) === requestHash) return true;
+          throw new Error("Existing object does not match request");
+        }
+        objects.set(key, body);
+        requestHashes.set(key, requestHash);
+        await afterPut?.();
+        return true;
+      },
+    ),
     delete: jest.fn(async (key: string) => {
+      await beforeDelete?.();
       objects.delete(key);
+      requestHashes.delete(key);
+      fences.add(key);
     }),
+    list: jest.fn(async (prefix: string) =>
+      [...objects.keys(), ...fences].filter(key => key.startsWith(prefix)),
+    ),
   };
   const db = {
     query: async (
       sql: string,
       parameters?: unknown[],
-    ): Promise<QueryResultRow[]> => (await client.query(sql, parameters)).rows,
+    ): Promise<QueryResultRow[]> => (await pool.query(sql, parameters)).rows,
     transaction: async (
       run: (executor: unknown) => Promise<unknown>,
     ): Promise<unknown> => {
-      await client.query("BEGIN");
+      const connection = await pool.connect();
+      let connectionError: Error | undefined;
+      const onConnectionError = (error: Error): void => {
+        connectionError = error;
+      };
+      connection.on("error", onConnectionError);
+      await connection.query("BEGIN");
       try {
-        const result = await run(db);
-        await client.query("COMMIT");
+        const result = await run({
+          query: async (sql: string, parameters?: unknown[]) => {
+            const result = await connection.query(sql, parameters);
+            if (
+              sql.includes("candidate_subscriptions") &&
+              sql.includes("FOR SHARE")
+            )
+              uploadBackendPid = (
+                await connection.query("SELECT pg_backend_pid() AS pid")
+              ).rows[0].pid;
+            return result.rows;
+          },
+        });
+        await connection.query("COMMIT");
         return result;
       } catch (error) {
-        await client.query("ROLLBACK");
+        try {
+          await connection.query("ROLLBACK");
+        } catch (rollbackError) {
+          if (!connectionError) throw rollbackError;
+        }
         throw error;
+      } finally {
+        connection.removeListener("error", onConnectionError);
+        connection.release(Boolean(connectionError));
       }
     },
   };
@@ -127,11 +183,22 @@ suite("signed companion CV sharing on production main", () => {
       CREATE TABLE candidate_devices(id uuid PRIMARY KEY,user_node_id bigint,public_key text,status text);
       CREATE TABLE candidate_device_nonces(device_id uuid,nonce uuid,received_at timestamptz DEFAULT now(),UNIQUE(device_id,nonce));
       CREATE TABLE candidate_subscriptions(checkout_id text,user_node_id bigint,status text,paid_until timestamptz);
+      CREATE TABLE recommendation_embedding_documents(kind text,node_id bigint);
       CREATE FUNCTION entity_property_is_banned(p jsonb) RETURNS boolean LANGUAGE sql IMMUTABLE AS $$SELECT COALESCE((p->>'banned')::boolean,false)$$;
       CREATE FUNCTION slugify_text(t text) RETURNS text LANGUAGE sql IMMUTABLE AS $$SELECT trim(both '-' from regexp_replace(lower(t),'[^a-z0-9]+','-','g'))$$;
       CREATE FUNCTION normalized_url_host(t text) RETURNS text LANGUAGE sql IMMUTABLE AS $$SELECT NULLIF(split_part(regexp_replace(lower(t),'^https?://',''), '/', 1),'')$$;
       CREATE TABLE organization_search_documents(organization_node_id bigint,name text,names text[],search_text text,search_vector tsvector,payload jsonb,detail_payload jsonb);
       CREATE TABLE project_search_documents(project_node_id bigint,name text,names text[],search_text text,search_vector tsvector,payload jsonb,detail_payload jsonb);`);
+    await client.query(
+      readFileSync(
+        join(__dirname, "../../scripts/sql/companion-cv-documents.sql"),
+        "utf8",
+      ),
+    );
+    pool = new Pool({
+      connectionString: databaseUrl,
+      options: `-c search_path=${schema},public`,
+    });
     const module = await Test.createTestingModule({
       controllers: [CompanionDeviceController],
       providers: [
@@ -155,9 +222,14 @@ suite("signed companion CV sharing on production main", () => {
   });
   beforeEach(async () => {
     objects.clear();
+    fences.clear();
+    requestHashes.clear();
+    beforePut = undefined;
+    uploadBackendPid = undefined;
     afterPut = undefined;
+    beforeDelete = undefined;
     jest.clearAllMocks();
-    await client.query(`TRUNCATE graph_relationships,graph_nodes,candidate_devices,candidate_device_nonces,candidate_subscriptions,organization_search_documents,project_search_documents RESTART IDENTITY CASCADE;
+    await client.query(`TRUNCATE candidate_cv_documents,recommendation_embedding_documents,graph_relationships,graph_nodes,candidate_devices,candidate_device_nonces,candidate_subscriptions,organization_search_documents,project_search_documents RESTART IDENTITY CASCADE;
       INSERT INTO graph_nodes(id,label,properties) VALUES
        (1,'User','{"privyId":"did:privy:synthetic","name":"Candidate"}'),
        (2,'EntityProfile','{"slug":"example-labs","aliases":["Ex Labs"]}'),
@@ -177,6 +249,7 @@ suite("signed companion CV sharing on production main", () => {
   });
   afterAll(async () => {
     await app?.close();
+    await pool?.end();
     if (client) {
       await client.query(`DROP SCHEMA ${schema} CASCADE`);
       await client.end();
@@ -241,27 +314,445 @@ suite("signed companion CV sharing on production main", () => {
     await signed("/device/cv", payload()).expect(403);
     expect(storage.put).not.toHaveBeenCalled();
   });
-  it("removes the uploaded object and keeps prior profile state if pairing is revoked while uploading", async () => {
+  it("retains a durable cleanup target when storage writes bytes but loses its response", async () => {
+    const input = { ...payload(), documentId: randomUUID() };
     afterPut = async (): Promise<void> => {
-      await client.query("UPDATE candidate_devices SET status='revoked'");
+      throw new Error("connection lost");
     };
-    await signed("/device/cv", payload()).expect(403);
-    expect(storage.delete).toHaveBeenCalledTimes(1);
-    expect(objects.size).toBe(0);
+    await signed("/device/cv", input).expect(503);
+    expect(objects.size).toBe(1);
+    expect(
+      (await db.query("SELECT state FROM candidate_cv_documents"))[0].state,
+    ).toBe("pending");
     expect(
       (await db.query("SELECT properties FROM graph_nodes WHERE id=6"))[0]
         .properties.url,
     ).toBe("https://old.test/cv");
-  });
-  it("rejects membership expiry during upload and cleans up the unreferenced object", async () => {
-    afterPut = async (): Promise<void> => {
-      await client.query(
-        "UPDATE candidate_subscriptions SET paid_until=now()-interval '1 second'",
-      );
-    };
-    await signed("/device/cv", payload()).expect(403);
+    await signed("/device/cv/delete", { documentId: input.documentId }).expect(
+      200,
+    );
     expect(objects.size).toBe(0);
-    expect(storage.delete).toHaveBeenCalledTimes(1);
+  });
+  it("retries the same registered upload after a lost storage response without rewriting bytes", async () => {
+    const input = { ...payload(), documentId: randomUUID() };
+    afterPut = async (): Promise<void> => {
+      throw new Error("response lost");
+    };
+    await signed("/device/cv", input).expect(503);
+    const originalBytes = objects.get(`${input.documentId}/CV.txt`);
+    afterPut = undefined;
+    await signed("/device/cv", input).expect(200);
+    expect(objects.get(`${input.documentId}/CV.txt`)).toBe(originalBytes);
+    expect(
+      (await db.query("SELECT state FROM candidate_cv_documents"))[0].state,
+    ).toBe("attached");
+  });
+  it("deletes a zero-role CV without membership or consent, preserving unrelated profile data", async () => {
+    const input = { ...payload(), documentId: randomUUID(), employment: [] };
+    await signed("/device/cv", input).expect(200);
+    await client.query("UPDATE candidate_subscriptions SET status='expired'");
+    await client.query(
+      "UPDATE graph_nodes SET properties=properties-'cvSharingConsent' WHERE id=1",
+    );
+    const body = { documentId: input.documentId };
+    await signed("/device/cv/delete", body).expect(200, {
+      deleted: true,
+      ...body,
+    });
+    expect(objects.size).toBe(0);
+    expect(
+      await db.query(
+        "SELECT * FROM graph_relationships WHERE type='HAS_SHOWCASE'",
+      ),
+    ).toEqual([]);
+    expect(
+      await db.query(
+        "SELECT * FROM graph_relationships WHERE type='HAS_LINKED_ACCOUNT'",
+      ),
+    ).toHaveLength(1);
+    expect(
+      (await db.query("SELECT properties FROM graph_nodes WHERE id=1"))[0]
+        .properties.name,
+    ).toBe("Candidate");
+    storage.delete.mockClear();
+    await signed("/device/cv/delete", body).expect(200, {
+      deleted: true,
+      ...body,
+    });
+    expect(storage.delete).not.toHaveBeenCalled();
+  });
+  it("deletes an older immutable target without touching its replacement or employment", async () => {
+    const first = await signed("/device/cv", payload()).expect(200);
+    const second = await signed("/device/cv", payload()).expect(200);
+    await signed("/device/cv/delete", {
+      documentId: first.body.documentId,
+    }).expect(200);
+    expect([...objects.keys()]).toEqual([`${second.body.documentId}/CV.txt`]);
+    expect(
+      (await db.query("SELECT properties FROM graph_nodes WHERE id=6"))[0]
+        .properties.url,
+    ).toContain(second.body.documentId);
+    const edges = await db.query(
+      "SELECT properties FROM graph_relationships WHERE type='CV_EMPLOYMENT'",
+    );
+    expect(edges).toHaveLength(1);
+    expect(edges[0].properties.documentId).toBe(second.body.documentId);
+  });
+  it("persists deletion intent on an ambiguous storage failure and resumes exact cleanup", async () => {
+    const input = { ...payload(), documentId: randomUUID() };
+    await signed("/device/cv", input).expect(200);
+    storage.delete.mockImplementationOnce(async key => {
+      objects.delete(key);
+      requestHashes.delete(key);
+      fences.add(key);
+      throw new Error("delete response lost");
+    });
+    await signed("/device/cv/delete", { documentId: input.documentId }).expect(
+      503,
+    );
+    expect(
+      (await db.query("SELECT state FROM candidate_cv_documents"))[0].state,
+    ).toBe("deleting");
+    expect(
+      await db.query(
+        "SELECT * FROM graph_relationships WHERE type='CV_EMPLOYMENT'",
+      ),
+    ).toHaveLength(1);
+    await signed("/device/cv", input).expect(409);
+    await signed("/device/cv/delete", { documentId: input.documentId }).expect(
+      200,
+    );
+    expect(
+      await db.query(
+        "SELECT * FROM graph_relationships WHERE type='CV_EMPLOYMENT'",
+      ),
+    ).toEqual([]);
+  });
+  it("never lets an editable current CV URL claim unregistered legacy bytes", async () => {
+    const documentId = randomUUID();
+    objects.set(`${documentId}/legacy.txt`, Buffer.from("legacy"));
+    await client.query(
+      "UPDATE graph_nodes SET properties=properties || $1::jsonb WHERE id=6",
+      [
+        JSON.stringify({
+          url: `https://jobstash.xyz/api/resume/${documentId}`,
+        }),
+      ],
+    );
+    const result = await signed("/device/cv/delete", { documentId }).expect(
+      409,
+    );
+    expect(result.body.code).toBe("cv_ownership_unknown");
+    expect(objects.size).toBe(1);
+    expect(storage.delete).not.toHaveBeenCalled();
+  });
+  it("recovers proven legacy keys, deletes every exact-prefix object, and keeps neighboring keys", async () => {
+    const documentId = randomUUID();
+    objects.set(`${documentId}/one.txt`, Buffer.from("one"));
+    objects.set(`${documentId}/two.pdf`, Buffer.from("two"));
+    objects.set(`${documentId}-neighbor/other.txt`, Buffer.from("other"));
+    await client.query(
+      "INSERT INTO graph_relationships(source_id,target_id,type,properties) VALUES(1,2,'CV_EMPLOYMENT',$1)",
+      [JSON.stringify({ documentId, source: "companion_cv" })],
+    );
+    await signed("/device/cv/delete", { documentId }).expect(200);
+    expect([...objects.keys()]).toEqual([`${documentId}-neighbor/other.txt`]);
+    expect(
+      (
+        await db.query("SELECT object_keys,state FROM candidate_cv_documents")
+      )[0],
+    ).toEqual({
+      object_keys: [`${documentId}/one.txt`, `${documentId}/two.pdf`],
+      state: "deleted",
+    });
+    expect(storage.delete.mock.calls.map(([key]) => key)).toEqual([
+      `${documentId}/one.txt`,
+      `${documentId}/two.pdf`,
+    ]);
+  });
+  it("backfills legacy ownership before replacement removes its graph provenance", async () => {
+    const legacy = randomUUID();
+    objects.set(`${legacy}/old.txt`, Buffer.from("legacy"));
+    await client.query(
+      "INSERT INTO graph_relationships(source_id,target_id,type,properties) VALUES(1,2,'CV_EMPLOYMENT',$1)",
+      [JSON.stringify({ documentId: legacy, source: "companion_cv" })],
+    );
+    await client.query(
+      readFileSync(
+        join(__dirname, "../../scripts/sql/companion-cv-documents.sql"),
+        "utf8",
+      ),
+    );
+    const current = await signed("/device/cv", payload()).expect(200);
+    await signed("/device/cv/delete", { documentId: legacy }).expect(200);
+    expect([...objects.keys()]).toEqual([`${current.body.documentId}/CV.txt`]);
+  });
+  it("denies foreign registered documents without touching storage", async () => {
+    const documentId = randomUUID();
+    await client.query(
+      "INSERT INTO candidate_cv_documents(document_id,user_node_id,object_keys,state) VALUES($1,99,$2,'attached')",
+      [documentId, [`${documentId}/foreign.txt`]],
+    );
+    objects.set(`${documentId}/foreign.txt`, Buffer.from("foreign"));
+    await signed("/device/cv/delete", { documentId }).expect(403);
+    await signed("/device/cv", { ...payload(), documentId }).expect(403);
+    expect(storage.delete).not.toHaveBeenCalled();
+    expect(storage.put).not.toHaveBeenCalled();
+  });
+  it("tombstones a not-yet-arrived upload and rejects any delayed resurrection", async () => {
+    const documentId = randomUUID();
+    await signed("/device/cv/delete", { documentId }).expect(200, {
+      deleted: true,
+      documentId,
+    });
+    await signed("/device/cv", { ...payload(), documentId }).expect(409);
+    expect(objects.size).toBe(0);
+    expect(storage.put).not.toHaveBeenCalled();
+  });
+  it("returns the original receipt on retry without restoring an older CV", async () => {
+    const first = { ...payload(), documentId: randomUUID() };
+    const receipt = await signed("/device/cv", first).expect(200);
+    const second = await signed("/device/cv", payload()).expect(200);
+    await signed("/device/cv", first).expect(200, receipt.body);
+    expect(storage.put).toHaveBeenCalledTimes(2);
+    expect(
+      (await db.query("SELECT properties FROM graph_nodes WHERE id=6"))[0]
+        .properties.url,
+    ).toContain(second.body.documentId);
+    await signed("/device/cv", { ...first, employment: [] }).expect(409);
+  });
+  it("serializes in-flight deletion with a new share using the owner row", async () => {
+    const first = await signed("/device/cv", payload()).expect(200);
+    // ES2022 does not provide Promise.withResolvers.
+    let entered!: () => void, release!: () => void;
+    const deleting = new Promise<void>(resolve => {
+      entered = resolve;
+    });
+    const gate = new Promise<void>(resolve => {
+      release = resolve;
+    });
+    beforeDelete = async (): Promise<void> => {
+      entered();
+      await gate;
+    };
+    const removal = signed("/device/cv/delete", {
+      documentId: first.body.documentId,
+    })
+      .expect(200)
+      .then(result => result);
+    await deleting;
+    await client.query("BEGIN");
+    await expect(
+      client.query("SELECT id FROM graph_nodes WHERE id=1 FOR UPDATE NOWAIT"),
+    ).rejects.toMatchObject({ code: "55P03" });
+    await client.query("ROLLBACK");
+    const replacement = signed("/device/cv", payload())
+      .expect(200)
+      .then(result => result);
+    release();
+    const [, next] = await Promise.all([removal, replacement]);
+    expect([...objects.keys()]).toEqual([`${next.body.documentId}/CV.txt`]);
+    expect(
+      (
+        await db.query(
+          "SELECT n.properties FROM graph_nodes n JOIN graph_relationships r ON r.target_id=n.id WHERE r.source_id=1 AND r.type='HAS_SHOWCASE'",
+        )
+      )[0].properties.url,
+    ).toContain(next.body.documentId);
+  });
+  it("waits for an in-flight upload before erasing it, without resurrecting its bytes", async () => {
+    const input = { ...payload(), documentId: randomUUID() };
+    let entered!: () => void, release!: () => void;
+    const uploading = new Promise<void>(resolve => {
+      entered = resolve;
+    });
+    const gate = new Promise<void>(resolve => {
+      release = resolve;
+    });
+    afterPut = async (): Promise<void> => {
+      entered();
+      await gate;
+    };
+    const upload = signed("/device/cv", input)
+      .expect(200)
+      .then(result => result);
+    await uploading;
+    const removal = signed("/device/cv/delete", {
+      documentId: input.documentId,
+    })
+      .expect(200)
+      .then(result => result);
+    release();
+    await Promise.all([upload, removal]);
+    expect(objects.size).toBe(0);
+    expect(
+      (await db.query("SELECT state FROM candidate_cv_documents"))[0].state,
+    ).toBe("deleted");
+    expect(
+      await db.query(
+        "SELECT * FROM graph_relationships WHERE type='CV_EMPLOYMENT'",
+      ),
+    ).toEqual([]);
+    await signed("/device/cv", input).expect(409);
+  });
+  it("fences a late PUT after the upload's actual PostgreSQL session is terminated", async () => {
+    const input = { ...payload(), documentId: randomUUID() };
+    const key = `${input.documentId}/CV.txt`;
+    let entered!: () => void, release!: () => void;
+    const uploading = new Promise<void>(resolve => {
+      entered = resolve;
+    });
+    const gate = new Promise<void>(resolve => {
+      release = resolve;
+    });
+    beforePut = async (): Promise<void> => {
+      entered();
+      await gate;
+    };
+    const upload = signed("/device/cv", input)
+      .expect(409)
+      .then(result => result);
+    await uploading;
+    try {
+      expect(uploadBackendPid).toEqual(expect.any(Number));
+      expect(
+        (
+          await client.query("SELECT pg_terminate_backend($1) AS terminated", [
+            uploadBackendPid,
+          ])
+        ).rows[0].terminated,
+      ).toBe(true);
+      // The PUT is still outstanding, but its owner/document locks are now gone.
+      await signed("/device/cv/delete", {
+        documentId: input.documentId,
+      }).expect(200);
+      expect(objects.has(key)).toBe(false);
+      expect(fences.has(key)).toBe(true);
+      expect(
+        (
+          await db.query("SELECT state,object_keys FROM candidate_cv_documents")
+        )[0],
+      ).toEqual({
+        state: "deleted",
+        object_keys: [key],
+      });
+    } finally {
+      release();
+    }
+    await upload;
+    // Storage evaluates If-None-Match at commit and cannot replace the acknowledged fence.
+    expect(objects.has(key)).toBe(false);
+    expect(fences.has(key)).toBe(true);
+    expect(
+      await db.query(
+        "SELECT * FROM graph_relationships WHERE type='CV_EMPLOYMENT'",
+      ),
+    ).toEqual([]);
+    expect(
+      (await db.query("SELECT properties FROM graph_nodes WHERE id=6"))[0]
+        .properties.url,
+    ).toBe("https://old.test/cv");
+    storage.delete.mockClear();
+    await signed("/device/cv/delete", { documentId: input.documentId }).expect(
+      200,
+    );
+    expect(storage.delete).not.toHaveBeenCalled();
+    expect(fences.has(key)).toBe(true);
+  });
+  it("does not acknowledge deletion when the permanent storage fence cannot be written", async () => {
+    const input = { ...payload(), documentId: randomUUID() };
+    const key = `${input.documentId}/CV.txt`;
+    await signed("/device/cv", input).expect(200);
+    storage.delete.mockRejectedValueOnce(new Error("fence unavailable"));
+    await signed("/device/cv/delete", { documentId: input.documentId }).expect(
+      503,
+    );
+    expect(objects.has(key)).toBe(true);
+    expect(fences.has(key)).toBe(false);
+    expect(
+      (
+        await db.query("SELECT state,object_keys FROM candidate_cv_documents")
+      )[0],
+    ).toEqual({
+      state: "deleting",
+      object_keys: [key],
+    });
+    await signed("/device/cv/delete", { documentId: input.documentId }).expect(
+      200,
+    );
+    expect(objects.has(key)).toBe(false);
+    expect(fences.has(key)).toBe(true);
+  });
+  it("serializes ordinary profile replacement with deletion and preserves the later profile", async () => {
+    await client.query(
+      `UPDATE graph_nodes SET properties=properties || '{"wallet":"synthetic-wallet"}' WHERE id=1`,
+    );
+    const first = await signed("/device/cv", payload()).expect(200);
+    let entered!: () => void, release!: () => void;
+    const deleting = new Promise<void>(resolve => {
+      entered = resolve;
+    });
+    const gate = new Promise<void>(resolve => {
+      release = resolve;
+    });
+    beforeDelete = async (): Promise<void> => {
+      entered();
+      await gate;
+    };
+    const removal = signed("/device/cv/delete", {
+      documentId: first.body.documentId,
+    })
+      .expect(200)
+      .then(result => result);
+    await deleting;
+    const replacement = app
+      .get(ProfileRepository)
+      .replaceShowcases("synthetic-wallet", [
+        { label: "CV", url: "https://synthetic.invalid/new-cv" },
+        { label: "Portfolio", url: "https://synthetic.invalid/portfolio" },
+      ]);
+    release();
+    await Promise.all([removal, replacement]);
+    const showcases = await app
+      .get(ProfileRepository)
+      .getShowcases("synthetic-wallet");
+    expect(showcases).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: "CV",
+          url: "https://synthetic.invalid/new-cv",
+        }),
+        expect.objectContaining({
+          label: "Portfolio",
+          url: "https://synthetic.invalid/portfolio",
+        }),
+      ]),
+    );
+    expect(objects.size).toBe(0);
+  });
+  it("never treats a failed object listing as an empty prefix", async () => {
+    const documentId = randomUUID();
+    objects.set(`${documentId}/legacy.txt`, Buffer.from("unclaimed"));
+    storage.list.mockRejectedValueOnce(new Error("listing unavailable"));
+    await signed("/device/cv/delete", { documentId }).expect(503);
+    expect(await db.query("SELECT * FROM candidate_cv_documents")).toEqual([]);
+    await signed("/device/cv/delete", { documentId }).expect(409);
+    await signed("/device/cv", { ...payload(), documentId }).expect(409);
+    expect(storage.put).not.toHaveBeenCalled();
+    expect(storage.delete).not.toHaveBeenCalled();
+    expect(objects.size).toBe(1);
+  });
+  it("authenticates deletion bytes and rejects invalid, oversized or revoked-device requests", async () => {
+    const body = { documentId: randomUUID() };
+    await signed("/device/cv/delete", body, true).expect(403);
+    await signed("/device/cv/delete", { ...body, owner: "1" }).expect(400);
+    await signed("/device/cv/delete", { documentId: "../foreign" }).expect(400);
+    await signed("/device/cv/delete", { padding: "x".repeat(17000) }).expect(
+      413,
+    );
+    await client.query("UPDATE candidate_devices SET status='revoked'");
+    await signed("/device/cv/delete", body).expect(403);
+    expect(storage.delete).not.toHaveBeenCalled();
   });
   it("rejects oversized signed bodies at the route parser", async () => {
     await signed("/device/cv", {

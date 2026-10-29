@@ -290,12 +290,13 @@ native app must explicitly approve that account and sign activation.
 The `/privy/check-wallet` response includes `privyDid` from the guard-verified
 Privy user, so the frontend can seal the backend session to the displayed identity.
 
-`POST /device/activate`, `/device/heartbeat`, `/device/platform` and `/device/cv`
-accept only the existing Ed25519 raw-body protocol (`x-device-id`, `x-device-time`,
-`x-device-nonce`, `x-device-signature`), with no cookie/bearer/query transport.
-Requests expire after 30 seconds; nonces cannot be replayed. Ordinary request
-bodies are limited to 16 KiB and responses to 8 MiB. The CV route alone accepts
-7.5 MiB JSON envelopes. Originals are rejected when oversized, never truncated.
+`POST /device/activate`, `/device/heartbeat`, `/device/platform`, `/device/cv`
+and `/device/cv/delete` accept only the existing Ed25519 raw-body protocol
+(`x-device-id`, `x-device-time`, `x-device-nonce`, `x-device-signature`), with no
+cookie/bearer/query transport. Requests expire after 30 seconds; nonces cannot be
+replayed. Ordinary request bodies, including deletion, are limited to 16 KiB and
+responses to 8 MiB. Only CV upload accepts a 7.5 MiB JSON envelope. Oversized
+originals are rejected, never truncated.
 Platform operations are `status`, `matching_catalogue`, `matching_jobs` (at most
 ten canonical IDs), `job_read`, `employer_search` and `employer_profile` (resolves a saved
 employment ref to its ecosystem.vision page key `{kind,slug,name}`, the Organization or Project `normalizedName`; a profile resolves to its single linked Organization, or its lone Project when it has none; needs pairing, not membership).
@@ -335,8 +336,15 @@ Organization/Project children. The connected agent performs extraction and
 identity judgment locally; ambiguous employers are dropped rather than guessed.
 `status.github` reports the Privy-synchronized linked GitHub username, or null.
 
-`POST /device/cv` accepts `{document,employment,consent}`. Documents are PDF/DOCX
-original bytes as base64 (5 MiB decoded, matching magic) or text (100,000 characters).
+`POST /device/cv` accepts `{documentId?,document,employment,consent}` and returns
+`{documentId,attached:true,employment:<count>}`. `documentId` is an optional UUID:
+new clients must persist a generated UUID **before** sending the upload, retain
+all attempted IDs after ambiguous transport failures, and use those immutable
+IDs for cleanup. Omitted IDs remain server-generated for older callers.
+Documents are PDF/DOCX original bytes as base64 (5 MiB decoded, matching magic)
+or text (100,000 characters).
+`employment` is required and may be an empty list when no employer was confidently
+matched; otherwise it contains at most 50 complete matched roles.
 Each matched role names a `profile:<nodeId>`, `organization:<nodeId>` or
 `project:<nodeId>`, a title, start date (`YYYY` or `YYYY-MM`), end date (same format
 or null), and `current` (true requires a null end). Consent is
@@ -346,24 +354,89 @@ the CV is attached to that existing Privy-linked User, never a supplied owner ID
 Originals use the existing JobStash R2 layout `<uuid>/<filename>`, served by
 `FE_DOMAIN/api/resume/<uuid>`. Configure `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`,
 `R2_SECRET_ACCESS_KEY`, and `R2_BUCKET_NAME` to the same bucket as the JobStash
-webapp. Missing storage configuration returns 503 before writes. No new schema
-migration is required: the existing CV showcase is replaced and `CV_EMPLOYMENT`
-edges are written to `graph_relationships`. Each edge carries title, dates,
-current, documentId, source `companion_cv`, consentVersion and sharedAt.
+webapp, with list/read/put permissions. Missing storage configuration returns 503
+before writes. Before deployment, **stop every legacy CV writer and drain all
+outstanding unconditional object writes**, then apply
+`scripts/sql/companion-cv-documents.sql` after `companion.sql`, using schema-release
+credentials. Do not overlap old writers with the new release: old unconditional
+uploads cannot respect storage deletion fences even after their DB session ends.
+The migration creates `candidate_cv_documents` and backfills unambiguous
+backend-authored `CV_EMPLOYMENT` ownership before replacement can discard it.
+New uploads persist owner, exact object keys, request fingerprint and lifecycle
+state before any object write, including zero-role CVs. Ownership tombstones and
+their exact object keys are retained even after account deletion; do not purge
+them or reuse document identifiers.
+The existing CV showcase is replaced and `CV_EMPLOYMENT` edges are written to
+`graph_relationships`. Each edge carries title, dates, current, documentId,
+source `companion_cv`, consentVersion and sharedAt.
 Its relationship key hashes `title\nstartDate\nendDate\ncurrent` (null is literal
 `null`), permitting multiple roles at one employer. Consent is recorded as
 `User.properties.cvSharingConsent`. Other showcase items and relationship types
 are untouched.
 
 All entity references are validated before object upload and again under row
-locks. CV showcase, employment replacement and consent commit together; failure
-removes the new, unreferenced object. Device ownership and current membership are
-checked again after upload. Withdrawal in the companion stops future uploads
-only; it does not delete existing shares. Introductions are planned, not live.
+locks. CV showcase, employment replacement and consent commit together. A failed
+or ambiguous upload retains its registered target for retry or deletion rather
+than leaving untracked bytes. Identical upload retries return the original
+receipt without restoring a subsequently replaced CV; a different payload for
+that ID returns 409. Owner row locks serialize share, deletion and ordinary
+profile showcase replacement. Pairing is held against concurrent revocation;
+membership is checked before and after upload. Consent withdrawal stops future
+uploads only; erasing previous shares is a separate operation.
+
+`POST /device/cv/delete` accepts exactly `{documentId:<UUID>}` and returns
+`{deleted:true,documentId}` only after all registered bytes and the owner's
+matching CV showcase link and `companion_cv` employment edges are removed.
+Deleting an older share preserves a newer CV, its roles and unrelated profile
+data. Deletion requires an active owned device, **not membership, consent or a
+Stripe refresh**. An expired membership therefore cannot prevent erasure.
+Deletion intent and keys commit before storage operations. Every upload uses R2
+`PutObject` with `If-None-Match: *`; the condition is checked atomically when the
+object commits, as documented in [R2 conditional operations](https://developers.cloudflare.com/r2/api/s3/api/#behaviors--limitations).
+Deletion replaces every exact registered key with a **permanent zero-byte object
+fence**, with metadata `companion-cv-state=deleted`. It never removes that fence
+with `DeleteObject`. This erases the CV bytes and blocks an already-issued PUT
+that finishes after losing its PostgreSQL session and locks. No success is
+returned until every fence is durable and matching graph data has been removed.
+The retained key/name and ownership tombstone are deletion coordination metadata,
+not retained CV content; the request fingerprint and original content metadata
+are cleared on deletion. Bucket lifecycle policies and manual cleanup **must not
+expire or delete these fences**, and no other writer may overwrite reserved keys.
+
+A conditional upload conflict is not assumed successful: HEAD must identify the
+same request fingerprint and document length; a deletion fence rejects upload.
+Storage failure returns 503 with the target retained; retry with a fresh signed
+nonce and the same documentId. Partial erasure or a lost fence-write response is
+safe to retry. Completed deletion is idempotent, and neither delayed uploads nor
+retries can resurrect that ID.
+
+A foreign registered/proven target returns 403 without touching bytes. An
+unregistered target with an empty exact `<documentId>/` prefix can safely be
+tombstoned, preventing a delayed first upload. Existing historical bytes require
+trusted ownership provenance: the migration (or surviving backend-authored
+employment edges) can provide it, after which exact prefix keys are persisted.
+When existing bytes have no such proof, the response is 409 with
+`code:"cv_ownership_unknown"`; nothing is deleted and success is not claimed.
+This includes legacy zero-role CVs and replaced legacy CVs whose only proof was
+lost. A current showcase URL is **not ownership proof**: `POST /profile/showcase`
+accepts user-supplied URLs, and legacy R2 objects have no owner metadata. Device
+nonce records contain no upload request/response association. Keep the failed
+cleanup target and contact support for verification from trusted historical
+records; changing the profile URL cannot establish ownership.
 
 Run `COMPANION_TEST_DATABASE_URL=postgresql://USER@127.0.0.1:PORT/companion_test yarn test --runInBand src/companion`
-against an isolated local PostgreSQL database to exercise signed uploads, profile
-replacement, employer searches, revocation/expiry races, and input boundaries.
+against an isolated disposable PostgreSQL database. The CV integration suite
+creates its own schema, applies the document migration, uses synthetic signed
+requests and in-memory object storage, and covers registration, zero-role
+deletion, legacy provenance, foreign targets, replacement preservation,
+idempotency, lost storage responses, permanent fences and owner-lock races. A
+deterministic regression terminates the synthetic upload's actual PostgreSQL
+session with `pg_terminate_backend`, acknowledges deletion while its PUT remains
+in flight, then verifies the late write cannot restore bytes. The local test
+database user must be allowed to terminate its own other sessions. Also run
+`yarn test --runInBand src/release-route-manifest.spec.ts src/postgres/profile.repository.spec.ts`
+and the normal TypeScript build before release. Introductions remain planned,
+not live.
 
 
 

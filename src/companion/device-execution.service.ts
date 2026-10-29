@@ -179,6 +179,7 @@ export class DeviceExecutionService {
         "/device/heartbeat",
         "/device/platform",
         "/device/cv",
+        "/device/cv/delete",
       ].includes(input.path) ||
       input.method !== "POST" ||
       input.body.length >

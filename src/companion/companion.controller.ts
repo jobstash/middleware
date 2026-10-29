@@ -121,4 +121,14 @@ export class CompanionDeviceController {
   ): Promise<CvShareResult> {
     return this.cvShares.share(request.device, body);
   }
+  /** Erases only the authenticated owner's immutable CV target; no membership or consent gate. */
+  @Post("cv/delete")
+  @HttpCode(200)
+  @Header("Cache-Control", "private, no-store")
+  deleteCv(
+    @Req() request: DeviceRequest,
+    @Body() body: unknown,
+  ): Promise<{ deleted: true; documentId: string }> {
+    return this.cvShares.delete(request.device, body);
+  }
 }

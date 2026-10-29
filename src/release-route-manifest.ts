@@ -78,6 +78,14 @@ export const RELEASE_ROUTE_MANIFEST = [
     "device/platform",
     "active",
   ],
+  ["CompanionDeviceController", "cv", "POST", "device/cv", "active"],
+  [
+    "CompanionDeviceController",
+    "deleteCv",
+    "POST",
+    "device/cv/delete",
+    "active",
+  ],
   ["JobsController", "getJobFeed", "GET", "jobs/feed", "active"],
   ["JobsController", "getJobsRevision", "GET", "jobs/revision", "active"],
   [
