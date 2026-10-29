@@ -1,3 +1,4 @@
+/// <reference lib="es2024.promise" />
 import { INestApplication } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Test } from "@nestjs/testing";
@@ -47,6 +48,23 @@ const payload = (): CvShareInput & {
   ],
   consent: { version: 1, grantedAt: new Date().toISOString() },
 });
+
+function operationBarrier(): {
+  reached: Promise<void>;
+  wait: () => Promise<void>;
+  release: () => void;
+} {
+  const reached = Promise.withResolvers<void>();
+  const pending = Promise.withResolvers<void>();
+  return {
+    reached: reached.promise,
+    release: pending.resolve,
+    wait: async (): Promise<void> => {
+      reached.resolve();
+      await pending.promise;
+    },
+  };
+}
 
 suite("signed companion CV sharing on production main", () => {
   let client: Client, app: INestApplication;
@@ -523,24 +541,14 @@ suite("signed companion CV sharing on production main", () => {
   });
   it("serializes in-flight deletion with a new share using the owner row", async () => {
     const first = await signed("/device/cv", payload()).expect(200);
-    // ES2022 does not provide Promise.withResolvers.
-    let entered!: () => void, release!: () => void;
-    const deleting = new Promise<void>(resolve => {
-      entered = resolve;
-    });
-    const gate = new Promise<void>(resolve => {
-      release = resolve;
-    });
-    beforeDelete = async (): Promise<void> => {
-      entered();
-      await gate;
-    };
+    const barrier = operationBarrier();
+    beforeDelete = barrier.wait;
     const removal = signed("/device/cv/delete", {
       documentId: first.body.documentId,
     })
       .expect(200)
       .then(result => result);
-    await deleting;
+    await barrier.reached;
     await client.query("BEGIN");
     await expect(
       client.query("SELECT id FROM graph_nodes WHERE id=1 FOR UPDATE NOWAIT"),
@@ -549,7 +557,7 @@ suite("signed companion CV sharing on production main", () => {
     const replacement = signed("/device/cv", payload())
       .expect(200)
       .then(result => result);
-    release();
+    barrier.release();
     const [, next] = await Promise.all([removal, replacement]);
     expect([...objects.keys()]).toEqual([`${next.body.documentId}/CV.txt`]);
     expect(
@@ -562,27 +570,18 @@ suite("signed companion CV sharing on production main", () => {
   });
   it("waits for an in-flight upload before erasing it, without resurrecting its bytes", async () => {
     const input = { ...payload(), documentId: randomUUID() };
-    let entered!: () => void, release!: () => void;
-    const uploading = new Promise<void>(resolve => {
-      entered = resolve;
-    });
-    const gate = new Promise<void>(resolve => {
-      release = resolve;
-    });
-    afterPut = async (): Promise<void> => {
-      entered();
-      await gate;
-    };
+    const barrier = operationBarrier();
+    afterPut = barrier.wait;
     const upload = signed("/device/cv", input)
       .expect(200)
       .then(result => result);
-    await uploading;
+    await barrier.reached;
     const removal = signed("/device/cv/delete", {
       documentId: input.documentId,
     })
       .expect(200)
       .then(result => result);
-    release();
+    barrier.release();
     await Promise.all([upload, removal]);
     expect(objects.size).toBe(0);
     expect(
@@ -598,21 +597,12 @@ suite("signed companion CV sharing on production main", () => {
   it("fences a late PUT after the upload's actual PostgreSQL session is terminated", async () => {
     const input = { ...payload(), documentId: randomUUID() };
     const key = `${input.documentId}/CV.txt`;
-    let entered!: () => void, release!: () => void;
-    const uploading = new Promise<void>(resolve => {
-      entered = resolve;
-    });
-    const gate = new Promise<void>(resolve => {
-      release = resolve;
-    });
-    beforePut = async (): Promise<void> => {
-      entered();
-      await gate;
-    };
+    const barrier = operationBarrier();
+    beforePut = barrier.wait;
     const upload = signed("/device/cv", input)
       .expect(409)
       .then(result => result);
-    await uploading;
+    await barrier.reached;
     try {
       expect(uploadBackendPid).toEqual(expect.any(Number));
       expect(
@@ -637,7 +627,7 @@ suite("signed companion CV sharing on production main", () => {
         object_keys: [key],
       });
     } finally {
-      release();
+      barrier.release();
     }
     await upload;
     // Storage evaluates If-None-Match at commit and cannot replace the acknowledged fence.
@@ -688,30 +678,21 @@ suite("signed companion CV sharing on production main", () => {
       `UPDATE graph_nodes SET properties=properties || '{"wallet":"synthetic-wallet"}' WHERE id=1`,
     );
     const first = await signed("/device/cv", payload()).expect(200);
-    let entered!: () => void, release!: () => void;
-    const deleting = new Promise<void>(resolve => {
-      entered = resolve;
-    });
-    const gate = new Promise<void>(resolve => {
-      release = resolve;
-    });
-    beforeDelete = async (): Promise<void> => {
-      entered();
-      await gate;
-    };
+    const barrier = operationBarrier();
+    beforeDelete = barrier.wait;
     const removal = signed("/device/cv/delete", {
       documentId: first.body.documentId,
     })
       .expect(200)
       .then(result => result);
-    await deleting;
+    await barrier.reached;
     const replacement = app
       .get(ProfileRepository)
       .replaceShowcases("synthetic-wallet", [
         { label: "CV", url: "https://synthetic.invalid/new-cv" },
         { label: "Portfolio", url: "https://synthetic.invalid/portfolio" },
       ]);
-    release();
+    barrier.release();
     await Promise.all([removal, replacement]);
     const showcases = await app
       .get(ProfileRepository)
