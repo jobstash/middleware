@@ -26,6 +26,42 @@ const payload = (): CvShareInput => ({
 });
 
 describe("consented companion upload validation", () => {
+  it("accepts immutable upload IDs and strictly validates deletion targets", () => {
+    const documentId = "00000000-0000-4000-8000-000000000001";
+    expect(deviceInput("cv", { ...payload(), documentId }).documentId).toBe(
+      documentId,
+    );
+    expect(deviceInput("cvDelete", { documentId })).toEqual({ documentId });
+    for (const value of [
+      {},
+      { documentId: "../other" },
+      { documentId, owner: "1" },
+      { documentId, consent: true },
+    ])
+      expect(() => deviceInput("cvDelete", value)).toThrow();
+    expect(() =>
+      deviceInput("cv", { ...payload(), documentId: "invalid" }),
+    ).toThrow();
+  });
+  it("accepts zero matched employers while still requiring a bounded list of complete roles", () => {
+    expect(
+      deviceInput("cv", { ...payload(), employment: [] }).employment,
+    ).toEqual([]);
+    const { employment, ...withoutEmployment } = payload();
+    expect(() => deviceInput("cv", withoutEmployment)).toThrow();
+    for (const invalid of [
+      null,
+      {},
+      [undefined],
+      [null],
+      [{}],
+      [{ ...employment[0], title: undefined }],
+      Array(51).fill(employment[0]),
+    ])
+      expect(() =>
+        deviceInput("cv", { ...payload(), employment: invalid }),
+      ).toThrow();
+  });
   it("preserves PDF bytes, and writes a text CV with a .txt extension", () => {
     expect(cvShareObject(deviceInput("cv", payload()).document)).toEqual({
       body: Buffer.from("%PDF-1.7\nsynthetic"),
@@ -97,6 +133,14 @@ describe("consented companion upload validation", () => {
     await expect(
       service.share({ id: "device", owner: "1" }, payload()),
     ).rejects.toMatchObject({ status: 503 });
+    devices.authorize.mockClear();
+    await expect(
+      service.delete(
+        { id: "device", owner: "1" },
+        { documentId: "00000000-0000-4000-8000-000000000001" },
+      ),
+    ).rejects.toMatchObject({ status: 503 });
+    expect(devices.authorize).not.toHaveBeenCalled();
     expect(db.query).not.toHaveBeenCalled();
     expect(db.transaction).not.toHaveBeenCalled();
   });

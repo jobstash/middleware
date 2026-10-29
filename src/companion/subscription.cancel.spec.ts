@@ -8,7 +8,77 @@ import { deviceInput } from "./device-execution.protocol";
 const requestId = "617773b0-77be-4d96-8f7a-fb63393946b9";
 const requestKey = `recruiters-cancel:123:${requestId}`;
 
-function cancellationHarness(configuredPriceId = "price_live") {
+interface CancellationSubscriptionFixture {
+  id: string;
+  customer: string;
+  livemode: boolean;
+  status: string;
+  canceled_at: number | null;
+  cancel_at_period_end: boolean;
+  trial_start: null;
+  trial_end: null;
+  metadata: { candidateId: string; purpose: string };
+  items: { data: {
+    quantity: number;
+    id: string;
+    current_period_start: number;
+    current_period_end: number;
+    price: {
+      id: string; livemode: boolean; currency: string; unit_amount: number;
+      product: string; recurring: { interval: string; interval_count: number };
+    };
+  }[] };
+  latest_invoice: {
+    id: string;
+    customer: string;
+    parent: { type: string; subscription_details: { subscription: string } };
+    livemode: boolean;
+    status: string;
+    currency: string;
+    amount_paid: number;
+    amount_remaining: number;
+    amount_due: number;
+    total: number;
+    lines: { has_more: boolean; data: {
+      id: string; livemode: boolean; invoice: string; subscription: string;
+      currency: string; amount: number;
+      parent: { type: string; subscription_item_details: {
+        subscription: string; subscription_item: string; proration: boolean;
+      } };
+      quantity: number;
+      pricing: { price_details: { price: string } };
+      period: { start: number; end: number };
+    }[] };
+  };
+}
+
+interface CancellationHarness {
+  service: SubscriptionService;
+  query: jest.Mock<Promise<Record<string, unknown>[]>, [string, unknown[]?]>;
+  transaction: jest.Mock<Promise<unknown>, [(work: EntityManager) => Promise<unknown>]>;
+  retrieve: jest.Mock;
+  update: jest.Mock;
+  requests: Map<string, string>;
+  agreements: { checkout_id: string }[];
+  subscription: CancellationSubscriptionFixture;
+  session: {
+    livemode: boolean;
+    mode: string;
+    status: string;
+    client_reference_id: string;
+    metadata: { candidateId: string; purpose: string };
+    subscription: CancellationSubscriptionFixture;
+    line_items: { has_more: boolean; data: {
+      quantity: number;
+      price: CancellationSubscriptionFixture["items"]["data"][number]["price"];
+    }[] };
+  };
+  paidUntil: string;
+  setOwnership: (owned: boolean) => void;
+  setPersistFailure: (fail: boolean) => void;
+}
+
+function cancellationHarness(configuredPriceId = "price_live"): CancellationHarness {
   const now = Math.floor(Date.now() / 1000);
   const subscription = {
     id: "sub_owned",
@@ -91,8 +161,8 @@ function cancellationHarness(configuredPriceId = "price_live") {
   );
   return { service, query, transaction, retrieve, update, requests, agreements, subscription, session,
     paidUntil: new Date((now + 86400) * 1000).toISOString(),
-    setOwnership: (owned: boolean) => { ownsSubscription = owned; },
-    setPersistFailure: (fail: boolean) => { failPersist = fail; },
+    setOwnership: (owned: boolean): void => { ownsSubscription = owned; },
+    setPersistFailure: (fail: boolean): void => { failPersist = fail; },
   };
 }
 

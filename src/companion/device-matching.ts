@@ -95,9 +95,6 @@ const batchCharacters = 60000;
 const companyName = `COALESCE(NULLIF(o.payload->>'name',''),NULLIF(p.payload->>'name',''),NULLIF(j.organization_name,''),'')`;
 const companyLogo = `COALESCE(o.payload->>'logoUrl',p.payload->>'logoUrl') AS "logoUrl",
   COALESCE(NULLIF(o.payload->>'website',''),NULLIF(p.payload->>'website','')) AS "companyWebsite"`;
-const catalogueJoins = `FROM job_search_documents j
-  LEFT JOIN organization_search_documents o ON o.organization_id=j.organization_id
-  LEFT JOIN project_search_documents p ON p.project_id=j.project_id`;
 
 const availabilityFields = [
   "requirement",
@@ -292,13 +289,16 @@ export async function matchingCatalogue(
   );
   const total = Number(rows[0].total);
   const jobs = rows.filter(row => row.id !== null).map(
-    ({ total: _total, publishedTimestamp, applyUrl, salaryPayload, logoUrl, companyWebsite, ...job }) => ({
-      ...job,
-      logoUrl: employerLogoUrl(logoUrl, companyWebsite),
-      salary: projectJobSalary(salaryPayload),
-      publishedAt: new Date(Number(publishedTimestamp)).toISOString(),
-      ...(applyUrl ? { applyUrl } : {}),
-    }),
+    ({ publishedTimestamp, applyUrl, salaryPayload, logoUrl, companyWebsite, ...job }) => {
+      Reflect.deleteProperty(job, "total");
+      return {
+        ...job,
+        logoUrl: employerLogoUrl(logoUrl, companyWebsite),
+        salary: projectJobSalary(salaryPayload),
+        publishedAt: new Date(Number(publishedTimestamp)).toISOString(),
+        ...(applyUrl ? { applyUrl } : {}),
+      };
+    },
   );
   return {
     total,

@@ -55,6 +55,7 @@ export type CvShareDocument =
     }
   | { filename: string; mediaType: "text/plain"; text: string };
 export interface CvShareInput {
+  documentId?: string;
   document: CvShareDocument;
   employment: CvEmploymentItem[];
   consent: { version: typeof CV_SHARE_CONSENT_VERSION; grantedAt: string };
@@ -83,6 +84,7 @@ interface DeviceInputs {
       }
     | { operation: "intro_paths"; args: { jobIds: string[] } };
   cv: CvShareInput;
+  cvDelete: { documentId: string };
 }
 const uuid = Joi.string().guid().length(36).required();
 const text = (limit: number): Joi.StringSchema =>
@@ -214,9 +216,13 @@ const schemas = {
       ),
     )
     .required(),
+  cvDelete: object({ documentId: uuid }),
   cv: object({
+    documentId: uuid.optional(),
     document: cvDocument,
-    employment: Joi.array().items(cvEmployment).max(50).required(),
+    // Required item schemas in Joi also require at least one matching array entry.
+    // The list is required, but a CV may have no confidently matched employers.
+    employment: Joi.array().items(cvEmployment.optional()).max(50).required(),
     consent: object({
       version: Joi.valid(CV_SHARE_CONSENT_VERSION).required(),
       grantedAt: publicationTimestamp,
@@ -309,9 +315,17 @@ export function deviceCvBodyParser(): RequestHandler {
       Object.assign(request, { rawBody: body });
     },
   });
+  const deletionParser = json({
+    limit: 16 * 1024,
+    verify: (request, _response, body) => {
+      Object.assign(request, { rawBody: body });
+    },
+  });
   // A distinct name keeps Nest's global "jsonParser" registration for every other route.
   return function deviceCvJson(request, response, next) {
-    return parser(request, response, next);
+    return (
+      request.originalUrl === "/device/cv/delete" ? deletionParser : parser
+    )(request, response, next);
   };
 }
 export function sha256(value: string | Buffer): string {

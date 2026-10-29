@@ -1,15 +1,15 @@
 import {
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import * as Sentry from "@sentry/node";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { EntityManager } from "typeorm";
 import { PostgresService } from "src/postgres/postgres.service";
 import { ProfileRepository } from "src/postgres/profile.repository";
-import { CustomLogger } from "src/shared/utils/custom-logger";
 import {
   assertCvEmploymentRefs,
   cvShareObject,
@@ -25,12 +25,20 @@ export interface CvShareResult {
   attached: true;
   employment: number;
 }
+interface CvDocument {
+  user_node_id: string;
+  object_keys: string[] | null;
+  showcase_url: string | null;
+  request_hash: string | null;
+  employment_count: number;
+  state: "pending" | "attached" | "deleting" | "deleted";
+}
 
-/** Consented CV share from a paired companion: the document is stored like a JobStash resume upload,
- * then the CV showcase, CV-derived employment edges and consent are written in one transaction. */
+/** Reservations commit before external writes; deletion intent commits before external erasure.
+ * All mutations lock the owner (also used by profile replacement), then the immutable identifier.
+ * Failed/ambiguous storage operations keep their durable keys and can always be deleted again. */
 @Injectable()
 export class CvShareService {
-  private readonly logger = new CustomLogger(CvShareService.name);
   constructor(
     private readonly db: PostgresService,
     private readonly devices: DeviceExecutionService,
@@ -43,69 +51,241 @@ export class CvShareService {
     const input = deviceInput("cv", raw);
     const object = cvShareObject(input.document);
     await this.devices.authorize(device, true);
-    if (!this.storage)
-      throw new ServiceUnavailableException(
-        "CV sharing is unavailable: CV storage is not configured",
-      );
-    const origin = this.config
-      .getOrThrow<string>("FE_DOMAIN")
-      .replace(/\/+$/, "");
-    // Unknown or banned employers reject the whole share before any storage write.
-    await assertCvEmploymentRefs(this.db, input.employment);
-    const documentId = randomUUID();
+    const storage = this.requireStorage();
+    const documentId = (input.documentId ?? randomUUID()).toLowerCase();
     const key = `${documentId}/${object.filename}`;
-    await this.storage.put(key, object.body, object.contentType);
-    const sharedAt = new Date().toISOString();
-    try {
-      await this.db.transaction(async db => {
-        const [owner] = await db.query(
-          "SELECT id FROM graph_nodes WHERE id=$1 AND label='User' AND properties->>'privyId' LIKE 'did:privy:%' FOR UPDATE",
-          [device.owner],
+    const url = this.resumeUrl(documentId);
+    const hash = createHash("sha256")
+      .update(
+        JSON.stringify({
+          filename: object.filename,
+          contentType: object.contentType,
+          employment: input.employment,
+          consent: input.consent,
+        }),
+      )
+      .update(object.body)
+      .digest("hex");
+    await assertCvEmploymentRefs(this.db, input.employment);
+    // A committed reservation is the ownership proof even when the upload response is lost.
+    await this.db.transaction(async db => {
+      await this.lock(db, device, documentId);
+      const record = await this.document(db, documentId);
+      if (record) {
+        this.assertShare(record, device, hash);
+        return;
+      }
+      if ((await this.storageCall(() => storage.list(`${documentId}/`))).length)
+        throw new ConflictException(
+          "CV identifier already has unregistered objects",
         );
-        // Holding the device row keeps a concurrent revocation from interleaving with the write.
-        const [paired] = await db.query(
-          "SELECT id FROM candidate_devices WHERE id=$1 AND user_node_id=$2 AND status='active' FOR SHARE",
-          [device.id, device.owner],
-        );
-        if (!owner || !paired)
-          throw new ForbiddenException("Device is no longer paired");
-        const memberships = await db.query(
-          "SELECT checkout_id FROM candidate_subscriptions WHERE user_node_id=$1 AND status='active' AND paid_until>clock_timestamp() FOR SHARE",
-          [device.owner],
-        );
-        if (!memberships.length)
-          throw new ForbiddenException("An active paid membership is required");
-        await assertCvEmploymentRefs(db, input.employment, true);
-        await this.profiles.replaceCvShowcase(
-          db,
-          device.owner,
-          `${origin}/api/resume/${documentId}`,
-        );
-        await replaceCvEmployment(
-          db,
-          device.owner,
-          input,
+      await db.query(
+        `INSERT INTO candidate_cv_documents
+         (document_id,user_node_id,object_keys,showcase_url,request_hash,employment_count,state)
+         VALUES($1,$2,$3,$4,$5,$6,'pending')`,
+        [documentId, device.owner, [key], url, hash, input.employment.length],
+      );
+    });
+    return this.db.transaction<CvShareResult>(async db => {
+      await this.lock(db, device, documentId);
+      const record = (await this.document(db, documentId))!;
+      this.assertShare(record, device, hash);
+      // A retry must not restore a CV that a subsequent share has replaced.
+      if (record.state === "attached")
+        return {
           documentId,
-          sharedAt,
+          attached: true,
+          employment: record.employment_count,
+        };
+      await this.membership(db, device.owner);
+      await assertCvEmploymentRefs(db, input.employment, true);
+      const uploaded = await this.storageCall(() =>
+        storage.put(key, object.body, object.contentType, hash),
+      );
+      if (!uploaded)
+        throw new ConflictException(
+          "CV identifier has been deleted; use a new documentId",
         );
-        await recordCvShareConsent(db, device.owner, input, sharedAt);
-      });
-    } catch (error) {
-      // Nothing references the object once the transaction rolled back.
-      await this.storage.delete(key).catch(cleanup => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "cv-share-cleanup",
-            source: "cv-share.service",
+      await this.membership(db, device.owner);
+      const sharedAt = new Date().toISOString();
+      await this.profiles.replaceCvShowcase(db, device.owner, url);
+      await replaceCvEmployment(db, device.owner, input, documentId, sharedAt);
+      await recordCvShareConsent(db, device.owner, input, sharedAt);
+      await db.query(
+        "UPDATE candidate_cv_documents SET state='attached' WHERE document_id=$1",
+        [documentId],
+      );
+      return {
+        documentId,
+        attached: true,
+        employment: input.employment.length,
+      };
+    });
+  }
+
+  async delete(
+    device: DeviceIdentity,
+    raw: unknown,
+  ): Promise<{ deleted: true; documentId: string }> {
+    const documentId = deviceInput("cvDelete", raw).documentId.toLowerCase();
+    const storage = this.requireStorage();
+    // Do not call membership authorization/Stripe refresh: deletion needs only active pairing.
+    await this.db.transaction(async db => {
+      await this.lock(db, device, documentId);
+      const record = await this.document(db, documentId);
+      if (record && record.user_node_id !== device.owner)
+        throw new ForbiddenException("CV belongs to another account");
+      if (record?.state === "deleted" || record?.state === "deleting") return;
+      if (!record) {
+        const proof = await db.query(
+          `SELECT DISTINCT source_id::text AS owner FROM graph_relationships
+           WHERE type='CV_EMPLOYMENT' AND properties->>'source'='companion_cv'
+             AND lower(properties->>'documentId')=$1`,
+          [documentId],
+        );
+        if (
+          proof.length &&
+          (proof.length !== 1 || proof[0].owner !== device.owner)
+        )
+          throw new ForbiddenException(
+            "CV ownership cannot be established for this account",
+          );
+        const keys = await this.storageCall(() =>
+          storage.list(`${documentId}/`),
+        );
+        if (!proof.length && keys.length)
+          throw new ConflictException({
+            statusCode: 409,
+            code: "cv_ownership_unknown",
+            message:
+              "Historical CV ownership cannot be established; no objects were deleted",
           });
-          Sentry.captureException(cleanup);
-        });
-        this.logger.error(
-          `CvShareService::share orphaned object ${key}: ${cleanup instanceof Error ? cleanup.message : String(cleanup)}`,
+        // An absent prefix can safely be tombstoned, preventing a delayed first upload.
+        await db.query(
+          `INSERT INTO candidate_cv_documents(document_id,user_node_id,object_keys,showcase_url,state)
+           VALUES($1,$2,$3,$4,'deleting')`,
+          [documentId, device.owner, keys, this.resumeUrl(documentId)],
         );
-      });
-      throw error;
+        return;
+      }
+      if (record.object_keys === null) {
+        const keys = await this.storageCall(() =>
+          storage.list(`${documentId}/`),
+        );
+        await db.query(
+          "UPDATE candidate_cv_documents SET object_keys=$2,showcase_url=COALESCE(showcase_url,$3) WHERE document_id=$1",
+          [documentId, keys, this.resumeUrl(documentId)],
+        );
+      }
+      await db.query(
+        "UPDATE candidate_cv_documents SET state='deleting' WHERE document_id=$1",
+        [documentId],
+      );
+    });
+    await this.db.transaction(async db => {
+      await this.lock(db, device, documentId);
+      const record = (await this.document(db, documentId))!;
+      if (record.state === "deleted") return;
+      for (const key of record.object_keys!) {
+        // Defense in depth against corrupt/imported records: never delete a neighboring prefix.
+        if (!key.startsWith(`${documentId}/`))
+          throw new ConflictException("Invalid stored CV object key");
+        await this.storageCall(() => storage.delete(key));
+      }
+      await this.profiles.removeCvShowcase(
+        db,
+        device.owner,
+        record.showcase_url!,
+      );
+      await db.query(
+        `DELETE FROM graph_relationships WHERE source_id=$1 AND type='CV_EMPLOYMENT'
+         AND properties->>'source'='companion_cv' AND lower(properties->>'documentId')=$2`,
+        [device.owner, documentId],
+      );
+      await db.query(
+        `UPDATE candidate_cv_documents SET state='deleted',deleted_at=clock_timestamp(),
+         showcase_url=NULL,request_hash=NULL,employment_count=0 WHERE document_id=$1`,
+        [documentId],
+      );
+    });
+    return { deleted: true, documentId };
+  }
+
+  private async lock(
+    db: EntityManager,
+    device: DeviceIdentity,
+    documentId: string,
+  ): Promise<void> {
+    const [owner] = await db.query(
+      "SELECT id FROM graph_nodes WHERE id=$1 AND label='User' AND properties->>'privyId' LIKE 'did:privy:%' FOR UPDATE",
+      [device.owner],
+    );
+    const [paired] = await db.query(
+      "SELECT id FROM candidate_devices WHERE id=$1 AND user_node_id=$2 AND status='active' FOR SHARE",
+      [device.id, device.owner],
+    );
+    if (!owner || !paired)
+      throw new ForbiddenException("Device is no longer paired");
+    // Global per-ID exclusion covers two different owners racing to reserve an absent UUID.
+    await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
+      `companion-cv:${documentId}`,
+    ]);
+  }
+
+  private async document(
+    db: EntityManager,
+    documentId: string,
+  ): Promise<CvDocument | undefined> {
+    const [record] = await db.query(
+      "SELECT * FROM candidate_cv_documents WHERE document_id=$1",
+      [documentId],
+    );
+    return record;
+  }
+
+  private assertShare(
+    record: CvDocument,
+    device: DeviceIdentity,
+    hash: string,
+  ): void {
+    if (record.user_node_id !== device.owner)
+      throw new ForbiddenException("CV belongs to another account");
+    if (record.state === "deleting" || record.state === "deleted")
+      throw new ConflictException(
+        "CV identifier has been deleted; use a new documentId",
+      );
+    if (record.request_hash !== hash)
+      throw new ConflictException(
+        "CV identifier is already registered to another share payload",
+      );
+  }
+
+  private async membership(db: EntityManager, owner: string): Promise<void> {
+    const memberships = await db.query(
+      "SELECT checkout_id FROM candidate_subscriptions WHERE user_node_id=$1 AND status='active' AND paid_until>clock_timestamp() FOR SHARE",
+      [owner],
+    );
+    if (!memberships.length)
+      throw new ForbiddenException("An active paid membership is required");
+  }
+
+  private resumeUrl(documentId: string): string {
+    return `${this.config.getOrThrow<string>("FE_DOMAIN").replace(/\/+$/, "")}/api/resume/${documentId}`;
+  }
+
+  private requireStorage(): CvObjectStorage {
+    if (!this.storage)
+      throw new ServiceUnavailableException("CV storage is not configured");
+    return this.storage;
+  }
+
+  private async storageCall<T>(operation: () => Promise<T>): Promise<T> {
+    try {
+      return await operation();
+    } catch {
+      throw new ServiceUnavailableException(
+        "CV storage operation failed; retry with the same documentId",
+      );
     }
-    return { documentId, attached: true, employment: input.employment.length };
   }
 }
