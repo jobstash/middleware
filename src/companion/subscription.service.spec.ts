@@ -6,7 +6,72 @@ import { SubscriptionService } from "./subscription.service";
 import { deviceInput } from "./device-execution.protocol";
 
 const requestId = "3b7837f3-2e09-4b86-a2c5-51b53b3d0a61";
-function candidatePrice(interval: "month" | "year" = "month") {
+interface CandidatePriceFixture {
+  id: string;
+  livemode: boolean;
+  active: boolean;
+  currency: string;
+  unit_amount: number;
+  recurring: { interval: "month" | "year"; interval_count: number };
+  product: {
+    id: string;
+    livemode: boolean;
+    active: boolean;
+    metadata: { purpose: string };
+  };
+}
+
+interface PaidSubscriptionFixture {
+  id: string;
+  customer: string;
+  livemode: boolean;
+  status: string;
+  canceled_at: null;
+  trial_start: null;
+  trial_end: null;
+  metadata: { candidateId: string; purpose: string };
+  discounts: Stripe.Discount[];
+  items: { data: {
+    id: string;
+    quantity: number;
+    discounts: Stripe.SubscriptionItem["discounts"];
+    current_period_start: number;
+    current_period_end: number;
+    price: Omit<CandidatePriceFixture, "product"> & { product: string };
+  }[] };
+  latest_invoice: {
+    id: string;
+    customer: string;
+    livemode: boolean;
+    status: string;
+    currency: string;
+    amount_paid: number;
+    amount_due: number;
+    total: number;
+    amount_remaining: number;
+    discounts: Stripe.Invoice["discounts"];
+    total_discount_amounts: Stripe.Invoice["total_discount_amounts"];
+    parent: { type: string; subscription_details: { subscription: string } };
+    lines: { has_more: boolean; data: {
+      id: string;
+      livemode: boolean;
+      invoice: string;
+      quantity: number;
+      subscription: string;
+      discounts: Stripe.InvoiceLineItem["discounts"];
+      discount_amounts: Stripe.InvoiceLineItem["discount_amounts"];
+      currency: string;
+      amount: number;
+      parent: { type: string; subscription_item_details: {
+        subscription: string; subscription_item: string; proration: boolean;
+      } };
+      pricing: { price_details: { price: string; product: string } };
+      period: { start: number; end: number };
+    }[] };
+  };
+}
+
+function candidatePrice(interval: "month" | "year" = "month"): CandidatePriceFixture {
   return {
     id: interval === "month" ? "price_live" : "price_year",
     livemode: true,
@@ -22,10 +87,13 @@ function candidatePrice(interval: "month" | "year" = "month") {
     },
   };
 }
-function sessionLines(interval: "month" | "year" = "month") {
+function sessionLines(interval: "month" | "year" = "month"): {
+  has_more: boolean;
+  data: { quantity: number; price: CandidatePriceFixture }[];
+} {
   return { has_more: false, data: [{ quantity: 1, price: candidatePrice(interval) }] };
 }
-function paidSubscription(interval: "month" | "year" = "month") {
+function paidSubscription(interval: "month" | "year" = "month"): PaidSubscriptionFixture {
   const now = Math.floor(Date.now() / 1000);
   const price = candidatePrice(interval);
   return {

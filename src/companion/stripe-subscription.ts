@@ -10,11 +10,11 @@ export interface CandidateSubscriptionState {
   discount: { percentOff: number; endsAt: string | null } | null;
 }
 
-function providerId(value: string | { id: string } | null | undefined) {
+function providerId(value: string | { id: string } | null | undefined): string | undefined {
   return typeof value === "string" ? value : value?.id;
 }
 
-function timestamp(value: number) {
+function timestamp(value: number): boolean {
   return Number.isSafeInteger(value) && value > 0;
 }
 

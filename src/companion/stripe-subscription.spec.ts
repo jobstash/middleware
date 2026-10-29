@@ -449,37 +449,37 @@ describe("live Stripe membership state", () => {
     expect(() => parse(historical)).toThrow("discount policy");
   });
   it.each([
-    (value: SubscriptionFixture) => {
+    (value: SubscriptionFixture): void => {
       value.latest_invoice.customer = "cus_foreign";
     },
-    (value: SubscriptionFixture) => {
+    (value: SubscriptionFixture): void => {
       value.latest_invoice.parent.subscription_details.subscription = "sub_other";
     },
-    (value: SubscriptionFixture) => {
+    (value: SubscriptionFixture): void => {
       value.latest_invoice.lines.data[0].parent.subscription_item_details.subscription =
         "sub_other";
     },
-    (value: SubscriptionFixture) => {
+    (value: SubscriptionFixture): void => {
       value.latest_invoice.lines.data[0].parent.subscription_item_details.subscription_item =
         "si_other";
     },
-    (value: SubscriptionFixture) => {
+    (value: SubscriptionFixture): void => {
       value.latest_invoice.lines.data[0].livemode = false;
     },
-    (value: SubscriptionFixture) => {
+    (value: SubscriptionFixture): void => {
       value.latest_invoice.lines.data[0].invoice = "in_other";
     },
-    (value: SubscriptionFixture) => {
+    (value: SubscriptionFixture): void => {
       value.latest_invoice.lines.data[0].parent.subscription_item_details.proration =
         true;
     },
-    (value: SubscriptionFixture) => {
+    (value: SubscriptionFixture): void => {
       value.latest_invoice.lines.data[0].period.start = start - 1;
     },
-    (value: SubscriptionFixture) => {
+    (value: SubscriptionFixture): void => {
       value.latest_invoice.lines.data[0].period.end = end + 1;
     },
-    (value: SubscriptionFixture) => {
+    (value: SubscriptionFixture): void => {
       value.latest_invoice.lines.has_more = true;
     },
   ])("requires matching invoice and line ownership and periods", mutate => {

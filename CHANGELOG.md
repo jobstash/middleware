@@ -1,3 +1,7 @@
+## 2026-10-30
+
+- Resolve backend lint blockers with explicit subscription helper and fixture return types; remove unused catalogue SQL and keep pagination totals out of returned jobs.
+
 ## 2026-10-15
 
 - Add authenticated candidate membership cancellation at the end of the Stripe paid period. Preserve current access, bind retry requests to the original agreement, and report scheduled cancellation in membership status.
