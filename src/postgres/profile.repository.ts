@@ -2246,80 +2246,6 @@ export class ProfileRepository {
     return rows.length > 0;
   }
 
-  /** Points the account's CV showcase at a new resume URL, creating it when absent. Other showcase entries stay. */
-  async replaceCvShowcase(
-    manager: EntityManager,
-    accountNodeId: string,
-    url: string,
-  ): Promise<void> {
-    await manager.query("SELECT id FROM graph_nodes WHERE id=$1 FOR UPDATE", [
-      accountNodeId,
-    ]);
-    const updated = await queryRows<{ nodeId: string }>(
-      manager,
-      `
-        UPDATE graph_nodes showcase
-        SET properties = showcase.properties || $2::jsonb, updated_at = now()
-        FROM graph_relationships relationship
-        WHERE relationship.source_id = $1
-          AND relationship.type = 'HAS_SHOWCASE'
-          AND showcase.id = relationship.target_id
-          AND showcase.label = 'UserShowCase'
-          AND showcase.properties ->> 'label' = 'CV'
-        RETURNING showcase.id::text AS "nodeId"
-      `,
-      [accountNodeId, JSON.stringify({ url })],
-    );
-    if (updated.length) return;
-    const node = await this.insertNode(manager, "UserShowCase", {
-      label: "CV",
-      url,
-    });
-    await this.insertRelationship(manager, accountNodeId, node, "HAS_SHOWCASE");
-  }
-
-  /** Remove only this owner's exact CV URL; never remove a newer CV or shared graph node. */
-  async removeCvShowcase(
-    manager: EntityManager,
-    accountNodeId: string,
-    url: string,
-  ): Promise<void> {
-    await manager.query("SELECT id FROM graph_nodes WHERE id=$1 FOR UPDATE", [
-      accountNodeId,
-    ]);
-    const removed = await queryRows<{ nodeId: string }>(
-      manager,
-      `DELETE FROM graph_relationships relationship USING graph_nodes showcase
-       WHERE relationship.source_id=$1 AND relationship.type='HAS_SHOWCASE'
-         AND relationship.target_id=showcase.id AND showcase.label='UserShowCase'
-         AND showcase.properties->>'label'='CV' AND showcase.properties->>'url'=$2
-       RETURNING showcase.id::text AS "nodeId"`,
-      [accountNodeId, url],
-    );
-    if (!removed.length) return;
-    await manager.query(
-      `DELETE FROM graph_nodes node WHERE node.id=ANY($1::bigint[])
-       AND NOT EXISTS (SELECT 1 FROM graph_relationships r WHERE r.source_id=node.id OR r.target_id=node.id)`,
-      [removed.map(row => row.nodeId)],
-    );
-    // Career recommendations are CV-derived, but may already belong to a newer CV.
-    const remaining = await manager.query(
-      `SELECT 1 FROM graph_relationships r JOIN graph_nodes n ON n.id=r.target_id
-       WHERE r.source_id=$1 AND r.type='HAS_SHOWCASE' AND n.properties->>'label'='CV'`,
-      [accountNodeId],
-    );
-    if (!remaining.length) {
-      await manager.query(
-        "UPDATE graph_nodes SET properties=properties-'recommendationCareer' WHERE id=$1",
-        [accountNodeId],
-      );
-      await manager.query(
-        "DELETE FROM recommendation_embedding_documents WHERE kind='user' AND node_id=$1",
-        [accountNodeId],
-      );
-    }
-  }
-
   async replaceShowcases(
     wallet: string,
     showcases: Record<string, unknown>[],
@@ -3304,13 +3230,6 @@ export class ProfileRepository {
     return this.postgres.transaction(async manager => {
       const account = await this.findNode("User", { wallet }, manager);
       if (!account) return false;
-      // Serialize showcase replacement with companion CV share/deletion, including when
-      // a replacement still contains a CV and would otherwise never update the owner.
-      if (relationshipType === "HAS_SHOWCASE")
-        await manager.query(
-          "SELECT id FROM graph_nodes WHERE id=$1 FOR UPDATE",
-          [account.nodeId],
-        );
       if (
         relationshipType === "HAS_SHOWCASE" &&
         !nodes.some(node => node.label === "CV")

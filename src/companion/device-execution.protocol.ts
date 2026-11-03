@@ -1,6 +1,5 @@
 import { BadRequestException, ForbiddenException } from "@nestjs/common";
 import { createHash, createPublicKey, KeyObject, verify } from "node:crypto";
-import { json, RequestHandler } from "express";
 import * as Joi from "joi";
 
 export interface DeviceIdentity {
@@ -23,43 +22,6 @@ export interface MatchingCatalogueArgs {
   offset?: number;
   countOnly?: boolean;
 }
-export interface EmployerSearchQuery {
-  name: string;
-  website?: string;
-}
-/** Signed CV share: 5 MiB decoded document plus JSON/base64 framing and employment within 7.5 MiB. */
-export const DEVICE_CV_BODY_LIMIT = 7.5 * 1024 * 1024;
-export const DEVICE_CV_DOCUMENT_BYTES = 5 * 1024 * 1024;
-export const DEVICE_CV_TEXT_CHARACTERS = 100000;
-export const CV_SHARE_CONSENT_VERSION = 1;
-export const cvEmploymentKinds: Record<string, string> = {
-  profile: "EntityProfile",
-  organization: "Organization",
-  project: "Project",
-};
-export const CV_PDF = "application/pdf";
-export const CV_DOCX =
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-export interface CvEmploymentItem {
-  ref: string;
-  title: string;
-  startDate: string;
-  endDate: string | null;
-  current: boolean;
-}
-export type CvShareDocument =
-  | {
-      filename: string;
-      mediaType: typeof CV_PDF | typeof CV_DOCX;
-      contentBase64: string;
-    }
-  | { filename: string; mediaType: "text/plain"; text: string };
-export interface CvShareInput {
-  documentId?: string;
-  document: CvShareDocument;
-  employment: CvEmploymentItem[];
-  consent: { version: typeof CV_SHARE_CONSENT_VERSION; grantedAt: string };
-}
 interface DeviceInputs {
   pair: {
     requestId: string;
@@ -77,14 +39,7 @@ interface DeviceInputs {
     | { operation: "matching_catalogue"; args: MatchingCatalogueArgs }
     | { operation: "job_read"; args: { id: string } }
     | { operation: "matching_jobs"; args: { ids: string[] } }
-    | { operation: "employer_profile"; args: { ref: string } }
-    | {
-        operation: "employer_search";
-        args: { queries: EmployerSearchQuery[] };
-      }
     | { operation: "intro_paths"; args: { jobIds: string[] } };
-  cv: CvShareInput;
-  cvDelete: { documentId: string };
 }
 const uuid = Joi.string().guid().length(36).required();
 const text = (limit: number): Joi.StringSchema =>
@@ -108,44 +63,8 @@ export const devicePlatformOperations = [
   "job_read",
   "matching_catalogue",
   "matching_jobs",
-  "employer_search",
-  "employer_profile",
   "intro_paths",
 ] as const;
-const cvDate = Joi.string()
-  .max(7)
-  .pattern(/^[0-9]{4}(?:-(?:0[1-9]|1[0-2]))?$(?![\s\S])/);
-const cvEmployment = object({
-  ref: Joi.string()
-    .max(32)
-    .pattern(/^(?:profile|organization|project):[1-9][0-9]{0,18}$(?![\s\S])/)
-    .required(),
-  title: text(200),
-  startDate: cvDate.required(),
-  endDate: cvDate.allow(null).required(),
-  current: Joi.boolean().required(),
-});
-const cvDocument = Joi.alternatives()
-  .try(
-    object({
-      filename: text(255),
-      mediaType: Joi.string().valid(CV_PDF, CV_DOCX).required(),
-      contentBase64: Joi.string()
-        .min(4)
-        .max(Math.ceil(DEVICE_CV_DOCUMENT_BYTES / 3) * 4)
-        .required(),
-    }),
-    object({
-      filename: text(255),
-      mediaType: Joi.string().valid("text/plain").required(),
-      // Tab, CR and LF are the only control characters a CV text keeps.
-      text: Joi.string()
-        .max(DEVICE_CV_TEXT_CHARACTERS)
-        .pattern(/^[^\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]+$(?![\s\S])/)
-        .required(),
-    }),
-  )
-  .required();
 const platformArgs = {
   status: object({}),
   matching_catalogue: object({
@@ -160,18 +79,6 @@ const platformArgs = {
   job_read: object({ id: matchingId }),
   matching_jobs: object({
     ids: Joi.array().items(matchingId).min(1).max(10).unique().required(),
-  }),
-  employer_search: object({
-    queries: Joi.array()
-      .items(object({ name: text(200), website: text(300).optional() }))
-      .min(1)
-      .max(20)
-      .required(),
-  }),
-  employer_profile: object({
-    ref: Joi.string()
-      .pattern(/^(?:profile|organization|project):[1-9][0-9]{0,18}$(?![\s\S])/)
-      .required(),
   }),
   intro_paths: object({
     jobIds: Joi.array().items(matchingId).min(1).max(10).unique().required(),
@@ -216,18 +123,6 @@ const schemas = {
       ),
     )
     .required(),
-  cvDelete: object({ documentId: uuid }),
-  cv: object({
-    documentId: uuid.optional(),
-    document: cvDocument,
-    // Required item schemas in Joi also require at least one matching array entry.
-    // The list is required, but a CV may have no confidently matched employers.
-    employment: Joi.array().items(cvEmployment.optional()).max(50).required(),
-    consent: object({
-      version: Joi.valid(CV_SHARE_CONSENT_VERSION).required(),
-      grantedAt: publicationTimestamp,
-    }),
-  }),
 };
 const validTimestamp = (timestamp: string): boolean => {
   const time = Date.parse(timestamp);
@@ -237,21 +132,6 @@ const validTimestamp = (timestamp: string): boolean => {
   );
   return Number.isFinite(time) && new Date(time).toISOString() === normalized;
 };
-/** Partial dates compare on their common precision: "2021" overlaps "2021-03". */
-export function cvDatesOrdered(
-  startDate: string,
-  endDate: string | null,
-): boolean {
-  if (endDate === null) return true;
-  const length = Math.min(startDate.length, endDate.length);
-  return startDate.slice(0, length) <= endDate.slice(0, length);
-}
-/** Several roles at one entity stay distinct; an identical role is one edge. */
-export function cvEmploymentKey(item: CvEmploymentItem): string {
-  return sha256(
-    `${item.title}\n${item.startDate}\n${item.endDate}\n${item.current}`,
-  );
-}
 export function deviceInput<K extends keyof DeviceInputs>(
   kind: K,
   value: unknown,
@@ -272,61 +152,8 @@ export function deviceInput<K extends keyof DeviceInputs>(
       )
         throw new BadRequestException("Invalid publication window");
     }
-    if (
-      input.operation === "employer_search" &&
-      input.args.queries.some(
-        query =>
-          !query.name.trim() ||
-          (query.website !== undefined && !query.website.trim()),
-      )
-    )
-      throw new BadRequestException("Invalid employer search");
-  }
-  if (kind === "cv") {
-    const { document, employment, consent } = parsed.value as CvShareInput;
-    if (!document.filename.trim() || /[\\/]/.test(document.filename))
-      throw new BadRequestException("Choose a file with a valid filename");
-    if ("text" in document && !document.text.trim())
-      throw new BadRequestException("The CV text is empty");
-    if (!validTimestamp(consent.grantedAt))
-      throw new BadRequestException("Invalid consent time");
-    const keys = new Set<string>();
-    for (const item of employment) {
-      if (
-        !item.title.trim() ||
-        (item.current && item.endDate !== null) ||
-        !cvDatesOrdered(item.startDate, item.endDate) ||
-        BigInt(item.ref.split(":")[1]) > 9223372036854775807n
-      )
-        throw new BadRequestException("Invalid employment entry");
-      const key = `${item.ref}:${cvEmploymentKey(item)}`;
-      if (keys.has(key))
-        throw new BadRequestException("Duplicate employment entry");
-      keys.add(key);
-    }
   }
   return parsed.value;
-}
-/** Route-scoped JSON parser for the signed CV share; keeps the exact bytes for signature verification. */
-export function deviceCvBodyParser(): RequestHandler {
-  const parser = json({
-    limit: DEVICE_CV_BODY_LIMIT,
-    verify: (request, _response, body) => {
-      Object.assign(request, { rawBody: body });
-    },
-  });
-  const deletionParser = json({
-    limit: 16 * 1024,
-    verify: (request, _response, body) => {
-      Object.assign(request, { rawBody: body });
-    },
-  });
-  // A distinct name keeps Nest's global "jsonParser" registration for every other route.
-  return function deviceCvJson(request, response, next) {
-    return (
-      request.originalUrl === "/device/cv/delete" ? deletionParser : parser
-    )(request, response, next);
-  };
 }
 export function sha256(value: string | Buffer): string {
   return createHash("sha256").update(value).digest("hex");

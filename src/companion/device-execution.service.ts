@@ -13,7 +13,6 @@ import { PostgresService } from "src/postgres/postgres.service";
 import { SubscriptionService } from "./subscription.service";
 import {
   canonicalJSON,
-  DEVICE_CV_BODY_LIMIT,
   DeviceIdentity,
   deviceCanonicalRequest,
   deviceInput,
@@ -22,7 +21,6 @@ import {
   verifyDeviceSignature,
 } from "./device-execution.protocol";
 import { matchingCatalogue, matchingJobs } from "./device-matching";
-import { employerProfile, employerSearch } from "./employer-search";
 import { INTRO_PATHS_HTTP, introPaths, ownerGithubLogin } from "./intro-paths";
 
 export interface DeviceAccount {
@@ -174,16 +172,11 @@ export class DeviceExecutionService {
       !uuid.test(input.nonce) ||
       !/^\d{13}$/.test(input.time) ||
       Math.abs(Date.now() - Number(input.time)) > 30000 ||
-      ![
-        "/device/activate",
-        "/device/heartbeat",
-        "/device/platform",
-        "/device/cv",
-        "/device/cv/delete",
-      ].includes(input.path) ||
+      !["/device/activate", "/device/heartbeat", "/device/platform"].includes(
+        input.path,
+      ) ||
       input.method !== "POST" ||
-      input.body.length >
-        (input.path === "/device/cv" ? DEVICE_CV_BODY_LIMIT : 16 * 1024)
+      input.body.length > 16 * 1024
     )
       throw new ForbiddenException("Invalid device request");
     return this.db.transaction(async db => {
@@ -279,7 +272,7 @@ export class DeviceExecutionService {
     };
   }
   /** Paired-device authority: an active owned device and, unless only status is read, live paid membership. */
-  async authorize(
+  private async authorize(
     device: DeviceIdentity,
     membership: boolean,
   ): Promise<DeviceAccount> {
@@ -309,8 +302,7 @@ export class DeviceExecutionService {
     const { operation, args } = deviceInput("platform", raw);
     if (Buffer.byteLength(JSON.stringify(raw)) > 16 * 1024)
       throw new PayloadTooLargeException("Platform request exceeds limit");
-    const requiresMembership =
-      operation !== "status" && operation !== "employer_profile";
+    const requiresMembership = operation !== "status";
     const account = await this.authorize(device, requiresMembership);
     let result: unknown;
     if (operation === "status") {
@@ -324,11 +316,7 @@ export class DeviceExecutionService {
         github: login ? { login } : null,
       };
     }
-    if (operation === "employer_search")
-      result = await employerSearch(this.db, args.queries);
-    else if (operation === "employer_profile")
-      result = await employerProfile(this.db, args.ref);
-    else if (operation === "matching_catalogue")
+    if (operation === "matching_catalogue")
       result = await matchingCatalogue(this.db, args);
     else if (operation === "matching_jobs")
       result = await matchingJobs(this.db, args.ids);

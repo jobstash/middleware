@@ -137,7 +137,12 @@ describeDatabase("companion catalogue executed in isolated PostgreSQL", () => {
     await client.query(`INSERT INTO job_search_documents(job_node_id,organization_id,organization_name,published_timestamp)
       VALUES (1,'org','Org Inc',$1),(2,'bare','',$1),(3,NULL,NULL,$1)`, [end-day]);
     const employers = await jobEmployerGithubLogins(db as never, ["node:1", "node:2", "node:3", "node:404", "node:99999999999999999999"]);
-    expect(employers.get("node:1")).toEqual({ company: "Org Inc", orgLogins: ["org-labs", "orghq"] });
+    expect(employers.get("node:1")?.company).toBe("Org Inc");
+    // SQL DISTINCT aggregates do not promise a login order across DB collations.
+    expect(employers.get("node:1")?.orgLogins.slice().sort()).toEqual([
+      "org-labs",
+      "orghq",
+    ]);
     expect(employers.get("node:2")).toEqual({ company: "Bare", orgLogins: [] });
     expect(employers.get("node:3")).toEqual({ company: "", orgLogins: [] });
     expect(employers.has("node:404")).toBe(false);
