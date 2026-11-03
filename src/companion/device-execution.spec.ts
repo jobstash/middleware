@@ -101,78 +101,95 @@ describe("hosted companion boundary", () => {
     expect(authenticate).not.toHaveBeenCalled();
   });
 
-  it("verifies exact Ed25519 body bytes and consumes a nonce once", async () => {
-    const keys = generateKeyPairSync("ed25519");
-    const publicKey = keys.publicKey
-      .export({ type: "spki", format: "der" })
-      .toString("base64url");
-    let used = false;
-    const query = jest.fn(async (sql: string) => {
-      if (sql.startsWith("SELECT *"))
-        return [
-          {
-            id: device.id,
-            user_node_id: device.owner,
-            public_key: publicKey,
-            status: "active",
-          },
-        ];
-      if (sql.startsWith("INSERT")) {
-        if (used) return [];
-        used = true;
-        return [{ nonce: "accepted" }];
-      }
-      return [];
-    });
-    // The transaction double supplies only SQL queries, without opening a database.
-    const manager = { query } as unknown as EntityManager;
-    const db = {
-      query,
-      transaction: <T>(work: (value: EntityManager) => Promise<T>) =>
-        work(manager),
-    } as unknown as PostgresService;
-    const subscriptions = {} as unknown as SubscriptionService;
-    const service = new DeviceExecutionService(db, subscriptions, {
-      post: jest.fn(),
-    } as never);
-    const input = {
-      id: device.id,
-      time: String(Date.now()),
-      nonce: randomUUID(),
-      method: "POST",
-      path: "/device/platform",
-      body: Buffer.from(JSON.stringify({
-        operation: "matching_catalogue",
-        args: { ...catalogueArgs, offset: Number.MAX_SAFE_INTEGER, countOnly: true },
-      })),
-      signature: "",
-    };
-    input.signature = sign(
-      null,
-      Buffer.from(
-        deviceCanonicalRequest(
-          input.time,
-          input.nonce,
-          input.method,
-          input.path,
-          input.body,
+  it.each(["/device/activate", "/device/heartbeat", "/device/platform"])(
+    "verifies exact Ed25519 bytes, time and nonce for %s",
+    async path => {
+      const keys = generateKeyPairSync("ed25519");
+      const publicKey = keys.publicKey
+        .export({ type: "spki", format: "der" })
+        .toString("base64url");
+      let used = false;
+      const query = jest.fn(async (sql: string) => {
+        if (sql.startsWith("SELECT *"))
+          return [
+            {
+              id: device.id,
+              user_node_id: device.owner,
+              public_key: publicKey,
+              status: "active",
+            },
+          ];
+        if (sql.startsWith("INSERT")) {
+          if (used) return [];
+          used = true;
+          return [{ nonce: "accepted" }];
+        }
+        return [];
+      });
+      // The transaction double supplies only SQL queries, without opening a database.
+      const manager = { query } as unknown as EntityManager;
+      const db = {
+        query,
+        transaction: <T>(work: (value: EntityManager) => Promise<T>) =>
+          work(manager),
+      } as unknown as PostgresService;
+      const subscriptions = {} as unknown as SubscriptionService;
+      const service = new DeviceExecutionService(db, subscriptions, {
+        post: jest.fn(),
+      } as never);
+      const input = {
+        id: device.id,
+        time: String(Date.now()),
+        nonce: randomUUID(),
+        method: "POST",
+        path,
+        body: Buffer.from(
+          JSON.stringify({
+            operation: "matching_catalogue",
+            args: {
+              ...catalogueArgs,
+              offset: Number.MAX_SAFE_INTEGER,
+              countOnly: true,
+            },
+          }),
         ),
-      ),
-      keys.privateKey,
-    ).toString("base64url");
-    await expect(service.authenticate(input)).resolves.toEqual(device);
-    await expect(service.authenticate(input)).rejects.toBeInstanceOf(
-      ForbiddenException,
-    );
-    await expect(
-      service.authenticate({ ...input, body: Buffer.from("{}") }),
-    ).rejects.toBeInstanceOf(ForbiddenException);
-    query.mockClear();
-    await expect(
-      service.authenticate({ ...input, body: Buffer.alloc(16385) }),
-    ).rejects.toBeInstanceOf(ForbiddenException);
-    expect(query).not.toHaveBeenCalled();
-  });
+        signature: "",
+      };
+      input.signature = sign(
+        null,
+        Buffer.from(
+          deviceCanonicalRequest(
+            input.time,
+            input.nonce,
+            input.method,
+            input.path,
+            input.body,
+          ),
+        ),
+        keys.privateKey,
+      ).toString("base64url");
+      await expect(service.authenticate(input)).resolves.toEqual(device);
+      await expect(service.authenticate(input)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      await expect(
+        service.authenticate({ ...input, body: Buffer.from("{}") }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      query.mockClear();
+      for (const invalid of [
+        { body: Buffer.alloc(16385) },
+        { time: String(Date.now() - 60000) },
+        { time: String(Date.now() + 60000) },
+        { method: "GET" },
+        { path: "/device/unknown" },
+      ]) {
+        await expect(
+          service.authenticate({ ...input, ...invalid }),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+      }
+      expect(query).not.toHaveBeenCalled();
+    },
+  );
 
   it.each(["legacy_sources", "legacy_career", "search_jobs", "inference"])(
     "does not expose %s",
