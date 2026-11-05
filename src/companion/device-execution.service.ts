@@ -325,7 +325,7 @@ export class DeviceExecutionService {
         this.db,
         this.introHttp,
         device.owner,
-        args.jobIds,
+        args,
       );
     else {
       const batch = await matchingJobs(this.db, [args.id]);

@@ -22,6 +22,15 @@ export interface MatchingCatalogueArgs {
   offset?: number;
   countOnly?: boolean;
 }
+export interface GithubEndpoint {
+  login: string;
+  kind: "user" | "organization";
+}
+export interface IntroPathsArgs {
+  source?: GithubEndpoint;
+  targets: GithubEndpoint[];
+}
+export const githubLoginPattern = /^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$(?![\s\S])/;
 interface DeviceInputs {
   pair: {
     requestId: string;
@@ -39,7 +48,7 @@ interface DeviceInputs {
     | { operation: "matching_catalogue"; args: MatchingCatalogueArgs }
     | { operation: "job_read"; args: { id: string } }
     | { operation: "matching_jobs"; args: { ids: string[] } }
-    | { operation: "intro_paths"; args: { jobIds: string[] } };
+    | { operation: "intro_paths"; args: IntroPathsArgs };
 }
 const uuid = Joi.string().guid().length(36).required();
 const text = (limit: number): Joi.StringSchema =>
@@ -58,6 +67,10 @@ const publicationTimestamp = Joi.string()
     /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,3})?Z$(?![\s\S])/,
   )
   .required();
+const githubEndpoint = object({
+  login: Joi.string().pattern(githubLoginPattern).required(),
+  kind: Joi.string().valid("user", "organization").required(),
+});
 export const devicePlatformOperations = [
   "status",
   "job_read",
@@ -81,7 +94,8 @@ const platformArgs = {
     ids: Joi.array().items(matchingId).min(1).max(10).unique().required(),
   }),
   intro_paths: object({
-    jobIds: Joi.array().items(matchingId).min(1).max(10).unique().required(),
+    source: githubEndpoint.optional(),
+    targets: Joi.array().items(githubEndpoint).min(1).max(20).required(),
   }),
 };
 const schemas = {
@@ -151,6 +165,17 @@ export function deviceInput<K extends keyof DeviceInputs>(
             Date.parse(since) >= Date.parse(until))
       )
         throw new BadRequestException("Invalid publication window");
+    } else if (input.operation === "intro_paths") {
+      if (input.args.source)
+        input.args.source = { ...input.args.source, login: input.args.source.login.toLowerCase() };
+      const seen = new Set<string>();
+      input.args.targets = input.args.targets.flatMap(target => {
+        const login = target.login.toLowerCase();
+        const key = `${target.kind}:${login}`;
+        if (seen.has(key)) return [];
+        seen.add(key);
+        return [{ login, kind: target.kind }];
+      });
     }
   }
   return parsed.value;

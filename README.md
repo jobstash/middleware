@@ -325,9 +325,32 @@ paid access. Parent release gates should include build, route manifest tests,
 live checkout/return/pairing flow.
 
 `status.github` reports the Privy-synchronized linked GitHub username, or null.
-`intro_paths` accepts `{jobIds}` with at most ten canonical job IDs and returns
-GitHub-based introduction paths for the signed device's owner. It requires the
-same active device and paid membership as other catalogue reads.
+`intro_paths` accepts `{source?,targets}` where each endpoint is
+`{login,kind:"user"|"organization"}` and `targets` contains 1–20 entries.
+GitHub logins are validated strictly, lowercased and deduplicated by kind/login.
+An explicit source queries any GitHub person or organization without requiring
+the account to link GitHub. Omitting it uses the signed owner's linked GitHub
+user; a missing link returns `reason:"github_required"` without blocking other
+operations. Introductions do not depend on jobs, catalogue IDs, employer
+availability or publication windows. The active signed device and live paid
+membership checks remain required.
+
+The response contains `{source,available,asOf,inferred:true,coverage,targets}`.
+`coverage.source` distinguishes `indexed`, `not_indexed` and `unavailable`;
+`coverage.maxHops` is 2. Each target has `status` (`ok`, `no_paths`,
+`source_not_indexed`, `target_not_indexed` or `unavailable`) and `paths`.
+Missing coverage or an unavailable scorer must not be presented as no connections.
+Paths retain their source person, target person, intermediary, edges and scores;
+organization endpoints include dated contribution evidence. A shared contributor
+can produce a zero-hop `same-person` path with no fabricated relationship score.
+Contributions are evidence, not proof of employment or personal acquaintance.
+No CV or work-history sharing is involved.
+
+For isolated signed-HTTP regression coverage, set `COMPANION_TEST_DATABASE_URL`
+to a disposable localhost database whose name contains `test`, then run
+`yarn test --runInBand src/companion/intro-paths.integration.spec.ts`.
+The suite creates and removes its own schema, uses synthetic accounts and mocked
+scorer responses, and exercises the real device signature and ownership boundary.
 
 ### Candidate partner promotion codes
 
