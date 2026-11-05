@@ -3,7 +3,6 @@ import {
   BadRequestException,
   ExecutionContext,
   ForbiddenException,
-  NotFoundException,
   PayloadTooLargeException,
 } from "@nestjs/common";
 import { GUARDS_METADATA, PATH_METADATA, METHOD_METADATA } from "@nestjs/common/constants";
@@ -461,123 +460,105 @@ describe("hosted companion boundary", () => {
   });
 
   describe("intro paths", () => {
+    const targets = [{ login: "lifinance", kind: "organization" }];
+    const source = { login: "duckdegen", kind: "user" };
     const scorerPath = {
-      hops: 1,
-      tier: "direct",
-      targetOrg: "anthropic",
+      hops: 1, tier: "direct", targetOrg: "lifinance",
+      source: { login: "duckdegen", emails: [] },
+      sourceEvidence: null,
       target: { login: "friend", emails: [] },
-      via: null,
-      warmScore: 0.5,
-      pathStrength: 10,
-      edges: [],
+      targetEvidence: { org: "lifinance", person: "friend", kind: "contribution", repos: ["lifinance/sdk"], firstSeen: null, lastSeen: null },
+      via: null, warmScore: 0.5, pathStrength: 10, edges: [],
     };
-    // Owner lookup and employer lookup are recognised by their SQL, in any order.
-    function withGithubAndEmployers(
-      { query }: DeviceHarness,
-      login: string | null,
-      employers: { id: string; company: string; org_logins: string[] }[],
-    ): void {
+    function withGithub({ query }: DeviceHarness, login: string | null): void {
       query.mockImplementation(async (sql: string) => {
         if (sql.startsWith("SELECT id")) return [{ id: device.id }];
         if (sql.includes("HAS_LINKED_ACCOUNT")) return [{ login }];
-        if (sql.includes("HAS_GITHUB'")) return employers;
         return [{ label: "Account" }];
       });
     }
+    const response = {
+      source, available: true, asOf: "2026-11-05T00:00:00.000Z", inferred: true,
+      coverage: { source: "indexed", maxHops: 2 },
+      targets: [{ ...targets[0], status: "ok", paths: [scorerPath] }],
+    };
 
     it("denies unpaid owners before any lookup", async () => {
       const { service, post, query } = harness(false);
       await expect(service.platform(device, {
-        operation: "intro_paths",
-        args: { jobIds: ["node:1"] },
+        operation: "intro_paths", args: { source, targets },
       })).rejects.toThrow(new ForbiddenException("An active paid membership is required"));
       expect(post).not.toHaveBeenCalled();
-      expect(query.mock.calls.some(([sql]) => sql.includes("HAS_GITHUB"))).toBe(false);
+      expect(query.mock.calls.some(([sql]) => sql.includes("HAS_LINKED_ACCOUNT"))).toBe(false);
     });
 
-    it("asks for a linked GitHub account instead of calling the graph", async () => {
+    it("reports missing default GitHub without blocking other operations", async () => {
       const h = harness();
-      withGithubAndEmployers(h, null, []);
+      withGithub(h, null);
       await expect(h.service.platform(device, {
-        operation: "intro_paths",
-        args: { jobIds: ["node:1"] },
-      })).resolves.toEqual({ github: null, reason: "github_required", jobs: [] });
-      expect(h.post).not.toHaveBeenCalled();
-    });
-
-    it("queries the scorer for the job's GitHub organizations and distributes paths per job", async () => {
-      const h = harness();
-      withGithubAndEmployers(h, "duckdegen", [
-        { id: "node:1", company: "Anthropic", org_logins: ["anthropic"] },
-        { id: "node:2", company: "No Github Inc", org_logins: [] },
-      ]);
-      h.post.mockResolvedValue({
-        data: {
-          available: true,
-          asOf: "2026-10-21T00:00:00.000Z",
-          source: "GitHub contribution graph",
-          inferred: true,
-          paths: [scorerPath, { ...scorerPath, targetOrg: "other" }],
-        },
-      });
-      await expect(h.service.platform(device, {
-        operation: "intro_paths",
-        args: { jobIds: ["node:1", "node:2"] },
+        operation: "intro_paths", args: { targets },
       })).resolves.toEqual({
-        github: { login: "duckdegen" },
-        available: true,
-        asOf: "2026-10-21T00:00:00.000Z",
-        source: "GitHub contribution graph",
-        inferred: true,
-        jobs: [
-          { jobId: "node:1", company: "Anthropic", orgLogins: ["anthropic"], paths: [scorerPath] },
-          { jobId: "node:2", company: "No Github Inc", orgLogins: [], paths: [] },
-        ],
+        source: null, available: false, asOf: null, inferred: true,
+        coverage: { source: "unavailable", maxHops: 2 }, reason: "github_required",
+        targets: [{ ...targets[0], status: "unavailable", paths: [] }],
       });
-      expect(h.post).toHaveBeenCalledWith("/scorer/intro-paths/query", {
-        sourceLogin: "duckdegen",
-        targetOrgLogins: ["anthropic"],
-        limit: 50,
-      });
+      expect(h.post).not.toHaveBeenCalled();
+      await expect(h.service.platform(device, { operation: "status", args: {} })).resolves.toMatchObject({ github: null });
+    });
+
+    it("resolves the linked default source and preserves graph evidence", async () => {
+      const h = harness();
+      withGithub(h, "DuckDegen");
+      h.post.mockResolvedValue({ data: response });
+      await expect(h.service.platform(device, { operation: "intro_paths", args: { targets } })).resolves.toEqual(response);
+      expect(h.post).toHaveBeenCalledWith("/scorer/intro-paths/query", { source, targets, limit: 50 });
       expect(h.subscriptions.entitled).toHaveBeenCalledTimes(2);
     });
 
-    it("reports the graph unavailable instead of failing when the scorer rejects", async () => {
+    it.each(["user", "organization"])("queries explicit %s sources without account GitHub or job lookups", async kind => {
       const h = harness();
-      withGithubAndEmployers(h, "duckdegen", [
-        { id: "node:1", company: "Anthropic", org_logins: ["anthropic"] },
-      ]);
-      h.post.mockRejectedValue(new Error("scorer down"));
+      withGithub(h, null);
+      const explicit = { login: "source-org", kind };
+      const evidence = { org: "source-org", person: "duckdegen", kind: "contribution", repos: ["source-org/sdk"], firstSeen: null, lastSeen: null };
+      const data = { ...response, source: explicit, targets: [{ ...response.targets[0], paths: [{ ...scorerPath, sourceEvidence: kind === "organization" ? evidence : null }] }] };
+      h.post.mockResolvedValue({ data });
       await expect(h.service.platform(device, {
         operation: "intro_paths",
-        args: { jobIds: ["node:1"] },
+        args: { source: { login: "Source-Org", kind }, targets: [targets[0], { login: "LiFinance", kind: "organization" }] },
+      })).resolves.toEqual(data);
+      expect(h.post).toHaveBeenCalledWith("/scorer/intro-paths/query", { source: explicit, targets, limit: 50 });
+      expect(h.query.mock.calls.some(([sql]) => /HAS_LINKED_ACCOUNT|job_search_documents|organization_search_documents/.test(sql))).toBe(false);
+    });
+
+    it.each(["no_paths", "source_not_indexed", "target_not_indexed", "unavailable"])("preserves %s coverage rather than inventing no connections", async status => {
+      const h = harness();
+      const data = { ...response, available: status !== "unavailable", targets: [{ ...targets[0], status, paths: [] }] };
+      h.post.mockResolvedValue({ data });
+      await expect(h.service.platform(device, { operation: "intro_paths", args: { source, targets } })).resolves.toEqual(data);
+    });
+
+    it("reports unavailable when the scorer rejects", async () => {
+      const h = harness();
+      h.post.mockRejectedValue(new Error("scorer down"));
+      await expect(h.service.platform(device, {
+        operation: "intro_paths", args: { source, targets },
       })).resolves.toEqual({
-        github: { login: "duckdegen" },
-        available: false,
-        jobs: [{ jobId: "node:1", company: "Anthropic", orgLogins: ["anthropic"], paths: [] }],
+        source, available: false, asOf: null, inferred: true,
+        coverage: { source: "unavailable", maxHops: 2 }, reason: "unavailable",
+        targets: [{ ...targets[0], status: "unavailable", paths: [] }],
       });
     });
 
-    it("rejects unknown job ids with the job_read error", async () => {
-      const h = harness();
-      withGithubAndEmployers(h, "duckdegen", []);
-      await expect(h.service.platform(device, {
-        operation: "intro_paths",
-        args: { jobIds: ["node:1"] },
-      })).rejects.toThrow(new NotFoundException("Job not found"));
-      expect(h.post).not.toHaveBeenCalled();
-    });
-
     it.each([
-      { jobIds: Array.from({ length: 11 }, (_, i) => `node:${i + 1}`) },
-      { jobIds: ["local:abc"] },
-      { jobIds: [] },
-      { jobIds: ["node:1", "node:1"] },
-    ])("rejects malformed job ids before authorization %j", async args => {
+      { jobIds: ["node:1"] }, {}, { targets: [] },
+      { targets: Array.from({ length: 21 }, () => targets[0]) },
+      ...["-org", "org-", "org--name", "org_name", "https://github.com/lifinance", "org\n", "a".repeat(40)].map(login => ({ targets: [{ login, kind: "organization" }] })),
+      { targets: [{ login: "org", kind: "company" }] },
+      { targets, source: { login: "org", kind: "user", owner: "123" } },
+      { targets, source: null }, { targets, publicationRange: "all" },
+    ])("rejects malformed endpoints before authorization %j", async args => {
       const { service, subscriptions, query } = harness();
-      await expect(
-        service.platform(device, { operation: "intro_paths", args }),
-      ).rejects.toBeInstanceOf(BadRequestException);
+      await expect(service.platform(device, { operation: "intro_paths", args })).rejects.toBeInstanceOf(BadRequestException);
       expect(query).not.toHaveBeenCalled();
       expect(subscriptions.refresh).not.toHaveBeenCalled();
     });

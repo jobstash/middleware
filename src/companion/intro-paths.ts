@@ -1,9 +1,9 @@
-import { NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import * as Sentry from "@sentry/node";
 import axios, { AxiosInstance } from "axios";
 import * as https from "https";
 import { PostgresService } from "src/postgres/postgres.service";
+import { GithubEndpoint, githubLoginPattern, IntroPathsArgs } from "./device-execution.protocol";
 
 /** Scorer HTTP client for intro-path lookups (same settings as team intelligence). */
 export const INTRO_PATHS_HTTP = "INTRO_PATHS_HTTP";
@@ -36,106 +36,67 @@ export async function ownerGithubLogin(
   return github?.login ? github.login : null;
 }
 
-export interface JobEmployer {
-  company: string;
-  orgLogins: string[];
-}
-
-/** Employer name and linked GitHub organization logins per platform job id; unknown ids are absent. */
-export async function jobEmployerGithubLogins(
-  db: PostgresService,
-  jobIds: string[],
-): Promise<Map<string, JobEmployer>> {
-  const rows = await db.query<{
-    id: string;
-    company: string;
-    org_logins: string[];
-  }>(
-    `WITH requested AS (SELECT id, CASE WHEN substring(id FROM 6)::numeric <= 9223372036854775807 THEN substring(id FROM 6)::bigint END AS node_id
-      FROM unnest($1::text[]) input(id))
-    SELECT requested.id, COALESCE(NULLIF(j.organization_name,''), o.payload->>'name', '') AS company,
-      COALESCE(array_agg(DISTINCT lower(gh.properties->>'login')) FILTER (WHERE gh.properties->>'login' IS NOT NULL), '{}') AS org_logins
-    FROM requested JOIN job_search_documents j ON j.job_node_id = requested.node_id
-    LEFT JOIN organization_search_documents o ON o.organization_id = j.organization_id
-    LEFT JOIN graph_relationships e ON e.source_id = o.organization_node_id AND e.type = 'HAS_GITHUB'
-    LEFT JOIN graph_nodes gh ON gh.id = e.target_id AND gh.label = 'GithubOrganization'
-    GROUP BY requested.id, j.organization_name, o.payload`,
-    [jobIds],
-  );
-  return new Map(
-    rows.map(row => [
-      row.id,
-      { company: row.company, orgLogins: row.org_logins ?? [] },
-    ]),
-  );
-}
-
-interface ScorerIntroPath {
-  targetOrg: string;
-  [key: string]: unknown;
-}
 interface ScorerIntroPaths {
+  source: GithubEndpoint;
   available: boolean;
-  asOf: string;
-  source: string;
-  paths: ScorerIntroPath[];
+  asOf: string | null;
+  inferred: true;
+  coverage: { source: "indexed" | "not_indexed" | "unavailable"; maxHops: 2 };
+  reason?: "unavailable";
+  targets: (GithubEndpoint & {
+    status: "ok" | "no_paths" | "source_not_indexed" | "target_not_indexed" | "unavailable";
+    paths: Record<string, unknown>[];
+  })[];
 }
 
-const SCORER_ORG_LIMIT = 20;
-
-/** Direct and one-intermediary GitHub paths from the device owner into each job's employer. */
+/** GitHub endpoint paths are independent of jobs and publication windows. */
 export async function introPaths(
   db: PostgresService,
   http: Pick<AxiosInstance, "post">,
   owner: string,
-  jobIds: string[],
+  args: IntroPathsArgs,
 ): Promise<unknown> {
-  const login = await ownerGithubLogin(db, owner);
-  if (!login) return { github: null, reason: "github_required", jobs: [] };
-  const employers = await jobEmployerGithubLogins(db, jobIds);
-  if (jobIds.some(id => !employers.has(id)))
-    throw new NotFoundException("Job not found");
-  const jobs = jobIds.map(jobId => {
-    const employer = employers.get(jobId) as JobEmployer;
-    return { jobId, company: employer.company, orgLogins: employer.orgLogins };
+  let source = args.source;
+  if (!source) {
+    const login = await ownerGithubLogin(db, owner);
+    if (login && githubLoginPattern.test(login))
+      source = { login: login.toLowerCase(), kind: "user" };
+  }
+  const unavailable = (reason: "github_required" | "unavailable"): unknown => ({
+    source: source ?? null,
+    available: false,
+    asOf: null,
+    inferred: true,
+    coverage: { source: "unavailable", maxHops: 2 },
+    reason,
+    targets: args.targets.map(target => ({ ...target, status: "unavailable", paths: [] })),
   });
-  const orgLogins = Array.from(
-    new Set(jobs.flatMap(job => job.orgLogins)),
-  ).slice(0, SCORER_ORG_LIMIT);
-  const github = { login };
-  if (!orgLogins.length)
-    return { github, jobs: jobs.map(job => ({ ...job, paths: [] })) };
-  let result: ScorerIntroPaths;
+  if (!source) return unavailable("github_required");
   try {
-    const response = await http.post<ScorerIntroPaths>(
+    const { data } = await http.post<ScorerIntroPaths>(
       "/scorer/intro-paths/query",
-      { sourceLogin: login, targetOrgLogins: orgLogins, limit: 50 },
+      { source, targets: args.targets, limit: 50 },
     );
-    result = response.data;
+    if (typeof data.available !== "boolean" || !data.coverage ||
+        !Array.isArray(data.targets) || data.targets.length !== args.targets.length ||
+        data.targets.some((target, index) =>
+          target.login !== args.targets[index].login || target.kind !== args.targets[index].kind ||
+          !Array.isArray(target.paths) || !["ok", "no_paths", "source_not_indexed", "target_not_indexed", "unavailable"].includes(target.status)))
+      throw new Error("Invalid introduction response");
+    return {
+      source,
+      available: data.available,
+      asOf: data.asOf,
+      inferred: true,
+      coverage: data.coverage,
+      ...(data.reason ? { reason: data.reason } : {}),
+      targets: data.targets,
+    };
   } catch (error) {
     Sentry.withScope(scope => {
       scope.setTags({ action: "intro_paths", source: "device-execution" });
-      scope.setExtra("orgLogins", orgLogins);
       Sentry.captureException(error);
     });
-    return {
-      github,
-      available: false,
-      jobs: jobs.map(job => ({ ...job, paths: [] })),
-    };
+    return unavailable("unavailable");
   }
-  const paths = Array.isArray(result.paths) ? result.paths : [];
-  return {
-    github,
-    available: result.available,
-    asOf: result.asOf,
-    source: result.source,
-    inferred: true,
-    jobs: jobs.map(job => ({
-      ...job,
-      paths: paths.filter(path =>
-        job.orgLogins.includes(String(path.targetOrg).toLowerCase()),
-      ),
-    })),
-  };
 }
