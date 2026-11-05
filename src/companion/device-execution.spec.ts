@@ -3,7 +3,6 @@ import {
   BadRequestException,
   ExecutionContext,
   ForbiddenException,
-  NotFoundException,
   PayloadTooLargeException,
 } from "@nestjs/common";
 import { GUARDS_METADATA, PATH_METADATA, METHOD_METADATA } from "@nestjs/common/constants";
