@@ -1,5 +1,5 @@
 # ---------- build (toolchain + Yarn v1 pinned) ----------
-FROM node:24-alpine3.22 AS build
+FROM node:22-alpine3.22 AS build
 WORKDIR /usr/src/app
 
 # Toolchain for native deps (bufferutil, etc.)
@@ -25,7 +25,7 @@ RUN rm -rf node_modules \
     && npm rebuild bcrypt --build-from-source --foreground-scripts
 
 # ---------- runtime (no compilers, no installs, no yarn) ----------
-FROM node:24-alpine3.22 AS runtime
+FROM node:22-alpine3.22 AS runtime
 WORKDIR /usr/src/app
 
 # Coolify's Dockerfile health checks require curl or wget in the runtime image.
