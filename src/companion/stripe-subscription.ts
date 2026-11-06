@@ -97,15 +97,14 @@ function invoiceDiscount(
     throw new ServiceUnavailableException(
       "Membership discount policy does not match",
     );
+  const discountEnd =
+    coupon.duration === "once" ? line.period.end : discount.end!;
   return {
     percentOff,
     endsAt:
       coupon.duration === "forever"
         ? null
-        : new Date(
-            (coupon.duration === "once" ? line.period.end : discount.end!) *
-              1000,
-          ).toISOString(),
+        : new Date(discountEnd * 1000).toISOString(),
   };
 }
 
