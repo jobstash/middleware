@@ -117,6 +117,35 @@ describe("offline production parity transformations", () => {
     ).toBe(true);
   });
 
+  it("retains sorted nested object traversal and the thirty-difference bound", () => {
+    const fields = Object.fromEntries(
+      Array.from({ length: 40 }, (_, index) => [
+        `key${index.toString().padStart(2, "0")}`,
+        index,
+      ]).reverse(),
+    );
+    const changed = Object.fromEntries(
+      Object.entries(fields).map(([key, value]) => [key, Number(value) + 1]),
+    );
+    const base = response(200, { data: [], total: 1, page: 1 });
+    const mismatch = filters.compareFilterResponses(
+      spec,
+      generateFilterMatrix(spec, "single")[0],
+      {
+        ...base,
+        body: { data: [{ id: "a", nested: fields }], total: 1, page: 1 },
+      },
+      {
+        ...base,
+        body: { data: [{ id: "a", nested: changed }], total: 1, page: 1 },
+      },
+    );
+    expect(mismatch.valueDifferences).toHaveLength(30);
+    expect(mismatch.valueDifferences[0]).toContain("nested.key00:");
+    expect(mismatch.valueDifferences.at(-1)).toContain("nested.key29:");
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it("does not treat a failing production baseline as a passing contract", () => {
     const matrixCase = generateFilterMatrix(spec, "single")[0];
     const body = { data: [], total: 0, page: 1 };

@@ -338,6 +338,37 @@ export class ProfileService {
     };
   }
 
+  private async eligibleRecommendationNodeIds(
+    preferences: JobPreferences,
+    rankingTime: Date,
+    surface: "web" | "weekly_email",
+  ): Promise<string[]> {
+    const locations = await this.profiles.getRecommendationLocationCandidates(
+      rankingTime,
+      surface === "weekly_email",
+    );
+    return locations
+      .filter(({ arrangement }) =>
+        [
+          ...arrangement.remoteOptions,
+          ...arrangement.hybridOptions,
+          ...arrangement.onsiteOptions,
+        ].some(option => {
+          const match = matchWorkLocationOptions(
+            {},
+            [option],
+            preferences,
+            arrangement.classification,
+          );
+          return (
+            meetsRecommendationConstraints(match) &&
+            (surface !== "weekly_email" || match?.group === "confirmedMatches")
+          );
+        }),
+      )
+      .map(row => row.nodeId);
+  }
+
   private async computeRecommendedJobs(
     wallet: string,
     limit = 30,
@@ -357,31 +388,11 @@ export class ProfileService {
     // cards. Use the same location matcher as the final response.
     let eligibleNodeIds: string[] | null = null;
     if (hasPreferences && preferences) {
-      const locations = await this.profiles.getRecommendationLocationCandidates(
+      eligibleNodeIds = await this.eligibleRecommendationNodeIds(
+        preferences,
         rankingTime,
-        surface === "weekly_email",
+        surface,
       );
-      eligibleNodeIds = locations
-        .filter(({ arrangement }) =>
-          [
-            ...arrangement.remoteOptions,
-            ...arrangement.hybridOptions,
-            ...arrangement.onsiteOptions,
-          ].some(option => {
-            const match = matchWorkLocationOptions(
-              {},
-              [option],
-              preferences,
-              arrangement.classification,
-            );
-            return (
-              meetsRecommendationConstraints(match) &&
-              (surface !== "weekly_email" ||
-                match?.group === "confirmedMatches")
-            );
-          }),
-        )
-        .map(row => row.nodeId);
     }
     const candidates = await this.profiles.getRecommendedJobCandidates(
       wallet,
