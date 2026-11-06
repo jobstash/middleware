@@ -48,8 +48,17 @@ script-disabled Yarn install and explicit patch step. The Dockerfile performs
 this for both development/build dependencies and the production-only reinstall.
 
 iron-session 9 uses `getIronSession` instead of the removed Express adapter.
-It intentionally rejects cookies from iron-session 6; affected cookie sessions
-must sign in again. Bearer-token authentication remains independent.
+An offline regression using the actual 6.3.1 Express adapter confirms its saved
+cookies remain readable by v9 with the same password/options. Do not assume
+blanket reauthentication from the package major alone. Bearer-token
+authentication and its server-backed permissions remain independent.
+
+The Sentry SDK upgrade preserves the deployed integer-parsing sampling policy:
+fractional configuration values remain effectively zero, zero stays disabled,
+and one stays enabled. Enabling fractional collection requires a separate
+explicit policy decision. SDK 11's new automatic LangChain instrumentation must
+not collect recommendation/document inputs or outputs; both GenAI content flags
+are explicitly disabled while the existing user/cookie policy is preserved.
 
 Every scorer HTTPS client now verifies the server certificate before sending
 `SCORER_API_KEY`. The configured scorer certificate must chain to the platform
