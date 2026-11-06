@@ -259,6 +259,32 @@ describe("AdminIngestionService", () => {
     expect(request).toHaveBeenCalledTimes(2);
   });
 
+  it("does not retry rejected import authorization or validation", async () => {
+    request.mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 403, data: { message: "Not permitted" } },
+    });
+    await expect(
+      service.createImportRun({
+        source: "jobposts",
+        idempotencyKey: "synthetic-rejected-import",
+        scope: "all",
+      }),
+    ).rejects.toBeInstanceOf(HttpException);
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not retry non-import reads after a transient failure", async () => {
+    request.mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 502, data: { message: "Unavailable" } },
+    });
+    await expect(service.listImportRuns()).rejects.toBeInstanceOf(
+      HttpException,
+    );
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
   it("forwards entity enrichment runs, pagination, and item retries through the BFF", async () => {
     const runId = "f9500341-2ccd-4a1b-909a-853f66c41285";
     const itemId = "e9500341-2ccd-4a1b-909a-853f66c41285";

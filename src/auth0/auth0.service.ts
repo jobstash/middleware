@@ -11,7 +11,7 @@ export class Auth0Service {
   private readonly logger = new CustomLogger(Auth0Service.name);
   constructor(
     private readonly configService: ConfigService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
   async getETLToken(): Promise<string | undefined> {

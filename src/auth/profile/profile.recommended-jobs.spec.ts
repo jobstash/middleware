@@ -79,6 +79,7 @@ describe("ProfileService recommended jobs", () => {
     }
     expect(seen.size).toBe(601);
     expect(profiles.getRecommendedJobCandidates).toHaveBeenCalledTimes(1);
+    expect(profiles.getRecommendationLocationCandidates).not.toHaveBeenCalled();
     profiles.getRecommendationRevision.mockResolvedValue("after-import");
     await service.getRecommendedJobs("wallet");
     expect(profiles.getRecommendedJobCandidates).toHaveBeenCalledTimes(2);
@@ -316,6 +317,18 @@ describe("ProfileService recommended jobs", () => {
     const result = await service.getRecommendedJobs("wallet", 3);
     expect(result.jobs).toHaveLength(1);
     expect(result.jobs[0].reason).toContain("Remote location includes NL");
+    expect(profiles.getRecommendedJobCandidates).toHaveBeenCalledWith(
+      "wallet",
+      null,
+      false,
+      expect.any(Date),
+      ["eligible"],
+    );
+    expect(
+      profiles.getRecommendationLocationCandidates.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      profiles.getRecommendedJobCandidates.mock.invocationCallOrder[0],
+    );
   });
 
   it("records a hide action with the supplied event id", async () => {

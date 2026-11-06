@@ -78,7 +78,7 @@ import { CreateOrgJobsiteInput } from "./dto/create-organization-jobsites.input"
 export class OrganizationsService {
   private readonly logger = new CustomLogger(OrganizationsService.name);
   constructor(
-    private configService: ConfigService,
+    private readonly configService: ConfigService,
     private readonly auth0Service: Auth0Service,
     private readonly searchDocuments: SearchDocumentRepository,
     private readonly graph: GraphRepository,

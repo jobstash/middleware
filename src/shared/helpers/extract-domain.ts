@@ -4,8 +4,13 @@ function throwTypeError(): never {
   );
 }
 
-const endings = ["/", ":", "?", "#"];
-const starters = [".", "/", "@"];
+const endings: Record<string, true> = {
+  "/": true,
+  ":": true,
+  "?": true,
+  "#": true,
+};
+const starters: Record<string, true> = { ".": true, "/": true, "@": true };
 
 type Urls = string | Array<string>;
 type ReturnUrls = Array<string> | Array<Promise<string>>;
@@ -33,7 +38,7 @@ function getDomainFromUrl(url: string, opts: GetDomainOptions): ReturnUrl {
 
   // Find end offset of domain
   while (len-- && ++i) {
-    if (domainInc && endings.includes(url[i])) {
+    if (domainInc && Object.hasOwn(endings, url[i])) {
       break;
     }
 
@@ -53,7 +58,7 @@ function getDomainFromUrl(url: string, opts: GetDomainOptions): ReturnUrl {
   // Find offset before domain name.
   while (i--) {
     // Look for sub domain, protocol or basic auth
-    if (!starters.includes(url[i])) {
+    if (!Object.hasOwn(starters, url[i])) {
       continue;
     }
 
