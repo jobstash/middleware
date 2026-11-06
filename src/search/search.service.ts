@@ -1936,10 +1936,7 @@ export class SearchService {
     if (rawSeniority === null) {
       seniority = null;
     } else if (typeof rawSeniority === "string") {
-      seniority = Object.prototype.hasOwnProperty.call(
-        seniorityLabels,
-        rawSeniority,
-      )
+      seniority = Object.hasOwn(seniorityLabels, rawSeniority)
         ? seniorityLabels[rawSeniority]
         : rawSeniority;
     } else if (

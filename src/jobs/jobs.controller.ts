@@ -431,7 +431,7 @@ export class JobsController {
     ecosystem: string | undefined,
     @Session() { address, permissions }: SessionObject,
   ): Promise<ResponseWithOptionalData<JobListResult[]>> {
-    if (orgId === undefined) orgId = null;
+    orgId ??= null;
     this.logger.log(`/jobs/featured`);
     if (permissions.includes(CheckWalletPermissions.SUPER_ADMIN)) {
       if (orgId === "all") {

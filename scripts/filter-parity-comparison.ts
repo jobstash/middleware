@@ -130,7 +130,7 @@ export const matchingItemsSemanticallyEqual = (
     local.set(identity, item);
   }
   const productionIdentities = productionItems.map(identityOf);
-  if (productionIdentities.some(identity => identity === undefined)) {
+  if (productionIdentities.includes(undefined)) {
     return { equal: false, matched: 0 };
   }
   let matched = 0;

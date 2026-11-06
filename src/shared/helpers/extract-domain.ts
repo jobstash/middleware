@@ -85,11 +85,10 @@ function getTopLevelDomain(
   offsetPath: number,
 ): Promise<string | null> {
   let offsetStart = 0;
-  const starters = ["/", "@"];
   let i = offsetDomain;
 
   while (i--) {
-    if (starters.includes(url[i])) {
+    if (url[i] === "/" || url[i] === "@") {
       offsetStart = i + 1;
       break;
     }

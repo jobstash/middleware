@@ -37,7 +37,7 @@ function nestedProseUrlEnds(value: string): Int32Array {
       const open = opens.pop()!;
       if (open.depth <= 2) urlEnds[open.index] = i;
       if (opens.length) {
-        const parent = opens[opens.length - 1];
+        const parent = opens.at(-1)!;
         parent.depth = Math.max(parent.depth, open.depth + 1);
       }
     }

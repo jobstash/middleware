@@ -1002,4 +1002,9 @@ function nonNegativeInteger(raw: string | undefined, fallback: number): number {
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
 }
 
-if (require.main === module) main();
+if (require.main === module) {
+  main().catch(() => {
+    console.error("Filter parity comparison failed");
+    process.exitCode = 1;
+  });
+}

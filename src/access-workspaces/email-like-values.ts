@@ -5,7 +5,7 @@ const whitespace = /\s/;
 export function isEmailLikeValue(value: string): boolean {
   if (whitespace.test(value)) return false;
   const at = value.indexOf("@");
-  if (at <= 0 || value.indexOf("@", at + 1) !== -1) return false;
+  if (at <= 0 || value.includes("@", at + 1)) return false;
   const dot = value.indexOf(".", at + 2);
   return dot !== -1 && dot < value.length - 1;
 }
