@@ -65,7 +65,7 @@ import { responseSchemaWrapper } from "src/shared/helpers";
   AgencyCandidateReportSummary,
 )
 export class UserController {
-  private logger = new CustomLogger(UserController.name);
+  private readonly logger = new CustomLogger(UserController.name);
   constructor(
     private readonly userService: UserService,
     private readonly profileService: ProfileService,
@@ -503,7 +503,7 @@ export class UserController {
       const memberships = data(
         await this.profileService.getUserVerifications(address),
       ).filter(x => x.isMember);
-      if (memberships.find(x => x.id === body.orgId)) {
+      if (memberships.some(x => x.id === body.orgId)) {
         throw new BadRequestException({
           success: false,
           message: "User is already a member of this organization",

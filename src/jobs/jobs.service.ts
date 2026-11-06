@@ -1,7 +1,6 @@
 import type { JobFeedResult } from "./dto/job-feed.output";
 import { SearchRepository } from "src/postgres/search.repository";
 import { JobFeedParams, shouldGroupJobs } from "./dto/job-feed.input";
-import { JobSearchParams } from "src/postgres/search-document.repository";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Inject, Injectable, Optional } from "@nestjs/common";
 import { Cache } from "cache-manager";
@@ -66,6 +65,7 @@ import { SimilarJob } from "./dto/similar-jobs.output";
 import { PillarJob } from "./dto/suggested-jobs.output";
 import {
   FrontendSitemapJob,
+  JobSearchParams,
   SearchDocumentRepository,
 } from "src/postgres/search-document.repository";
 import {
@@ -329,7 +329,7 @@ export class JobsService {
   ): Promise<ResponseWithOptionalData<JobListResult[]>> {
     try {
       const jobs = await this.getJobsListResults(ecosystem);
-      const now = new Date().getTime();
+      const now = Date.now();
       const featured = jobs
         .map(x => new JobListResultEntity(x).getProperties())
         .filter(
@@ -372,24 +372,15 @@ export class JobsService {
       const jobs = (await this.getJobsListResults(ecosystem)).filter(
         x => x?.organization?.orgId === orgId,
       );
-      const now = new Date().getTime();
-      const featured = ecosystem
-        ? jobs
-            .map(x => new JobListResultEntity(x).getProperties())
-            .filter(
-              job =>
-                job.featured === true &&
-                job.featureStartDate <= now &&
-                now <= job.featureEndDate,
-            )
-        : jobs
-            .map(x => new JobListResultEntity(x).getProperties())
-            .filter(
-              job =>
-                job.featured === true &&
-                job.featureStartDate <= now &&
-                now <= job.featureEndDate,
-            );
+      const now = Date.now();
+      const featured = jobs
+        .map(x => new JobListResultEntity(x).getProperties())
+        .filter(
+          job =>
+            job.featured === true &&
+            job.featureStartDate <= now &&
+            now <= job.featureEndDate,
+        );
       const result = sort<JobListResult>(featured).by([
         { desc: (job): boolean => job.featured },
         {
@@ -739,7 +730,7 @@ export class JobsService {
   ): Promise<Response<AllJobsListResult[]>> {
     const paramsPassed = {
       ...params,
-      query: params.query ? new RegExp(params.query, "gi") : null,
+      query: params.query ? new RegExp(params.query, "i") : null,
     };
 
     const {
@@ -775,10 +766,11 @@ export class JobsService {
         const { name: orgName } = jlr.organization;
         const { title: jobTitle, tags, classification } = jlr;
 
+        const queryPattern = query ?? /null/;
         const matchesQuery =
-          orgName.match(query) ||
-          jobTitle.match(query) ||
-          tags.filter(tag => tag.name.match(query)).length > 0;
+          queryPattern.test(orgName) ||
+          queryPattern.test(jobTitle) ||
+          tags.some(tag => queryPattern.test(tag.name));
 
         return (
           (!classificationFilterList ||
@@ -1509,12 +1501,12 @@ export class JobsService {
         ? 0
         : Math.sqrt(jobCoverage * skillRelevance);
     const roundedScore = Math.round(score * 100) / 100;
-    const category =
-      roundedScore >= 0.55
-        ? JobMatchCategory.STRONG_FIT
-        : roundedScore >= 0.25
-          ? JobMatchCategory.PARTIAL_FIT
-          : JobMatchCategory.UNLIKELY_FIT;
+    let category = JobMatchCategory.UNLIKELY_FIT;
+    if (roundedScore >= 0.55) {
+      category = JobMatchCategory.STRONG_FIT;
+    } else if (roundedScore >= 0.25) {
+      category = JobMatchCategory.PARTIAL_FIT;
+    }
 
     const recommendedSkills = tagMappings
       .filter(tm => !tm.expanded.some(name => userSkillSet.has(name)))

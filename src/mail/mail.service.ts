@@ -5,7 +5,7 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 
 @Injectable()
 export class MailService {
-  private logger = new CustomLogger(MailService.name);
+  private readonly logger = new CustomLogger(MailService.name);
   constructor(private readonly configService: ConfigService) {
     SendGrid.setApiKey(this.configService.get<string>("SENDGRID_API_KEY"));
   }

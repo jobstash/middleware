@@ -617,6 +617,15 @@ export class TagsController {
     }
   }
 
+  private async findExistingPreferredTag(
+    normalizedName: string,
+  ): Promise<TagPreference> {
+    if (await this.tagsService.hasPreferredRelation(normalizedName)) {
+      return this.tagsService.findPreferredTagByNormalizedName(normalizedName);
+    }
+    return this.tagsService.getSynonymPreferredTag(normalizedName);
+  }
+
   @Post("/create-preference")
   @UseGuards(PBACGuard)
   @Permissions(
@@ -665,19 +674,17 @@ export class TagsController {
           normalizedPreferredName,
           creatorWallet as string,
         );
+      } else if (isSynonym) {
+        return {
+          success: false,
+          message: `Could not set tag ${preferredName} as preferred because it is already a synonym of another preferred term`,
+        };
       } else {
-        if (isSynonym) {
-          return {
-            success: false,
-            message: `Could not set tag ${preferredName} as preferred because it is already a synonym of another preferred term`,
-          };
-        } else {
-          const preferredTag =
-            await this.tagsService.findPreferredTagByNormalizedName(
-              normalizedPreferredName,
-            );
-          oldSynonymList = preferredTag.synonyms;
-        }
+        const preferredTag =
+          await this.tagsService.findPreferredTagByNormalizedName(
+            normalizedPreferredName,
+          );
+        oldSynonymList = preferredTag.synonyms;
       }
 
       for (const tagName of synonyms) {
@@ -693,46 +700,34 @@ export class TagsController {
         }
 
         if (
-          oldSynonymList.find(
-            tag => tag.normalizedName === normalizedTagName,
-          ) === undefined
+          oldSynonymList.some(tag => tag.normalizedName === normalizedTagName)
         ) {
-          const nodeIsPreferred = await this.tagsService.hasPreferredRelation(
+          continue;
+        }
+        const oldPreferredTag = await this.findExistingPreferredTag(
+          storedTagNode.getNormalizedName(),
+        );
+
+        if (oldPreferredTag && oldPreferredTag.tag.name !== preferredName) {
+          await this.deletePreferredTag({
+            preferredName: oldPreferredTag.tag.name,
+          });
+          return this.createPreferredTag(session, {
+            preferredName: preferredName,
+            synonyms: Array.from(
+              new Set([
+                oldPreferredTag.tag.name,
+                ...oldPreferredTag.synonyms.map(x => x.name),
+                ...synonyms,
+              ]),
+            ),
+          });
+        } else {
+          await this.tagsService.relatePreferredTagToTag(
+            preferredTag.getNormalizedName(),
             storedTagNode.getNormalizedName(),
           );
-          let oldPreferredTag: TagPreference;
-          if (nodeIsPreferred) {
-            oldPreferredTag =
-              await this.tagsService.findPreferredTagByNormalizedName(
-                storedTagNode.getNormalizedName(),
-              );
-          } else {
-            oldPreferredTag = await this.tagsService.getSynonymPreferredTag(
-              storedTagNode.getNormalizedName(),
-            );
-          }
-
-          if (oldPreferredTag && oldPreferredTag.tag.name !== preferredName) {
-            await this.deletePreferredTag({
-              preferredName: oldPreferredTag.tag.name,
-            });
-            return this.createPreferredTag(session, {
-              preferredName: preferredName,
-              synonyms: Array.from(
-                new Set([
-                  oldPreferredTag.tag.name,
-                  ...oldPreferredTag.synonyms.map(x => x.name),
-                  ...synonyms,
-                ]),
-              ),
-            });
-          } else {
-            await this.tagsService.relatePreferredTagToTag(
-              preferredTag.getNormalizedName(),
-              storedTagNode.getNormalizedName(),
-            );
-            oldSynonymList.push(storedTagNode.getProperties());
-          }
+          oldSynonymList.push(storedTagNode.getProperties());
         }
       }
 

@@ -38,7 +38,7 @@ async function bootstrap(): Promise<void> {
   app.getHttpAdapter().getInstance().set("query parser", "extended");
   app.useGlobalPipes(
     new ValidationPipe({
-      enableDebugMessages: process.env.NODE_ENV === "production" ? false : true,
+      enableDebugMessages: process.env.NODE_ENV !== "production",
     }),
   );
   const sessionMiddleware: RequestHandler = async (req, res, next) => {

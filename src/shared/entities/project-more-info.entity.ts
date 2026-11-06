@@ -9,7 +9,7 @@ export class ProjectMoreInfoEntity {
     return new ProjectMoreInfo({
       ...project,
       orgIds: project?.orgIds ?? [],
-      summary: notStringOrNull(project?.summary),
+      summary: project?.summary ?? "",
       description: notStringOrNull(project?.description),
       tokenSymbol: notStringOrNull(project?.tokenSymbol, ["-"]),
       tokenAddress: notStringOrNull(project?.tokenAddress, ["-"]),

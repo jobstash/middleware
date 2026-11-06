@@ -79,3 +79,48 @@ describe("JobGraphRepository manual replacement safety", () => {
     expect(manager.query.mock.calls[1][0]).toContain("FOR SHARE");
   });
 });
+
+describe("JobGraphRepository applicant identity", () => {
+  const applicants = (wallet: unknown): Promise<Record<string, unknown>[]> => {
+    const query = jest
+      .fn()
+      .mockResolvedValueOnce([
+        {
+          application_id: "1",
+          application_properties: {},
+          applicant_id: "2",
+          applicant_properties: { wallet },
+          organization_id: null,
+          project_id: null,
+          job_tags: [],
+          job_payload: {},
+        },
+      ])
+      .mockResolvedValue([]);
+    return new JobGraphRepository({ query } as never).getApplicants({
+      list: "all",
+    });
+  };
+
+  it.each([
+    ["0xWallet", "0xWallet"],
+    [null, ""],
+    [undefined, ""],
+    ["", ""],
+  ])("preserves valid or absent wallet %j", async (wallet, expected) => {
+    await expect(applicants(wallet)).resolves.toEqual([
+      expect.objectContaining({
+        user: expect.objectContaining({ wallet: expected }),
+      }),
+    ]);
+  });
+
+  it.each([{}, ["0xWallet"], 42, true].map(wallet => ({ wallet })))(
+    "rejects malformed wallet $wallet rather than emitting an address",
+    async ({ wallet }) => {
+      await expect(applicants(wallet)).rejects.toThrow(
+        "Applicant wallet must be a string",
+      );
+    },
+  );
+});

@@ -96,7 +96,7 @@ def sync():
     if changed:
         write_atomic(path, encoded)
     try:
-        for attempt in range(8):
+        for _ in range(8):
             observed = request_json(STATUS_URL, host="jobstash-blocklist-check.internal")
             if config_loaded(config, observed):
                 request_json(SOURCE_URL + "/ack", settings["secret"], {"revision": snapshot["revision"]})

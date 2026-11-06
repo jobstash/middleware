@@ -141,6 +141,33 @@ const reportResponse = (
 });
 
 describe("PeopleIntelligenceService", () => {
+  it.each([
+    [{}, "overall", "Since inception"],
+    [{ vertical: "crypto", range: "3y" }, "vertical", "Last 3 years"],
+    [{ chain: "ethereum", range: "1y" }, "chain", "Last year"],
+    [
+      { vertical: "crypto", chain: "ethereum", range: "6m" },
+      "vertical_chain",
+      "Last 6 months",
+    ],
+    [{ vertical: "invalid slug", range: "3m" }, "overall", "Last 3 months"],
+  ] as const)(
+    "preserves report fallback scope and range for %j",
+    async (query, scopeType, label) => {
+      const get = jest
+        .fn()
+        .mockReturnValue(throwError(() => new AxiosError("unavailable")));
+      const service = new PeopleIntelligenceService({
+        get,
+      } as unknown as HttpService);
+      await expect(service.developerReport(query)).resolves.toMatchObject({
+        available: false,
+        scope: { type: scopeType },
+        range: { label },
+      });
+    },
+  );
+
   it("suppresses public developer-report person cells below k=5", () => {
     const response = reportResponse();
     response.top.aiCategories = [

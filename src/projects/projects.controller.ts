@@ -33,7 +33,7 @@ import {
 import * as Sentry from "@sentry/node";
 import axios from "axios";
 import { ValidationError } from "class-validator";
-import { randomUUID } from "crypto";
+import { randomUUID } from "node:crypto";
 import { Response as ExpressResponse } from "express";
 import { File, NFTStorage } from "nft.storage";
 import { PBACGuard } from "src/auth/pbac.guard";
@@ -131,7 +131,6 @@ export class ProjectsController {
         | "jobs"
         | "investors"
         | "repos"
-        | "ecosystems"
       >[]
     >
   > {
@@ -707,7 +706,7 @@ export class ProjectsController {
 
     try {
       const uri = new URL(url);
-      const regex = /^https:\/\/api\.llama\.fi\/protocol\/[^\/]+$/;
+      const regex = /^https:\/\/api\.llama\.fi\/protocol\/[^/]+$/;
       if (regex.test(uri.toString())) {
         const response = await axios.get(uri.toString());
         if (!response) {
@@ -1369,7 +1368,6 @@ export class ProjectsController {
         | "jobs"
         | "investors"
         | "repos"
-        | "ecosystems"
       >
     >
   > {

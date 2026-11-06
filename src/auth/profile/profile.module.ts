@@ -12,7 +12,7 @@ import { HttpModule } from "@nestjs/axios";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { ThrottlerModule } from "@nestjs/throttler";
 import { REALLY_LONG_TIME } from "src/shared/constants";
-import * as https from "https";
+import * as https from "node:https";
 import { AuthModule } from "../auth.module";
 import { PrivyModule } from "../privy/privy.module";
 import { GithubModule } from "../github/github.module";

@@ -24,6 +24,23 @@ describe("placement bounty amount totals", () => {
       expect(parseKnownBountyAmount(value)).toBeNull();
     },
   );
+  it.each([
+    ["1.5 만 원", { currency: "KRW", amount: 15000 }],
+    ["1,5만원", { currency: "KRW", amount: 15000 }],
+    ["123,456,78만원", { currency: "KRW", amount: 4567800 }],
+    ["$2.5M", { currency: "USD", amount: 2500000 }],
+    ["USD 1,0000", null],
+    ["USD 1.2.3", { currency: "USD", amount: 1.2 }],
+    ["9".repeat(100_000) + " 만 x", null],
+    ["1" + " ".repeat(100_000) + "만 원", { currency: "KRW", amount: 10000 }],
+    ["9".repeat(100_000) + " USD", null],
+    ["USD 1" + ",000".repeat(20_000) + "0", null],
+  ])(
+    "preserves numeric grammar, including long near misses",
+    (value, expected) => {
+      expect(parseKnownBountyAmount(value)).toEqual(expected);
+    },
+  );
 
   it("totals each currency globally and per company", () => {
     const rows = [

@@ -205,10 +205,13 @@ export class AgencyAlertsService {
         .getOrThrow<string>("MW_DOMAIN")
         .replace(/\/$/, "");
       const unsubscribeUrl = `${middleware}/agency-alerts/unsubscribe?token=${encodeURIComponent(this.unsubscribeToken(claim.workspaceId, claim.userId))}`;
-      const roleLinks = jobs.map(job => ({
-        ...job,
-        href: `${frontend}/${slugify(`${job.title}-${claim.organizationName}`)}/${encodeURIComponent(job.shortUUID)}?utm_source=agency_alert&utm_medium=email`,
-      }));
+      const roleLinks = jobs.map(job => {
+        const roleSlug = slugify(`${job.title}-${claim.organizationName}`);
+        return {
+          ...job,
+          href: `${frontend}/${roleSlug}/${encodeURIComponent(job.shortUUID)}?utm_source=agency_alert&utm_medium=email`,
+        };
+      });
       const intro = `${claim.organizationName}: ${jobs.length} new ${jobs.length === 1 ? "role" : "roles"} found on JobStash.`;
       const message = emailBuilder({
         from: this.config.getOrThrow<string>("EMAIL"),
@@ -219,18 +222,25 @@ export class AgencyAlertsService {
           text(
             "You receive these alerts because you chose to follow this organization.",
           ),
-          ...roleLinks.map(job =>
-            text(
-              `<a href="${escape(job.href)}">${escape(job.title || "Open role")}</a>${job.location ? ` — ${escape(job.location)}` : ""}`,
-            ),
-          ),
+          ...roleLinks.map(job => {
+            const location = job.location ? ` — ${escape(job.location)}` : "";
+            return text(
+              `<a href="${escape(job.href)}">${escape(job.title || "Open role")}</a>${location}`,
+            );
+          }),
           button("Manage my follows", `${admin}/alerts`),
           text(
             `<a href="${escape(unsubscribeUrl)}">Stop all my alerts in this workspace</a>`,
           ),
         ],
       });
-      message.text = `${intro}\n\n${roleLinks.map(job => `${job.title}${job.location ? ` — ${job.location}` : ""}\n${job.href}`).join("\n\n")}\n\nManage follows: ${admin}/alerts\nStop alerts: ${unsubscribeUrl}`;
+      const plainRoles = roleLinks
+        .map(job => {
+          const location = job.location ? ` — ${job.location}` : "";
+          return `${job.title}${location}\n${job.href}`;
+        })
+        .join("\n\n");
+      message.text = `${intro}\n\n${plainRoles}\n\nManage follows: ${admin}/alerts\nStop alerts: ${unsubscribeUrl}`;
       message.headers = {
         "List-Unsubscribe": `<${unsubscribeUrl}>`,
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",

@@ -30,7 +30,7 @@ import { RecommendationMetricsInput } from "./dto/recommendation-metrics.input";
 
 @Controller("telemetry")
 export class TelemetryController {
-  private logger = new CustomLogger(TelemetryController.name);
+  private readonly logger = new CustomLogger(TelemetryController.name);
   constructor(
     private readonly userService: UserService,
     private readonly telemetryService: TelemetryService,

@@ -2,9 +2,67 @@ import { SearchRepository } from "src/postgres/search.repository";
 import { publicationDateRangeGenerator } from "src/shared/helpers";
 import { SearchService } from "./search.service";
 import { SearchPillarItemParams } from "./dto/search-pillar-items.input";
+import { SearchPillarFiltersParams } from "./dto/search-pillar-filters-params.input";
 
 describe("SearchService organization intelligence filters", () => {
   afterEach(() => jest.useRealTimers());
+
+  it.each([
+    { available: ["tags", "jobs"], requested: "tags", expected: "tags" },
+    { available: ["tags", "jobs"], requested: "investors", expected: "jobs" },
+    { available: ["tags"], requested: "investors", expected: "tags" },
+    { available: [], requested: undefined, expected: "jobs" },
+  ])(
+    "selects suggestion group $expected for $available and $requested",
+    async ({ available, requested, expected }) => {
+      const getSuggestionItems = jest.fn().mockResolvedValue([]);
+      const service = new SearchService(
+        {
+          getSuggestionGroups: jest.fn().mockResolvedValue(available),
+          getSuggestionItems,
+        } as unknown as SearchRepository,
+        {} as never,
+        {} as never,
+      );
+      await service.getJobSuggestions({
+        q: "rust",
+        group: requested,
+      } as never);
+      expect(getSuggestionItems).toHaveBeenCalledWith(
+        expect.objectContaining({ group: expected }),
+      );
+    },
+  );
+
+  it("intersects list, numeric, and false boolean pillar filters without filtering the requested facet", async () => {
+    const service = new SearchService(
+      {
+        getPillarConfigs: jest.fn().mockResolvedValue([
+          { names: ["Match"], tags: ["Rust"], tvl: 5, audits: false },
+          { names: ["Wrong tag"], tags: ["Solidity"], tvl: 5, audits: false },
+          { names: ["Below range"], tags: ["Rust"], tvl: 1, audits: false },
+          { names: ["Wrong boolean"], tags: ["Rust"], tvl: 5, audits: true },
+          { names: ["Above range"], tags: ["Rust"], tvl: 20, audits: false },
+        ]),
+      } as unknown as SearchRepository,
+      {} as never,
+      {} as never,
+    );
+
+    const pillar = await service.getPillar(
+      Object.assign(new SearchPillarFiltersParams(), {
+        nav: "projects",
+        pillar: "names",
+        names: ["ignored-facet"],
+        tags: ["rust"],
+        minTvl: 2,
+        maxTvl: 10,
+        hasAudits: false,
+      }),
+      undefined,
+    );
+    expect(pillar?.items).toEqual(["Match"]);
+  });
 
   it("names the job suggestion tabs clearly and returns canonical category labels", async () => {
     const getSuggestionGroups = jest
@@ -141,6 +199,131 @@ describe("SearchService organization intelligence filters", () => {
       },
     });
   });
+
+  it.each([
+    ...["Intern", "Junior", "Senior", "Lead", "Head"].flatMap(
+      (label, index) => [
+        { seniority: index + 1, expected: label },
+        { seniority: (index + 1).toString(), expected: label },
+        { seniority: label, expected: label },
+      ],
+    ),
+    { seniority: null, expected: null },
+    { seniority: undefined, expected: null },
+    { seniority: "", expected: "" },
+    { seniority: "Staff", expected: "Staff" },
+  ])(
+    "preserves supported seniority $seniority",
+    async ({ seniority, expected }) => {
+      const service = new SearchService(
+        {
+          getPillarJobs: jest.fn().mockResolvedValue([{ seniority }]),
+        } as never,
+        { getSummariesById: jest.fn().mockResolvedValue(new Map()) } as never,
+        {} as never,
+      );
+      await expect(
+        service.getPillarPageData("cl-forward-deployed-engineer"),
+      ).resolves.toMatchObject({
+        success: true,
+        data: { jobs: [expect.objectContaining({ seniority: expected })] },
+      });
+    },
+  );
+
+  it.each(
+    [{}, ["3"], true, 0, 6, Number.NaN].map(seniority => ({ seniority })),
+  )(
+    "rejects malformed seniority $seniority without returning a job",
+    async ({ seniority }) => {
+      const service = new SearchService(
+        {
+          getPillarJobs: jest.fn().mockResolvedValue([{ seniority }]),
+        } as never,
+        { getSummariesById: jest.fn().mockResolvedValue(new Map()) } as never,
+        {} as never,
+      );
+      await expect(
+        service.getPillarPageData("cl-forward-deployed-engineer"),
+      ).resolves.toEqual({
+        success: false,
+        message: "Error retrieving pillar page data",
+      });
+    },
+  );
+
+  it.each([
+    { aliases: "Acme", expected: ["Acme"] },
+    { aliases: ["Acme", "Acme Labs"], expected: ["Acme", "Acme Labs"] },
+    { aliases: null, expected: [] },
+    { aliases: undefined, expected: [] },
+  ])(
+    "preserves textual or absent organization aliases $aliases",
+    async ({ aliases, expected }) => {
+      const service = new SearchService(
+        {
+          getOrganizationPillar: jest.fn().mockResolvedValue({
+            orgId: "acme",
+            name: "Acme",
+            aliases,
+          }),
+          getPillarJobs: jest.fn().mockResolvedValue([]),
+        } as never,
+        { getSummariesById: jest.fn().mockResolvedValue(new Map()) } as never,
+        {} as never,
+      );
+      await expect(service.getPillarPageData("o-acme")).resolves.toMatchObject({
+        success: true,
+        data: { organization: { aliases: expected } },
+      });
+    },
+  );
+
+  it.each(
+    [{}, ["Acme", {}], [["Acme"]], [null], 42].map(aliases => ({ aliases })),
+  )("rejects malformed organization aliases $aliases", async ({ aliases }) => {
+    const service = new SearchService(
+      {
+        getOrganizationPillar: jest.fn().mockResolvedValue({
+          orgId: "acme",
+          name: "Acme",
+          aliases,
+        }),
+        getPillarJobs: jest.fn().mockResolvedValue([]),
+      } as never,
+      { getSummariesById: jest.fn().mockResolvedValue(new Map()) } as never,
+      {} as never,
+    );
+    await expect(service.getPillarPageData("o-acme")).resolves.toEqual({
+      success: false,
+      message: "Error retrieving pillar page data",
+    });
+  });
+
+  it.each(["Solidity", ["Solidity"]].map(tags => ({ tags })))(
+    "matches scalar and array facet labels $tags",
+    ({ tags }) => {
+      const service = new SearchService({} as never, {} as never, {} as never);
+      const configs = [{ tags }];
+      expect(
+        service["filterConfigs"](configs, { tags: ["solidity"] } as never),
+      ).toEqual(configs);
+      expect(service["collectValues"](configs, "tags")).toEqual(["Solidity"]);
+    },
+  );
+
+  it.each([{}, ["Solidity", {}], [null]].map(tags => ({ tags })))(
+    "rejects malformed facet labels $tags",
+    ({ tags }) => {
+      const service = new SearchService({} as never, {} as never, {} as never);
+      expect(() =>
+        service["filterConfigs"]([{ tags }], { tags: ["solidity"] } as never),
+      ).toThrow(TypeError);
+      expect(() => service["collectValues"]([{ tags }], "tags")).toThrow(
+        TypeError,
+      );
+    },
+  );
 
   it("links current-stage navigation to the working organization filter route", async () => {
     const service = new SearchService(

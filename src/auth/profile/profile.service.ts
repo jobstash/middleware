@@ -38,6 +38,7 @@ import {
   UserVerifiedOrg,
   UserWorkHistory,
   JobPreferences,
+  JobListResult,
   JobsForMeResponse,
   RecommendedJobsResponse,
   WorkArrangementClassification,
@@ -64,6 +65,16 @@ import {
   meetsRecommendationConstraints,
 } from "./job-preference-matcher";
 
+function recommendationRankingTime(rankedAt?: string): Date {
+  const now = new Date();
+  const requestedTime = rankedAt ? new Date(rankedAt) : now;
+  return Number.isFinite(requestedTime.getTime()) &&
+    requestedTime <= now &&
+    now.getTime() - requestedTime.getTime() < 24 * 60 * 60 * 1000
+    ? requestedTime
+    : now;
+}
+
 @Injectable()
 export class ProfileService {
   private readonly logger = new CustomLogger(ProfileService.name);
@@ -71,9 +82,9 @@ export class ProfileService {
   constructor(
     private readonly profiles: ProfileRepository,
     private readonly users: UserRepository,
-    private scorerService: ScorerService,
-    private configService: ConfigService,
-    private githubUserService: GithubUserService,
+    private readonly scorerService: ScorerService,
+    private readonly configService: ConfigService,
+    private readonly githubUserService: GithubUserService,
   ) {}
 
   async getJobPreferences(wallet: string): Promise<JobPreferences | null> {
@@ -185,6 +196,30 @@ export class ProfileService {
     Promise<RecommendedJobsResponse>
   >();
 
+  private cacheRecommendedJobs(
+    key: string,
+    result: RecommendedJobsResponse,
+  ): void {
+    // Bound memory by job count, not just account count.
+    if (result.jobs.length <= 1000) {
+      this.recommendationCache.set(key, {
+        expiresAt: Date.now() + 30_000,
+        result,
+      });
+      while (
+        [...this.recommendationCache.values()].reduce(
+          (total, entry) => total + entry.result.jobs.length,
+          0,
+        ) > 2000 ||
+        this.recommendationCache.size > 20
+      ) {
+        this.recommendationCache.delete(
+          this.recommendationCache.keys().next().value!,
+        );
+      }
+    }
+  }
+
   async getRecommendedJobs(
     wallet: string,
     limit = 30,
@@ -227,24 +262,7 @@ export class ProfileService {
       }
       try {
         result = await pending;
-        // Bound memory by job count, not just account count.
-        if (result.jobs.length <= 1000) {
-          this.recommendationCache.set(key, {
-            expiresAt: Date.now() + 30_000,
-            result,
-          });
-          while (
-            [...this.recommendationCache.values()].reduce(
-              (total, entry) => total + entry.result.jobs.length,
-              0,
-            ) > 2000 ||
-            this.recommendationCache.size > 20
-          ) {
-            this.recommendationCache.delete(
-              this.recommendationCache.keys().next().value!,
-            );
-          }
-        }
+        this.cacheRecommendedJobs(key, result);
       } finally {
         this.recommendationRequests.delete(key);
       }
@@ -260,6 +278,66 @@ export class ProfileService {
     };
   }
 
+  private recommendationLocation(
+    job: JobListResult,
+    preferences: JobPreferences,
+    surface: "web" | "weekly_email",
+  ): { eligible: boolean; reason?: string } {
+    let reason: string | undefined;
+    const arrangement = job.workArrangement as unknown as {
+      classification?: WorkArrangementClassification;
+      remoteOptions?: WorkLocationOption[];
+      hybridOptions?: WorkLocationOption[];
+      onsiteOptions?: WorkLocationOption[];
+    };
+    const options = [
+      ...(arrangement?.remoteOptions ?? []),
+      ...(arrangement?.hybridOptions ?? []),
+      ...(arrangement?.onsiteOptions ?? []),
+    ];
+    const eligible = options.some(option => {
+      const match = matchWorkLocationOptions(
+        job,
+        [option],
+        preferences,
+        arrangement?.classification ?? "unstated",
+      );
+      const accepted =
+        meetsRecommendationConstraints(match) &&
+        (surface !== "weekly_email" || match?.group === "confirmedMatches");
+      if (accepted && preferences.residenceCountry)
+        reason = `${option.mode === "remote" ? "Remote location includes" : "Office option in"} ${preferences.residenceCountry}`;
+      return accepted;
+    });
+    return { eligible, reason };
+  }
+
+  private projectRecommendedJob(
+    candidate: JobListResult,
+    reasonLabels: string[],
+    preferences: JobPreferences | null,
+    surface: "web" | "weekly_email",
+    employers: Set<string>,
+  ): RecommendedJobsResponse["jobs"][number] | null {
+    const job = new JobListResultEntity(candidate).getProperties();
+    let locationReason: string | undefined;
+    if (preferences) {
+      const location = this.recommendationLocation(job, preferences, surface);
+      if (!location.eligible) return null;
+      locationReason = location.reason;
+    }
+    const employer =
+      job.organization?.orgId ?? job.project?.id ?? job.shortUUID;
+    if (surface === "weekly_email" && employers.has(employer)) return null;
+    employers.add(employer);
+    return {
+      job,
+      reason: [locationReason, this.recommendationReason(reasonLabels)]
+        .filter(Boolean)
+        .join(" · "),
+    };
+  }
+
   private async computeRecommendedJobs(
     wallet: string,
     limit = 30,
@@ -270,14 +348,7 @@ export class ProfileService {
   ): Promise<RecommendedJobsResponse> {
     const requestedLimit = Math.max(1, Math.min(limit, 50));
     const requestedPage = Number.isSafeInteger(page) && page > 0 ? page : 1;
-    const now = new Date();
-    const requestedTime = rankedAt ? new Date(rankedAt) : now;
-    const rankingTime =
-      Number.isFinite(requestedTime.getTime()) &&
-      requestedTime <= now &&
-      now.getTime() - requestedTime.getTime() < 24 * 60 * 60 * 1000
-        ? requestedTime
-        : now;
+    const rankingTime = recommendationRankingTime(rankedAt);
     const [hasPreferences, preferences] = await Promise.all([
       this.profiles.hasJobPreferences(wallet),
       this.getJobPreferences(wallet),
@@ -325,52 +396,14 @@ export class ProfileService {
     for (const candidate of candidates) {
       if (surface === "weekly_email" && jobs.length >= requestedLimit) break;
       try {
-        const job = new JobListResultEntity(candidate.job).getProperties();
-        let locationReason: string | undefined;
-        if (hasPreferences && preferences) {
-          const arrangement = job.workArrangement as unknown as {
-            classification?: WorkArrangementClassification;
-            remoteOptions?: WorkLocationOption[];
-            hybridOptions?: WorkLocationOption[];
-            onsiteOptions?: WorkLocationOption[];
-          };
-          const options = [
-            ...(arrangement?.remoteOptions ?? []),
-            ...(arrangement?.hybridOptions ?? []),
-            ...(arrangement?.onsiteOptions ?? []),
-          ];
-          const eligible = options.some(option => {
-            const match = matchWorkLocationOptions(
-              job,
-              [option],
-              preferences,
-              arrangement?.classification ?? "unstated",
-            );
-            const accepted =
-              meetsRecommendationConstraints(match) &&
-              (surface !== "weekly_email" ||
-                match?.group === "confirmedMatches");
-            if (accepted && preferences.residenceCountry)
-              locationReason = `${option.mode === "remote" ? "Remote location includes" : "Office option in"} ${preferences.residenceCountry}`;
-            return accepted;
-          });
-          if (!eligible) {
-            continue;
-          }
-        }
-        const employer =
-          job.organization?.orgId ?? job.project?.id ?? job.shortUUID;
-        if (surface === "weekly_email" && employers.has(employer)) continue;
-        employers.add(employer);
-        jobs.push({
-          job,
-          reason: [
-            locationReason,
-            this.recommendationReason(candidate.reasonLabels),
-          ]
-            .filter(Boolean)
-            .join(" · "),
-        });
+        const projected = this.projectRecommendedJob(
+          candidate.job,
+          candidate.reasonLabels,
+          hasPreferences ? preferences : null,
+          surface,
+          employers,
+        );
+        if (projected) jobs.push(projected);
       } catch (error) {
         Sentry.withScope(scope => {
           scope.setTags({
@@ -625,8 +658,11 @@ export class ProfileService {
           });
         }
 
+        const verificationCount = orgs.length > 0 ? orgs.length : "no";
+        const verificationLabel =
+          orgs.length === 1 ? "verification" : "verifications";
         this.logger.log(
-          `Found ${orgs.length === 1 ? `${orgs.length} verification` : `${orgs.length > 0 ? orgs.length : "no"} verifications`} for ${wallet}`,
+          `Found ${verificationCount} ${verificationLabel} for ${wallet}`,
         );
 
         this.logger.log(`Persisting user verifications for ${wallet}`);
@@ -652,8 +688,8 @@ export class ProfileService {
                     id: y.id,
                     name: y.name,
                     slug: slugify(y.name),
-                    url: "http://ethglobal.com/packs",
-                    logo: "http://ethglobal.com",
+                    url: "https://ethglobal.com/packs",
+                    logo: "https://ethglobal.com",
                     account: x.address,
                     hasOwner: true,
                     isOwner: true,
@@ -729,8 +765,8 @@ export class ProfileService {
                       id: y.id,
                       name: y.name,
                       slug: slugify(y.name),
-                      url: "http://ethglobal.com/packs",
-                      logo: "http://ethglobal.com",
+                      url: "https://ethglobal.com/packs",
+                      logo: "https://ethglobal.com",
                       account: x.address,
                       hasOwner: true,
                       isOwner: true,

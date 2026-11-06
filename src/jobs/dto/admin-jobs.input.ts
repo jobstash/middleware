@@ -23,9 +23,11 @@ export class AdminJobsParams {
       "True returns online jobs; false returns offline jobs; omit for both",
   })
   @IsOptional()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value,
-  )
+  @Transform(({ value }) => {
+    if (value === "true") return true;
+    if (value === "false") return false;
+    return value;
+  })
   @IsBoolean()
   online?: boolean;
 }

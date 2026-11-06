@@ -1,7 +1,7 @@
 import { HttpModule } from "@nestjs/axios";
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
-import * as https from "https";
+import * as https from "node:https";
 import { PeopleIntelligenceController } from "./people-intelligence.controller";
 import { PeopleIntelligenceService } from "./people-intelligence.service";
 

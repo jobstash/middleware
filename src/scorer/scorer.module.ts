@@ -3,7 +3,7 @@ import { ScorerService } from "./scorer.service";
 import { HttpModule } from "@nestjs/axios";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { REALLY_LONG_TIME } from "src/shared/constants";
-import * as https from "https";
+import * as https from "node:https";
 
 @Module({
   imports: [

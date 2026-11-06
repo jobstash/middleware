@@ -63,6 +63,22 @@ const parseUtcDate = (value: string): number | null => {
   return Math.trunc(timestamp / 1000);
 };
 
+const customFundActivityRange = (
+  params: InvestorListParams,
+): { from: number; toExclusive: number } => {
+  if (!params.fromDate || !params.toDate) {
+    throw new BadRequestException(
+      "fromDate and toDate are required for a custom activity window",
+    );
+  }
+  const from = parseUtcDate(params.fromDate);
+  const to = parseUtcDate(params.toDate);
+  if (from === null || to === null || from > to) {
+    throw new BadRequestException("Invalid fund activity date range");
+  }
+  return { from, toExclusive: to + DAY_SECONDS };
+};
+
 const resolveFundActivityRange = (
   params: InvestorListParams,
 ): FundActivityRange => {
@@ -75,22 +91,13 @@ const resolveFundActivityRange = (
   );
   const todaySeconds = Math.trunc(today / 1000);
   const toExclusive = todaySeconds + DAY_SECONDS;
-  let from = todaySeconds;
+  let from: number;
   let resolvedTo = toExclusive;
 
   if (window === "custom") {
-    if (!params.fromDate || !params.toDate) {
-      throw new BadRequestException(
-        "fromDate and toDate are required for a custom activity window",
-      );
-    }
-    const customFrom = parseUtcDate(params.fromDate);
-    const customTo = parseUtcDate(params.toDate);
-    if (customFrom === null || customTo === null || customFrom > customTo) {
-      throw new BadRequestException("Invalid fund activity date range");
-    }
-    from = customFrom;
-    resolvedTo = customTo + DAY_SECONDS;
+    const custom = customFundActivityRange(params);
+    from = custom.from;
+    resolvedTo = custom.toExclusive;
   } else if (window === "all") {
     from = 0;
   } else if (window === "30d" || window === "90d") {

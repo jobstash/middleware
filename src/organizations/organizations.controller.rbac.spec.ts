@@ -3,6 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { OrganizationsController } from "./organizations.controller";
 import { CheckWalletPermissions } from "src/shared/constants";
 import { data, SessionObject } from "src/shared/types";
+import { UpdateOrganizationInput } from "./dto/update-organization.input";
 
 type OrganizationsControllerFixture = {
   controller: OrganizationsController;
@@ -55,6 +56,47 @@ describe("OrganizationsController RBAC", () => {
     address: "0xsuperadmin",
     cryptoNative: false,
     permissions,
+  });
+  it("stops ordered relationship updates on the first failure before scalar persistence", async () => {
+    const { controller, organizationsService } = buildController();
+    const updateOrgWebsites = jest.fn().mockResolvedValue({ success: true });
+    const failure = { success: false, message: "twitter rejected" };
+    const updateOrgTwitters = jest.fn().mockResolvedValue(failure);
+    const updateOrgGithubs = jest.fn();
+    const updateOrgProjects = jest.fn();
+    Object.assign(organizationsService, {
+      updateOrgWebsites,
+      updateOrgTwitters,
+      updateOrgGithubs,
+      updateOrgProjects,
+    });
+    organizationsService.findByOrgId.mockResolvedValue({ orgId: "org" });
+    await expect(
+      controller.updateOrganization(
+        buildSession([CheckWalletPermissions.SUPER_ADMIN]),
+        "org",
+        Object.assign(new UpdateOrganizationInput(), {
+          websites: [],
+          twitters: [],
+          githubs: [],
+          projects: [],
+        }),
+      ),
+    ).resolves.toBe(failure);
+    expect(updateOrgWebsites).toHaveBeenCalledWith({
+      orgId: "org",
+      websites: [],
+    });
+    expect(updateOrgTwitters).toHaveBeenCalledWith({
+      orgId: "org",
+      twitters: [],
+    });
+    expect(updateOrgWebsites.mock.invocationCallOrder[0]).toBeLessThan(
+      updateOrgTwitters.mock.invocationCallOrder[0],
+    );
+    expect(updateOrgGithubs).not.toHaveBeenCalled();
+    expect(updateOrgProjects).not.toHaveBeenCalled();
+    expect(organizationsService.update).not.toHaveBeenCalled();
   });
 
   it("does not run org membership checks for super-admin org detail reads", async () => {

@@ -9,7 +9,7 @@ export class StructuredJobpostWithRelationsEntity {
   getProperties(): StructuredJobpostWithRelations {
     const jobpost = this.raw;
 
-    const now = new Date().getTime();
+    const now = Date.now();
 
     const isStillFeatured =
       jobpost?.featured === true &&
@@ -54,7 +54,7 @@ export class OrgJobEntity {
   getProperties(): OrgJob {
     const jobpost = this.raw;
 
-    const now = new Date().getTime();
+    const now = Date.now();
 
     const isStillFeatured =
       jobpost?.featured === true &&

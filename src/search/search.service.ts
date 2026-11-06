@@ -91,10 +91,7 @@ import {
   JobMarketTopPayingData,
   PillarMarketData,
 } from "./dto/job-market.output";
-import {
-  OrganizationTeamSummary,
-  TeamFilterInput,
-} from "src/team-intelligence/team-intelligence.types";
+import { OrganizationTeamSummary } from "src/team-intelligence/team-intelligence.types";
 
 type FilterConfig = Record<string, unknown>;
 type NormalizedUtcBand = {
@@ -290,7 +287,7 @@ export class SearchService {
         };
       }
       const history = rows.map(row => this.marketPoint(row));
-      const current = history[history.length - 1];
+      const current = history.at(-1);
       const pillarFilter = await this.marketPillarFilter(
         rows[0].kind,
         canonicalSlug,
@@ -380,11 +377,8 @@ export class SearchService {
   ): Promise<ResponseWithOptionalData<JobMarketStateData>> {
     try {
       const rangeKey = this.marketRangeKey(range);
-      const canonicalClassification = classification.startsWith("cl-")
-        ? classification
-        : classification === "market"
-          ? "market"
-          : `cl-${slugify(classification)}`;
+      const canonicalClassification =
+        this.marketClassificationSlug(classification);
       const overview = await this.getMarketOverview();
       if (!overview.success || !("data" in overview) || !overview.data) {
         return { success: true, message: "Job market not ready", data: null };
@@ -443,11 +437,8 @@ export class SearchService {
   ): Promise<ResponseWithOptionalData<JobMarketTopPayingData>> {
     try {
       const segment = segmentInput === "local" ? "local" : "remote";
-      const canonicalClassification = classificationInput.startsWith("cl-")
-        ? classificationInput
-        : classificationInput === "market"
-          ? "market"
-          : `cl-${slugify(classificationInput)}`;
+      const canonicalClassification =
+        this.marketClassificationSlug(classificationInput);
       const overviewRows = await this.jobMarketRepository.getOverview();
       const marketRow = overviewRows.find(row => row.slug === "market");
       const classificationRow = overviewRows.find(
@@ -682,7 +673,7 @@ export class SearchService {
                 id: row.jobNodeId,
                 shortUuid: row.shortUuid,
                 title: row.title,
-                href: `/${slugify(`${row.title}${organizationSuffix}`)}/${row.shortUuid}`,
+                href: `/${slugify(row.title + organizationSuffix)}/${row.shortUuid}`,
                 organizationName: row.organizationName,
                 organizationLogoUrl: row.organizationLogoUrl,
                 classificationSlug: row.classificationSlug,
@@ -727,11 +718,8 @@ export class SearchService {
         "cooling",
       ]);
       const sort = allowedSorts.has(sortInput) ? sortInput : "breakout";
-      const canonicalClassification = classificationInput.startsWith("cl-")
-        ? classificationInput
-        : classificationInput === "market"
-          ? "market"
-          : `cl-${slugify(classificationInput)}`;
+      const canonicalClassification =
+        this.marketClassificationSlug(classificationInput);
       const overviewRows = await this.jobMarketRepository.getOverview();
       const marketRow = overviewRows.find(row => row.slug === "market");
       const classificationRow = overviewRows.find(
@@ -767,18 +755,20 @@ export class SearchService {
         if (sort === "repricing") return repricing;
         if (sort === "demand") return demand;
         if (sort === "cooling") return -demand;
-        return Number.isFinite(repricing) || Number.isFinite(demand)
-          ? (skill.strongBreakout ? 1_000_000 : 0) + repricing * 100 + demand
-          : skill.activeJobs * 10 + skill.hiringCompanies;
+        if (Number.isFinite(repricing) || Number.isFinite(demand)) {
+          const breakoutBonus = skill.strongBreakout ? 1_000_000 : 0;
+          return breakoutBonus + repricing * 100 + demand;
+        }
+        return skill.activeJobs * 10 + skill.hiringCompanies;
       };
       const sorted = skills
-        .filter(skill =>
-          sort === "cooling"
-            ? (skill.momentum.marketRelativeScore ?? 0) < -5
-            : sort === "repricing"
-              ? skill.signal?.status === "rising"
-              : true,
-        )
+        .filter(skill => {
+          if (sort === "cooling") {
+            return (skill.momentum.marketRelativeScore ?? 0) < -5;
+          }
+          if (sort === "repricing") return skill.signal?.status === "rising";
+          return true;
+        })
         .sort((left, right) => score(right) - score(left))
         .slice(0, 250);
       const asOf = rows[0]?.asOfDate ?? marketRow?.sampleDate;
@@ -899,9 +889,10 @@ export class SearchService {
     const pillar = basePillar ?? NAV_PILLAR_ORDERING[nav]?.[0];
     if (pillar === "names") {
       const title = NAV_PILLAR_TITLES[nav];
+      const itemSuffix = item ? ` called ${item}` : "";
       return {
         title: `${title} ${capitalize(pillar)}`,
-        description: `A list of ${lowerCase(title)} ${pillar}${item ? ` called ${item}` : ""}`,
+        description: `A list of ${lowerCase(title)} ${pillar}${itemSuffix}`,
       };
     }
     if (nav === "jobs") {
@@ -919,7 +910,7 @@ export class SearchService {
     params: SearchPillarFiltersParams & { pillar: string },
     ecosystem: string | undefined,
   ): Promise<Pillar | undefined> {
-    const configs = await this.loadPillarConfigs(params.nav, ecosystem, params);
+    const configs = await this.loadPillarConfigs(params.nav, ecosystem);
     return this.buildPillar(configs, params);
   }
 
@@ -931,23 +922,14 @@ export class SearchService {
       const pillar = params.pillar ?? NAV_PILLAR_ORDERING[params.nav]?.[0];
       if (!pillar)
         return { success: true, message: "Pillar not found", data: null };
-      const configs = await this.loadPillarConfigs(
-        params.nav,
-        ecosystem,
-        params,
-      );
+      const configs = await this.loadPillarConfigs(params.nav, ecosystem);
       const singleFilterField = this.singleActiveFilterField(params);
-      const filteredConfigs =
-        singleFilterField === undefined
-          ? undefined
-          : singleFilterField === null
-            ? configs
-            : this.filterConfigsForSingleField(
-                configs,
-                params,
-                singleFilterField,
-                ecosystem,
-              );
+      const filteredConfigs = this.singleFieldFilteredConfigs(
+        configs,
+        params,
+        singleFilterField,
+        ecosystem,
+      );
       const buildResponsePillar = (candidate: string): Pillar | undefined => {
         if (filteredConfigs) {
           return singleFilterField === null || singleFilterField === candidate
@@ -1081,11 +1063,11 @@ export class SearchService {
     nav: SearchNav,
     slug: string,
   ): Promise<ResponseWithOptionalData<{ title: string; description: string }>> {
-    const prefix = slug.match(/^([^-]+)/)?.[1];
+    const prefix = /^([^-]+)/.exec(slug)?.[1];
     const pillar = (NAV_PILLAR_ORDERING[nav] ?? []).find(
       candidate => NAV_PILLAR_SLUG_PREFIX_MAPPINGS[nav][candidate] === prefix,
     );
-    const item = slug.match(/^[^-]+-(.*)/)?.[1];
+    const item = /^[^-]+-(.*)/.exec(slug)?.[1];
     if (!pillar || !item) return { success: true, message: "Pillar not found" };
     const text = await this.fetchHeaderText(nav, pillar, item);
     return text
@@ -1155,11 +1137,7 @@ export class SearchService {
           data: null,
         };
       }
-      const allConfigs = await this.loadPillarConfigs(
-        params.nav,
-        ecosystem,
-        params,
-      );
+      const allConfigs = await this.loadPillarConfigs(params.nav, ecosystem);
       const teamSignalsAvailable =
         params.nav !== "organizations" ||
         allConfigs.some(config => config.teamSignalsAvailable === true);
@@ -1177,79 +1155,26 @@ export class SearchService {
         SearchRangeFilter | SingleSelectFilter | MultiSelectFilter
       )[] = [];
       const singleFilterField = this.singleActiveFilterField(params);
-      const filteredConfigs =
-        singleFilterField === undefined
-          ? undefined
-          : singleFilterField === null
-            ? allConfigs
-            : this.filterConfigsForSingleField(
-                allConfigs,
-                params,
-                singleFilterField,
-                ecosystem,
-              );
+      const filteredConfigs = this.singleFieldFilteredConfigs(
+        allConfigs,
+        params,
+        singleFilterField,
+        ecosystem,
+      );
       for (const filter of filterNames) {
-        const configs = filteredConfigs
-          ? singleFilterField === null || singleFilterField !== filter
-            ? filteredConfigs
-            : allConfigs
-          : this.filterConfigs(allConfigs, params, filter);
-        const preset = presets[filter];
-        if (!preset) continue;
-        const visiblePreset = TEAM_FILTER_FIELDS.has(filter)
-          ? { ...preset, show: preset.show && teamSignalsAvailable }
-          : preset;
-        const paramPreset = FILTER_PARAM_KEY_PRESETS[params.nav]?.[filter];
-        if (preset.kind === "RANGE") {
-          const values = configs
-            .map(config => this.asNumber(config[filter]))
-            .filter((value): value is number => value !== null)
-            .map(value => Math.max(0, value));
-          const range = paramPreset as { lowest: string; highest: string };
-          filters.push(
-            new SearchRangeFilter({
-              ...visiblePreset,
-              min: {
-                value: values.length ? Math.min(...values) : 0,
-                paramKey: range.lowest,
-              },
-              max: {
-                value: values.length ? Math.max(...values) : 0,
-                paramKey: range.highest,
-              },
-            }),
-          );
-          continue;
+        let configs: FilterConfig[];
+        if (!filteredConfigs) {
+          configs = this.filterConfigs(allConfigs, params, filter);
+        } else {
+          configs = singleFilterField === filter ? allConfigs : filteredConfigs;
         }
-        if (
-          preset.kind === "SINGLE_SELECT" ||
-          preset.kind === "ORDER" ||
-          preset.kind === "ORDER_BY"
-        ) {
-          filters.push(
-            new SingleSelectFilter({
-              ...visiblePreset,
-              kind: preset.kind,
-              paramKey: paramPreset as string,
-              options: preset.options ?? [],
-            }),
-          );
-          continue;
-        }
-        const labels = this.collectValues(configs, filter).slice(0, 20);
-        filters.push(
-          new MultiSelectFilter({
-            ...visiblePreset,
-            paramKey: paramPreset as string,
-            options: labels.map(label => ({
-              label:
-                filter === "collaborationHours"
-                  ? (this.formatCollaborationHour(label) ?? label)
-                  : label,
-              value: filter === "collaborationHours" ? label : slugify(label),
-            })),
-          }),
+        const built = this.buildPillarFilter(
+          params.nav,
+          filter,
+          configs,
+          teamSignalsAvailable,
         );
+        if (built) filters.push(built);
       }
       return {
         success: true,
@@ -1262,6 +1187,62 @@ export class SearchService {
     }
   }
 
+  private buildPillarFilter(
+    nav: SearchNav,
+    filter: string,
+    configs: FilterConfig[],
+    teamSignalsAvailable: boolean,
+  ): SearchRangeFilter | SingleSelectFilter | MultiSelectFilter | undefined {
+    const preset = FILTER_CONFIG_PRESETS[nav]?.[filter];
+    if (!preset) return undefined;
+    const visiblePreset = TEAM_FILTER_FIELDS.has(filter)
+      ? { ...preset, show: preset.show && teamSignalsAvailable }
+      : preset;
+    const paramPreset = FILTER_PARAM_KEY_PRESETS[nav]?.[filter];
+    if (preset.kind === "RANGE") {
+      const values = configs
+        .map(config => this.asNumber(config[filter]))
+        .filter((value): value is number => value !== null)
+        .map(value => Math.max(0, value));
+      const range = paramPreset as { lowest: string; highest: string };
+      return new SearchRangeFilter({
+        ...visiblePreset,
+        min: {
+          value: values.length ? Math.min(...values) : 0,
+          paramKey: range.lowest,
+        },
+        max: {
+          value: values.length ? Math.max(...values) : 0,
+          paramKey: range.highest,
+        },
+      });
+    }
+    if (
+      preset.kind === "SINGLE_SELECT" ||
+      preset.kind === "ORDER" ||
+      preset.kind === "ORDER_BY"
+    ) {
+      return new SingleSelectFilter({
+        ...visiblePreset,
+        kind: preset.kind,
+        paramKey: paramPreset as string,
+        options: preset.options ?? [],
+      });
+    }
+    const labels = this.collectValues(configs, filter).slice(0, 20);
+    return new MultiSelectFilter({
+      ...visiblePreset,
+      paramKey: paramPreset as string,
+      options: labels.map(label => ({
+        label:
+          filter === "collaborationHours"
+            ? (this.formatCollaborationHour(label) ?? label)
+            : label,
+        value: filter === "collaborationHours" ? label : slugify(label),
+      })),
+    });
+  }
+
   async getPillarPageData(
     slug: string,
     ecosystem?: string,
@@ -1271,15 +1252,10 @@ export class SearchService {
       const parsed = this.parsePillarSlug(slug);
       if (!parsed)
         return { success: false, message: `Invalid slug format: ${slug}` };
-      const rawOrganization =
-        parsed.pillarType === "organizations"
-          ? await this.searchRepository.getOrganizationPillar(parsed.value)
-          : undefined;
-      const [hydratedOrganization] = rawOrganization
-        ? await this.hydrateTeamOrganizations([rawOrganization])
-        : [];
-      const organization =
-        this.normalizePillarOrganization(hydratedOrganization);
+      const organization = await this.loadPillarOrganization(
+        parsed.pillarType,
+        parsed.value,
+      );
       const header = organization
         ? {
             title: `Jobs at ${organization.name}`,
@@ -1374,6 +1350,18 @@ export class SearchService {
     }
   }
 
+  private async loadPillarOrganization(
+    pillarType: string,
+    value: string,
+  ): Promise<PillarPageOrg | null> {
+    const raw =
+      pillarType === "organizations"
+        ? await this.searchRepository.getOrganizationPillar(value)
+        : undefined;
+    const [hydrated] = raw ? await this.hydrateTeamOrganizations([raw]) : [];
+    return this.normalizePillarOrganization(hydrated);
+  }
+
   resolveLocationPillar(
     value: string,
   ): Promise<ResolvedPlacePillar | undefined> {
@@ -1432,12 +1420,10 @@ export class SearchService {
         available.includes(group),
       ).map(id => ({ id, label: this.groupLabels[id] }));
       const requested = params.group;
-      const activeGroup =
-        requested && available.includes(requested)
-          ? requested
-          : available.includes("jobs")
-            ? "jobs"
-            : (available[0] ?? "jobs");
+      let activeGroup: SuggestionGroupId;
+      if (requested && available.includes(requested)) activeGroup = requested;
+      else if (available.includes("jobs")) activeGroup = "jobs";
+      else activeGroup = available[0] ?? "jobs";
       const items = await this.searchRepository.getSuggestionItems({
         group: activeGroup,
         query,
@@ -1516,9 +1502,7 @@ export class SearchService {
   private async loadPillarConfigs(
     nav: SearchNav,
     ecosystem?: string,
-    filters: TeamFilterInput = {},
   ): Promise<FilterConfig[]> {
-    void filters;
     if (ecosystem) {
       return this.loadPillarConfigsUncached(nav, ecosystem);
     }
@@ -1697,7 +1681,7 @@ export class SearchService {
     ecosystem?: string,
   ): Pillar | undefined {
     const snapshot = ecosystem ? undefined : this.pillarConfigCache.get(nav);
-    if (!snapshot || snapshot.configs !== configs) {
+    if (snapshot?.configs !== configs) {
       return this.buildPillarFromFilteredConfigs(configs, nav, pillar);
     }
     const cached = snapshot.unfilteredPillars.get(pillar);
@@ -1736,6 +1720,17 @@ export class SearchService {
     return activeFields.values().next().value ?? null;
   }
 
+  private singleFieldFilteredConfigs(
+    configs: FilterConfig[],
+    params: SearchPillarFiltersParams,
+    field: string | null | undefined,
+    ecosystem?: string,
+  ): FilterConfig[] | undefined {
+    if (field === undefined) return undefined;
+    if (field === null) return configs;
+    return this.filterConfigsForSingleField(configs, params, field, ecosystem);
+  }
+
   private filterConfigsForSingleField(
     configs: FilterConfig[],
     params: SearchPillarFiltersParams,
@@ -1749,26 +1744,14 @@ export class SearchService {
     if (
       !Array.isArray(requested) ||
       !requested.length ||
-      !snapshot ||
-      snapshot.configs !== configs
+      snapshot?.configs !== configs
     ) {
       return this.filterConfigs(configs, params);
     }
 
     let index = snapshot.listFilterIndexes.get(field);
     if (!index) {
-      index = new Map();
-      for (const config of configs) {
-        const seen = new Set<string>();
-        for (const label of this.asStringArray(config[field])) {
-          const key = slugify(label);
-          if (!key || seen.has(key)) continue;
-          seen.add(key);
-          const matches = index.get(key);
-          if (matches) matches.push(config);
-          else index.set(key, [config]);
-        }
-      }
+      index = this.buildPillarListFilterIndex(configs, field);
       snapshot.listFilterIndexes.set(field, index);
     }
 
@@ -1781,6 +1764,25 @@ export class SearchService {
     return [...matches];
   }
 
+  private buildPillarListFilterIndex(
+    configs: FilterConfig[],
+    field: string,
+  ): Map<string, FilterConfig[]> {
+    const index = new Map<string, FilterConfig[]>();
+    for (const config of configs) {
+      const seen = new Set<string>();
+      for (const label of this.asStringArray(config[field])) {
+        const key = slugify(label);
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        const matches = index.get(key);
+        if (matches) matches.push(config);
+        else index.set(key, [config]);
+      }
+    }
+    return index;
+  }
+
   private filterConfigs(
     configs: FilterConfig[],
     params: SearchPillarFiltersParams,
@@ -1790,51 +1792,101 @@ export class SearchService {
     const teamSignalsAvailable = configs.some(
       config => config.teamSignalsAvailable === true,
     );
-    return configs.filter(config => {
-      for (const field of PILLAR_LIST_FILTER_FIELDS) {
-        if (field === excludedField) continue;
-        const requested = values[field];
-        if (!Array.isArray(requested) || !requested.length) continue;
-        const available = this.asStringArray(config[field]).map(slugify);
-        if (
-          !requested.some(value => available.includes(slugify(String(value))))
-        ) {
-          return false;
-        }
+    return configs.filter(
+      config =>
+        this.matchesPillarListFilters(config, values, excludedField) &&
+        this.matchesPillarRangeFilters(
+          config,
+          values,
+          params.nav,
+          teamSignalsAvailable,
+          excludedField,
+        ) &&
+        this.matchesPillarBooleanFilters(
+          config,
+          values,
+          params.nav,
+          teamSignalsAvailable,
+          excludedField,
+        ),
+    );
+  }
+
+  private matchesPillarListFilters(
+    config: FilterConfig,
+    values: Record<string, unknown>,
+    excludedField?: string,
+  ): boolean {
+    for (const field of PILLAR_LIST_FILTER_FIELDS) {
+      if (field === excludedField) continue;
+      const requested = values[field];
+      if (!Array.isArray(requested) || !requested.length) continue;
+      const available = new Set(this.asStringArray(config[field]).map(slugify));
+      if (!requested.some(value => available.has(slugify(String(value))))) {
+        return false;
       }
-      for (const [field, mapping] of Object.entries(
-        rangeFilters[params.nav] ?? {},
-      )) {
-        if (field === excludedField) continue;
-        if (TEAM_FILTER_FIELDS.has(field) && !teamSignalsAvailable) continue;
-        const knownValue = this.asNumber(config[field]);
-        const minimum = this.asNumber(values[mapping.minimum]);
-        const maximum = this.asNumber(values[mapping.maximum]);
-        if (
-          TEAM_FILTER_FIELDS.has(field) &&
-          knownValue === null &&
-          (minimum !== null || maximum !== null)
-        ) {
-          return false;
-        }
-        const value = knownValue ?? 0;
-        if (minimum !== null && value < minimum) return false;
-        if (maximum !== null && value > maximum) {
-          return false;
-        }
+    }
+    return true;
+  }
+
+  private matchesPillarRangeFilters(
+    config: FilterConfig,
+    values: Record<string, unknown>,
+    nav: SearchNav,
+    teamSignalsAvailable: boolean,
+    excludedField?: string,
+  ): boolean {
+    for (const [field, mapping] of Object.entries(rangeFilters[nav] ?? {})) {
+      if (field === excludedField) continue;
+      const teamField = TEAM_FILTER_FIELDS.has(field);
+      if (teamField && !teamSignalsAvailable) continue;
+      const knownValue = this.asNumber(config[field]);
+      const minimum = this.asNumber(values[mapping.minimum]);
+      const maximum = this.asNumber(values[mapping.maximum]);
+      if (!this.pillarRangeContains(knownValue, minimum, maximum, teamField)) {
+        return false;
       }
-      for (const [field, parameter] of Object.entries(
-        booleanFilters[params.nav] ?? {},
-      )) {
-        if (field === excludedField) continue;
-        if (TEAM_FILTER_FIELDS.has(field) && !teamSignalsAvailable) continue;
-        const requested = values[parameter];
-        if (typeof requested === "boolean" && config[field] !== requested) {
-          return false;
-        }
+    }
+    return true;
+  }
+
+  private pillarRangeContains(
+    knownValue: number | null,
+    minimum: number | null,
+    maximum: number | null,
+    teamField: boolean,
+  ): boolean {
+    if (
+      teamField &&
+      knownValue === null &&
+      (minimum !== null || maximum !== null)
+    ) {
+      return false;
+    }
+    const value = knownValue ?? 0;
+    if (minimum !== null && value < minimum) return false;
+    if (maximum !== null && value > maximum) return false;
+    return true;
+  }
+
+  private matchesPillarBooleanFilters(
+    config: FilterConfig,
+    values: Record<string, unknown>,
+    nav: SearchNav,
+    teamSignalsAvailable: boolean,
+    excludedField?: string,
+  ): boolean {
+    for (const [field, parameter] of Object.entries(
+      booleanFilters[nav] ?? {},
+    )) {
+      if (field === excludedField) continue;
+      if (TEAM_FILTER_FIELDS.has(field) && !teamSignalsAvailable) continue;
+      const requested = values[parameter];
+      if (typeof requested === "boolean" && config[field] !== requested) {
+        return false;
       }
-      return true;
-    });
+    }
+    return true;
   }
 
   private collectValues(configs: FilterConfig[], field: string): string[] {
@@ -1858,8 +1910,8 @@ export class SearchService {
   private parsePillarSlug(
     slug: string,
   ): { pillarType: string; value: string; prefix: string } | null {
-    const prefix = slug.match(/^([^-]+)/)?.[1];
-    const value = slug.match(/^[^-]+-(.*)/)?.[1];
+    const prefix = /^([^-]+)/.exec(slug)?.[1];
+    const value = /^[^-]+-(.*)/.exec(slug)?.[1];
     if (!prefix || !value) return null;
     const pillarType = Object.entries(
       NAV_PILLAR_SLUG_PREFIX_MAPPINGS.jobs,
@@ -1872,10 +1924,33 @@ export class SearchService {
     const workArrangement = this.normalizePillarWorkArrangement(
       raw.workArrangement,
     );
-    const seniority =
-      { "1": "Intern", "2": "Junior", "3": "Senior", "4": "Lead", "5": "Head" }[
-        String(raw.seniority ?? "")
-      ] ?? (raw.seniority as string | null);
+    const rawSeniority = raw.seniority ?? null;
+    const seniorityLabels: Record<string, string> = {
+      "1": "Intern",
+      "2": "Junior",
+      "3": "Senior",
+      "4": "Lead",
+      "5": "Head",
+    };
+    let seniority: string | null;
+    if (rawSeniority === null) {
+      seniority = null;
+    } else if (typeof rawSeniority === "string") {
+      seniority = Object.hasOwn(seniorityLabels, rawSeniority)
+        ? seniorityLabels[rawSeniority]
+        : rawSeniority;
+    } else if (
+      typeof rawSeniority === "number" &&
+      Number.isInteger(rawSeniority) &&
+      rawSeniority >= 1 &&
+      rawSeniority <= 5
+    ) {
+      seniority = seniorityLabels[rawSeniority];
+    } else {
+      throw new TypeError(
+        "Pillar job seniority must be a string or legacy code",
+      );
+    }
     return {
       ...(raw as unknown as PillarJob),
       seniority,
@@ -2312,7 +2387,7 @@ export class SearchService {
 
   // Pillar pages and /jobs/list must interpret "past 3 months" identically.
   private formatCollaborationHour(key: string): string | null {
-    const match = key.match(/^utc-(\d{2})$/);
+    const match = /^utc-(\d{2})$/.exec(key);
     if (!match) return null;
     const hour = Number(match[1]);
     return hour >= 0 && hour <= 23 ? `${match[1]}:00 UTC` : null;
@@ -2326,6 +2401,13 @@ export class SearchService {
     if (slug === "urgently-hiring") return "b-expertJobs";
     if (slug === "crypto-beginner-jobs") return "b-onboardIntoWeb3";
     return slug;
+  }
+
+  private marketClassificationSlug(classification: string): string {
+    if (classification.startsWith("cl-") || classification === "market") {
+      return classification;
+    }
+    return `cl-${slugify(classification)}`;
   }
 
   private marketRangeDays(range: string): number | null {
@@ -2407,18 +2489,28 @@ export class SearchService {
     if (kind === "locations") {
       const place = await this.searchRepository.resolvePlacePillar(value);
       if (!place) return null;
-      const paramKey: JobMarketFilter["paramKey"] =
-        place.kind === "city"
-          ? "cities"
-          : place.kind === "country"
-            ? "countries"
-            : place.kind === "continent"
-              ? "continents"
-              : "regions";
+      const paramKey: JobMarketFilter["paramKey"] = this.placeFilterKey(
+        place.kind,
+      );
       return { paramKey, value: place.canonicalSlug };
     }
     const paramKey = mappings[kind];
     return paramKey ? { paramKey, value } : null;
+  }
+
+  private placeFilterKey(
+    kind: ResolvedPlacePillar["kind"],
+  ): JobMarketFilter["paramKey"] {
+    switch (kind) {
+      case "city":
+        return "cities";
+      case "country":
+        return "countries";
+      case "continent":
+        return "continents";
+      default:
+        return "regions";
+    }
   }
 
   private marketPoint(row: JobMarketMetricRow): JobMarketPoint {
@@ -2470,15 +2562,20 @@ export class SearchService {
     const previousJobs = Number(row.previousWindowJobs ?? 0);
     const demand = this.marketDemand(row);
     const marketDemand = marketRow ? this.marketDemand(marketRow) : null;
-    const marketRelativeScore =
+    let marketRelativeScore: number | null;
+    if (
       demand.activeJobsChange === null ||
       marketDemand?.activeJobsChange === null
-        ? null
-        : row.slug === "market"
-          ? 0
-          : Math.round(
-              (demand.activeJobsChange - marketDemand.activeJobsChange) * 10,
-            ) / 10;
+    ) {
+      marketRelativeScore = null;
+    } else if (row.slug === "market") {
+      marketRelativeScore = 0;
+    } else {
+      marketRelativeScore =
+        Math.round(
+          (demand.activeJobsChange - marketDemand.activeJobsChange) * 10,
+        ) / 10;
+    }
     const momentum = this.marketMomentumFromWindows(
       currentJobs,
       previousJobs,
@@ -2555,8 +2652,7 @@ export class SearchService {
       previousJobs,
       absoluteChange,
       percentChange,
-      direction:
-        percentChange >= 5 ? "up" : percentChange <= -5 ? "down" : "flat",
+      direction: this.marketChangeDirection(percentChange),
       marketRelativeScore,
       activeJobsChange,
       hiringCompaniesChange,
@@ -2643,9 +2739,14 @@ export class SearchService {
       baseline: safeBaseline,
       absoluteChange,
       percentChange,
-      direction:
-        percentChange >= 5 ? "up" : percentChange <= -5 ? "down" : "flat",
+      direction: this.marketChangeDirection(percentChange),
     };
+  }
+
+  private marketChangeDirection(percentChange: number): "up" | "down" | "flat" {
+    if (percentChange >= 5) return "up";
+    if (percentChange <= -5) return "down";
+    return "flat";
   }
 
   private marketActivity(
@@ -2913,8 +3014,19 @@ export class SearchService {
   }
 
   private asStringArray(value: unknown): string[] {
-    if (Array.isArray(value)) return value.filter(Boolean).map(String);
-    return value === null || value === undefined ? [] : [String(value)];
+    if (value === null || value === undefined) return [];
+    if (typeof value === "string") return [value];
+    if (Array.isArray(value)) {
+      return value
+        .map(item => {
+          if (typeof item !== "string") {
+            throw new TypeError("Pillar labels must be strings");
+          }
+          return item;
+        })
+        .filter(Boolean);
+    }
+    throw new TypeError("Pillar labels must be a string or string array");
   }
 
   private asNumber(value: unknown): number | null {

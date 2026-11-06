@@ -306,7 +306,7 @@ export class Subscription {
       ...raw,
       pendingChanges: pendingChanges ?? null,
       totalSeats: extraSeats + 1,
-      expired: now() < expiryTimestamp ? false : true,
+      expired: !(now() < expiryTimestamp),
     });
 
     this.id = id;

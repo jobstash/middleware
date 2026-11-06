@@ -52,7 +52,7 @@ export class ProjectListResultEntity {
       ecosystems: project.ecosystems ?? [],
       jobs:
         project?.jobs.map(jobpost => {
-          const now = new Date().getTime();
+          const now = Date.now();
 
           const isStillFeatured =
             jobpost?.featured === true &&

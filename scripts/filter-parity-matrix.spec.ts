@@ -1,3 +1,5 @@
+import { plainToInstance } from "class-transformer";
+import { validateSync } from "class-validator";
 import { EcosystemJobListParams } from "src/ecosystems/dto/ecosystem-job-list.input";
 import { ChainListParams } from "src/chains/dto/chain-list.input";
 import { InvestorListParams } from "src/investors/dto/investor-list.input";
@@ -14,6 +16,51 @@ import {
 } from "./filter-parity-matrix";
 
 describe("filter parity matrix manifest", () => {
+  it.each([
+    [EcosystemJobListParams, ["blocked", "online"]],
+    [
+      OrgListParams,
+      [
+        "newActiveLeads",
+        "steppedDownLeads",
+        "movedLeads",
+        "earlyLeadDepartures",
+        "recentlyFunded",
+        "hasProjects",
+      ],
+    ],
+    [SearchOrganizationsInput, ["hasJobs", "hasProjects"]],
+    [InvestorListParams, ["hasJobs", "hasTeamSocials", "hasSoloInvestments"]],
+    [ProjectListParams, ["audits", "hacks", "token"]],
+    [SearchProjectsInput, ["hasAudits", "hasHacks", "hasToken"]],
+  ] as const)("preserves strict boolean transforms for %p", (Dto, fields) => {
+    for (const field of fields) {
+      for (const [input, expected] of [
+        ["true", true],
+        ["false", false],
+        [true, true],
+        [false, false],
+        [null, null],
+      ] as const) {
+        const instance = plainToInstance<object, Record<string, unknown>>(Dto, {
+          [field]: input,
+        });
+        expect(instance[field]).toBe(expected);
+        expect(
+          validateSync(instance).filter(error => error.property === field),
+        ).toEqual([]);
+      }
+      for (const input of ["TRUE", "0", "", 1, ["true"], {}]) {
+        const instance = plainToInstance<object, Record<string, unknown>>(Dto, {
+          [field]: input,
+        });
+        expect(
+          validateSync(instance).some(error => error.property === field),
+        ).toBe(true);
+      }
+    }
+  });
+
   it("has one specification per operation", () => {
     const operationIds = FILTER_ENDPOINT_SPECS.map(spec => spec.operationId);
     expect(new Set(operationIds).size).toBe(operationIds.length);

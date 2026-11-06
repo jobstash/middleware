@@ -16,7 +16,7 @@ import { GithubUserService } from "src/auth/github/github-user.service";
 import { ProfileModule } from "src/auth/profile/profile.module";
 import { HttpModule } from "@nestjs/axios";
 import { REALLY_LONG_TIME } from "src/shared/constants";
-import * as https from "https";
+import * as https from "node:https";
 import { PermissionService } from "./permission.service";
 import { UserController } from "./user.controller";
 import { Auth0Module } from "src/auth0/auth0.module";

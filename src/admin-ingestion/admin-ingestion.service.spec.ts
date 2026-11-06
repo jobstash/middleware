@@ -25,6 +25,35 @@ describe("AdminIngestionService", () => {
     service = new AdminIngestionService(config, auth0, postgres);
     request = jest.spyOn(axios, "request").mockResolvedValue({ data: {} });
   });
+  afterEach(() => jest.restoreAllMocks());
+
+  it("preserves client errors and forwards only own supported error details", async () => {
+    const responseData = Object.assign(
+      Object.create({ issues: ["inherited"] }),
+      {
+        message: ["first", 42, "second"],
+        issueId: "own-issue",
+      },
+    );
+    request.mockRejectedValueOnce(
+      Object.assign(new Error("conflict"), {
+        isAxiosError: true,
+        response: { status: 409, data: responseData },
+      }),
+    );
+    const failure = await service.listImportRuns().catch(error => error);
+    expect(failure).toBeInstanceOf(HttpException);
+    if (!(failure instanceof HttpException)) {
+      throw new Error("Expected a translated HTTP exception");
+    }
+    expect(failure.getStatus()).toBe(409);
+    expect(failure.getResponse()).toEqual({
+      success: false,
+      message: "first; second",
+      issueId: "own-issue",
+    });
+    expect(request).toHaveBeenCalledTimes(1);
+  });
 
   it("forwards ordinary record edits with the authenticated actor and unchanged request", async () => {
     const body = {
@@ -191,8 +220,6 @@ describe("AdminIngestionService", () => {
       }),
     );
   });
-
-  afterEach(() => jest.restoreAllMocks());
 
   it("keeps the ETL credential server-side on the canonical import route", async () => {
     const input = {

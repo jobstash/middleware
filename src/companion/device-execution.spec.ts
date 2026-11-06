@@ -23,6 +23,7 @@ import {
 import { DeviceAuthGuard } from "./device-execution.guard";
 import { DeviceExecutionService } from "./device-execution.service";
 import {
+  canonicalJSON,
   deviceCanonicalRequest,
   deviceInput,
   MatchingCatalogueArgs,
@@ -49,6 +50,15 @@ const catalogueArgs: MatchingCatalogueArgs = {
 };
 
 describe("hosted companion boundary", () => {
+  beforeEach(() => jest.clearAllMocks());
+  it("canonicalizes signing keys in code-unit order rather than locale order", () => {
+    expect(canonicalJSON({ é: 4, a: 3, _: 2, Z: 1, absent: undefined })).toBe(
+      '{"Z":1,"_":2,"a":3,"é":4}',
+    );
+    expect(canonicalJSON({ nested: { z: 1, A: 2 }, values: [null, 1] })).toBe(
+      '{"nested":{"A":2,"z":1},"values":[null,1]}',
+    );
+  });
   it("registers session and signed guards, never public profile/feed controllers", () => {
     expect(
       Reflect.getMetadata(GUARDS_METADATA, CompanionProfileController),
@@ -361,8 +371,6 @@ describe("hosted companion boundary", () => {
       service: new DeviceExecutionService(db, billing, { post } as never),
     };
   }
-
-  beforeEach(() => jest.clearAllMocks());
 
   it.each([false, true])(
     "denies unpaid catalogue requests before fetching (countOnly=%s)",

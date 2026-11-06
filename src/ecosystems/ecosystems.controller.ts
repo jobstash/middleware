@@ -57,7 +57,7 @@ import {
 
 @Controller("ecosystems")
 export class EcosystemsController {
-  private logger = new CustomLogger(EcosystemsController.name);
+  private readonly logger = new CustomLogger(EcosystemsController.name);
   constructor(
     private readonly userService: UserService,
     private readonly ecosystemsService: EcosystemsService,

@@ -52,7 +52,7 @@ export class AllJobsFilterConfigsEntity {
     key: string,
     transformLabel: (x: string) => string = (x: string): string => x,
     transformValue: (x: string) => string = (x: string): string => slugify(x),
-  ): MultiSelectFilter | MultiSelectFilter {
+  ): MultiSelectFilter {
     return {
       ...this.configPresets[key],
       options: defaultSort(this.raw[key]?.filter(isValidFilterConfig) ?? [])

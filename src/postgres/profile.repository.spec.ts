@@ -170,6 +170,107 @@ describe("ProfileRepository", () => {
     expect(infoProperties).not.toHaveProperty("updatedTimestamp");
   });
 
+  it.each([null, undefined, ""])(
+    "preserves nullish profile ID fallback for %j",
+    async id => {
+      const query = jest
+        .fn()
+        .mockResolvedValueOnce([
+          {
+            profileNodeId: "11",
+            profileProperties: { id },
+            infoNodeId: "12",
+            infoProperties: { id },
+          },
+        ])
+        .mockResolvedValueOnce([{ found: false }])
+        .mockResolvedValue([]);
+      const repository = new ProfileRepository({
+        transaction: jest.fn(async callback => callback({ query })),
+      } as never);
+      await expect(
+        repository.updateEntityProfile("11", "admin", {
+          slug: "acme",
+          category: "crypto",
+          aliases: [],
+          info: { displayName: "Acme" },
+        }),
+      ).resolves.toEqual({
+        outcome: "updated",
+        data: { id: id ?? "11", profileInfoId: id ?? "12", slug: "acme" },
+      });
+    },
+  );
+
+  it.each(
+    ["profileProperties", "infoProperties"].flatMap(field =>
+      [{}, [], 42, true].map(id => ({ field, id })),
+    ),
+  )("rejects malformed $field.id before any writes", async ({ field, id }) => {
+    const target = {
+      profileNodeId: "11",
+      profileProperties: { id: "profile-one" },
+      infoNodeId: "12",
+      infoProperties: { id: "info-one" },
+      [field]: { id },
+    };
+    const query = jest.fn().mockResolvedValue([target]);
+    const repository = new ProfileRepository({
+      transaction: jest.fn(async callback => callback({ query })),
+    } as never);
+    await expect(
+      repository.updateEntityProfile("11", "admin", {
+        slug: "acme",
+        category: "crypto",
+        aliases: [],
+        info: { displayName: "Acme" },
+      }),
+    ).rejects.toThrow("must be a string");
+    expect(query).toHaveBeenCalledTimes(1);
+    expect(target[field]).toEqual({ id });
+  });
+
+  it.each([{}, [], null, undefined, 42].map(id => ({ id })))(
+    "rejects malformed verification organization ID $id",
+    async ({ id }) => {
+      const repository = new ProfileRepository({} as never);
+      jest
+        .spyOn(repository, "findVerificationOrganizationsByEmails")
+        .mockResolvedValue([{ id }]);
+      await expect(
+        repository.findOrganizationIdsByEmails(["dev@acme.example"]),
+      ).rejects.toThrow("Organization id must be a string");
+    },
+  );
+
+  it("returns scalar verification organization IDs unchanged", async () => {
+    const repository = new ProfileRepository({} as never);
+    jest
+      .spyOn(repository, "findVerificationOrganizationsByEmails")
+      .mockResolvedValue([{ id: "acme" }]);
+    await expect(
+      repository.findOrganizationIdsByEmails(["dev@acme.example"]),
+    ).resolves.toEqual(["acme"]);
+  });
+
+  it.each([null, [], "history", 42].map(entry => ({ entry })))(
+    "rejects non-record history entries $entry before starting replacement",
+    async ({ entry }) => {
+      const transaction = jest.fn();
+      const repository = new ProfileRepository({ transaction } as never);
+      await expect(
+        repository.replaceWorkHistory(
+          "wallet",
+          false,
+          false,
+          [entry] as never,
+          [],
+        ),
+      ).rejects.toThrow("Work history entries must be objects");
+      expect(transaction).not.toHaveBeenCalled();
+    },
+  );
+
   it("serializes work-location exclusions for Jobs for me", async () => {
     const query = jest.fn().mockResolvedValue([]);
     const repository = new ProfileRepository({
@@ -450,4 +551,54 @@ describe("ProfileRepository", () => {
     expect(sql).not.toContain("OrgReview");
     expect(parameters.slice(0, 5)).toEqual(["3", "2", "actor", 4, null]);
   });
+
+  it.each([
+    {
+      patch: { rating: 2.6, onboarding: 5, salary: null, currency: "usd" },
+      rating: 3,
+      salary: null,
+      currency: null,
+    },
+    {
+      patch: {
+        rating: 9,
+        onboarding: 5,
+        benefits: 2,
+        salary: 100,
+        currency: " usd ",
+      },
+      rating: 4,
+      salary: 100,
+      currency: "USD",
+    },
+    {
+      patch: { rating: "5", onboarding: 0, benefits: 6 },
+      rating: null,
+      salary: undefined,
+      currency: undefined,
+    },
+  ])(
+    "preserves review rating and salary patch rules for $patch",
+    async ({ patch, rating, salary, currency }) => {
+      const query = jest
+        .fn()
+        .mockResolvedValueOnce([
+          { nodeId: "1", properties: { wallet: "actor" } },
+        ])
+        .mockResolvedValueOnce([{ nodeId: "2", properties: { orgId: "org" } }])
+        .mockResolvedValueOnce([{ nodeId: "3" }])
+        .mockResolvedValueOnce([{ id: "review" }]);
+      const repository = new ProfileRepository({
+        transaction: async callback => callback({ query }),
+      } as unknown as PostgresService);
+
+      await expect(
+        repository.upsertReview("actor", "org", patch),
+      ).resolves.toBe(true);
+      const parameters = query.mock.calls[3][1];
+      expect(parameters[3]).toBe(rating);
+      expect(parameters[5]).toBe(salary);
+      expect(parameters[6]).toBe(currency);
+    },
+  );
 });

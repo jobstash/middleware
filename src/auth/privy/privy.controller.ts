@@ -85,14 +85,20 @@ export class PrivyController {
         // the new internal user node and correlate this session's job intent.
         await this.threatSync.syncUser(user);
         this.logger.log("/privy/check-wallet " + embeddedWallet);
-        this.userService.updateLinkedAccounts(
-          {
-            type: "user.wallet_created",
-            user,
-          },
-          embeddedWallet,
-        );
-        this.userService.syncUserLinkedWallets(embeddedWallet, user);
+        await this.userService.syncUserLinkedWallets(embeddedWallet, user);
+        this.userService
+          .updateLinkedAccounts(
+            {
+              type: "user.wallet_created",
+              user,
+            },
+            embeddedWallet,
+          )
+          .catch(() => {
+            this.logger.error(
+              "PrivyController::checkWallet linked-account synchronization failed",
+            );
+          });
         const cryptoNative =
           (await this.userService.getCryptoNativeStatus(embeddedWallet)) ??
           false;
@@ -134,6 +140,80 @@ export class PrivyController {
     }
   }
 
+  private async syncUpdatedAccount(
+    payload: PrivyUpdateEventPayload,
+  ): Promise<void> {
+    const embeddedWallet = await this.userService.getEmbeddedWallet(
+      payload.user.id,
+    );
+    if (embeddedWallet) {
+      const accountType = payload.account.type.replace("_", " ");
+      const eventLabel = payload.type
+        .replace("user.", "")
+        .replace("_", ` ${accountType} `);
+      this.logger.log(`User ${eventLabel} - ${embeddedWallet}`);
+      await this.userService.syncUserLinkedWallets(
+        embeddedWallet,
+        payload.user,
+      );
+      await this.userService.updateLinkedAccounts(payload, embeddedWallet);
+      await this.threatSync.syncUser(payload.user);
+    } else {
+      this.logger.warn(`User not found`);
+    }
+  }
+
+  private async syncAuthenticatedAccount(
+    payload: PrivyUpdateEventPayload,
+  ): Promise<void> {
+    const embeddedWallet = await this.userService.getEmbeddedWallet(
+      payload.user.id,
+    );
+    if (embeddedWallet) {
+      this.logger.log(`User authenticated: ${embeddedWallet}`);
+      // Login telemetry is gated on the embedded wallet by design: it is
+      // keyed to the wallet-linked graph user node, so logins for users
+      // without an embedded wallet are intentionally not recorded.
+      await this.telemetryService.logUserLoginEvent(payload.user.id, {
+        method: payload.account?.type,
+      });
+      await this.threatSync.syncUser(payload.user);
+      const permissions =
+        await this.permissionService.getPermissionsForWallet(embeddedWallet);
+
+      if (permissions.length === 0) {
+        await this.permissionService.syncUserPermissions(embeddedWallet, [
+          CheckWalletPermissions.USER,
+        ]);
+      }
+    } else {
+      this.logger.warn(`User not found`);
+    }
+  }
+
+  private async syncTransferredAccount(
+    payload: PrivyTransferEventPayload,
+  ): Promise<void> {
+    const fromEmbeddedWallet = await this.userService.getEmbeddedWallet(
+      payload.fromUser.id,
+    );
+    const toEmbeddedWallet = await this.userService.getEmbeddedWallet(
+      payload.toUser.id,
+    );
+    if (fromEmbeddedWallet && toEmbeddedWallet) {
+      this.logger.log(
+        `User transferred linked ${payload.account.type} account: ${fromEmbeddedWallet} to ${toEmbeddedWallet} `,
+      );
+      await this.userService.transferLinkedAccount(
+        payload,
+        fromEmbeddedWallet,
+        toEmbeddedWallet,
+      );
+    } else {
+      this.logger.warn(`User not found`);
+    }
+  }
+
   @Post("webhook")
   async handleWebhook(
     @Body() body: PrivyWebhookPayload | PrivyTestPayload,
@@ -166,73 +246,17 @@ export class PrivyController {
           "user.unlinked_account",
         ].includes(verifiedPayload.type)
       ) {
-        const payload = verifiedPayload as PrivyUpdateEventPayload;
-        const embeddedWallet = await this.userService.getEmbeddedWallet(
-          payload.user.id,
+        await this.syncUpdatedAccount(
+          verifiedPayload as PrivyUpdateEventPayload,
         );
-        if (embeddedWallet) {
-          const accountType = payload.account.type.replace("_", " ");
-          this.logger.log(
-            `User ${verifiedPayload.type
-              .replace("user.", "")
-              .replace("_", ` ${accountType} `)} - ${embeddedWallet}`,
-          );
-          await this.userService.syncUserLinkedWallets(
-            embeddedWallet,
-            payload.user,
-          );
-          await this.userService.updateLinkedAccounts(payload, embeddedWallet);
-          await this.threatSync.syncUser(payload.user);
-        } else {
-          this.logger.warn(`User not found`);
-        }
       } else if (verifiedPayload.type === "user.authenticated") {
-        const payload = verifiedPayload as PrivyUpdateEventPayload;
-        const embeddedWallet = await this.userService.getEmbeddedWallet(
-          payload.user.id,
+        await this.syncAuthenticatedAccount(
+          verifiedPayload as PrivyUpdateEventPayload,
         );
-        if (embeddedWallet) {
-          this.logger.log(`User authenticated: ${embeddedWallet}`);
-          // Login telemetry is gated on the embedded wallet by design: it is
-          // keyed to the wallet-linked graph user node, so logins for users
-          // without an embedded wallet are intentionally not recorded.
-          await this.telemetryService.logUserLoginEvent(payload.user.id, {
-            method: payload.account?.type,
-          });
-          await this.threatSync.syncUser(verifiedPayload.user);
-          const permissions =
-            await this.permissionService.getPermissionsForWallet(
-              embeddedWallet,
-            );
-
-          if (permissions.length === 0) {
-            await this.permissionService.syncUserPermissions(embeddedWallet, [
-              CheckWalletPermissions.USER,
-            ]);
-          }
-        } else {
-          this.logger.warn(`User not found`);
-        }
       } else if (verifiedPayload.type === "user.transferred_account") {
-        const payload = verifiedPayload as PrivyTransferEventPayload;
-        const fromEmbeddedWallet = await this.userService.getEmbeddedWallet(
-          payload.fromUser.id,
+        await this.syncTransferredAccount(
+          verifiedPayload as PrivyTransferEventPayload,
         );
-        const toEmbeddedWallet = await this.userService.getEmbeddedWallet(
-          payload.toUser.id,
-        );
-        if (fromEmbeddedWallet && toEmbeddedWallet) {
-          this.logger.log(
-            `User transferred linked ${verifiedPayload.account.type} account: ${fromEmbeddedWallet} to ${toEmbeddedWallet} `,
-          );
-          await this.userService.transferLinkedAccount(
-            payload,
-            fromEmbeddedWallet,
-            toEmbeddedWallet,
-          );
-        } else {
-          this.logger.warn(`User not found`);
-        }
       } else {
         this.logger.warn(
           `Unsupported webhook event type ${verifiedPayload.type}`,

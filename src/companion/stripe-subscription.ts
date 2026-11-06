@@ -20,6 +20,67 @@ function timestamp(value: number): boolean {
   return Number.isSafeInteger(value) && value > 0;
 }
 
+function invalidMembershipCoupon(
+  coupon: Stripe.Coupon,
+  item: Stripe.SubscriptionItem,
+  interval: CandidateSubscriptionState["interval"],
+): boolean {
+  const percentOff = coupon.percent_off;
+  const productId = providerId(item.price.product);
+  const products = coupon.applies_to?.products;
+  const finite = coupon.duration !== "forever";
+  return (
+    !coupon?.livemode ||
+    coupon.amount_off !== null ||
+    typeof percentOff !== "number" ||
+    !Number.isFinite(percentOff) ||
+    percentOff <= 0 ||
+    percentOff > 100 ||
+    !["once", "repeating", "forever"].includes(coupon.duration) ||
+    !productId ||
+    (products !== undefined && !products.includes(productId)) ||
+    (finite &&
+      (interval !== "month" ||
+        products?.length !== 1 ||
+        products[0] !== productId))
+  );
+}
+
+function invalidDiscountBinding(
+  discount: Stripe.Discount,
+  subscription: Stripe.Subscription,
+  invoice: Stripe.Invoice,
+  line: Stripe.InvoiceLineItem,
+  item: Stripe.SubscriptionItem,
+): boolean {
+  return (
+    (discount.customer !== null &&
+      providerId(discount.customer) !== providerId(subscription.customer)) ||
+    (discount.subscription !== null &&
+      discount.subscription !== subscription.id) ||
+    (discount.subscription_item !== null &&
+      discount.subscription_item !== item.id) ||
+    (discount.invoice !== null && discount.invoice !== invoice.id) ||
+    (discount.invoice_item !== null && discount.invoice_item !== line.id)
+  );
+}
+
+function invalidDiscountPeriod(
+  discount: Stripe.Discount,
+  coupon: Stripe.Coupon,
+  line: Stripe.InvoiceLineItem,
+): boolean {
+  return (
+    !timestamp(discount.start) ||
+    discount.start >= line.period.end ||
+    (coupon.duration === "once" && discount.start < line.period.start) ||
+    (coupon.duration === "repeating" &&
+      (!timestamp(discount.end ?? 0) ||
+        discount.end! <= discount.start ||
+        discount.end! <= line.period.start))
+  );
+}
+
 /** Coupon scope must come from the hydrated provider object, never metadata. */
 function invoiceDiscount(
   subscription: Stripe.Subscription,
@@ -60,38 +121,11 @@ function invoiceDiscount(
       "Membership coupon evidence is unavailable",
     );
   const percentOff = coupon?.percent_off;
-  const productId = providerId(item.price.product);
-  const products = coupon?.applies_to?.products;
-  const finite = coupon?.duration !== "forever";
   if (
-    !coupon?.livemode ||
-    coupon.amount_off !== null ||
     typeof percentOff !== "number" ||
-    !Number.isFinite(percentOff) ||
-    percentOff <= 0 ||
-    percentOff > 100 ||
-    !["once", "repeating", "forever"].includes(coupon.duration) ||
-    !productId ||
-    (products !== undefined && !products.includes(productId)) ||
-    (finite &&
-      (interval !== "month" ||
-        products?.length !== 1 ||
-        products[0] !== productId)) ||
-    (discount.customer !== null &&
-      providerId(discount.customer) !== providerId(subscription.customer)) ||
-    (discount.subscription !== null &&
-      discount.subscription !== subscription.id) ||
-    (discount.subscription_item !== null &&
-      discount.subscription_item !== item.id) ||
-    (discount.invoice !== null && discount.invoice !== invoice.id) ||
-    (discount.invoice_item !== null && discount.invoice_item !== line.id) ||
-    !timestamp(discount.start) ||
-    discount.start >= line.period.end ||
-    (coupon.duration === "once" && discount.start < line.period.start) ||
-    (coupon.duration === "repeating" &&
-      (!timestamp(discount.end ?? 0) ||
-        discount.end! <= discount.start ||
-        discount.end! <= line.period.start)) ||
+    invalidMembershipCoupon(coupon, item, interval) ||
+    invalidDiscountBinding(discount, subscription, invoice, line, item) ||
+    invalidDiscountPeriod(discount, coupon, line) ||
     applied.amount !== Math.round((item.price.unit_amount! * percentOff) / 100)
   )
     throw new ServiceUnavailableException(
@@ -108,21 +142,14 @@ function invoiceDiscount(
   };
 }
 
-/** Entitlement requires the bound live subscription and a paid invoice for this exact price. */
-export function readStripeSubscription(
+function membershipItem(
   subscription: Stripe.Subscription,
   priceId: string,
-  owner: string,
-  now = Date.now(),
-): CandidateSubscriptionState {
-  if (
-    !subscription.livemode ||
-    subscription.metadata?.candidateId !== owner ||
-    subscription.metadata?.purpose !== "recruiters-membership"
-  )
-    throw new ServiceUnavailableException(
-      "Subscription account binding does not match",
-    );
+): {
+  item: Stripe.SubscriptionItem;
+  amount: number;
+  billingInterval: CandidateSubscriptionState["interval"];
+} {
   const items = subscription.items.data;
   const item = items[0];
   const interval = item?.price.recurring?.interval;
@@ -134,7 +161,7 @@ export function readStripeSubscription(
     item.price.id !== priceId ||
     !item.price.livemode ||
     item.price.currency !== "usd" ||
-    !["month", "year"].includes(interval ?? "") ||
+    (interval !== "month" && interval !== "year") ||
     item.price.unit_amount !== amount ||
     item.price.recurring?.interval_count !== 1 ||
     subscription.trial_start ||
@@ -143,27 +170,36 @@ export function readStripeSubscription(
     throw new ServiceUnavailableException(
       "Membership must be USD9.99 per month or USD95.90 per year without a trial",
     );
-  // The allowed cadence has been checked above, independently of current config.
-  const billingInterval = interval as CandidateSubscriptionState["interval"];
-  const invoice = subscription.latest_invoice;
-  const cancelledAt =
-    subscription.canceled_at &&
+  return {
+    item,
+    amount,
+    billingInterval: interval === "month" ? "month" : "year",
+  };
+}
+
+function subscriptionCancellation(
+  subscription: Stripe.Subscription,
+): string | null {
+  return subscription.canceled_at &&
     (subscription.cancel_at_period_end || subscription.status === "canceled")
-      ? new Date(subscription.canceled_at * 1000).toISOString()
-      : null;
-  if (["canceled", "incomplete_expired"].includes(subscription.status))
-    return {
-      status: "expired",
-      paidUntil: null,
-      cancelledAt,
-      billingState: "terminal",
-      interval: billingInterval,
-      discount: null,
-    };
-  if (!invoice || typeof invoice === "string" || !invoice.livemode)
-    throw new ServiceUnavailableException(
-      "Live payment evidence is unavailable",
-    );
+    ? new Date(subscription.canceled_at * 1000).toISOString()
+    : null;
+}
+
+/** Entitlement requires the bound live subscription and a paid invoice for this exact price. */
+function invoiceMembershipEvidence(
+  subscription: Stripe.Subscription,
+  invoice: Stripe.Invoice,
+  item: Stripe.SubscriptionItem,
+  billingInterval: CandidateSubscriptionState["interval"],
+  priceId: string,
+  amount: number,
+): {
+  paid: boolean;
+  start: number;
+  end: number;
+  discount: CandidateSubscriptionState["discount"];
+} {
   const customerId = providerId(subscription.customer);
   const lines = invoice.lines.data.filter(
     value =>
@@ -209,14 +245,58 @@ export function readStripeSubscription(
     (invoice.total > 0 || discount?.percentOff === 100);
   const end = bound ? item.current_period_end * 1000 : 0;
   const start = item.current_period_start * 1000;
+  return { paid, start, end, discount };
+}
+
+export function readStripeSubscription(
+  subscription: Stripe.Subscription,
+  priceId: string,
+  owner: string,
+  now = Date.now(),
+): CandidateSubscriptionState {
+  if (
+    !subscription.livemode ||
+    subscription.metadata?.candidateId !== owner ||
+    subscription.metadata?.purpose !== "recruiters-membership"
+  )
+    throw new ServiceUnavailableException(
+      "Subscription account binding does not match",
+    );
+  const { item, amount, billingInterval } = membershipItem(
+    subscription,
+    priceId,
+  );
+  const invoice = subscription.latest_invoice;
+  const cancelledAt = subscriptionCancellation(subscription);
+  if (["canceled", "incomplete_expired"].includes(subscription.status))
+    return {
+      status: "expired",
+      paidUntil: null,
+      cancelledAt,
+      billingState: "terminal",
+      interval: billingInterval,
+      discount: null,
+    };
+  if (!invoice || typeof invoice === "string" || !invoice.livemode)
+    throw new ServiceUnavailableException(
+      "Live payment evidence is unavailable",
+    );
+  const { paid, start, end, discount } = invoiceMembershipEvidence(
+    subscription,
+    invoice,
+    item,
+    billingInterval,
+    priceId,
+    amount,
+  );
   const active =
     subscription.status === "active" && paid && start <= now && end > now;
+  let status: CandidateSubscriptionState["status"] = "expired";
+  if (["incomplete", "trialing"].includes(subscription.status))
+    status = "pending";
+  if (active) status = "active";
   return {
-    status: active
-      ? "active"
-      : ["incomplete", "trialing"].includes(subscription.status)
-        ? "pending"
-        : "expired",
+    status,
     paidUntil:
       paid && Number.isFinite(end) && end > 0
         ? new Date(end).toISOString()

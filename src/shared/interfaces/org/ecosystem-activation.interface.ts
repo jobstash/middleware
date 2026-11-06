@@ -14,7 +14,6 @@ const SupportedNetworks = [
   "optimism",
   "palm",
   "polygon",
-  ,
 ] as const;
 
 export const NETWORK = {

@@ -12,6 +12,28 @@ describe("SearchDocumentRepository", () => {
     } as unknown as PostgresService);
   });
 
+  it("keeps nested pillar bindings after outer filters and rejects an empty team scope", async () => {
+    await repository.searchJobs({
+      organizationId: "outer-org",
+      teamOrganizationIds: [],
+      minSalaryRange: 100,
+      pillarCriteria: { organizationId: "pillar-org", minSalaryRange: 200 },
+    });
+
+    const [sql, parameters] = query.mock.calls[0];
+    expect(sql).toContain("FALSE");
+    expect(sql).toContain("organization_id = $1");
+    expect(sql).toContain("COALESCE(salary, 0) >= $2");
+    expect(sql).toContain("organization_id = $3");
+    expect(sql).toContain("COALESCE(salary, 0) >= $4");
+    expect(parameters.slice(0, 4)).toEqual([
+      "outer-org",
+      100,
+      "pillar-org",
+      200,
+    ]);
+  });
+
   it("reads only online, unblocked job documents", async () => {
     await repository.getJobPayloads();
 
