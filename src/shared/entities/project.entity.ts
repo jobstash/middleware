@@ -8,6 +8,16 @@ import {
 } from "../interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 
+function hydrateProjectJobs(
+  jobs: ProjectWithBaseRelations["jobs"],
+): ProjectWithBaseRelations["jobs"] {
+  return (jobs ?? []).map(job => ({
+    ...job,
+    workArrangement: hydrateWorkArrangement(job.workArrangement),
+    tags: (job.tags ?? []).map(tag => new Tag(tag)),
+  }));
+}
+
 export class ProjectWithBaseRelationsEntity {
   private readonly logger = new CustomLogger(
     ProjectWithBaseRelationsEntity.name,
@@ -69,13 +79,7 @@ export class ProjectWithBaseRelationsEntity {
           logo: notStringOrNull(chain?.logo),
         })) ?? [],
       ecosystems: project?.ecosystems ?? [],
-      jobs:
-        (project?.jobs ?? []).map(job => ({
-          ...job,
-          workArrangement: hydrateWorkArrangement(job.workArrangement),
-          tags:
-            (job.tags ?? []).map(tag => new Tag(tag)) ?? [],
-        })) ?? [],
+      jobs: hydrateProjectJobs(project?.jobs),
       repos: project?.repos ?? [],
       investors: project?.investors ?? [],
       grants:
@@ -158,13 +162,7 @@ export class ProjectWithRelationsEntity {
           logo: notStringOrNull(chain?.logo),
         })) ?? [],
       ecosystems: project?.ecosystems ?? [],
-      jobs:
-        (project?.jobs ?? []).map(job => ({
-          ...job,
-          workArrangement: hydrateWorkArrangement(job.workArrangement),
-          tags:
-            (job.tags ?? []).map(tag => new Tag(tag)) ?? [],
-        })) ?? [],
+      jobs: hydrateProjectJobs(project?.jobs),
       repos: project?.repos ?? [],
       investors: project?.investors ?? [],
       grants:
