@@ -677,14 +677,38 @@ export class JobsService {
               user: {
                 ...applicant.user,
                 linkedAccounts: {
-                  discord: user.discord?.username ?? null,
-                  telegram: user.telegram?.username ?? null,
-                  twitter: user.twitter?.username ?? null,
-                  email: user.email?.address ?? null,
-                  farcaster: user.farcaster?.username ?? null,
-                  github: user.github?.username ?? null,
-                  google: user.google?.email ?? null,
-                  apple: user.apple?.email ?? null,
+                  discord:
+                    user.linked_accounts.find(
+                      account => account.type === "discord_oauth",
+                    )?.username ?? null,
+                  telegram:
+                    user.linked_accounts.find(
+                      account => account.type === "telegram",
+                    )?.username ?? null,
+                  twitter:
+                    user.linked_accounts.find(
+                      account => account.type === "twitter_oauth",
+                    )?.username ?? null,
+                  email:
+                    user.linked_accounts.find(
+                      account => account.type === "email",
+                    )?.address ?? null,
+                  farcaster:
+                    user.linked_accounts.find(
+                      account => account.type === "farcaster",
+                    )?.username ?? null,
+                  github:
+                    user.linked_accounts.find(
+                      account => account.type === "github_oauth",
+                    )?.username ?? null,
+                  google:
+                    user.linked_accounts.find(
+                      account => account.type === "google_oauth",
+                    )?.email ?? null,
+                  apple:
+                    user.linked_accounts.find(
+                      account => account.type === "apple_oauth",
+                    )?.email ?? null,
                   wallets,
                 },
               },

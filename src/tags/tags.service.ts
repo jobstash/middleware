@@ -58,7 +58,7 @@ export class TagsService {
   ) {}
 
   async findAll(): Promise<Tag[]> {
-    return this.tags.findAll();
+    return (await this.tags.findAll()).map(tag => new Tag(tag));
   }
 
   async findById(id: string): Promise<TagEntity | undefined> {
@@ -91,7 +91,7 @@ export class TagsService {
 
   async getAllUnblockedTags(): Promise<Tag[]> {
     try {
-      return await this.tags.getUnblockedTags();
+      return (await this.tags.getUnblockedTags()).map(tag => new Tag(tag));
     } catch (error) {
       this.captureDatabaseError("getAllUnblockedTags", error);
       return undefined;
@@ -100,11 +100,12 @@ export class TagsService {
 
   async getPopularTags(limit: number): Promise<Tag[]> {
     try {
-      return await this.tags.getPopularTags(
+      const tags = await this.tags.getPopularTags(
         limit,
         this.configService.get<number>("SKILL_THRESHOLD") ??
           Number.MAX_SAFE_INTEGER,
       );
+      return tags.map(tag => new Tag(tag));
     } catch (error) {
       this.captureDatabaseError("getPopularTags", error);
       return undefined;
@@ -113,7 +114,9 @@ export class TagsService {
 
   async getBlockedTags(): Promise<Tag[]> {
     try {
-      return await this.tags.getTagsByDesignation("BlockedDesignation");
+      return (await this.tags.getTagsByDesignation("BlockedDesignation")).map(
+        tag => new Tag(tag),
+      );
     } catch (error) {
       this.captureDatabaseError("getBlockedTags", error);
       return undefined;
@@ -326,7 +329,7 @@ export class TagsService {
         `Could not link synonym Tags ${originTagNormalizedName} and ${synonymNormalizedName}`,
       );
     }
-    return tags;
+    return tags.map(tag => new Tag(tag));
   }
 
   async unlinkSynonyms(
@@ -342,7 +345,7 @@ export class TagsService {
       originTagNormalizedName,
       synonymNormalizedName,
     ))
-      ? [first, second]
+      ? [new Tag(first), new Tag(second)]
       : [];
   }
 
@@ -416,8 +419,11 @@ export class TagsService {
     }
   }
 
-  resolveAlias(value: string): Promise<ResolvedTagAlias | undefined> {
-    return this.tags.resolveAlias(slugify(value));
+  async resolveAlias(value: string): Promise<ResolvedTagAlias | undefined> {
+    const result = await this.tags.resolveAlias(slugify(value));
+    return result
+      ? { ...result, canonical: new Tag(result.canonical) }
+      : undefined;
   }
 
   async batchMatchTags(

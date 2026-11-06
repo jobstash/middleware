@@ -184,13 +184,9 @@ export class ProfileController {
     const privyId = await this.profileService.getPrivyId(address);
     if (!privyId) return [...missing, "linked_accounts"];
     const privyUser = await this.privyService.getUserById(privyId);
-    const externalAccounts = privyUser?.linkedAccounts?.filter(
+    const externalAccounts = privyUser?.linked_accounts?.filter(
       account =>
-        !(
-          account.type === "wallet" &&
-          (account as { walletClientType?: string }).walletClientType ===
-            "privy"
-        ),
+        !(account.type === "wallet" && account.wallet_client_type === "privy"),
     );
     if (!externalAccounts?.length) missing.push("linked_accounts");
     return missing;

@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { parseArgs } from "node:util";
-import Stripe from "stripe";
+import Stripe = require("stripe");
 
 const PURPOSE = "recruiters-rip-candidate-v1";
 const OFFERS = {
@@ -135,7 +135,8 @@ export async function runCandidateOffers(
     ...(values.shared ? {} : { max_redemptions: 1 }), ...(expiresAt === undefined ? {} : { redeem_by: expiresAt }),
   }, { idempotencyKey: `candidate-offer:${requestId}:coupon` });
   const promotion = await stripe.promotionCodes.create({
-    coupon: coupon.id, ...(values.shared ? {} : { customer: values.customer, max_redemptions: 1 }),
+    promotion: { type: "coupon", coupon: coupon.id },
+    ...(values.shared ? {} : { customer: values.customer, max_redemptions: 1 }),
     ...(values.code === undefined ? {} : { code: values.code }),
     ...(expiresAt === undefined ? {} : { expires_at: expiresAt }),
   }, { idempotencyKey: `candidate-offer:${requestId}:promotion` });

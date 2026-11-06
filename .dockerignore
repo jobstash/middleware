@@ -12,3 +12,5 @@ tunnel.sh
 dist
 coverage
 *.log
+.middleware-*/
+.security-*/

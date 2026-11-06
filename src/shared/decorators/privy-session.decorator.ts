@@ -1,5 +1,5 @@
 import { createParamDecorator, ExecutionContext } from "@nestjs/common";
-import { User } from "@privy-io/server-auth";
+import { User } from "@privy-io/node";
 
 export const PrivySession = createParamDecorator(
   (data: unknown, ctx: ExecutionContext): User => {

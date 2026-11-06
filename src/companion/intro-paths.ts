@@ -3,7 +3,11 @@ import * as Sentry from "@sentry/node";
 import axios, { AxiosInstance } from "axios";
 import * as https from "https";
 import { PostgresService } from "src/postgres/postgres.service";
-import { GithubEndpoint, githubLoginPattern, IntroPathsArgs } from "./device-execution.protocol";
+import {
+  GithubEndpoint,
+  githubLoginPattern,
+  IntroPathsArgs,
+} from "./device-execution.protocol";
 
 /** Scorer HTTP client for intro-path lookups (same settings as team intelligence). */
 export const INTRO_PATHS_HTTP = "INTRO_PATHS_HTTP";
@@ -13,7 +17,7 @@ export function introPathsHttp(config: ConfigService): AxiosInstance {
     headers: {
       Authorization: `Bearer ${config.get<string>("SCORER_API_KEY")}`,
     },
-    httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+    httpsAgent: new https.Agent(),
     timeout: 15_000,
   });
 }
@@ -44,7 +48,12 @@ interface ScorerIntroPaths {
   coverage: { source: "indexed" | "not_indexed" | "unavailable"; maxHops: 2 };
   reason?: "unavailable";
   targets: (GithubEndpoint & {
-    status: "ok" | "no_paths" | "source_not_indexed" | "target_not_indexed" | "unavailable";
+    status:
+      | "ok"
+      | "no_paths"
+      | "source_not_indexed"
+      | "target_not_indexed"
+      | "unavailable";
     paths: Record<string, unknown>[];
   })[];
 }
@@ -69,7 +78,11 @@ export async function introPaths(
     inferred: true,
     coverage: { source: "unavailable", maxHops: 2 },
     reason,
-    targets: args.targets.map(target => ({ ...target, status: "unavailable", paths: [] })),
+    targets: args.targets.map(target => ({
+      ...target,
+      status: "unavailable",
+      paths: [],
+    })),
   });
   if (!source) return unavailable("github_required");
   try {
@@ -77,11 +90,25 @@ export async function introPaths(
       "/scorer/intro-paths/query",
       { source, targets: args.targets, limit: 50 },
     );
-    if (typeof data.available !== "boolean" || !data.coverage ||
-        !Array.isArray(data.targets) || data.targets.length !== args.targets.length ||
-        data.targets.some((target, index) =>
-          target.login !== args.targets[index].login || target.kind !== args.targets[index].kind ||
-          !Array.isArray(target.paths) || !["ok", "no_paths", "source_not_indexed", "target_not_indexed", "unavailable"].includes(target.status)))
+    if (
+      typeof data.available !== "boolean" ||
+      !data.coverage ||
+      !Array.isArray(data.targets) ||
+      data.targets.length !== args.targets.length ||
+      data.targets.some(
+        (target, index) =>
+          target.login !== args.targets[index].login ||
+          target.kind !== args.targets[index].kind ||
+          !Array.isArray(target.paths) ||
+          ![
+            "ok",
+            "no_paths",
+            "source_not_indexed",
+            "target_not_indexed",
+            "unavailable",
+          ].includes(target.status),
+      )
+    )
       throw new Error("Invalid introduction response");
     return {
       source,

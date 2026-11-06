@@ -10,7 +10,7 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { StripeService } from "./stripe.service";
-import Stripe from "stripe";
+import Stripe = require("stripe");
 import { Request } from "express";
 import * as Sentry from "@sentry/node";
 import { CustomLogger } from "src/shared/utils/custom-logger";

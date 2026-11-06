@@ -45,10 +45,10 @@ import { CompanionModule } from "./companion/companion.module";
     SentryModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
-      validationSchema: envSchema,
-      validationOptions: {
+      validationSchema: envSchema.prefs({
         abortEarly: false,
-      },
+        allowUnknown: true,
+      }),
     }),
     PostgresModule.forRootAsync({
       imports: [ConfigModule],
@@ -103,14 +103,19 @@ export class AppModule implements OnModuleInit {
   onModuleInit(): void {
     Sentry.init({
       dsn: this.configService.get<string>("SENTRY_DSN"),
-      tracesSampleRate: parseInt(
-        this.configService.get<string>("SENTRY_TRACES_SAMPLE_RATE") ?? "0.2",
+      tracesSampleRate: this.configService.get<number>(
+        "SENTRY_TRACES_SAMPLE_RATE",
+        0.2,
       ),
-      profilesSampleRate: parseInt(
-        this.configService.get<string>("SENTRY_PROFILE_SAMPLE_RATE") ?? "0.2",
+      profileSessionSampleRate: this.configService.get<number>(
+        "SENTRY_PROFILE_SAMPLE_RATE",
+        0.2,
       ),
       profileLifecycle: "trace",
-      sendDefaultPii: true,
+      dataCollection: {
+        userInfo: true,
+        cookies: true,
+      },
       integrations: [
         nodeProfilingIntegration(),
         Sentry.captureConsoleIntegration(),

@@ -1,4 +1,8 @@
 import { EcosystemRepository } from "./ecosystem.repository";
+import {
+  attachStructuredJobToEmployerFixture,
+  createProfileMemberFixture,
+} from "./postgres.integration-fixtures";
 import { PostgresService } from "./postgres.service";
 
 const describePostgres =
@@ -157,6 +161,12 @@ describePostgres("EcosystemRepository PostgreSQL integration", () => {
       title: "Engineer",
     });
     await createRelationship(memberNodeId, projectNodeId, "HAS_PROJECT");
+    await attachStructuredJobToEmployerFixture(
+      postgres,
+      memberNodeId,
+      jobNodeId,
+      "ecosystem-member-job",
+    );
 
     await postgres.query(
       `
@@ -260,6 +270,9 @@ describePostgres("EcosystemRepository PostgreSQL integration", () => {
     key: string,
     properties: Record<string, unknown>,
   ): Promise<string> {
+    if (label === "Organization" || label === "Project") {
+      return createProfileMemberFixture(postgres, label, key, properties);
+    }
     const [row] = await postgres.query<{ id: string }>(
       `
         INSERT INTO graph_nodes (label, labels, node_key, properties)

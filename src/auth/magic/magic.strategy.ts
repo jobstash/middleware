@@ -1,12 +1,13 @@
 import { Injectable } from "@nestjs/common";
 import { PassportStrategy } from "@nestjs/passport";
 import { ConfigService } from "@nestjs/config";
+import { JwtSignOptions } from "@nestjs/jwt";
 import Strategy from "passport-magic-login";
 import { UserService } from "../../user/user.service";
 import { User } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
-import * as SendGrid from "@sendgrid/mail";
+import SendGrid = require("@sendgrid/mail");
 import { MailService } from "src/mail/mail.service";
 import { button, emailBuilder, text } from "src/shared/helpers";
 
@@ -21,14 +22,17 @@ export class MagicAuthStrategy extends PassportStrategy(Strategy, "magic") {
     super({
       secret: configService.get<string>("MAGIC_LINK_SECRET"),
       jwtOptions: {
-        expiresIn: configService.get<string>("MAGIC_LINK_EXPIRES_IN"),
+        expiresIn: configService.get<JwtSignOptions["expiresIn"]>(
+          "MAGIC_LINK_EXPIRES_IN",
+        ),
       },
       callbackUrl: "/callback/magic-login",
-      sendMagicLink: async (destination: string, href: string) =>
-        this.sendToken(destination, href),
+      sendMagicLink: async (destination: string, href: string) => {
+        await this.sendToken(destination, href);
+      },
       // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
       verify: async (payload: { destination: string }, callback: Function) => {
-        const user = await this.verifyUser(payload.destination);
+        const user = await this.validate(payload);
         if (user === null) {
           callback({ success: false, message: "Sign up with email failed" });
         } else {
@@ -36,6 +40,10 @@ export class MagicAuthStrategy extends PassportStrategy(Strategy, "magic") {
         }
       },
     });
+  }
+
+  async validate(payload: { destination: string }): Promise<User | null> {
+    return this.verifyUser(payload.destination);
   }
 
   async sendToken(

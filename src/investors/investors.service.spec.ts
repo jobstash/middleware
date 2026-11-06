@@ -14,6 +14,41 @@ describe("InvestorsService fund list", () => {
     query.mockResolvedValue([]);
   });
 
+  it("refreshes a complete 200-fund batch on each owner's scheduled pass", async () => {
+    const previousOwner = process.env.MIDDLEWARE_SCHEDULE_OWNER;
+    process.env.MIDDLEWARE_SCHEDULE_OWNER = "1";
+    query.mockResolvedValue([{ refreshed: 200 }]);
+    try {
+      await service.refreshFundAnalytics();
+      await service.refreshFundAnalytics();
+      expect(query).toHaveBeenCalledTimes(2);
+      for (const [sql] of query.mock.calls) {
+        expect(sql.trim()).toBe(
+          "SELECT refresh_dirty_fund_analytics_documents(200) AS refreshed",
+        );
+      }
+    } finally {
+      if (previousOwner === undefined) {
+        delete process.env.MIDDLEWARE_SCHEDULE_OWNER;
+      } else {
+        process.env.MIDDLEWARE_SCHEDULE_OWNER = previousOwner;
+      }
+    }
+  });
+
+  it("does not refresh from a non-owner instance", async () => {
+    const previousOwner = process.env.MIDDLEWARE_SCHEDULE_OWNER;
+    delete process.env.MIDDLEWARE_SCHEDULE_OWNER;
+    try {
+      await service.refreshFundAnalytics();
+      expect(query).not.toHaveBeenCalled();
+    } finally {
+      if (previousOwner !== undefined) {
+        process.env.MIDDLEWARE_SCHEDULE_OWNER = previousOwner;
+      }
+    }
+  });
+
   it("defaults to newest investment order", async () => {
     await service.getFundList({ page: 1, limit: 20 });
 
@@ -111,7 +146,11 @@ describe("InvestorsService fund list", () => {
     expect(sql).toContain("'fundParticipated'");
     expect(sql).toContain("'investmentRole'");
     expect(sql).toContain("round.fund_participated");
-    expect(sql).toContain("ownership.owner_count = 1");
+    expect(sql).toContain(
+      "financing_profile_node_id(selected.raw_round_node_id)",
+    );
+    expect(sql).toContain("profile_visible_financing_nodes(");
+    expect(sql).toContain("NOT entity_property_is_banned(child.properties)");
     expect(sql).toContain("social_edge.type = 'HAS_LINKEDIN'");
     expect(sql).toContain("https://www.linkedin.com/in/");
     expect(sql).toContain("social_edge.type = 'HAS_TWITTER'");

@@ -1,4 +1,5 @@
 import { GraphRepository } from "src/postgres/graph.repository";
+import { createProfileMemberFixture } from "src/postgres/postgres.integration-fixtures";
 import { PostgresService } from "src/postgres/postgres.service";
 import { SearchDocumentRepository } from "src/postgres/search-document.repository";
 import { data } from "src/shared/interfaces";
@@ -29,13 +30,11 @@ describePostgres("AuditsService PostgreSQL integration", () => {
 
   beforeEach(async () => {
     await postgres.query("TRUNCATE TABLE graph_nodes RESTART IDENTITY CASCADE");
-    await postgres.query(`
-      INSERT INTO graph_nodes (label, labels, node_key, properties)
-      VALUES (
-        'Project', ARRAY['Project']::text[], 'project-1',
-        '{"id":"project-1","name":"Project One","normalizedName":"project-one"}'
-      )
-    `);
+    await createProfileMemberFixture(postgres, "Project", "project-1", {
+      id: "project-1",
+      name: "Project One",
+      normalizedName: "project-one",
+    });
     await postgres.query(`
       SELECT refresh_project_search_document_ids(ARRAY[
         (SELECT id FROM graph_nodes WHERE node_key = 'project-1')

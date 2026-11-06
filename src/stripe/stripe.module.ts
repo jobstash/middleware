@@ -2,7 +2,7 @@ import { forwardRef, Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { StripeController } from "./stripe.controller";
 import { StripeService } from "./stripe.service";
-import Stripe from "stripe";
+import Stripe = require("stripe");
 import { JobsModule } from "src/jobs/jobs.module";
 import { SubscriptionsModule } from "src/subscriptions/subscriptions.module";
 import { AuthModule } from "src/auth/auth.module";

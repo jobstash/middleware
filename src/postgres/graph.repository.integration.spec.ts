@@ -1,4 +1,5 @@
 import { GraphRepository } from "./graph.repository";
+import { createProfileMemberFixture } from "./postgres.integration-fixtures";
 import { PostgresService } from "./postgres.service";
 
 const describePostgres =
@@ -30,17 +31,17 @@ describePostgres("GraphRepository PostgreSQL integration", () => {
   });
 
   it("batches relationship creation, lookup, and deletion", async () => {
-    await graph.createNode("Organization", { orgId: "org-1" }, "org-1");
-    await graph.createNode(
-      "Project",
-      { id: "project-1", name: "One" },
-      "project-1",
-    );
-    await graph.createNode(
-      "Project",
-      { id: "project-2", name: "Two" },
-      "project-2",
-    );
+    await createProfileMemberFixture(postgres, "Organization", "org-1", {
+      orgId: "org-1",
+    });
+    await createProfileMemberFixture(postgres, "Project", "project-1", {
+      id: "project-1",
+      name: "One",
+    });
+    await createProfileMemberFixture(postgres, "Project", "project-2", {
+      id: "project-2",
+      name: "Two",
+    });
 
     const linked = await graph.setRelationshipsToNodes({
       sourceLabel: "Organization",
@@ -78,16 +79,12 @@ describePostgres("GraphRepository PostgreSQL integration", () => {
   });
 
   it("sets and clears a durable ban without deleting the entity", async () => {
-    await graph.createNode(
-      "Organization",
-      {
-        id: "org-1-stable",
-        orgId: "org-1",
-        name: "Blocked Organization",
-        normalizedName: "blocked-organization",
-      },
-      "org-1",
-    );
+    await createProfileMemberFixture(postgres, "Organization", "org-1", {
+      id: "org-1-stable",
+      orgId: "org-1",
+      name: "Blocked Organization",
+      normalizedName: "blocked-organization",
+    });
 
     await expect(
       graph.setEntityBanned({
@@ -119,25 +116,21 @@ describePostgres("GraphRepository PostgreSQL integration", () => {
   });
 
   it("resolves an entity review without deleting its audit record", async () => {
-    await graph.createNode(
-      "Organization",
-      {
-        id: "org-review-id",
-        orgId: "org-review",
-        name: "Review Organization",
-        normalizedName: "review-organization",
-        summary: "Summary",
-        description: "Description",
-        location: "Distributed",
-        needsManualReview: true,
-        manualReviewStatus: "open",
-        manualReviewReason: "Conflicting ownership evidence",
-        manualReviewSeverity: "high",
-        manualReviewEvidence: ["Evidence"],
-        manualReviewProposedActions: [{ kind: "merge_organizations" }],
-      },
-      "org-review",
-    );
+    await createProfileMemberFixture(postgres, "Organization", "org-review", {
+      id: "org-review-id",
+      orgId: "org-review",
+      name: "Review Organization",
+      normalizedName: "review-organization",
+      summary: "Summary",
+      description: "Description",
+      location: "Distributed",
+      needsManualReview: true,
+      manualReviewStatus: "open",
+      manualReviewReason: "Conflicting ownership evidence",
+      manualReviewSeverity: "high",
+      manualReviewEvidence: ["Evidence"],
+      manualReviewProposedActions: [{ kind: "merge_organizations" }],
+    });
     await graph.createNode(
       "EntityReview",
       {
@@ -239,8 +232,12 @@ describePostgres("GraphRepository PostgreSQL integration", () => {
   });
 
   it("preserves shared value nodes until their final relationship is removed", async () => {
-    await graph.createNode("Organization", { orgId: "org-1" }, "org-1");
-    await graph.createNode("Organization", { orgId: "org-2" }, "org-2");
+    await createProfileMemberFixture(postgres, "Organization", "org-1", {
+      orgId: "org-1",
+    });
+    await createProfileMemberFixture(postgres, "Organization", "org-2", {
+      orgId: "org-2",
+    });
 
     for (const orgId of ["org-1", "org-2"]) {
       await graph.replaceRelatedValueNodes({
@@ -279,11 +276,16 @@ describePostgres("GraphRepository PostgreSQL integration", () => {
   });
 
   it("replaces, activates, and patches owned jobsites transactionally", async () => {
-    await graph.createNode("Organization", { orgId: "org-1" }, "org-1");
+    const ownerNodeId = await createProfileMemberFixture(
+      postgres,
+      "Organization",
+      "org-1",
+      { orgId: "org-1" },
+    );
     await graph.replaceOwnedRelatedNodes({
       sourceLabel: "Organization",
       sourceWhere: { orgId: "org-1" },
-      relationshipType: "HAS_JOBSITE",
+      relationshipType: "HAS_DETECTED_JOBSITE",
       targetLabel: "DetectedJobsite",
       nodeKeyProperty: "id",
       nodes: [
@@ -292,16 +294,52 @@ describePostgres("GraphRepository PostgreSQL integration", () => {
       ],
     });
 
-    const activated = await graph.relabelRelatedNodes({
-      sourceLabel: "Organization",
-      sourceWhere: { orgId: "org-1" },
-      relationshipType: "HAS_JOBSITE",
-      targetLabel: "DetectedJobsite",
-      targetProperty: "id",
-      targetValues: ["site-1"],
-      newLabel: "Jobsite",
+    const activated = await graph.transaction(async manager => {
+      const nodes = await graph.relabelRelatedNodes({
+        sourceLabel: "Organization",
+        sourceWhere: { orgId: "org-1" },
+        relationshipType: "HAS_DETECTED_JOBSITE",
+        targetLabel: "DetectedJobsite",
+        targetProperty: "id",
+        targetValues: ["site-1"],
+        newLabel: "Jobsite",
+        executor: manager,
+      });
+      for (const node of nodes) {
+        await graph.upsertRelationship({
+          sourceNodeId: ownerNodeId,
+          targetNodeId: node.nodeId,
+          type: "HAS_JOBSITE",
+          executor: manager,
+        });
+        await graph.deleteRelationships({
+          sourceNodeId: ownerNodeId,
+          type: "HAS_DETECTED_JOBSITE",
+          targetNodeIds: [node.nodeId],
+          executor: manager,
+        });
+      }
+      return nodes;
     });
     expect(activated).toHaveLength(1);
+    await expect(
+      graph.hasRelationship({
+        sourceLabel: "Organization",
+        sourceWhere: { orgId: "org-1" },
+        type: "HAS_JOBSITE",
+        targetLabel: "Jobsite",
+        targetWhere: { id: "site-1" },
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      graph.hasRelationship({
+        sourceLabel: "Organization",
+        sourceWhere: { orgId: "org-1" },
+        type: "HAS_DETECTED_JOBSITE",
+        targetLabel: "Jobsite",
+        targetWhere: { id: "site-1" },
+      }),
+    ).resolves.toBe(false);
 
     await graph.updateNodesFromPatches({
       label: "Jobsite",
@@ -322,7 +360,7 @@ describePostgres("GraphRepository PostgreSQL integration", () => {
     await graph.replaceOwnedRelatedNodes({
       sourceLabel: "Organization",
       sourceWhere: { orgId: "org-1" },
-      relationshipType: "HAS_JOBSITE",
+      relationshipType: "HAS_DETECTED_JOBSITE",
       targetLabel: "DetectedJobsite",
       nodeKeyProperty: "id",
       nodes: [{ id: "site-3", url: "https://three.example", type: "lever" }],
@@ -337,69 +375,101 @@ describePostgres("GraphRepository PostgreSQL integration", () => {
 
   it("changes labels atomically and enforces target-label conflicts", async () => {
     await graph.createNode(
-      "Organization",
-      { orgId: "org-1", name: "Acme", headcountEstimate: 10 },
-      "org-1",
+      "Tag",
+      { id: "tag-1", name: "Acme", legacyName: "Acme legacy", legacyRank: 10 },
+      "tag-1",
     );
     await graph.createNode(
-      "Project",
-      { id: "project-existing", name: "Existing" },
-      "project-existing",
+      "Skill",
+      { id: "skill-existing", name: "Existing" },
+      "skill-existing",
     );
 
     await expect(
       graph.changeNodeLabel({
-        sourceLabel: "Organization",
-        sourceWhere: { orgId: "org-1" },
-        newLabel: "Project",
+        sourceLabel: "Tag",
+        sourceWhere: { id: "tag-1" },
+        newLabel: "Skill",
         conflictWhere: { name: "Existing" },
       }),
     ).resolves.toMatchObject({ status: "conflict" });
+    await expect(graph.findNode("Tag", { id: "tag-1" })).resolves.toMatchObject(
+      {
+        properties: { name: "Acme", legacyName: "Acme legacy", legacyRank: 10 },
+      },
+    );
 
     await expect(
       graph.changeNodeLabel({
-        sourceLabel: "Organization",
-        sourceWhere: { orgId: "org-1" },
-        newLabel: "Project",
+        sourceLabel: "Tag",
+        sourceWhere: { id: "tag-1" },
+        newLabel: "Skill",
         conflictWhere: { name: "Acme" },
-        removeProperties: ["orgId", "headcountEstimate"],
+        removeProperties: ["legacyName", "legacyRank"],
       }),
-    ).resolves.toMatchObject({
+    ).resolves.toEqual({
       status: "updated",
-      node: { properties: { name: "Acme" } },
+      node: {
+        nodeId: expect.any(String),
+        properties: { id: "tag-1", name: "Acme" },
+      },
     });
     await expect(
-      graph.findNode("Organization", { orgId: "org-1" }),
+      graph.findNode("Tag", { id: "tag-1" }),
     ).resolves.toBeUndefined();
+    await expect(
+      graph.findNode("Skill", { id: "tag-1" }),
+    ).resolves.toMatchObject({ properties: { id: "tag-1", name: "Acme" } });
   });
 
   it("deletes an owned subgraph while retaining shared descendants", async () => {
-    const org1 = await graph.createNode(
+    const org1NodeId = await createProfileMemberFixture(
+      postgres,
       "Organization",
-      { orgId: "org-1" },
       "org-1",
+      { orgId: "org-1" },
     );
-    const org2 = await graph.createNode(
+    const org2NodeId = await createProfileMemberFixture(
+      postgres,
       "Organization",
-      { orgId: "org-2" },
       "org-2",
+      { orgId: "org-2" },
     );
-    const shared = await graph.createNode(
+    const sharedNodeId = await createProfileMemberFixture(
+      postgres,
       "Project",
-      { id: "shared" },
       "shared",
+      { id: "shared" },
     );
-    const owned = await graph.createNode("Project", { id: "owned" }, "owned");
+    const profileOwnedNodeId = await createProfileMemberFixture(
+      postgres,
+      "Project",
+      "owned",
+      { id: "owned" },
+    );
+    const sharedReview = await graph.createNode(
+      "EntityReview",
+      { id: "shared-review" },
+      "shared-review",
+    );
+    const ownedReview = await graph.createNode(
+      "EntityReview",
+      { id: "owned-review" },
+      "owned-review",
+    );
     const website = await graph.createNode(
       "Website",
       { id: "website-1", url: "https://owned.example" },
       "website-1",
     );
     for (const relationship of [
-      [org1.nodeId, shared.nodeId, "HAS_PROJECT"],
-      [org2.nodeId, shared.nodeId, "HAS_PROJECT"],
-      [org1.nodeId, owned.nodeId, "HAS_PROJECT"],
-      [owned.nodeId, website.nodeId, "HAS_WEBSITE"],
+      [org1NodeId, sharedNodeId, "HAS_PROJECT"],
+      [org2NodeId, sharedNodeId, "HAS_PROJECT"],
+      [org1NodeId, profileOwnedNodeId, "HAS_PROJECT"],
+      [org1NodeId, sharedReview.nodeId, "HAS_ENTITY_REVIEW"],
+      [org2NodeId, sharedReview.nodeId, "HAS_ENTITY_REVIEW"],
+      [org1NodeId, ownedReview.nodeId, "HAS_ENTITY_REVIEW"],
+      [ownedReview.nodeId, website.nodeId, "HAS_WEBSITE"],
     ] as const) {
       await graph.upsertRelationship({
         sourceNodeId: relationship[0],
@@ -408,18 +478,26 @@ describePostgres("GraphRepository PostgreSQL integration", () => {
       });
     }
 
-    await graph.deleteNodeWithOwnedDescendants({
-      rootLabel: "Organization",
-      rootWhere: { orgId: "org-1" },
-      relationshipTypes: ["HAS_PROJECT", "HAS_WEBSITE"],
-      ownedLabels: ["Project", "Website"],
-    });
+    await expect(
+      graph.deleteNodeWithOwnedDescendants({
+        rootLabel: "Organization",
+        rootWhere: { orgId: "org-1" },
+        relationshipTypes: ["HAS_PROJECT", "HAS_ENTITY_REVIEW", "HAS_WEBSITE"],
+        ownedLabels: ["Project", "EntityReview", "Website"],
+      }),
+    ).resolves.toEqual({ rootDeleted: true, descendantsDeleted: 2 });
 
     await expect(
       graph.findNode("Project", { id: "shared" }),
     ).resolves.toBeDefined();
     await expect(
       graph.findNode("Project", { id: "owned" }),
+    ).resolves.toBeDefined();
+    await expect(
+      graph.findNode("EntityReview", { id: "shared-review" }),
+    ).resolves.toBeDefined();
+    await expect(
+      graph.findNode("EntityReview", { id: "owned-review" }),
     ).resolves.toBeUndefined();
     await expect(
       graph.findNode("Website", { id: "website-1" }),

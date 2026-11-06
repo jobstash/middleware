@@ -1,10 +1,11 @@
 const canonicalWorkArrangementOption = (
   valueAlias: string,
   classificationExpression: string,
+  mode: "remote" | "hybrid" | "onsite",
 ): string => `
   jsonb_build_object(
-    'classification', ${classificationExpression},
-    'mode', ${valueAlias} ->> 'mode',
+    'classification', COALESCE(${valueAlias} -> 'classification', ${classificationExpression}),
+    'mode', COALESCE(${valueAlias} -> 'mode', '"${mode}"'::jsonb),
     'scope', ${valueAlias} ->> 'scope',
     'includedCountries', COALESCE((
       SELECT jsonb_agg(upper(country) ORDER BY upper(country))
@@ -77,7 +78,7 @@ const canonicalWorkArrangementOption = (
 export const jobWorkArrangementPayload = (jobAlias = "job"): string => `
   jsonb_build_object(
     'classification', COALESCE(
-      ${jobAlias}.work_arrangement ->> 'classification', 'unstated'
+      ${jobAlias}.work_arrangement -> 'classification', '"unstated"'::jsonb
     ),
     'fullyRemote', CASE
       WHEN jsonb_typeof(${jobAlias}.work_arrangement -> 'fullyRemote') = 'boolean'
@@ -88,7 +89,8 @@ export const jobWorkArrangementPayload = (jobAlias = "job"): string => `
       SELECT jsonb_agg(
         ${canonicalWorkArrangementOption(
           "option_value",
-          `COALESCE(${jobAlias}.work_arrangement ->> 'classification', 'unstated')`,
+          `COALESCE(${jobAlias}.work_arrangement -> 'classification', '"unstated"'::jsonb)`,
+          "remote",
         )}
         ORDER BY
           option_value ->> 'mode',
@@ -98,33 +100,32 @@ export const jobWorkArrangementPayload = (jobAlias = "job"): string => `
       FROM jsonb_array_elements(
         COALESCE(${jobAlias}.work_arrangement -> 'remoteOptions', '[]'::jsonb)
       ) option_value
-      WHERE option_value ->> 'mode' = 'remote'
     ), '[]'::jsonb),
     'hybridOptions', COALESCE((
       SELECT jsonb_agg(
         ${canonicalWorkArrangementOption(
           "option_value",
-          `COALESCE(${jobAlias}.work_arrangement ->> 'classification', 'unstated')`,
+          `COALESCE(${jobAlias}.work_arrangement -> 'classification', '"unstated"'::jsonb)`,
+          "hybrid",
         )}
         ORDER BY option_value ->> 'alternativeGroupKey', option_value ->> 'optionKey'
       )
       FROM jsonb_array_elements(
         COALESCE(${jobAlias}.work_arrangement -> 'hybridOptions', '[]'::jsonb)
       ) option_value
-      WHERE option_value ->> 'mode' = 'hybrid'
     ), '[]'::jsonb),
     'onsiteOptions', COALESCE((
       SELECT jsonb_agg(
         ${canonicalWorkArrangementOption(
           "option_value",
-          `COALESCE(${jobAlias}.work_arrangement ->> 'classification', 'unstated')`,
+          `COALESCE(${jobAlias}.work_arrangement -> 'classification', '"unstated"'::jsonb)`,
+          "onsite",
         )}
         ORDER BY option_value ->> 'alternativeGroupKey', option_value ->> 'optionKey'
       )
       FROM jsonb_array_elements(
         COALESCE(${jobAlias}.work_arrangement -> 'onsiteOptions', '[]'::jsonb)
       ) option_value
-      WHERE option_value ->> 'mode' = 'onsite'
     ), '[]'::jsonb)
   )
 `;

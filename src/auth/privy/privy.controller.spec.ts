@@ -1,5 +1,5 @@
 import { ConfigService } from "@nestjs/config";
-import { User } from "@privy-io/server-auth";
+import { User } from "@privy-io/node";
 import { AuthService } from "../auth.service";
 import { UserService } from "src/user/user.service";
 import { PermissionService } from "src/user/permission.service";

@@ -8,7 +8,7 @@ import { Observable } from "rxjs";
 import { tap } from "rxjs/operators";
 import { CACHE_CONTROL_HEADER, CACHE_EXPIRY, NO_CACHE } from "../constants";
 import { CustomLogger } from "../utils/custom-logger";
-import * as etag from "etag";
+import etag = require("etag");
 
 type CachePolicy =
   | { mode: "ttl"; seconds: number }

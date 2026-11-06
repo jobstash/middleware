@@ -1,3 +1,4 @@
+import { hydrateWorkArrangement } from "../interfaces/work-arrangement.interface";
 import { OrganizationWithLinks } from "../interfaces";
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
 import { isAfter, isBefore } from "date-fns";
@@ -26,7 +27,7 @@ export class OrganizationWithLinksEntity {
       ...organization,
       docs: docs ?? [],
       logoUrl: notStringOrNull(organization?.logoUrl),
-      location: notStringOrNull(organization?.location),
+      location: organization.location ?? "",
       headcountEstimate: nonZeroOrNull(organization?.headcountEstimate),
       githubs: githubs ?? [],
       twitters: twitters ?? [],
@@ -37,6 +38,8 @@ export class OrganizationWithLinksEntity {
       projects:
         projects?.map(project => ({
           ...project,
+          summary: project.summary ?? "",
+          description: project.description ?? null,
           defiLlamaId: notStringOrNull(project?.defiLlamaId),
           defiLlamaSlug: notStringOrNull(project?.defiLlamaSlug),
           defiLlamaParent: notStringOrNull(project?.defiLlamaParent),
@@ -89,6 +92,9 @@ export class OrganizationWithLinksEntity {
                 isBefore(now, nonZeroOrNull(jobpost?.featureEndDate) ?? now);
               return {
                 ...jobpost,
+                workArrangement: hydrateWorkArrangement(
+                  jobpost.workArrangement,
+                ),
                 salary: nonZeroOrNull(jobpost?.salary),
                 minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
                 maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),

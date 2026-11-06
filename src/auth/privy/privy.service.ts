@@ -2,17 +2,23 @@ import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
-import { PrivyClient, User, WalletWithMetadata } from "@privy-io/server-auth";
+import {
+  PrivyClient,
+  User,
+  LinkedAccount,
+  NotFoundError,
+} from "@privy-io/node";
+import { UserCreateParams } from "@privy-io/node/resources";
 
 @Injectable()
 export class PrivyService {
   private logger = new CustomLogger(PrivyService.name);
   private privy: PrivyClient;
   constructor(private readonly configService: ConfigService) {
-    this.privy = new PrivyClient(
-      this.configService.get<string>("PRIVY_APP_ID"),
-      this.configService.get<string>("PRIVY_APP_SECRET"),
-    );
+    this.privy = new PrivyClient({
+      appId: this.configService.get<string>("PRIVY_APP_ID"),
+      appSecret: this.configService.get<string>("PRIVY_APP_SECRET"),
+    });
   }
 
   async createUser(data: {
@@ -22,7 +28,7 @@ export class PrivyService {
     name: string;
   }): Promise<User> {
     const client = this.privy;
-    type X = Parameters<typeof client.importUser>[0]["linkedAccounts"][0];
+    type X = UserCreateParams["linked_accounts"][number];
     const linkedAccounts: X[] = [];
 
     if (data.wallets.length > 0) {
@@ -31,10 +37,10 @@ export class PrivyService {
           x =>
             ({
               type: "wallet",
-              walletClientType: "rainbow",
+              wallet_client_type: "rainbow",
               address: x,
-              chainType: "ethereum",
-              connectorType: "wallet_connect",
+              chain_type: "ethereum",
+              connector_type: "wallet_connect",
             }) as X,
         ),
       );
@@ -58,10 +64,9 @@ export class PrivyService {
     }
 
     try {
-      const user = await client.importUser({
-        linkedAccounts,
-        createEthereumWallet: true,
-        createSolanaWallet: false,
+      const user = await client.users().create({
+        linked_accounts: linkedAccounts,
+        wallets: [{ chain_type: "ethereum" }],
       });
       return user;
     } catch (err) {
@@ -82,10 +87,11 @@ export class PrivyService {
       return embeddedWallet;
     } else {
       try {
-        const { address: newEmbeddedWallet } =
-          await this.privy.walletApi.createWallet({
-            chainType: "ethereum",
-            owner: { userId: user.id },
+        const { address: newEmbeddedWallet } = await this.privy
+          .wallets()
+          .create({
+            chain_type: "ethereum",
+            owner: { user_id: user.id },
           });
         return newEmbeddedWallet;
       } catch (error) {
@@ -105,11 +111,11 @@ export class PrivyService {
   }
 
   private extractEmbeddedWallet(user: User): string | undefined {
-    if (user?.linkedAccounts) {
+    if (user?.linked_accounts) {
       return (
-        user.linkedAccounts.find(
-          x => x.type === "wallet" && x.walletClientType === "privy",
-        ) as WalletWithMetadata
+        user.linked_accounts.find(
+          x => x.type === "wallet" && x.wallet_client_type === "privy",
+        ) as Extract<LinkedAccount, { type: "wallet" }>
       )?.address;
     }
     return undefined;
@@ -124,8 +130,8 @@ export class PrivyService {
       return undefined;
     }
     try {
-      user = await this.privy.getUserById(userId);
-      if (!user?.linkedAccounts) {
+      user = await this.privy.users()._get(userId);
+      if (!user?.linked_accounts) {
         this.logger.warn(`User has no linked accounts`);
       } else {
         this.logger.log(
@@ -135,7 +141,7 @@ export class PrivyService {
         );
       }
     } catch (err) {
-      if (err.message === "User not found") {
+      if (err instanceof NotFoundError) {
         return undefined;
       } else {
         Sentry.withScope(scope => {
@@ -168,8 +174,8 @@ export class PrivyService {
       return undefined;
     }
     try {
-      user = await this.privy.getUserByEmail(email);
-      if (!user?.linkedAccounts) {
+      user = await this.privy.users().getByEmailAddress({ address: email });
+      if (!user?.linked_accounts) {
         this.logger.warn(`User has no linked accounts`);
       } else {
         this.logger.log(
@@ -179,7 +185,7 @@ export class PrivyService {
         );
       }
     } catch (err) {
-      if (err.message === "User not found") {
+      if (err instanceof NotFoundError) {
         return undefined;
       } else {
         Sentry.withScope(scope => {
@@ -205,10 +211,13 @@ export class PrivyService {
 
   async getUserLinkedWallets(userId: string): Promise<string[]> {
     const user = await this.getUserById(userId);
-    if (user?.linkedAccounts) {
-      return user.linkedAccounts
-        .filter(x => x.type === "wallet" && x.walletClientType !== "privy")
-        .map(x => (x as WalletWithMetadata).address);
+    if (user?.linked_accounts) {
+      return user.linked_accounts
+        .filter(
+          (account): account is Extract<LinkedAccount, { type: "wallet" }> =>
+            account.type === "wallet" && account.wallet_client_type !== "privy",
+        )
+        .map(account => account.address);
     } else {
       return [];
     }
@@ -217,7 +226,8 @@ export class PrivyService {
   async getUsers(attempts = 1): Promise<User[]> {
     let users: User[];
     try {
-      users = await this.privy.getUsers();
+      users = [];
+      for await (const user of this.privy.users().list()) users.push(user);
       if (!users) {
         this.logger.warn(`Users could not be fetched`);
       } else {
@@ -249,16 +259,19 @@ export class PrivyService {
   }
 
   async deletePrivyUser(userId: string): Promise<void> {
-    await this.privy.deleteUser(userId).catch(err => {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "service-call",
-          source: "privy.service",
+    await this.privy
+      .users()
+      .delete(userId)
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "service-call",
+            source: "privy.service",
+          });
+          Sentry.captureException(err);
         });
-        Sentry.captureException(err);
+        this.logger.error(`PrivyService::deletePrivyUser ${err.message}`);
       });
-      this.logger.error(`PrivyService::deletePrivyUser ${err.message}`);
-    });
   }
 
   async getClient(): Promise<PrivyClient> {

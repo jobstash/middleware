@@ -11,8 +11,9 @@ import {
 import { StripeService } from "src/stripe/stripe.service";
 import { SubscriptionsService } from "src/subscriptions/subscriptions.service";
 import { UserService } from "src/user/user.service";
-import Stripe from "stripe";
+import Stripe = require("stripe");
 import { GraphRepository } from "./graph.repository";
+import { createProfileMemberFixture } from "./postgres.integration-fixtures";
 import { PostgresService } from "./postgres.service";
 import {
   SubscriptionPaymentWrite,
@@ -505,19 +506,24 @@ describePostgres("SubscriptionRepository PostgreSQL integration", () => {
       wallet: "0xSubscriber",
       name: "Subscription Owner",
     });
-    const organization = await graph.createNode("Organization", {
-      id: "subscription-organization-id",
-      orgId: "subscription-org",
-      name: "Subscription Org",
-      normalizedName: "subscription-org",
-    });
+    const organizationNodeId = await createProfileMemberFixture(
+      postgres,
+      "Organization",
+      "subscription-organization-id",
+      {
+        id: "subscription-organization-id",
+        orgId: "subscription-org",
+        name: "Subscription Org",
+        normalizedName: "subscription-org",
+      },
+    );
     const seat = await graph.createNode("OrgUserSeat", {
       id: "subscription-seat-id",
       seatType: "owner",
       createdTimestamp: now,
     });
     await graph.upsertRelationship({
-      sourceNodeId: organization.nodeId,
+      sourceNodeId: organizationNodeId,
       targetNodeId: seat.nodeId,
       type: "HAS_USER_SEAT",
     });
@@ -528,7 +534,7 @@ describePostgres("SubscriptionRepository PostgreSQL integration", () => {
     });
     await graph.upsertRelationship({
       sourceNodeId: account.nodeId,
-      targetNodeId: organization.nodeId,
+      targetNodeId: organizationNodeId,
       type: "VERIFIED_FOR_ORG",
       properties: {
         credential: "email",

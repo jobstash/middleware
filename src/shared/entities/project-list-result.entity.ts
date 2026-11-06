@@ -1,7 +1,8 @@
 import {
-  EMPTY_WORK_ARRANGEMENT_V1,
+  hydrateWorkArrangement,
   ProjectCompetitorListResult,
   ProjectListResult,
+  Tag,
 } from "../interfaces";
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
 import { isAfter, isBefore } from "date-fns";
@@ -94,13 +95,8 @@ export class ProjectListResultEntity {
             featured: isStillFeatured,
             onboardIntoWeb3: jobpost?.onboardIntoWeb3 ?? false,
             ethSeasonOfInternships: jobpost?.ethSeasonOfInternships ?? false,
-            workArrangement:
-              jobpost.workArrangement ?? EMPTY_WORK_ARRANGEMENT_V1,
-            tags:
-              jobpost?.tags.map(tag => ({
-                ...tag,
-                createdTimestamp: nonZeroOrNull(tag?.createdTimestamp),
-              })) ?? [],
+            workArrangement: hydrateWorkArrangement(jobpost.workArrangement),
+            tags: jobpost?.tags.map(tag => new Tag(tag)) ?? [],
           };
         }) ?? [],
       repos:
@@ -159,6 +155,7 @@ export class ProjectCompetitorListResultEntity {
       jobs:
         project?.jobs?.map(jobpost => ({
           ...jobpost,
+          workArrangement: hydrateWorkArrangement(jobpost.workArrangement),
           salary: nonZeroOrNull(jobpost?.salary),
           minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
           maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),
@@ -178,11 +175,7 @@ export class ProjectCompetitorListResultEntity {
           description: notStringOrNull(jobpost?.description),
           commitment: notStringOrNull(jobpost?.commitment),
           timestamp: nonZeroOrNull(jobpost?.timestamp),
-          tags:
-            jobpost?.tags.map(tag => ({
-              ...tag,
-              createdTimestamp: nonZeroOrNull(tag?.createdTimestamp),
-            })) ?? [],
+          tags: jobpost?.tags.map(tag => new Tag(tag)) ?? [],
         })) ?? [],
       repos: project?.repos?.map(repo => ({ ...repo })) ?? [],
     });

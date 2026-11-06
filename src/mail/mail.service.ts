@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import * as SendGrid from "@sendgrid/mail";
+import SendGrid = require("@sendgrid/mail");
 import { CustomLogger } from "src/shared/utils/custom-logger";
 
 @Injectable()

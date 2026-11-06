@@ -1,4 +1,4 @@
-import Stripe from "stripe";
+import Stripe = require("stripe");
 
 export const AGENCY_STRIPE_PLAN = Object.freeze({
   lookupKey: "jobstash_agency_monthly",

@@ -6,7 +6,7 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import Stripe from "stripe";
+import Stripe = require("stripe");
 import { PostgresService } from "src/postgres/postgres.service";
 import { deviceInput } from "./device-execution.protocol";
 import {
@@ -72,11 +72,13 @@ export class SubscriptionService {
   private async liveState(
     sessionId: string,
     owner: string,
-  ): Promise<CandidateSubscriptionState & {
-    subscriptionId: string | null;
-    boundPriceId: string;
-    subscription?: Stripe.Subscription;
-  }> {
+  ): Promise<
+    CandidateSubscriptionState & {
+      subscriptionId: string | null;
+      boundPriceId: string;
+      subscription?: Stripe.Subscription;
+    }
+  > {
     const session = await this.stripe.checkout.sessions.retrieve(
       sessionId,
       { expand: ["line_items.data.price", "subscription.latest_invoice"] },
@@ -97,13 +99,21 @@ export class SubscriptionService {
     const price = line?.price;
     const interval = price?.recurring?.interval;
     if (
-      !lines || lines.has_more || lines.data.length !== 1 ||
-      line?.quantity !== 1 || !price || price.currency !== "usd" ||
+      !lines ||
+      lines.has_more ||
+      lines.data.length !== 1 ||
+      line?.quantity !== 1 ||
+      !price ||
+      price.currency !== "usd" ||
       price.recurring?.interval_count !== 1 ||
-      !((interval === "month" && price.unit_amount === 999) ||
-        (interval === "year" && price.unit_amount === 9590))
+      !(
+        (interval === "month" && price.unit_amount === 999) ||
+        (interval === "year" && price.unit_amount === 9590)
+      )
     )
-      throw new ServiceUnavailableException("Checkout membership price does not match");
+      throw new ServiceUnavailableException(
+        "Checkout membership price does not match",
+      );
     if (session.status !== "complete" || !session.subscription)
       return {
         status: session.status === "expired" ? "expired" : "pending",
@@ -111,7 +121,7 @@ export class SubscriptionService {
         cancelledAt: null,
         subscriptionId: null,
         billingState: session.status === "expired" ? "terminal" : "open",
-        interval,
+        interval: interval === "month" ? "month" : "year",
         discount: null,
         boundPriceId: price.id,
       };
@@ -128,8 +138,10 @@ export class SubscriptionService {
       ...(subscription.discounts ?? []),
       ...subscription.items.data.flatMap(item => item.discounts ?? []),
       ...(invoice && typeof invoice !== "string"
-        ? [...(invoice.discounts ?? []),
-          ...invoice.lines.data.flatMap(value => value.discounts ?? [])]
+        ? [
+            ...(invoice.discounts ?? []),
+            ...invoice.lines.data.flatMap(value => value.discounts ?? []),
+          ]
         : []),
     ];
     if (discounts.some(discount => typeof discount === "string"))
@@ -149,32 +161,47 @@ export class SubscriptionService {
 
   // Stripe leaves applies_to out of embedded coupons. Retrieve it explicitly
   // before the parser enforces candidate-product and finite-discount policy.
-  private async hydrateCoupons(subscription: Stripe.Subscription): Promise<void> {
+  private async hydrateCoupons(
+    subscription: Stripe.Subscription,
+  ): Promise<void> {
     const invoice = subscription.latest_invoice;
     const discounts = [
       ...(subscription.discounts ?? []),
       ...subscription.items.data.flatMap(item => item.discounts ?? []),
       ...(invoice && typeof invoice !== "string"
-        ? [...(invoice.discounts ?? []),
-          ...invoice.lines.data.flatMap(line => line.discounts ?? [])]
+        ? [
+            ...(invoice.discounts ?? []),
+            ...invoice.lines.data.flatMap(line => line.discounts ?? []),
+          ]
         : []),
     ];
     const coupons = new Map<string, Stripe.Coupon>();
     for (const discount of discounts) {
       if (typeof discount === "string")
-        throw new ServiceUnavailableException("Membership discount evidence is unavailable");
-      const id = discount.coupon?.id;
+        throw new ServiceUnavailableException(
+          "Membership discount evidence is unavailable",
+        );
+      const source = discount.source;
+      const id =
+        source?.type === "coupon"
+          ? typeof source.coupon === "string"
+            ? source.coupon
+            : source.coupon?.id
+          : undefined;
       if (!id)
-        throw new ServiceUnavailableException("Membership coupon evidence is unavailable");
+        throw new ServiceUnavailableException(
+          "Membership coupon evidence is unavailable",
+        );
       let coupon = coupons.get(id);
       if (!coupon) {
         coupon = await this.stripe.coupons.retrieve(
-          id, { expand: ["applies_to"] },
+          id,
+          { expand: ["applies_to"] },
           { timeout: 12000, maxNetworkRetries: 0 },
         );
         coupons.set(id, coupon);
       }
-      discount.coupon = coupon;
+      source.coupon = coupon;
     }
   }
 
@@ -270,7 +297,9 @@ export class SubscriptionService {
         [owner],
       );
       if (agreements.length !== 1)
-        throw new ConflictException("A unique membership billing agreement is required");
+        throw new ConflictException(
+          "A unique membership billing agreement is required",
+        );
       const target = agreements[0].checkout_id as string;
       await db.query(
         "INSERT INTO candidate_payment_events(id,checkout_id,event_type,occurred_at) VALUES($1,$2,'cancellation.requested',now())",
@@ -284,7 +313,8 @@ export class SubscriptionService {
         "SELECT checkout_id FROM candidate_subscriptions WHERE checkout_id=$1 AND user_node_id=$2 FOR UPDATE",
         [checkoutId, owner],
       );
-      if (!owned) throw new ForbiddenException("Subscription ownership changed");
+      if (!owned)
+        throw new ForbiddenException("Subscription ownership changed");
       try {
         const before = await this.liveState(checkoutId, owner);
         const subscription = before.subscription;
@@ -302,7 +332,11 @@ export class SubscriptionService {
               },
             );
         await this.hydrateCoupons(updated);
-        const state = readStripeSubscription(updated, before.boundPriceId, owner);
+        const state = readStripeSubscription(
+          updated,
+          before.boundPriceId,
+          owner,
+        );
         if (
           updated.id !== subscription.id ||
           updated.cancel_at_period_end !== true ||
@@ -311,7 +345,9 @@ export class SubscriptionService {
           state.status !== before.status ||
           state.paidUntil !== before.paidUntil
         )
-          throw new ServiceUnavailableException("Membership cancellation was not confirmed");
+          throw new ServiceUnavailableException(
+            "Membership cancellation was not confirmed",
+          );
         const response: MembershipCancellation = {
           cancelAtPeriodEnd: true,
           paidUntil: state.paidUntil,
@@ -319,13 +355,27 @@ export class SubscriptionService {
         };
         await db.query(
           "UPDATE candidate_subscriptions SET status=$2,paid_until=$3,cancelled_at=$4,subscription_id=$5,billing_state=$6,billing_interval=$7,discount=$8,reconciled_at=now() WHERE checkout_id=$1",
-          [checkoutId, state.status, state.paidUntil, state.cancelledAt, updated.id, state.billingState, state.interval, state.discount],
+          [
+            checkoutId,
+            state.status,
+            state.paidUntil,
+            state.cancelledAt,
+            updated.id,
+            state.billingState,
+            state.interval,
+            state.discount,
+          ],
         );
         return response;
       } catch (error) {
-        if (error instanceof ConflictException || error instanceof ServiceUnavailableException)
+        if (
+          error instanceof ConflictException ||
+          error instanceof ServiceUnavailableException
+        )
           throw error;
-        throw new ServiceUnavailableException("Membership cancellation could not be confirmed. Retry the same request.");
+        throw new ServiceUnavailableException(
+          "Membership cancellation could not be confirmed. Retry the same request.",
+        );
       }
     });
   }
@@ -337,7 +387,9 @@ export class SubscriptionService {
     const { requestId, interval } = deviceInput("checkout", raw);
     const owner = await this.owner(wallet);
     const priceId = this.config.get<string>(
-      interval === "month" ? "STRIPE_CANDIDATE_PRICE_ID" : "STRIPE_CANDIDATE_YEARLY_PRICE_ID",
+      interval === "month"
+        ? "STRIPE_CANDIDATE_PRICE_ID"
+        : "STRIPE_CANDIDATE_YEARLY_PRICE_ID",
     );
     if (!priceId)
       throw new ServiceUnavailableException(
@@ -356,8 +408,10 @@ export class SubscriptionService {
       price.unit_amount !== (interval === "month" ? 999 : 9590) ||
       price.recurring?.interval !== interval ||
       price.recurring.interval_count !== 1 ||
-      typeof product === "string" || !("active" in product) ||
-      !product.active || !product.livemode ||
+      typeof product === "string" ||
+      !("active" in product) ||
+      !product.active ||
+      !product.livemode ||
       product.id !== `recruiters_rip_candidate_${interval}_v1` ||
       product.metadata?.purpose !== "recruiters-rip-candidate-v1"
     )
@@ -393,7 +447,10 @@ export class SubscriptionService {
         "SELECT checkout_url,billing_state,billing_interval FROM candidate_subscriptions WHERE user_node_id=$1 AND request_id=$2",
         [owner, requestId],
       );
-      if (prior?.billing_state === "open" && prior.billing_interval === interval)
+      if (
+        prior?.billing_state === "open" &&
+        prior.billing_interval === interval
+      )
         return { checkoutUrl: prior.checkout_url };
       if (prior)
         throw new ConflictException(
@@ -409,11 +466,18 @@ export class SubscriptionService {
         // Expiring an already-completed session fails at Stripe: do not create a
         // replacement until its newly established agreement is reconciled.
         const expired = await this.stripe.checkout.sessions.expire(
-          old.checkout_id, {},
+          old.checkout_id,
+          {},
           { timeout: 12000, maxNetworkRetries: 0 },
         );
-        if (expired.id !== old.checkout_id || !expired.livemode || expired.status !== "expired")
-          throw new ServiceUnavailableException("Previous checkout expiration was not confirmed");
+        if (
+          expired.id !== old.checkout_id ||
+          !expired.livemode ||
+          expired.status !== "expired"
+        )
+          throw new ServiceUnavailableException(
+            "Previous checkout expiration was not confirmed",
+          );
         await db.query(
           "UPDATE candidate_subscriptions SET status='expired',billing_state='terminal',reconciled_at=now() WHERE checkout_id=$1",
           [old.checkout_id],

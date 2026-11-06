@@ -36,7 +36,7 @@ import {
   SubscriptionMember,
 } from "src/shared/interfaces/org";
 import { SubscriptionEntity } from "src/shared/entities/subscription.entity";
-import { addMonths, getDayOfYear } from "date-fns";
+import { addMonths } from "date-fns";
 import { now } from "lodash";
 import { ProfileService } from "src/auth/profile/profile.service";
 import { Cron, CronExpression } from "@nestjs/schedule";
@@ -45,7 +45,7 @@ import {
   LOOKUP_KEYS,
   METERED_SERVICE_LOOKUP_KEYS,
 } from "src/shared/constants";
-import Stripe from "stripe";
+import Stripe = require("stripe");
 import { StripeService } from "src/stripe/stripe.service";
 
 @Injectable()
@@ -1143,50 +1143,54 @@ export class SubscriptionsService {
 
     if (this.configService.get<string>("ENVIRONMENT") === "production") {
       const subscriptions = await this.subscriptions.getRenewalSubscriptions();
+      const calendar = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Europe/Berlin",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      });
+      const today = calendar.format(now());
       for (const job of subscriptions) {
+        const subscription = new SubscriptionEntity(
+          job.subscription as unknown as Subscription,
+        ).getProperties();
+        if (
+          subscription.status !== "active" ||
+          subscription.tier !== "starter" ||
+          calendar.format(subscription.expiryTimestamp) !== today
+        ) {
+          continue;
+        }
+
         const ownerEmail = await this.getSubscriptionOwnerEmail(
           job.ownerWallet,
           job.orgId,
         );
 
         if (ownerEmail) {
-          const subscription = new SubscriptionEntity(
-            job.subscription as unknown as Subscription,
-          ).getProperties();
-          const expiresToday =
-            getDayOfYear(now()) === getDayOfYear(subscription.expiryTimestamp);
-          //TODO: change these to official copy from @Laura
-          if (subscription.status === "active" && expiresToday) {
-            if (subscription.tier === "starter") {
-              await this.mailService.sendEmail(
-                emailBuilder({
-                  from: this.from,
-                  to: ownerEmail,
-                  subject:
-                    "Your JobStash Trial is Ending – Upgrade to Keep Access to Premium Features!",
-                  previewText:
-                    "Your JobStash trial is coming to an end soon, and we don’t want you to lose access to the premium features you’ve been enjoying! ",
-                  title: "Hey there,",
-                  bodySections: [
-                    text(
-                      "Your JobStash trial is coming to an end soon, and we don’t want you to lose access to the premium features you’ve been enjoying! ",
-                    ),
-                    text(
-                      "Upgrading to a paid plan will keep you connected to all the exclusive tools that help you get the most out of JobStash.",
-                    ),
-                    text(
-                      "If you have any questions, feel free to reach out to us at support@jobstash.xyz.",
-                    ),
-                    text("Thanks for using JobStash.xyz!"),
-                  ],
-                }),
-              );
-            }
-          } else {
-            this.logger.log(
-              `Subscription for ${job.orgId} is due to expire in less than 5 days`,
-            );
-          }
+          await this.mailService.sendEmail(
+            emailBuilder({
+              from: this.from,
+              to: ownerEmail,
+              subject:
+                "Your JobStash Trial is Ending – Upgrade to Keep Access to Premium Features!",
+              previewText:
+                "Your JobStash trial is coming to an end soon, and we don’t want you to lose access to the premium features you’ve been enjoying! ",
+              title: "Hey there,",
+              bodySections: [
+                text(
+                  "Your JobStash trial is coming to an end soon, and we don’t want you to lose access to the premium features you’ve been enjoying! ",
+                ),
+                text(
+                  "Upgrading to a paid plan will keep you connected to all the exclusive tools that help you get the most out of JobStash.",
+                ),
+                text(
+                  "If you have any questions, feel free to reach out to us at support@jobstash.xyz.",
+                ),
+                text("Thanks for using JobStash.xyz!"),
+              ],
+            }),
+          );
         } else {
           this.logger.warn(`Owner email not found for ${job.orgId}`);
           Sentry.withScope(scope => {

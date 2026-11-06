@@ -12,7 +12,7 @@ import {
 import { Permissions, PrivySession } from "src/shared/decorators";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { PrivyGuard } from "./privy.guard";
-import { User } from "@privy-io/server-auth";
+import { User } from "@privy-io/node";
 import { AuthService } from "../auth.service";
 import { SessionObject } from "src/shared/interfaces";
 import { UserService } from "src/user/user.service";
@@ -144,12 +144,18 @@ export class PrivyController {
     this.logger.log(`/privy/webhook ${body.type}`);
     const client = await this.privyService.getClient();
     try {
-      const verifiedPayload: PrivyWebhookPayload | PrivyTestPayload =
-        (await client.verifyWebhook(
-          body,
-          { id, timestamp, signature },
-          this.configService.getOrThrow<string>("PRIVY_WEBHOOK_KEY"),
-        )) as PrivyWebhookPayload | PrivyTestPayload;
+      const verifiedPayload: PrivyWebhookPayload | PrivyTestPayload = client
+        .webhooks()
+        .verify({
+          payload: body,
+          headers: {
+            "svix-id": id,
+            "svix-timestamp": timestamp,
+            "svix-signature": signature,
+          },
+          signing_secret:
+            this.configService.getOrThrow<string>("PRIVY_WEBHOOK_KEY"),
+        }) as PrivyWebhookPayload | PrivyTestPayload;
 
       if (verifiedPayload.type === "privy.test") {
         this.logger.log(`Webhook test: ${verifiedPayload.message}`);

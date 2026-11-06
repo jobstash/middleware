@@ -2,7 +2,7 @@ import { Controller, Get, INestApplication, UseGuards } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { Test } from "@nestjs/testing";
-import * as request from "supertest";
+import request = require("supertest");
 import { GraphRepository } from "src/postgres/graph.repository";
 import { Permissions, Session } from "src/shared/decorators";
 import { SessionObject } from "src/shared/interfaces";

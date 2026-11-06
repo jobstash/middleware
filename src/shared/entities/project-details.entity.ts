@@ -1,3 +1,4 @@
+import { hydrateWorkArrangement } from "../interfaces/work-arrangement.interface";
 import { OrganizationWithRelations, Tag } from "../interfaces";
 import {
   generateOrgAggregateRating,
@@ -27,6 +28,9 @@ export class ProjectDetailsEntity {
 
     return new ProjectDetailsResult({
       ...project,
+      summary: project.summary ?? "",
+      description: project.description ?? null,
+      tags: project.tags?.map(tag => new Tag(tag)) ?? [],
       orgIds: project?.orgIds ?? [],
       defiLlamaId: notStringOrNull(project?.defiLlamaId),
       defiLlamaSlug: notStringOrNull(project?.defiLlamaSlug),
@@ -76,6 +80,9 @@ export class ProjectDetailsEntity {
           "atsClient",
           "hasUser",
         ]) as typeof organization),
+        summary: organization.summary ?? "",
+        description: organization.description ?? "",
+        location: organization.location ?? "",
         ...({
           categoryBackfilledTimestamp: losslessInteger(
             organization["categoryBackfilledTimestamp"],
@@ -138,7 +145,7 @@ export class ProjectDetailsEntity {
             "id",
           ),
         ),
-        tags: organization?.tags ?? [],
+        tags: organization?.tags?.map(tag => new Tag(tag)) ?? [],
         projects: [],
         reviews:
           organization?.reviews.map(review =>
@@ -183,6 +190,7 @@ export class ProjectDetailsEntity {
 
           return {
             ...jobpost,
+            workArrangement: hydrateWorkArrangement(jobpost.workArrangement),
             salary: nonZeroOrNull(jobpost?.salary),
             minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
             maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),
@@ -209,11 +217,7 @@ export class ProjectDetailsEntity {
             featured: isStillFeatured,
             onboardIntoWeb3: jobpost?.onboardIntoWeb3 ?? false,
             ethSeasonOfInternships: jobpost?.ethSeasonOfInternships ?? false,
-            tags:
-              jobpost?.tags.map(tag => ({
-                ...tag,
-                createdTimestamp: nonZeroOrNull(tag?.createdTimestamp),
-              })) ?? [],
+            tags: jobpost?.tags.map(tag => new Tag(tag)) ?? [],
           };
         }) ?? [],
     });

@@ -7,12 +7,6 @@ import { now } from "lodash";
 
 const METERED_SERVICES = ["veri", "jobPromotions"] as const;
 
-const NON_METERED_SERVICES = [
-  "stashAlert",
-  "atsIntegration",
-  "stashPool",
-] as const;
-
 export type MeteredService = (typeof METERED_SERVICES)[number];
 const MeteredService = t.keyof({
   ...METERED_SERVICES.reduce(
@@ -20,13 +14,7 @@ const MeteredService = t.keyof({
     {},
   ),
 });
-export type NonMeteredService = (typeof NON_METERED_SERVICES)[number];
-const NonMeteredService = t.keyof({
-  ...NON_METERED_SERVICES.reduce(
-    (acc, service) => ({ ...acc, [service]: null }),
-    {},
-  ),
-});
+export type NonMeteredService = "stashAlert" | "atsIntegration" | "stashPool";
 
 export type Service = NonMeteredService | MeteredService;
 

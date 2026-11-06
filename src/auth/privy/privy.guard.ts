@@ -6,7 +6,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Request } from "express";
-import { PrivyClient, User } from "@privy-io/server-auth";
+import { PrivyClient, User } from "@privy-io/node";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 
 @Injectable()
@@ -15,10 +15,10 @@ export class PrivyGuard implements CanActivate {
   private privy: PrivyClient;
   private logger = new CustomLogger(PrivyGuard.name);
   constructor(private readonly configService: ConfigService) {
-    this.privy = new PrivyClient(
-      this.configService.get<string>("PRIVY_APP_ID"),
-      this.configService.get<string>("PRIVY_APP_SECRET"),
-    );
+    this.privy = new PrivyClient({
+      appId: this.configService.get<string>("PRIVY_APP_ID"),
+      appSecret: this.configService.get<string>("PRIVY_APP_SECRET"),
+    });
   }
 
   private async getSession(req: Request): Promise<User> {
@@ -38,8 +38,11 @@ export class PrivyGuard implements CanActivate {
       attempt += 1
     ) {
       try {
-        const verifiedClaims = await this.privy.verifyAuthToken(accessToken);
-        return await this.privy.getUserById(verifiedClaims.userId);
+        const verifiedClaims = await this.privy
+          .utils()
+          .auth()
+          .verifyAccessToken(accessToken);
+        return await this.privy.users()._get(verifiedClaims.user_id);
       } catch (error) {
         lastError = error;
         if (attempt < PrivyGuard.MAX_AUTH_ATTEMPTS) {

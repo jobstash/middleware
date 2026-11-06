@@ -1,4 +1,5 @@
 import {
+  hydrateWorkArrangement,
   LeanOrgReview,
   OrgJob,
   OrgReview,
@@ -86,7 +87,7 @@ export class OrgListResultEntity {
       reviewCount: reviews?.length ?? 0,
       docs: notStringOrNull(organization?.docs),
       logoUrl: notStringOrNull(organization?.logoUrl),
-      location: notStringOrNull(organization?.location),
+      location: organization.location ?? "",
       headcountEstimate: nonZeroOrNull(organization?.headcountEstimate),
       github: notStringOrNull(organization?.github),
       category: notStringOrNull(organization?.category),
@@ -98,6 +99,8 @@ export class OrgListResultEntity {
       projects:
         projects?.map(project => ({
           ...project,
+          summary: project.summary ?? "",
+          description: project.description ?? null,
           defiLlamaId: notStringOrNull(project?.defiLlamaId),
           defiLlamaSlug: notStringOrNull(project?.defiLlamaSlug),
           defiLlamaParent: notStringOrNull(project?.defiLlamaParent),
@@ -170,6 +173,9 @@ export class OrgListResultEntity {
                 isBefore(now, nonZeroOrNull(jobpost?.featureEndDate) ?? now);
               return {
                 ...jobpost,
+                workArrangement: hydrateWorkArrangement(
+                  jobpost.workArrangement,
+                ),
                 salary: nonZeroOrNull(jobpost?.salary),
                 minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
                 maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),
@@ -232,11 +238,7 @@ export class OrgListResultEntity {
         ),
       ),
       ecosystems: organization?.ecosystems ?? [],
-      tags:
-        tags?.map(tag => ({
-          ...tag,
-          createdTimestamp: nonZeroOrNull(tag?.createdTimestamp),
-        })) ?? [],
+      tags: tags?.map(tag => new Tag(tag)) ?? [],
       reviews:
         reviews?.map(r => new LeanOrgReviewEntity(r).getProperties()) ?? [],
     });
@@ -265,7 +267,7 @@ export class OrgDetailsResultEntity {
       reviewCount: reviews?.length ?? 0,
       docs: notStringOrNull(organization?.docs),
       logoUrl: notStringOrNull(organization?.logoUrl),
-      location: notStringOrNull(organization?.location),
+      location: organization.location ?? "",
       headcountEstimate: nonZeroOrNull(organization?.headcountEstimate),
       github: notStringOrNull(organization?.github),
       category: notStringOrNull(organization?.category),
@@ -277,6 +279,8 @@ export class OrgDetailsResultEntity {
       projects:
         projects?.map(project => ({
           ...project,
+          summary: project.summary ?? "",
+          description: project.description ?? null,
           defiLlamaId: notStringOrNull(project?.defiLlamaId),
           defiLlamaSlug: notStringOrNull(project?.defiLlamaSlug),
           defiLlamaParent: notStringOrNull(project?.defiLlamaParent),
@@ -359,6 +363,9 @@ export class OrgDetailsResultEntity {
                 isBefore(now, nonZeroOrNull(jobpost?.featureEndDate) ?? now);
               return {
                 ...jobpost,
+                workArrangement: hydrateWorkArrangement(
+                  jobpost.workArrangement,
+                ),
                 salary: nonZeroOrNull(jobpost?.salary),
                 minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
                 maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),
@@ -421,11 +428,7 @@ export class OrgDetailsResultEntity {
         ),
       ),
       ecosystems: organization?.ecosystems ?? [],
-      tags:
-        tags?.map(tag => ({
-          ...tag,
-          createdTimestamp: nonZeroOrNull(tag?.createdTimestamp),
-        })) ?? [],
+      tags: tags?.map(tag => new Tag(tag)) ?? [],
       reviews:
         reviews?.map(r => new LeanOrgReviewEntity(r).getProperties()) ?? [],
       jobs: jobs.map(x => new OrgJobEntity(x).getProperties()) ?? [],

@@ -212,6 +212,51 @@ describeDatabase("job activity reporting in PostgreSQL", () => {
       });
     }
   });
+  it("ranks recent activity once while retaining distinct applicants and employer scope", async () => {
+    await db.query(`
+      DELETE FROM user_activity_events;
+      INSERT INTO user_activity_events(user_node_id,job_node_id,event_type,event_key,occurred_at) VALUES
+        (1,10,'job_apply','apply-a',now()),
+        (1,10,'job_apply','apply-repeat',now()),
+        (1,10,'job_view','view-a',now()),
+        (1,10,'job_view','view-b',now()),
+        (2,11,'job_apply','apply-b',now()),
+        (3,12,'job_apply','apply-c',now()),
+        (4,12,'job_apply','apply-d',now()),
+        (5,11,'job_apply','too-old',now() - interval '31 days'),
+        (6,11,'job_apply','future',now() + interval '1 second');
+    `);
+    expect(await jobs.getTopJobPayloads(2)).toEqual([
+      expect.objectContaining({
+        shortUUID: "other-job",
+        applications: 2,
+        views: 0,
+      }),
+      expect.objectContaining({
+        shortUUID: "old-job",
+        applications: 1,
+        views: 2,
+      }),
+    ]);
+    expect(await jobs.getTopJobPayloads(10, "org-1")).toEqual([
+      expect.objectContaining({
+        shortUUID: "old-job",
+        applications: 1,
+        views: 2,
+      }),
+      expect.objectContaining({
+        shortUUID: "undated-job",
+        applications: 1,
+        views: 0,
+      }),
+    ]);
+    await db.query(
+      "UPDATE job_search_documents SET tags = '{}' WHERE job_node_id = 10",
+    );
+    expect(await jobs.getTopJobPayloads(1, "org-1")).toEqual([
+      expect.objectContaining({ shortUUID: "undated-job" }),
+    ]);
+  });
   it("reflects newly recorded views immediately and does not count an event retry twice", async () => {
     for (const eventKey of ["new-view-1", "new-view-1", "new-view-2"]) {
       expect(

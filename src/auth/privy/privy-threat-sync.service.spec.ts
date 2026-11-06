@@ -1,4 +1,4 @@
-import { User } from "@privy-io/server-auth";
+import { User } from "@privy-io/node";
 import { ConfigService } from "@nestjs/config";
 import { createHash } from "node:crypto";
 import { EntityManager } from "typeorm";
@@ -22,17 +22,17 @@ describe("PrivyThreatSyncService", () => {
     const service = new PrivyThreatSyncService(config, postgres);
     const user = {
       id: "did:privy:secret-subject",
-      createdAt: new Date("2026-07-01T00:00:00Z"),
-      linkedAccounts: [
+      created_at: Date.parse("2026-07-01T00:00:00Z") / 1_000,
+      linked_accounts: [
         {
           type: "github_oauth",
           subject: "123456",
           username: "Example-Dev",
           email: "must-not-be-stored@example.com",
           name: "Sensitive Name",
-          verifiedAt: new Date("2026-07-02T00:00:00Z"),
-          firstVerifiedAt: new Date("2026-07-02T00:00:00Z"),
-          latestVerifiedAt: new Date("2026-07-03T00:00:00Z"),
+          verified_at: Date.parse("2026-07-02T00:00:00Z") / 1_000,
+          first_verified_at: Date.parse("2026-07-02T00:00:00Z") / 1_000,
+          latest_verified_at: Date.parse("2026-07-03T00:00:00Z") / 1_000,
         },
       ],
     } as unknown as User;
@@ -71,7 +71,7 @@ describe("PrivyThreatSyncService", () => {
     await expect(
       service.syncUser({
         id: "did:privy:no-github",
-        linkedAccounts: [],
+        linked_accounts: [],
       } as unknown as User),
     ).resolves.toBe(false);
 

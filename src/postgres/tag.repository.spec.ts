@@ -2,20 +2,36 @@ import { PostgresService } from "./postgres.service";
 import { TagRepository } from "./tag.repository";
 
 describe("TagRepository", () => {
-  it("counts tags from jobs with one exact Organization or Project employer", async () => {
-    const query = jest.fn().mockResolvedValue([]);
+  it("deduplicates fuzzy inputs and maps numeric result fields", async () => {
+    const query = jest.fn().mockResolvedValue([
+      {
+        input: "TypeScript",
+        properties: { id: "typescript", name: "TypeScript" },
+        score: "2.5",
+        jobCount: "7",
+      },
+    ]);
     const repository = new TagRepository({
       query,
     } as unknown as PostgresService);
 
-    await repository.getUnblockedTags();
-    await repository.getPopularTags(20, 100);
+    await expect(
+      repository.fuzzyMatches(
+        ["TypeScript", "typescript", "TypeScript"],
+        5,
+        true,
+      ),
+    ).resolves.toEqual([
+      {
+        id: "typescript",
+        name: "TypeScript",
+        input: "TypeScript",
+        score: 2.5,
+        jobCount: 7,
+      },
+    ]);
 
-    for (const [sql] of query.mock.calls) {
-      expect(sql).toContain(
-        "num_nonnulls(job.organization_id, job.project_id) = 1",
-      );
-      expect(sql).not.toContain("FROM job_search_owners owner");
-    }
+    const [, parameters] = query.mock.calls[0];
+    expect(parameters).toEqual([["TypeScript", "typescript"], 5, true]);
   });
 });

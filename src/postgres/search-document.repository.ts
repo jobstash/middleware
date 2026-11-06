@@ -1093,18 +1093,9 @@ export class SearchDocumentRepository {
   ): Promise<JobListResult[]> {
     const rows = await this.postgres.query<{ payload: JobListResult }>(
       `
-        SELECT
-          ${jobEmployerPayload("job.payload")}
-          || jsonb_build_object(
-            'online', job.online,
-            'blocked', job.blocked,
-            'applications', metrics.applications,
-            'views', metrics.views
-          ) AS payload
-        FROM job_search_documents job
-        ${jobEmployerJoins()}
-        CROSS JOIN LATERAL (
+        WITH metrics AS MATERIALIZED (
           SELECT
+            event.job_node_id,
             count(DISTINCT event.user_node_id) FILTER (
               WHERE event.event_type = 'job_apply'
             )::integer AS applications,
@@ -1112,21 +1103,41 @@ export class SearchDocumentRepository {
               WHERE event.event_type = 'job_view'
             )::integer AS views
           FROM user_activity_events event
-          WHERE event.job_node_id = job.job_node_id
-            AND event.event_type IN ('job_apply', 'job_view')
+          WHERE event.event_type IN ('job_apply', 'job_view')
             AND event.occurred_at >= current_timestamp - interval '30 days'
             AND event.occurred_at <= current_timestamp
-        ) metrics
-        WHERE cardinality(job.tags) > 0
-          AND ($2::text IS NULL OR job.organization_id = $2)
-          AND (metrics.applications > 0 OR metrics.views > 0)
-          AND num_nonnulls(job.organization_id, job.project_id) = 1
+          GROUP BY event.job_node_id
+        ), ranked AS MATERIALIZED (
+          SELECT job.job_node_id, metrics.applications, metrics.views
+          FROM metrics
+          JOIN job_search_documents job USING (job_node_id)
+          WHERE cardinality(job.tags) > 0
+            AND ($2::text IS NULL OR job.organization_id = $2)
+            AND (metrics.applications > 0 OR metrics.views > 0)
+            AND num_nonnulls(job.organization_id, job.project_id) = 1
+          ORDER BY
+            metrics.applications DESC,
+            metrics.views DESC,
+            job.published_timestamp DESC NULLS LAST,
+            job.job_node_id
+          LIMIT $1
+        )
+        SELECT
+          ${jobEmployerPayload("job.payload")}
+          || jsonb_build_object(
+            'online', job.online,
+            'blocked', job.blocked,
+            'applications', ranked.applications,
+            'views', ranked.views
+          ) AS payload
+        FROM ranked
+        JOIN job_search_documents job USING (job_node_id)
+        ${jobEmployerJoins()}
         ORDER BY
-          metrics.applications DESC,
-          metrics.views DESC,
+          ranked.applications DESC,
+          ranked.views DESC,
           job.published_timestamp DESC NULLS LAST,
           job.job_node_id
-        LIMIT $1
       `,
       [limit, organizationId ?? null],
     );
