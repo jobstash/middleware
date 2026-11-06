@@ -1,3 +1,11 @@
+## 2026-11-06
+
+- Fix MIDDLEWARE-29B/29S response contracts by hydrating tags consistently in job, project, organization, standalone-tag, list, and preferred-tag responses. Unknown timestamps are null; valid numeric timestamps including zero are preserved; malformed and non-finite values still fail strict validation.
+- Fix MIDDLEWARE-27T/29A/286 by retaining projects with absent source text, hydrating work-option classification and mode from their containing arrangement without overwriting explicit values, and preserving empty organization locations. SQL hydration defaults only absent contextual fields, preserves explicit null/invalid values for strict rejection, and retains options in their stored mode arrays instead of filtering malformed metadata.
+- Fix MIDDLEWARE-29T renewal eligibility before owner lookup: only active starter trials expiring on the scheduler's full Europe/Berlin calendar date trigger reminders.
+- Add sanitized public DoubleZero Edge response, synthetic entity/renewal regressions, and PostgreSQL repository/service and work-arrangement cases. Keep the deployed dependency graph, authentication, Stripe API, and Node 22 runtime unchanged.
+- Deduplicate captured investor fixture construction and shared project-job hydration; keep regression fixtures lint-clean without weakening validation or CI gates.
+
 ## 2026-10-30
 
 - Resolve backend lint blockers with explicit subscription helper and fixture return types; remove unused catalogue SQL and keep pagination totals out of returned jobs.

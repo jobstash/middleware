@@ -1,4 +1,5 @@
-import { OrgJob, StructuredJobpostWithRelations } from "../interfaces";
+import { hydrateWorkArrangement } from "../interfaces/work-arrangement.interface";
+import { OrgJob, StructuredJobpostWithRelations, Tag } from "../interfaces";
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
 import { isAfter, isBefore } from "date-fns";
 
@@ -17,6 +18,7 @@ export class StructuredJobpostWithRelationsEntity {
 
     return new StructuredJobpostWithRelations({
       ...jobpost,
+      workArrangement: hydrateWorkArrangement(jobpost.workArrangement),
       salary: nonZeroOrNull(jobpost?.salary),
       minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
       maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),
@@ -41,12 +43,7 @@ export class StructuredJobpostWithRelationsEntity {
         ? nonZeroOrNull(jobpost?.featureEndDate)
         : null,
       featured: isStillFeatured,
-      tags:
-        jobpost.tags.map(tag => ({
-          name: tag.name,
-          normalizedName: tag.normalizedName,
-          createdTimestamp: nonZeroOrNull(tag.createdTimestamp),
-        })) ?? [],
+      tags: jobpost.tags?.map(tag => new Tag(tag)) ?? [],
     });
   }
 }

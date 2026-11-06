@@ -147,6 +147,40 @@ describePostgres("TagsService PostgreSQL integration", () => {
     );
   });
 
+  it.each([undefined, 0, 1754520369479])(
+    "hydrates sparse tags consistently across lookup, search, and lists (%p)",
+    async createdTimestamp => {
+      const tag = await createTag("TypeScript", "typescript");
+      await seedSearchJob("timestamp-job", [tag.getId()]);
+      await postgres.query(
+        `UPDATE graph_nodes
+         SET properties = (properties - 'createdTimestamp') || $1::jsonb
+         WHERE label = 'Tag' AND properties ->> 'id' = $2`,
+        [
+          JSON.stringify(createdTimestamp === undefined ? {} : { createdTimestamp }),
+          tag.getId(),
+        ],
+      );
+      await postgres.query(
+        `UPDATE job_search_documents SET tags = ARRAY['typescript']
+         WHERE structured_jobpost_id = 'timestamp-job'`,
+      );
+      const expected = {
+        id: tag.getId(),
+        name: "TypeScript",
+        normalizedName: "typescript",
+        createdTimestamp: createdTimestamp ?? null,
+      };
+      expect((await service.findById(tag.getId())).getProperties()).toEqual(expected);
+      await expect(service.findAll()).resolves.toEqual([expected]);
+      await expect(service.searchTags("typescript")).resolves.toEqual([expected]);
+      await expect(service.getAllUnblockedTags()).resolves.toEqual([expected]);
+      await expect(service.getPopularTags(10)).resolves.toEqual([expected]);
+      await service.blockTag("typescript", "0xmoderator");
+      await expect(service.getBlockedTags()).resolves.toEqual([expected]);
+    },
+  );
+
   it("keeps missing relationship targets explicit", async () => {
     const tag = await createTag("TypeScript", "typescript");
     await expect(

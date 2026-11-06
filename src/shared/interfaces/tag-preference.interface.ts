@@ -18,8 +18,9 @@ export class TagPreference {
   synonyms: Tag[];
 
   constructor(raw: TagPreference) {
-    const { tag, synonyms } = raw;
-    const result = TagPreference.PreferredTagType.decode(raw);
+    const tag = new Tag(raw.tag);
+    const synonyms = raw.synonyms.map(synonym => new Tag(synonym));
+    const result = TagPreference.PreferredTagType.decode({ tag, synonyms });
 
     this.tag = tag;
     this.synonyms = synonyms;
