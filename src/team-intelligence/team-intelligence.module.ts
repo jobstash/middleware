@@ -1,7 +1,7 @@
 import { HttpModule } from "@nestjs/axios";
 import { Global, Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
-import * as https from "https";
+import * as https from "node:https";
 import { TeamIntelligenceService } from "./team-intelligence.service";
 
 const TEAM_INTELLIGENCE_TIMEOUT_MS = 15_000;

@@ -138,12 +138,12 @@ const optionFields = [
 ];
 const arraySql = (value: string): string =>
   `CASE WHEN jsonb_typeof(${value})='array' THEN ${value} ELSE '[]'::jsonb END`;
-const factsSql = (
-  value: string,
-  fields: string[],
-): string => `(SELECT COALESCE(jsonb_object_agg(key,value),'{}'::jsonb)
+const factsSql = (value: string, fields: string[]): string => {
+  const selectedFields = fields.map(field => `'${field}'`).join(",");
+  return `(SELECT COALESCE(jsonb_object_agg(key,value),'{}'::jsonb)
   FROM jsonb_each(CASE WHEN jsonb_typeof(${value})='object' THEN ${value} ELSE '{}'::jsonb END)
-  WHERE key IN (${fields.map(field => `'${field}'`).join(",")}))`;
+  WHERE key IN (${selectedFields}))`;
+};
 const arrangementSql =
   "COALESCE(j.detail_payload->'workArrangement',j.payload->'workArrangement')";
 
@@ -200,9 +200,9 @@ export function jobOriginalsJoin(includeContent: boolean): string {
         AND btrim(original.properties->>'location')<>'') AS locations
       ${
         includeContent
-          ? `,string_agg(original.properties->>'content',E'\\n\\n' ORDER BY original.id)
+          ? String.raw`,string_agg(original.properties->>'content',E'\n\n' ORDER BY original.id)
         FILTER (WHERE jsonb_typeof(original.properties->'content')='string'
-          AND btrim(original.properties->>'content',E' \\n\\r\\t')<>'') AS ad`
+          AND btrim(original.properties->>'content',E' \n\r\t')<>'') AS ad`
           : ""
       }
     FROM graph_nodes original WHERE original.label='Jobpost'

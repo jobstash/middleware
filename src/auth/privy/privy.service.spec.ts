@@ -1,5 +1,5 @@
 import { ConfigService } from "@nestjs/config";
-import { PrivyClient } from "@privy-io/node";
+import { NotFoundError, PrivyClient } from "@privy-io/node";
 import { PrivyService } from "./privy.service";
 
 jest.mock("@privy-io/node", () => ({
@@ -117,5 +117,20 @@ describe("Privy supported SDK migration", () => {
     ]);
     await service.deletePrivyUser(user.id);
     expect(users.delete).toHaveBeenCalledWith(user.id);
+  });
+
+  it("propagates provider deletion failures instead of reporting success", async () => {
+    const { service, users } = setup();
+    const failure = new Error("Synthetic provider deletion failure");
+    users.delete.mockRejectedValue(failure);
+    await expect(service.deletePrivyUser(user.id)).rejects.toBe(failure);
+  });
+
+  it("treats an already absent provider user as an idempotent deletion", async () => {
+    const { service, users } = setup();
+    const missing = new Error("Synthetic missing provider user");
+    Object.setPrototypeOf(missing, NotFoundError.prototype);
+    users.delete.mockRejectedValue(missing);
+    await expect(service.deletePrivyUser(user.id)).resolves.toBeUndefined();
   });
 });

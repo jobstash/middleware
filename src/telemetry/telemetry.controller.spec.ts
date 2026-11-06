@@ -6,6 +6,7 @@ import { PBACGuard } from "src/auth/pbac.guard";
 import { RecommendationMetricsInput } from "./dto/recommendation-metrics.input";
 
 describe("TelemetryController dashboard authorization", () => {
+  beforeEach(() => jest.clearAllMocks());
   it("restricts recommendation metrics to authenticated super admins", async () => {
     const getSession = jest.fn();
     const guard = new PBACGuard(new Reflector(), { getSession } as never);
@@ -79,8 +80,6 @@ describe("TelemetryController dashboard authorization", () => {
       getDashboardJobPerformance: dashboardPerformance,
     } as never,
   );
-
-  beforeEach(() => jest.clearAllMocks());
 
   it("allows only superusers to request the universe scope", async () => {
     await expect(

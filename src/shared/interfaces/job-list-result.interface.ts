@@ -15,6 +15,8 @@ import { report } from "io-ts-human-reporter";
 import { StructuredJobpostWithRelations } from "./structured-jobpost-with-relations.interface";
 import { ProjectWithBaseRelations } from "./project-with-relations.interface";
 
+type JobAtsClient = "jobstash" | "greenhouse" | "workable" | "lever" | null;
+
 @ApiExtraModels(
   StructuredJobpost,
   Tag,
@@ -66,7 +68,7 @@ export class JobListResult extends StructuredJobpostWithRelations {
   organization:
     | (OrganizationWithRelations & {
         hasUser: boolean;
-        atsClient: "jobstash" | "greenhouse" | "workable" | "lever" | null;
+        atsClient: JobAtsClient;
       })
     | null;
 
@@ -74,7 +76,7 @@ export class JobListResult extends StructuredJobpostWithRelations {
   project:
     | (ProjectWithBaseRelations & {
         hasUser: boolean;
-        atsClient: "jobstash" | "greenhouse" | "workable" | "lever" | null;
+        atsClient: JobAtsClient;
       })
     | null;
 
@@ -161,7 +163,7 @@ export class EcosystemJobListResult extends StructuredJobpostWithRelations {
   organization:
     | (OrganizationWithRelations & {
         hasUser: boolean;
-        atsClient: "jobstash" | "greenhouse" | "workable" | "lever" | null;
+        atsClient: JobAtsClient;
       })
     | null;
 
@@ -169,7 +171,7 @@ export class EcosystemJobListResult extends StructuredJobpostWithRelations {
   project:
     | (ProjectWithBaseRelations & {
         hasUser: boolean;
-        atsClient: "jobstash" | "greenhouse" | "workable" | "lever" | null;
+        atsClient: JobAtsClient;
       })
     | null;
 

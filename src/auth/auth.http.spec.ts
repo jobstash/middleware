@@ -85,6 +85,8 @@ describe("HTTP authentication boundary", () => {
 
   it("denies unauthenticated access to protected endpoints", async () => {
     await request(app.getHttpServer()).get("/private").expect(403);
+    expect(graph.findNode).not.toHaveBeenCalled();
+    expect(graph.findRelatedNodes).not.toHaveBeenCalled();
   });
 
   it.each<[string, () => string]>([
@@ -131,6 +133,12 @@ describe("HTTP authentication boundary", () => {
       .get("/admin")
       .set("Authorization", `Bearer ${token}`)
       .expect(403);
+    expect(graph.findRelatedNodes).toHaveBeenCalledWith({
+      sourceLabel: "User",
+      sourceWhere: { wallet: address },
+      relationshipType: "HAS_PERMISSION",
+      targetLabel: "UserPermission",
+    });
   });
 
   it("permits current administrators with valid credentials", async () => {
@@ -142,10 +150,11 @@ describe("HTTP authentication boundary", () => {
       permissions: [],
       cryptoNative: false,
     });
-    await request(app.getHttpServer())
+    const response = await request(app.getHttpServer())
       .get("/admin")
       .set("Authorization", `Bearer ${token}`)
       .expect(200);
+    expect(response.body).toEqual({ success: true });
   });
 
   it("denies deleted users even if permission records remain", async () => {
@@ -159,5 +168,6 @@ describe("HTTP authentication boundary", () => {
       .get("/private")
       .set("Authorization", `Bearer ${token}`)
       .expect(403);
+    expect(graph.findNode).toHaveBeenCalledWith("User", { wallet: address });
   });
 });

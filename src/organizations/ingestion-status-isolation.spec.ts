@@ -32,6 +32,41 @@ describe("OrganizationsService ingestion status isolation", () => {
 
   beforeEach(() => jest.clearAllMocks());
   afterEach(() => jest.restoreAllMocks());
+  it.each([
+    [
+      " https://indexer.example/// ",
+      ["https://indexer.example", "https://indexer.example/observability"],
+    ],
+    [
+      "https://indexer.example///OBSERVABILITY?token=ignored",
+      [
+        "https://indexer.example///OBSERVABILITY",
+        "https://indexer.example/observability",
+      ],
+    ],
+    ["/observability", ["/observability"]],
+    ["////", []],
+    [
+      "https://indexer.example/" + "/".repeat(20_000),
+      ["https://indexer.example", "https://indexer.example/observability"],
+    ],
+  ])(
+    "normalizes status candidates without changing order: %s",
+    (url, expected) => {
+      expect(service()["getGithubIndexerStatusCandidates"](url)).toEqual(
+        expected,
+      );
+    },
+  );
+
+  it("preserves non-Error lifecycle rejection messages", async () => {
+    (postgres.query as jest.Mock).mockRejectedValueOnce("storage unavailable");
+    jest.spyOn(axios, "get").mockResolvedValueOnce({ data: {} });
+    await expect(service().getGithubIngestionStatus()).resolves.toMatchObject({
+      lifecycleAvailable: false,
+      lifecycleError: "storage unavailable",
+    });
+  });
 
   it("returns live GitHub runtime metrics when lifecycle storage is unavailable", async () => {
     (postgres.query as jest.Mock).mockRejectedValueOnce(

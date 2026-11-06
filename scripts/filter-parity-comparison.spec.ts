@@ -140,6 +140,54 @@ describe("filter parity semantic comparison", () => {
     });
   });
 
+  it.each([
+    { id: { value: "first" } },
+    { id: ["first"] },
+    { id: null },
+    {},
+    { id: true },
+    { id: Number.NaN },
+  ])("rejects malformed identities on either side: %j", malformed => {
+    for (const [production, local] of [
+      [
+        [{ id: "shared" }, malformed],
+        [{ id: "shared" }, { id: "[object Object]" }],
+      ],
+      [
+        [{ id: "shared" }, { id: "[object Object]" }],
+        [{ id: "shared" }, malformed],
+      ],
+    ]) {
+      expect(matchingItemsSemanticallyEqual(production, local, "id")).toEqual({
+        equal: false,
+        matched: 0,
+      });
+    }
+  });
+
+  it("does not collapse distinct object identities even when identity is ignored", () => {
+    expect(
+      matchingItemsSemanticallyEqual(
+        [{ id: { key: "one" } }],
+        [{ id: { key: "two" } }],
+        "id",
+        ["id"],
+      ),
+    ).toEqual({ equal: false, matched: 0 });
+  });
+
+  it("matches finite numeric IDs to textual IDs without hiding payload type drift", () => {
+    expect(
+      matchingItemsSemanticallyEqual([{ id: 7 }], [{ id: 7 }], "id"),
+    ).toEqual({ equal: true, matched: 1 });
+    expect(
+      matchingItemsSemanticallyEqual([{ id: 7 }], [{ id: "7" }], "id"),
+    ).toEqual({ equal: false, matched: 1 });
+    expect(
+      matchingItemsSemanticallyEqual([{ id: 7 }], [{ id: "7" }], "id", ["id"]),
+    ).toEqual({ equal: true, matched: 1 });
+  });
+
   it("can isolate mutable nested relations without hiding top-level drift", () => {
     const production = [
       { id: "shared", name: "Project", jobs: [{ id: "new-job" }] },

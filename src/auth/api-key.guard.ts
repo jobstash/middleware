@@ -14,20 +14,19 @@ export class ApiKeyGuard implements CanActivate {
     this.apiKey = configService.get<string>("VCDATA_API_KEY");
   }
 
-  async canActivate(context: ExecutionContext): Promise<boolean> {
-    const httpContext = context.switchToHttp();
-    const req = httpContext.getRequest<Request>();
-
-    const hasPermission =
-      req.headers["authorization"]?.replace("Bearer ", "") === this.apiKey;
-
-    if (hasPermission) {
-      return true;
-    } else {
+  canActivate(context: ExecutionContext): Promise<boolean> {
+    try {
+      const httpContext = context.switchToHttp();
+      const req = httpContext.getRequest<Request>();
+      const hasPermission =
+        req.headers["authorization"]?.replace("Bearer ", "") === this.apiKey;
+      if (hasPermission) return Promise.resolve(true);
       throw new ForbiddenException({
         success: false,
         message: "Forbidden resource: Insufficient permissions",
       });
+    } catch (error) {
+      return Promise.reject(error);
     }
   }
 }

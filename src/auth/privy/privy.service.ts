@@ -12,8 +12,8 @@ import { UserCreateParams } from "@privy-io/node/resources";
 
 @Injectable()
 export class PrivyService {
-  private logger = new CustomLogger(PrivyService.name);
-  private privy: PrivyClient;
+  private readonly logger = new CustomLogger(PrivyService.name);
+  private readonly privy: PrivyClient;
   constructor(private readonly configService: ConfigService) {
     this.privy = new PrivyClient({
       appId: this.configService.get<string>("PRIVY_APP_ID"),
@@ -263,6 +263,7 @@ export class PrivyService {
       .users()
       .delete(userId)
       .catch(err => {
+        if (err instanceof NotFoundError) return;
         Sentry.withScope(scope => {
           scope.setTags({
             action: "service-call",
@@ -271,10 +272,11 @@ export class PrivyService {
           Sentry.captureException(err);
         });
         this.logger.error(`PrivyService::deletePrivyUser ${err.message}`);
+        throw err;
       });
   }
 
-  async getClient(): Promise<PrivyClient> {
-    return this.privy;
+  getClient(): Promise<PrivyClient> {
+    return Promise.resolve(this.privy);
   }
 }

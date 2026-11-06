@@ -1,12 +1,7 @@
 import { createHash } from "node:crypto";
 
 export type JsonValue =
-  | null
-  | boolean
-  | number
-  | string
-  | JsonValue[]
-  | { [key: string]: JsonValue };
+  null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
 const unorderedRelationKeys = new Set([
   "aliases",
@@ -118,13 +113,31 @@ export const matchingItemsSemanticallyEqual = (
   ignoredKeys: readonly string[] = [],
 ): { equal: boolean; matched: number } => {
   const ignored = new Set(ignoredKeys);
-  const local = new Map(
-    localItems.map(item => [String(property(item, identityKey)), item]),
-  );
+  // Legacy numeric IDs and their textual form identify the same endpoint item.
+  // Missing or structured IDs cannot participate in a reliable comparison.
+  const identityOf = (item: JsonValue): string | undefined => {
+    const value = property(item, identityKey);
+    if (typeof value === "string") return value;
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value.toString();
+    }
+    return undefined;
+  };
+  const local = new Map<string, JsonValue>();
+  for (const item of localItems) {
+    const identity = identityOf(item);
+    if (identity === undefined) return { equal: false, matched: 0 };
+    local.set(identity, item);
+  }
+  const productionIdentities = productionItems.map(identityOf);
+  if (productionIdentities.includes(undefined)) {
+    return { equal: false, matched: 0 };
+  }
   let matched = 0;
-  for (const item of productionItems) {
-    const identity = String(property(item, identityKey));
-    const counterpart = local.get(identity);
+  for (const [index, item] of productionItems.entries()) {
+    const identity = productionIdentities[index];
+    const counterpart =
+      identity === undefined ? undefined : local.get(identity);
     if (!counterpart) continue;
     matched++;
     const productionComparable = omitObjectKeys(item, ignored);
@@ -360,7 +373,7 @@ const jobSortSignature = (item: JsonValue, orderBy: string): string => {
     featured,
     featured ? start : null,
     featured && start !== null && end !== null ? end - start : null,
-    Object.prototype.hasOwnProperty.call(primary, orderBy)
+    Object.hasOwn(primary, orderBy)
       ? primary[orderBy]
       : primary.publicationDate,
   ]);

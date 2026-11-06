@@ -419,6 +419,187 @@ describePostgres("ProfileRepository PostgreSQL integration", () => {
     });
   });
 
+  it.each([
+    {
+      name: "Named",
+      login: "login",
+      repo: { url: "https://repo.example", name: "repo" },
+      parent: "Named",
+      child: "https://repo.example",
+    },
+    {
+      name: null,
+      login: "login",
+      repo: { url: null, name: "repo" },
+      parent: "login",
+      child: "repo",
+    },
+    {
+      name: "",
+      login: "login",
+      repo: { url: "", name: "repo" },
+      parent: "",
+      child: "",
+    },
+    { name: undefined, login: undefined, repo: {}, parent: "", child: "" },
+  ])(
+    "preserves work-history identity precedence for $parent / $child",
+    async ({ name, login, repo, parent, child }) => {
+      await repository.replaceWorkHistory(
+        "0xProfileUser",
+        true,
+        false,
+        [{ name, login, repositories: [repo] }],
+        [],
+      );
+      const rows = await postgres.query<{ label: string; key: string }>(
+        `SELECT label, properties ->> 'compositeKey' AS key
+       FROM graph_nodes WHERE label IN ('UserWorkHistory', 'UserWorkHistoryRepo')
+       ORDER BY label`,
+      );
+      expect(rows).toEqual([
+        { label: "UserWorkHistory", key: `0xProfileUser::${parent}` },
+        {
+          label: "UserWorkHistoryRepo",
+          key: `0xProfileUser::${parent}::${child}`,
+        },
+      ]);
+    },
+  );
+
+  it.each([
+    { name: {}, login: "login" },
+    { name: [], login: "login" },
+    { name: null, login: {} },
+    { name: "valid", login: [] },
+    { name: "valid", repositories: {} },
+    { name: "valid", repositories: [null] },
+    { name: "valid", repositories: [[]] },
+    { name: "valid", repositories: ["repo"] },
+    { name: "valid", repositories: [{ url: {}, name: "fallback" }] },
+    { name: "valid", repositories: [{ url: [], name: "fallback" }] },
+    { name: "valid", repositories: [{ url: null, name: {} }] },
+    {
+      name: "valid",
+      repositories: [{ url: "https://valid.example", name: [] }],
+    },
+  ])(
+    "rejects malformed scorer identities without changing cached graph: %j",
+    async invalid => {
+      await repository.replaceWorkHistory(
+        "0xProfileUser",
+        true,
+        true,
+        [
+          {
+            name: "Original",
+            login: "original",
+            repositories: [
+              { url: "https://original.example", name: "original" },
+            ],
+          },
+        ],
+        [{ name: "Adjacent" }],
+      );
+      const beforeNodes = await postgres.query(
+        "SELECT * FROM graph_nodes ORDER BY id",
+      );
+      const beforeRelationships = await postgres.query(
+        "SELECT * FROM graph_relationships ORDER BY id",
+      );
+      await expect(
+        repository.replaceWorkHistory(
+          "0xProfileUser",
+          false,
+          false,
+          [
+            {
+              name: "Valid first",
+              repositories: [{ url: "https://new.example" }],
+            },
+            invalid,
+          ],
+          [],
+        ),
+      ).rejects.toThrow(TypeError);
+      expect(
+        await postgres.query("SELECT * FROM graph_nodes ORDER BY id"),
+      ).toEqual(beforeNodes);
+      expect(
+        await postgres.query("SELECT * FROM graph_relationships ORDER BY id"),
+      ).toEqual(beforeRelationships);
+    },
+  );
+
+  it.each(
+    ["profile", "info"].flatMap(field =>
+      [{ invalid: true }, ["invalid"]].map(id => ({ field, id })),
+    ),
+  )(
+    "rolls back profile update with malformed $field identity",
+    async ({ field, id }) => {
+      const [fixture] = await postgres.query<{
+        profile_id: string;
+      }>(
+        `WITH profile AS (
+          INSERT INTO graph_nodes (label, labels, node_key, properties)
+          VALUES ('EntityProfile', ARRAY['EntityProfile'], 'profile:invalid-id', $1::jsonb)
+          RETURNING id
+        ), info AS (
+          INSERT INTO graph_nodes (label, labels, node_key, properties)
+          VALUES ('ProfileInfo', ARRAY['ProfileInfo'], 'info:invalid-id', $2::jsonb)
+          RETURNING id
+        ), edge AS (
+          INSERT INTO graph_relationships
+            (source_id, target_id, type, relationship_key, properties)
+          SELECT profile.id, info.id, 'HAS_PROFILE_INFO', '', '{}'::jsonb
+          FROM profile CROSS JOIN info RETURNING id
+        )
+        SELECT profile.id::text AS profile_id FROM profile CROSS JOIN edge`,
+        [
+          JSON.stringify({
+            id: field === "profile" ? id : "profile-valid",
+            slug: "quality-original",
+            category: "crypto",
+          }),
+          JSON.stringify({
+            id: field === "info" ? id : "info-valid",
+            displayName: "Original",
+          }),
+        ],
+      );
+      const profileId = fixture.profile_id;
+      const before = await postgres.query(
+        "SELECT * FROM graph_nodes ORDER BY id",
+      );
+      await expect(
+        repository.updateEntityProfile(profileId, "admin", {
+          slug: "quality-new",
+          category: "crypto",
+          aliases: [],
+          info: { displayName: "Changed" },
+        }),
+      ).rejects.toThrow("must be a string");
+      expect(
+        await postgres.query("SELECT * FROM graph_nodes ORDER BY id"),
+      ).toEqual(before);
+    },
+  );
+
+  it("rejects malformed organization identities in email verification lookup", async () => {
+    await expect(
+      repository.findOrganizationIdsByEmails(["dev@acme.example"]),
+    ).resolves.toEqual(["acme-org"]);
+    await postgres.query(
+      `UPDATE graph_nodes SET properties = jsonb_set(properties, '{orgId}', $2::jsonb)
+       WHERE id = $1`,
+      [organizationId, JSON.stringify({ invalid: true })],
+    );
+    await expect(
+      repository.findOrganizationIdsByEmails(["dev@acme.example"]),
+    ).rejects.toThrow("Organization id must be a string");
+  });
+
   it("refreshes GitHub repository relationships without deleting current repos", async () => {
     await expect(
       repository.replaceGithubRepositories("0xProfileUser", [

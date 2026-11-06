@@ -113,7 +113,7 @@ export class JobFilterConfigsEntity {
     };
   }
 
-  getMultiValuePresets(key: string): MultiSelectFilter | MultiSelectFilter {
+  getMultiValuePresets(key: string): MultiSelectFilter {
     return {
       ...this.configPresets[key],
       options: defaultSort(this.raw[key]?.filter(isValidFilterConfig) ?? [])
@@ -126,7 +126,7 @@ export class JobFilterConfigsEntity {
   getMultiValuePresetsWithTransform(
     key: string,
     labelTransform?: (x: string) => string,
-  ): MultiSelectFilter | MultiSelectFilter {
+  ): MultiSelectFilter {
     return {
       ...this.configPresets[key],
       options: defaultSort(
@@ -230,21 +230,18 @@ export class JobFilterConfigsEntity {
         key === "workModes" &&
         (value === "fully_remote" || value === "fully-remote");
       const label = isFullyRemote ? "100% Remote" : (labels[value] ?? value);
+      let optionValue = value;
+      if (isFullyRemote) {
+        optionValue = "fully-remote";
+      } else if (seoKeys.has(key)) {
+        optionValue = slugifyFacetLabel(label);
+      } else if (labels[value] === undefined && key !== "ecosystems") {
+        optionValue = slugify(value);
+      }
+      const formatHeader = !isFullyRemote && headerLabels.has(key);
       return {
-        label: isFullyRemote
-          ? label
-          : headerLabels.has(key)
-            ? toHeaderCase(label)
-            : label,
-        value: isFullyRemote
-          ? "fully-remote"
-          : seoKeys.has(key)
-            ? slugifyFacetLabel(label)
-            : labels[value] !== undefined
-              ? value
-              : key === "ecosystems"
-                ? value
-                : slugify(value),
+        label: formatHeader ? toHeaderCase(label) : label,
+        value: optionValue,
         ...(seoKeys.has(key) ? { aliases: [value] } : {}),
       };
     });

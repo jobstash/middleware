@@ -86,25 +86,31 @@ export class InvestorListParams {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value,
-  )
+  @Transform(({ value }) => {
+    if (value === "true") return true;
+    if (value === "false") return false;
+    return value;
+  })
   @IsBoolean()
   hasJobs?: boolean | null = null;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value,
-  )
+  @Transform(({ value }) => {
+    if (value === "true") return true;
+    if (value === "false") return false;
+    return value;
+  })
   @IsBoolean()
   hasTeamSocials?: boolean | null = null;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value,
-  )
+  @Transform(({ value }) => {
+    if (value === "true") return true;
+    if (value === "false") return false;
+    return value;
+  })
   @IsBoolean()
   hasSoloInvestments?: boolean | null = null;
 

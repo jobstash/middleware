@@ -84,62 +84,58 @@ export class SubscriptionsService {
       );
       const subscription = data(await this.getSubscriptionInfoByOrgId(orgId));
       const isOrgMember = await this.userService.isOrgMember(wallet, orgId);
-      if (isOrgMember) {
-        if (subscription.isActive() && subscription.canAccessService(service)) {
-          const quota = subscription.getOldestActiveUnfilledQuota(service);
-          if (quota?.id) {
-            const recorded = await this.subscriptions.recordQuotaUsage({
-              subscriptionId: subscription.id,
-              quotaId: quota.id,
-              wallet,
-              amount,
-              service,
-            });
-            if (!recorded) {
-              return {
-                success: false,
-                message: "Subscription quota was not found",
-              };
-            }
-            this.logger.log(`Successfully recorded metered service usage`);
-            return {
-              success: true,
-              message: `Successfully recorded metered service usage`,
-            };
-          } else {
-            const isPaygAble = METERED_SERVICE_LOOKUP_KEYS[service];
-            if (isPaygAble) {
-              return stripeService.recordMeteredServiceUsage(
-                subscription.externalId,
-                service,
-                amount,
-              );
-            } else {
-              this.logger.log(
-                `Account has exhausted all available quota for ${service}`,
-              );
-              return {
-                success: false,
-                message: `Account has exhausted all available quota for ${service}`,
-              };
-            }
-          }
-        } else {
-          this.logger.log(
-            `Cannot record metered service usage for expired or inactive subscription`,
-          );
-          return {
-            success: false,
-            message: `Cannot record metered service usage for expired or inactive subscription`,
-          };
-        }
-      } else {
+      if (!isOrgMember) {
         this.logger.log(`Non org member cannot record metered service usage`);
         return {
           success: false,
           message: `Non org member cannot record metered service usage`,
         };
       }
+      if (!subscription.isActive() || !subscription.canAccessService(service)) {
+        this.logger.log(
+          `Cannot record metered service usage for expired or inactive subscription`,
+        );
+        return {
+          success: false,
+          message: `Cannot record metered service usage for expired or inactive subscription`,
+        };
+      }
+      const quota = subscription.getOldestActiveUnfilledQuota(service);
+      if (quota?.id) {
+        const recorded = await this.subscriptions.recordQuotaUsage({
+          subscriptionId: subscription.id,
+          quotaId: quota.id,
+          wallet,
+          amount,
+          service,
+        });
+        if (!recorded) {
+          return {
+            success: false,
+            message: "Subscription quota was not found",
+          };
+        }
+        this.logger.log(`Successfully recorded metered service usage`);
+        return {
+          success: true,
+          message: `Successfully recorded metered service usage`,
+        };
+      }
+      const isPaygAble = METERED_SERVICE_LOOKUP_KEYS[service];
+      if (isPaygAble) {
+        return stripeService.recordMeteredServiceUsage(
+          subscription.externalId,
+          service,
+          amount,
+        );
+      }
+      this.logger.log(
+        `Account has exhausted all available quota for ${service}`,
+      );
+      return {
+        success: false,
+        message: `Account has exhausted all available quota for ${service}`,
+      };
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -199,6 +195,85 @@ export class SubscriptionsService {
     }
   }
 
+  private async sendNewSubscriptionConfirmation(
+    dto: SubscriptionMetadata,
+    ownerEmail: string,
+  ): Promise<void> {
+    if (dto.jobstash === "starter") {
+      try {
+        await this.mailService.sendEmail(
+          emailBuilder({
+            from: this.from,
+            to: ownerEmail,
+            subject: "Your JobStash Free Trial Has Started",
+            previewText: "Activate Your Paid Plan to Continue Premium Access!",
+            title: "Hey there,",
+            bodySections: [
+              text(
+                "Your free trial of JobStash has officially begun! 🎉 For the next 30 days, you’ll have full access to selected premium features, giving you everything you need to make the most of your experience.",
+              ),
+              text(
+                "Take your time to explore all the benefits, and remember, your trial lasts for 30 days. To continue enjoying premium access after your trial ends, simply activate your paid plan before your trial expires.",
+              ),
+              text(
+                `Need help or have questions? Join our help channel <a href="https://t.me/+24r67MsBXT00ODE8">here</a> – we're here to assist you!`,
+              ),
+              text("Thanks for using JobStash.xyz!"),
+            ],
+          }),
+        );
+      } catch (err) {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "email-send",
+            source: "subscriptions.service",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(
+          `SubscriptionsService::createNewSubscription ${err.message}`,
+        );
+      }
+    } else {
+      try {
+        await this.mailService.sendEmail(
+          emailBuilder({
+            from: this.from,
+            to: ownerEmail,
+            subject:
+              "JobStash Payment Confirmed – Your Add-Ons Are Undergoing Activation!",
+            title: "Hey,",
+            bodySections: [
+              text(
+                "You did it! Your payment has been successfully processed, and your add-ons are now under review and getting ready to be activated. The process is underway, and your upgraded experience with JobStash is just around the corner! 💡",
+              ),
+              text(
+                `Our small, dedicated team is working hard to get your add-ons reviewed and activated within the next <span style="font-weight:bold;">24-48 hours</span>. Once everything is live, we’ll send you a confirmation so you can start exploring your new features.`,
+              ),
+              text(
+                `Got questions or need support? We’ve got your back! Just reach out to us via <a href="https://t.me/+24r67MsBXT00ODE8">Telegram</a>. We’re always here to help.`,
+              ),
+              text(
+                "Thanks for being part of the JobStash community – we’re excited to have you on board!",
+              ),
+            ],
+          }),
+        );
+      } catch (err) {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "email-send",
+            source: "subscriptions.service",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(
+          `SubscriptionsService::createNewSubscription ${err.message}`,
+        );
+      }
+    }
+  }
+
   async createNewSubscription(
     dto: SubscriptionMetadata,
     stripeSubscriptionId?: string,
@@ -220,15 +295,17 @@ export class SubscriptionsService {
           stripeSubscriptionId,
           pendingPayment,
           timestamp.getTime(),
-        ).catch(x => {
+        ).catch(error_ => {
           Sentry.withScope(scope => {
             scope.setTags({
               action: "db-call",
               source: "subscriptions.service",
             });
-            Sentry.captureException(x);
+            Sentry.captureException(error_);
           });
-          this.logger.error(`SubscriptionsService::createNewSubscription ${x}`);
+          this.logger.error(
+            `SubscriptionsService::createNewSubscription ${error_}`,
+          );
           return false;
         });
         if (result) {
@@ -237,80 +314,7 @@ export class SubscriptionsService {
           const subscription = data(
             await this.getSubscriptionInfoByOrgId(dto.orgId),
           );
-          if (dto.jobstash === "starter") {
-            try {
-              await this.mailService.sendEmail(
-                emailBuilder({
-                  from: this.from,
-                  to: ownerEmail,
-                  subject: "Your JobStash Free Trial Has Started",
-                  previewText:
-                    "Activate Your Paid Plan to Continue Premium Access!",
-                  title: "Hey there,",
-                  bodySections: [
-                    text(
-                      "Your free trial of JobStash has officially begun! 🎉 For the next 30 days, you’ll have full access to selected premium features, giving you everything you need to make the most of your experience.",
-                    ),
-                    text(
-                      "Take your time to explore all the benefits, and remember, your trial lasts for 30 days. To continue enjoying premium access after your trial ends, simply activate your paid plan before your trial expires.",
-                    ),
-                    text(
-                      `Need help or have questions? Join our help channel <a href="https://t.me/+24r67MsBXT00ODE8">here</a> – we're here to assist you!`,
-                    ),
-                    text("Thanks for using JobStash.xyz!"),
-                  ],
-                }),
-              );
-            } catch (err) {
-              Sentry.withScope(scope => {
-                scope.setTags({
-                  action: "email-send",
-                  source: "subscriptions.service",
-                });
-                Sentry.captureException(err);
-              });
-              this.logger.error(
-                `SubscriptionsService::createNewSubscription ${err.message}`,
-              );
-            }
-          } else {
-            try {
-              await this.mailService.sendEmail(
-                emailBuilder({
-                  from: this.from,
-                  to: ownerEmail,
-                  subject:
-                    "JobStash Payment Confirmed – Your Add-Ons Are Undergoing Activation!",
-                  title: "Hey,",
-                  bodySections: [
-                    text(
-                      "You did it! Your payment has been successfully processed, and your add-ons are now under review and getting ready to be activated. The process is underway, and your upgraded experience with JobStash is just around the corner! 💡",
-                    ),
-                    text(
-                      `Our small, dedicated team is working hard to get your add-ons reviewed and activated within the next <span style="font-weight:bold;">24-48 hours</span>. Once everything is live, we’ll send you a confirmation so you can start exploring your new features.`,
-                    ),
-                    text(
-                      `Got questions or need support? We’ve got your back! Just reach out to us via <a href="https://t.me/+24r67MsBXT00ODE8">Telegram</a>. We’re always here to help.`,
-                    ),
-                    text(
-                      "Thanks for being part of the JobStash community – we’re excited to have you on board!",
-                    ),
-                  ],
-                }),
-              );
-            } catch (err) {
-              Sentry.withScope(scope => {
-                scope.setTags({
-                  action: "email-send",
-                  source: "subscriptions.service",
-                });
-                Sentry.captureException(err);
-              });
-              this.logger.error(
-                `SubscriptionsService::createNewSubscription ${err.message}`,
-              );
-            }
-          }
+          await this.sendNewSubscriptionConfirmation(dto, ownerEmail);
           this.logger.log("Adding owner to org");
           return this.userService.addOrgUser(
             dto.orgId,
@@ -955,8 +959,11 @@ export class SubscriptionsService {
     const direction = (
       current: number,
       target: number,
-    ): "upgrade" | "downgrade" | undefined =>
-      current < target ? "upgrade" : current > target ? "downgrade" : undefined;
+    ): "upgrade" | "downgrade" | undefined => {
+      if (current < target) return "upgrade";
+      if (current > target) return "downgrade";
+      return undefined;
+    };
 
     const jobstashDirection = direction(
       JOBSTASH_BUNDLE_PRICING[existing.tier],
@@ -1085,17 +1092,17 @@ export class SubscriptionsService {
           (await this.subscriptions.resetSubscriptionState(orgId)) ?? [];
         if (wallets.length > 0) {
           this.logger.log(`Resetting subscription state for ${orgId}`);
+          const permsToDrop = new Set<string>([
+            CheckWalletPermissions.ORG_MEMBER,
+            CheckWalletPermissions.ORG_OWNER,
+          ]);
           for (const wallet of wallets) {
             const currentPerms =
               await this.userService.getUserPermissions(wallet);
-            const permsToDrop: string[] = [
-              CheckWalletPermissions.ORG_MEMBER,
-              CheckWalletPermissions.ORG_OWNER,
-            ];
             await this.userService.syncUserPermissions(
               wallet,
               currentPerms
-                .filter(x => !permsToDrop.includes(x.name))
+                .filter(x => !permsToDrop.has(x.name))
                 .map(x => x.name),
             );
           }

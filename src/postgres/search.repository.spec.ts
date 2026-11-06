@@ -2,6 +2,43 @@ import { PostgresService } from "./postgres.service";
 import { SearchRepository } from "./search.repository";
 
 describe("SearchRepository", () => {
+  it.each(["o-acme", "o-acme~org-id"])(
+    "preserves scalar organization identity for %s",
+    async slug => {
+      const query = jest
+        .fn()
+        .mockResolvedValue([{ payload: { orgId: "org-id" } }]);
+      const repository = new SearchRepository({ query } as never);
+      await expect(repository.resolveJobPillar(slug)).resolves.toEqual({
+        organizationId: "org-id",
+      });
+      expect(query.mock.calls[0][1]).toEqual([
+        slug.includes("~") ? "org-id" : "acme",
+      ]);
+    },
+  );
+
+  it("keeps unknown organizations restrictive", async () => {
+    const repository = new SearchRepository({
+      query: jest.fn().mockResolvedValue([]),
+    } as never);
+    await expect(repository.resolveJobPillar("o-missing")).resolves.toEqual({
+      organizationId: "__missing_organization__",
+    });
+  });
+
+  it.each([{}, [], 42, null, undefined].map(orgId => ({ orgId })))(
+    "rejects present organizations with malformed orgId $orgId",
+    async ({ orgId }) => {
+      const repository = new SearchRepository({
+        query: jest.fn().mockResolvedValue([{ payload: { orgId } }]),
+      } as never);
+      await expect(repository.resolveJobPillar("o-acme")).rejects.toThrow(
+        "Organization pillar orgId must be a string",
+      );
+    },
+  );
+
   it.each([
     ["country", "countries"],
     ["city", "cities"],

@@ -89,3 +89,139 @@ describe("subscription renewal reminders", () => {
     expect(sendEmail).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("metered usage authorization and quota ordering", () => {
+  it.each(["starter", "growth"])(
+    "keeps %s email failures nonfatal",
+    async jobstash => {
+      const sendEmail = jest
+        .fn()
+        .mockRejectedValue(new Error("mail unavailable"));
+      const logger = { error: jest.fn() };
+      const service = Object.assign(
+        Object.create(SubscriptionsService.prototype),
+        {
+          mailService: { sendEmail },
+          from: "sender@example.test",
+          logger,
+        },
+      ) as SubscriptionsService;
+      await expect(
+        service["sendNewSubscriptionConfirmation"](
+          { jobstash } as never,
+          "owner@example.test",
+        ),
+      ).resolves.toBeUndefined();
+      expect(sendEmail).toHaveBeenCalledTimes(1);
+      expect(logger.error).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  function fixture(
+    member: boolean,
+    active: boolean,
+    quotaId?: string,
+  ): {
+    service: SubscriptionsService;
+    recordQuotaUsage: jest.Mock;
+    recordMeteredServiceUsage: jest.Mock;
+    subscription: {
+      id: string;
+      externalId: string;
+      isActive: jest.Mock;
+      canAccessService: jest.Mock;
+      getOldestActiveUnfilledQuota: jest.Mock;
+    };
+  } {
+    const recordQuotaUsage = jest.fn().mockResolvedValue(true);
+    const recordMeteredServiceUsage = jest
+      .fn()
+      .mockResolvedValue({ success: true });
+    const canAccessService = jest.fn().mockReturnValue(true);
+    const getOldestActiveUnfilledQuota = jest
+      .fn()
+      .mockReturnValue(quotaId ? { id: quotaId } : undefined);
+    const subscription = {
+      id: "subscription",
+      externalId: "stripe-subscription",
+      isActive: jest.fn().mockReturnValue(active),
+      canAccessService,
+      getOldestActiveUnfilledQuota,
+    };
+    const service = Object.assign(
+      Object.create(SubscriptionsService.prototype),
+      {
+        subscriptions: { recordQuotaUsage },
+        userService: { isOrgMember: jest.fn().mockResolvedValue(member) },
+        getSubscriptionInfoByOrgId: jest
+          .fn()
+          .mockResolvedValue({ success: true, data: subscription }),
+        logger: { log: jest.fn(), error: jest.fn() },
+      },
+    ) as SubscriptionsService;
+    return {
+      service,
+      recordQuotaUsage,
+      recordMeteredServiceUsage,
+      subscription,
+    };
+  }
+
+  it("does not inspect subscription access or charge a nonmember", async () => {
+    const f = fixture(false, true, "quota");
+    await expect(
+      f.service.recordMeteredServiceUsage("org", "wallet", 2, "veri", {
+        recordMeteredServiceUsage: f.recordMeteredServiceUsage,
+      } as never),
+    ).resolves.toMatchObject({
+      success: false,
+      message: "Non org member cannot record metered service usage",
+    });
+    expect(f.subscription.isActive).not.toHaveBeenCalled();
+    expect(f.recordQuotaUsage).not.toHaveBeenCalled();
+    expect(f.recordMeteredServiceUsage).not.toHaveBeenCalled();
+  });
+
+  it("short-circuits inactive access before querying quota", async () => {
+    const f = fixture(true, false, "quota");
+    await f.service.recordMeteredServiceUsage("org", "wallet", 2, "veri", {
+      recordMeteredServiceUsage: f.recordMeteredServiceUsage,
+    } as never);
+    expect(f.subscription.canAccessService).not.toHaveBeenCalled();
+    expect(f.subscription.getOldestActiveUnfilledQuota).not.toHaveBeenCalled();
+    expect(f.recordMeteredServiceUsage).not.toHaveBeenCalled();
+  });
+
+  it("records existing quota before considering pay-as-you-go", async () => {
+    const f = fixture(true, true, "quota");
+    await f.service.recordMeteredServiceUsage("org", "wallet", 2, "veri", {
+      recordMeteredServiceUsage: f.recordMeteredServiceUsage,
+    } as never);
+    expect(f.recordQuotaUsage).toHaveBeenCalledWith({
+      subscriptionId: "subscription",
+      quotaId: "quota",
+      wallet: "wallet",
+      amount: 2,
+      service: "veri",
+    });
+    expect(f.recordMeteredServiceUsage).not.toHaveBeenCalled();
+  });
+
+  it("uses pay-as-you-go only for an exhausted eligible service", async () => {
+    const f = fixture(true, true);
+    await f.service.recordMeteredServiceUsage("org", "wallet", 2, "veri", {
+      recordMeteredServiceUsage: f.recordMeteredServiceUsage,
+    } as never);
+    expect(f.recordMeteredServiceUsage).toHaveBeenCalledWith(
+      "stripe-subscription",
+      "veri",
+      2,
+    );
+    await expect(
+      f.service.recordMeteredServiceUsage("org", "wallet", 2, "jobPromotions", {
+        recordMeteredServiceUsage: f.recordMeteredServiceUsage,
+      } as never),
+    ).resolves.toMatchObject({ success: false });
+    expect(f.recordMeteredServiceUsage).toHaveBeenCalledTimes(1);
+  });
+});

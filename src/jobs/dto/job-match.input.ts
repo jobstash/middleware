@@ -14,9 +14,11 @@ export class JobMatchInput {
   skills: string[];
 
   @ApiProperty()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value,
-  )
+  @Transform(({ value }) => {
+    if (value === "true") return true;
+    if (value === "false") return false;
+    return value;
+  })
   @IsBoolean()
   isExpert: boolean;
 }

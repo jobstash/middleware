@@ -7,4 +7,7 @@ dotenv.config();
 async function bootstrap(): Promise<void> {
   await repl(AppModule);
 }
-bootstrap();
+bootstrap().catch(() => {
+  console.error("REPL bootstrap failed");
+  process.exitCode = 1;
+});

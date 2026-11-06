@@ -3,7 +3,7 @@ FROM node:24-alpine3.24 AS build
 WORKDIR /usr/src/app
 
 # Toolchain for native deps (bufferutil, etc.)
-RUN apk add --no-cache python3 make g++ git libc6-compat
+RUN apk add --no-cache g++ git libc6-compat make python3
 ENV PYTHON=/usr/bin/python3
 ENV npm_config_python=/usr/bin/python3
 

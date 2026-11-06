@@ -4,6 +4,8 @@ import { strictFullyRemotePredicate } from "./search-document.repository";
 
 const MAX_ANNUAL_SALARY_RANGE_USD = 200_000;
 
+type JobMarketRangeKey = "90" | "365" | "max";
+
 export interface JobMarketMetricRow extends Record<string, unknown> {
   kind: string;
   slug: string;
@@ -31,7 +33,7 @@ export interface JobMarketMetricRow extends Record<string, unknown> {
 
 export interface JobMarketGeographyRow extends Record<string, unknown> {
   asOfDate: string;
-  rangeKey: "90" | "365" | "max";
+  rangeKey: JobMarketRangeKey;
   dimensionKind: string;
   dimensionSlug: string;
   regionKey: string;
@@ -345,7 +347,7 @@ export class JobMarketRepository {
 
   getGeography(
     dimensionSlug: string,
-    range: "90" | "365" | "max",
+    range: JobMarketRangeKey,
   ): Promise<JobMarketGeographyRow[]> {
     return this.postgres.query<JobMarketGeographyRow>(
       `
@@ -401,7 +403,7 @@ export class JobMarketRepository {
 
   getClassificationCompensationBands(
     classificationSlug: string,
-    range: "90" | "365" | "max",
+    range: JobMarketRangeKey,
   ): Promise<JobMarketCompensationBandRow[]> {
     return this.postgres.query<JobMarketCompensationBandRow>(
       `

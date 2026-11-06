@@ -17,6 +17,8 @@ import {
   TalentPoolData,
   TalentListWithUsers,
   TalentListWithUsersEntity,
+  TalentList,
+  TalentListEntity,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -30,7 +32,6 @@ import { PrivyService } from "src/auth/privy/privy.service";
 import { PermissionService } from "./permission.service";
 import { CheckWalletPermissions } from "src/shared/constants";
 import { Subscription } from "src/shared/interfaces/org";
-import { uniq } from "lodash";
 import {
   PrivyTransferEventPayload,
   PrivyUpdateEventPayload,
@@ -38,7 +39,6 @@ import {
 } from "src/auth/privy/dto/webhook.payload";
 import { UpdateTalentListInput } from "./dto/update-talent-list.input";
 import { CreateTalentListInput } from "./dto/create-talent-list.input";
-import { TalentList, TalentListEntity } from "src/shared/types";
 import { UpdateTalentListNameInput } from "./dto/update-talent-list-name.input";
 import { sort } from "fast-sort";
 import {
@@ -46,13 +46,13 @@ import {
   UserRepository,
 } from "src/postgres/user.repository";
 
-const EMAIL_LIKE = /\b[^\s@]+@[^\s@]+\.[^\s@]+\b/i;
+import { containsEmailLikeValue } from "src/access-workspaces/email-like-values";
 
 const publicString = (value: unknown): string | null =>
-  typeof value === "string" && !EMAIL_LIKE.test(value) ? value : null;
+  typeof value === "string" && !containsEmailLikeValue(value) ? value : null;
 
 const contactEmail = (value: unknown): string | null =>
-  typeof value === "string" && EMAIL_LIKE.test(value) ? value : null;
+  typeof value === "string" && containsEmailLikeValue(value) ? value : null;
 
 const finiteNumber = (value: unknown): number =>
   typeof value === "number" && Number.isFinite(value) ? value : 0;
@@ -120,7 +120,7 @@ export const toTalentPoolCandidate = (
         skills: (Array.isArray(repository.skills)
           ? repository.skills
           : []
-        ).filter(skill => !EMAIL_LIKE.test(skill)),
+        ).filter(skill => !containsEmailLikeValue(skill)),
         tenure: finiteNumber(repository.tenure),
         stars: finiteNumber(repository.stars),
         cryptoNative: repository.cryptoNative === true,
@@ -312,7 +312,7 @@ export class UserService {
       .map(value => value?.trim())
       .filter((value): value is string => Boolean(value));
 
-    for (const email of [...new Set(candidates)]) {
+    for (const email of new Set(candidates)) {
       const normalized = this.normalizeEmail(email);
       if (!normalized) continue;
       try {
@@ -665,8 +665,8 @@ export class UserService {
         name: dto.name ?? null,
         available: false,
         wallet: dto.wallet,
-        createdTimestamp: new Date().getTime(),
-        updatedTimestamp: new Date().getTime(),
+        createdTimestamp: Date.now(),
+        updatedTimestamp: Date.now(),
       })
       .then(user =>
         user ? new UserEntity(user as unknown as User) : undefined,
@@ -783,7 +783,7 @@ export class UserService {
     try {
       const userId = await this.getPrivyId(wallet);
       this.logger.log(`/user/deletePrivyUser ${userId}`);
-      this.privyService.deletePrivyUser(userId);
+      await this.privyService.deletePrivyUser(userId);
       await this.users.deleteUser(wallet);
       return {
         success: true,
@@ -830,69 +830,7 @@ export class UserService {
   ): Promise<ResponseWithNoData> {
     try {
       this.logger.log(`Adding org user ${wallet} to org`);
-      if (subscription.isActive()) {
-        this.logger.log("Org subscription is active");
-        this.logger.log("Checking org user count");
-        const userCount = await this.getOrgUserCount(orgId);
-        if (userCount < subscription.totalSeats) {
-          this.logger.log("Org user count is less than max seats");
-          this.logger.log("Checking if org owner");
-          const isOwner = !(await this.orgHasOwner(orgId));
-          const seatId = randomToken(8);
-          const verifications = data(
-            await this.profileService.getUserVerifications(wallet),
-          );
-          const org = verifications.find(x => x.id === orgId);
-
-          if (org) {
-            if (org.credential === "email") {
-              this.logger.log("User is verified for org by email");
-              await this.users.addOrganizationSeat(
-                orgId,
-                wallet,
-                isOwner ? "owner" : "member",
-                seatId,
-              );
-              const userPermissions =
-                await this.permissionService.getPermissionsForWallet(wallet);
-
-              this.logger.log("Syncing user permissions");
-
-              await this.syncUserPermissions(
-                wallet,
-                [
-                  ...userPermissions.map(x => x.name),
-                  CheckWalletPermissions.ORG_MEMBER,
-                  isOwner ? CheckWalletPermissions.ORG_OWNER : null,
-                ].filter(Boolean),
-              );
-              this.logger.log("Synced user permissions");
-              return {
-                success: true,
-                message: `User signed up to org ${isOwner ? "owner" : "member"} seat successfully`,
-              };
-            } else {
-              this.logger.log("User is not authorized to join org");
-              return {
-                success: false,
-                message: `User not authorized to join org`,
-              };
-            }
-          } else {
-            this.logger.log("User cannot own or join org");
-            return {
-              success: false,
-              message: "User not authorized to join this org",
-            };
-          }
-        } else {
-          this.logger.log("Org user count is greater than max seats");
-          return {
-            success: false,
-            message: `Organization has reached its maximum number of members`,
-          };
-        }
-      } else {
+      if (!subscription.isActive()) {
         this.logger.log("Org subscription is not active");
         return {
           success: false,
@@ -900,6 +838,58 @@ export class UserService {
             "Organization cannot have users without an active subscription",
         };
       }
+      this.logger.log("Org subscription is active");
+      this.logger.log("Checking org user count");
+      const userCount = await this.getOrgUserCount(orgId);
+      if (!(userCount < subscription.totalSeats)) {
+        this.logger.log("Org user count is greater than max seats");
+        return {
+          success: false,
+          message: "Organization has reached its maximum number of members",
+        };
+      }
+      this.logger.log("Org user count is less than max seats");
+      this.logger.log("Checking if org owner");
+      const isOwner = !(await this.orgHasOwner(orgId));
+      const seatId = randomToken(8);
+      const verifications = data(
+        await this.profileService.getUserVerifications(wallet),
+      );
+      const org = verifications.find(x => x.id === orgId);
+      if (!org) {
+        this.logger.log("User cannot own or join org");
+        return {
+          success: false,
+          message: "User not authorized to join this org",
+        };
+      }
+      if (org.credential !== "email") {
+        this.logger.log("User is not authorized to join org");
+        return { success: false, message: "User not authorized to join org" };
+      }
+      this.logger.log("User is verified for org by email");
+      await this.users.addOrganizationSeat(
+        orgId,
+        wallet,
+        isOwner ? "owner" : "member",
+        seatId,
+      );
+      const userPermissions =
+        await this.permissionService.getPermissionsForWallet(wallet);
+      this.logger.log("Syncing user permissions");
+      await this.syncUserPermissions(
+        wallet,
+        [
+          ...userPermissions.map(x => x.name),
+          CheckWalletPermissions.ORG_MEMBER,
+          isOwner ? CheckWalletPermissions.ORG_OWNER : null,
+        ].filter(Boolean),
+      );
+      this.logger.log("Synced user permissions");
+      return {
+        success: true,
+        message: `User signed up to org ${isOwner ? "owner" : "member"} seat successfully`,
+      };
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -1520,12 +1510,14 @@ export class UserService {
       const oldPermissions = await this.getUserPermissions(fromEmbeddedWallet);
       const currentPermissions =
         await this.getUserPermissions(toEmbeddedWallet);
-      const permissions = uniq([
-        ...oldPermissions
-          .filter(x => !["ORG_MEMBER", "ORG_OWNER", "USER"].includes(x.name))
-          .map(x => x.name),
-        ...currentPermissions.map(x => x.name),
-      ]);
+      const permissions = [
+        ...new Set([
+          ...oldPermissions
+            .filter(x => !["ORG_MEMBER", "ORG_OWNER", "USER"].includes(x.name))
+            .map(x => x.name),
+          ...currentPermissions.map(x => x.name),
+        ]),
+      ];
       await this.syncUserPermissions(toEmbeddedWallet, permissions);
       await this.deletePrivyUser(fromEmbeddedWallet);
     }

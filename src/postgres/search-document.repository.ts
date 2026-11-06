@@ -1146,6 +1146,28 @@ export class SearchDocumentRepository {
 
   private jobPredicates(params: JobSearchParams): SqlPredicateBuilder {
     const where = new SqlPredicateBuilder();
+    this.addJobVisibilityPredicates(where, params);
+    this.addJobFacetPredicates(where, params);
+    this.addJobEmployerPredicates(where, params);
+    this.addJobMetricPredicates(where, params);
+    this.addJobProjectFlagPredicates(where, params);
+    if (params.pillarCriteria) {
+      const pillar = this.jobPredicates(params.pillarCriteria);
+      const offset = where.parameters.length;
+      where.add(
+        pillar.predicates
+          .join(" AND ")
+          .replace(/\$(\d+)/g, (_, n) => `$${Number(n) + offset}`),
+      );
+      where.parameters.push(...pillar.parameters);
+    }
+    return where;
+  }
+
+  private addJobVisibilityPredicates(
+    where: SqlPredicateBuilder,
+    params: JobSearchParams,
+  ): void {
     if (params.online === true || !params.includeOffline) where.add("online");
     if (params.blocked === true) {
       where.add("blocked");
@@ -1177,7 +1199,12 @@ export class SearchDocumentRepository {
           @@ websearch_to_tsquery('simple', ${titleQueryParameter})
       `);
     }
+  }
 
+  private addJobFacetPredicates(
+    where: SqlPredicateBuilder,
+    params: JobSearchParams,
+  ): void {
     if (params.ecosystemHeader) {
       where.add(
         `${where.bind(slugify(params.ecosystemHeader))} = ANY(managed_ecosystems)`,
@@ -1288,6 +1315,12 @@ export class SearchDocumentRepository {
     addGeographyFacet("countries", params.countries);
     addGeographyFacet("continents", params.continents);
     addGeographyFacet("timezones", params.timezones);
+  }
+
+  private addJobEmployerPredicates(
+    where: SqlPredicateBuilder,
+    params: JobSearchParams,
+  ): void {
     const collaborationHours = normalizeList(params.collaborationHours);
     if (collaborationHours?.length) {
       where.add(`job_team_collaboration_hour_keys(
@@ -1327,7 +1360,12 @@ export class SearchDocumentRepository {
     if (seniorities?.length) {
       where.add(`seniority = ANY(${where.bind(seniorities)}::text[])`);
     }
+  }
 
+  private addJobMetricPredicates(
+    where: SqlPredicateBuilder,
+    params: JobSearchParams,
+  ): void {
     where.addRange("salary", params.minSalaryRange, params.maxSalaryRange);
     if (
       activeRangeBound(params.minSalaryRange) ||
@@ -1379,6 +1417,12 @@ export class SearchDocumentRepository {
     if (params.endDate) {
       where.add(`published_timestamp < ${where.bind(params.endDate)}`);
     }
+  }
+
+  private addJobProjectFlagPredicates(
+    where: SqlPredicateBuilder,
+    params: JobSearchParams,
+  ): void {
     const organizationProjectFiltersApplied = [
       params.minHeadCount,
       params.maxHeadCount,
@@ -1430,17 +1474,6 @@ export class SearchDocumentRepository {
     } else {
       where.addEqual("has_token", params.token);
     }
-    if (params.pillarCriteria) {
-      const pillar = this.jobPredicates(params.pillarCriteria);
-      const offset = where.parameters.length;
-      where.add(
-        pillar.predicates
-          .join(" AND ")
-          .replace(/\$(\d+)/g, (_, n) => `$${Number(n) + offset}`),
-      );
-      where.parameters.push(...pillar.parameters);
-    }
-    return where;
   }
 
   async searchJobGroups(
@@ -2804,8 +2837,7 @@ export class SearchDocumentRepository {
         filterParameters,
         orderSql,
         query,
-        requestedPage.page,
-        requestedPage.limit,
+        requestedPage,
       );
     }
 
@@ -2856,9 +2888,9 @@ export class SearchDocumentRepository {
     parameters: unknown[],
     orderSql: string,
     query: string,
-    page: number,
-    limit: number,
+    requestedPage: { page: number; limit: number },
   ): Promise<SearchPage<T>> {
+    const { page, limit } = requestedPage;
     const candidates = await this.postgres.query<NamedSearchCandidate>(
       `
         SELECT ${idColumn}::text AS node_id, search_values

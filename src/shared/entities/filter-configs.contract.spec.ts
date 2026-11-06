@@ -5,6 +5,41 @@ import {
 } from "./index";
 
 describe("filter config response contracts", () => {
+  it("preserves keyed facet precedence, aliases, and machine ecosystem IDs", () => {
+    const entity = new JobFilterConfigsEntity({
+      workModes: ["fully_remote", "fully-remote"],
+      workModeLabels: { fully_remote: "Ignored label" },
+      ecosystems: ["MixedCase:ID"],
+      tags: ["known-id", "Unmapped Tag"],
+      tagLabels: { "known-id": "Display Name" },
+      timezones: ["tz:one", "tz:two"],
+      timezoneLabels: { "tz:one": "--UTC++2--", "tz:two": "UTC+2" },
+    });
+    expect(
+      entity.getKeyedPresets("workModes", "workModeLabels").options,
+    ).toContainEqual({
+      label: "100% Remote",
+      value: "fully-remote",
+      aliases: [],
+    });
+    expect(
+      entity.getKeyedPresets("ecosystems", "ecosystemLabels").options,
+    ).toEqual([{ label: "MixedCase:ID", value: "MixedCase:ID" }]);
+    expect(entity.getKeyedPresets("tags", "tagLabels").options).toEqual([
+      { label: "Display Name", value: "known-id" },
+      { label: "Unmapped Tag", value: "unmapped-tag" },
+    ]);
+    expect(
+      entity.getKeyedPresets("timezones", "timezoneLabels").options,
+    ).toEqual([
+      {
+        label: "--UTC++2--",
+        value: "utc-2",
+        aliases: ["tz:one", "tz:two"],
+      },
+    ]);
+  });
+
   it("publishes all canonical employer classifications independently of role facets", () => {
     const result = new JobFilterConfigsEntity({}).getProperties();
     expect(result.organizationClassifications).toMatchObject({

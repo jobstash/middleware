@@ -34,12 +34,12 @@ import { isEmail } from "validator";
 
 @Controller("auth")
 export class AuthController {
-  private logger = new CustomLogger(AuthController.name);
+  private readonly logger = new CustomLogger(AuthController.name);
   constructor(
     private readonly userService: UserService,
     private readonly profileService: ProfileService,
     private readonly authService: AuthService,
-    private strategy: MagicAuthStrategy,
+    private readonly strategy: MagicAuthStrategy,
   ) {}
 
   @Post("magic/login")

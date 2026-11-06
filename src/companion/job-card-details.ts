@@ -1,4 +1,9 @@
 import { getGoogleLogoUrl } from "src/shared/helpers";
+import {
+  proseLinkLabels,
+  replaceProseTags,
+} from "src/auth/profile/recommendation-markup";
+import { withoutExecutableBlocks } from "./job-card-markup";
 
 type RecordValue = Record<string, unknown>;
 export interface JobSalary {
@@ -10,10 +15,11 @@ export interface JobSalary {
 }
 const text = (value: unknown, limit = 300): string | null => {
   if (typeof value !== "string") return null;
-  const cleaned = value
-    .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, "")
-    .replace(/<[^>]*>/g, " ")
-    .replace(/!?\[([^\]]*)\]\((?:[^()]|\([^()]*\))*\)/g, "$1")
+  const withoutScripts = withoutExecutableBlocks(value);
+  const cleaned = proseLinkLabels(
+    replaceProseTags(withoutScripts, () => " ", true),
+    true,
+  )
     .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "")
     .trim();
   return cleaned ? cleaned.slice(0, limit) : null;
@@ -70,6 +76,7 @@ export function projectJobSalary(payload: RecordValue): JobSalary | null {
     [minimum, maximum] = [maximum, minimum];
   const stated = useRaw ? null : amount(payload.salary);
   if (minimum === null && maximum === null && stated === null) return null;
+  const storedPeriod = payRate ? "year" : null;
   return {
     minimum,
     maximum,
@@ -77,6 +84,6 @@ export function projectJobSalary(payload: RecordValue): JobSalary | null {
     currency: text(payload.salaryCurrency, 30),
     // Stored minimum/maximum/salary are annualized by ETL. A missing rate is
     // not evidence of a period, even though ETL historically defaulted it.
-    period: useRaw ? payRate : payRate ? "year" : null,
+    period: useRaw ? payRate : storedPeriod,
   };
 }

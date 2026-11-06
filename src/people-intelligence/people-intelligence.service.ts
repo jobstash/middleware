@@ -20,7 +20,7 @@ import {
 
 type Query = Record<string, string | number | boolean | undefined>;
 
-const PEOPLE_METRICS: PeopleMetric[] = [
+const PEOPLE_METRICS = new Set<PeopleMetric>([
   "activePeople",
   "affiliatedPeople",
   "activeMaintainers",
@@ -31,7 +31,7 @@ const PEOPLE_METRICS: PeopleMetric[] = [
   "activity",
   "commits",
   "merges",
-];
+]);
 
 const positiveInteger = (
   value: unknown,
@@ -53,6 +53,14 @@ const developerReportRange = (value: unknown): DeveloperReportRange =>
   ["3m", "6m", "1y", "3y", "max"].includes(String(value))
     ? (String(value) as DeveloperReportRange)
     : "max";
+
+const developerReportRangeLabels: Record<DeveloperReportRange, string> = {
+  max: "Since inception",
+  "3y": "Last 3 years",
+  "1y": "Last year",
+  "6m": "Last 6 months",
+  "3m": "Last 3 months",
+};
 
 const canonicalScopeSummaries = <
   T extends DeveloperReport["scopes"]["chains"][number],
@@ -359,13 +367,10 @@ export class PeopleIntelligenceService {
       ...(vertical ? { vertical } : {}),
       ...(chain ? { chain } : {}),
     };
-    const scopeType = vertical
-      ? chain
-        ? "vertical_chain"
-        : "vertical"
-      : chain
-        ? "chain"
-        : "overall";
+    let scopeType: DeveloperReport["scope"]["type"] = chain
+      ? "chain"
+      : "overall";
+    if (vertical) scopeType = chain ? "vertical_chain" : "vertical";
     return this.get("developer-report", scorerQuery, {
       privacy: {
         minimumAggregateSize: 5,
@@ -379,16 +384,7 @@ export class PeopleIntelligenceService {
       methodologyVersion: "developer-report-v2",
       range: {
         key: range,
-        label:
-          range === "max"
-            ? "Since inception"
-            : range === "3y"
-              ? "Last 3 years"
-              : range === "1y"
-                ? "Last year"
-                : range === "6m"
-                  ? "Last 6 months"
-                  : "Last 3 months",
+        label: developerReportRangeLabels[range],
         from: "",
         to: "",
       },
@@ -468,7 +464,7 @@ export class PeopleIntelligenceService {
   }
 
   activityMap(query: Query): Promise<PeopleActivityMap> {
-    const metric = PEOPLE_METRICS.includes(query.metric as PeopleMetric)
+    const metric = PEOPLE_METRICS.has(query.metric as PeopleMetric)
       ? (query.metric as PeopleMetric)
       : "activePeople";
     return this.get("activity-map", query, {

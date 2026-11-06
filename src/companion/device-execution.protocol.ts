@@ -60,13 +60,11 @@ const text = (limit: number): Joi.StringSchema =>
 const object = (fields: Record<string, Joi.Schema>): Joi.ObjectSchema =>
   Joi.object(fields).unknown(false).required();
 const matchingId = Joi.string()
-  .pattern(/^node:[1-9][0-9]{0,18}$(?![\s\S])/)
+  .pattern(/^node:[1-9]\d{0,18}$(?![\s\S])/)
   .required();
 const publicationTimestamp = Joi.string()
   .max(24)
-  .pattern(
-    /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,3})?Z$(?![\s\S])/,
-  )
+  .pattern(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$(?![\s\S])/)
   .required();
 const githubEndpoint = object({
   login: Joi.string().pattern(githubLoginPattern).required(),
@@ -122,7 +120,7 @@ const schemas = {
       .required(),
     account: object({
       id: Joi.string()
-        .pattern(/^[1-9][0-9]{0,19}$(?![\s\S])/)
+        .pattern(/^[1-9]\d{0,19}$(?![\s\S])/)
         .required(),
       label: text(200),
     }),
@@ -142,7 +140,7 @@ const schemas = {
 const validTimestamp = (timestamp: string): boolean => {
   const time = Date.parse(timestamp);
   const normalized = timestamp.replace(
-    /(?:\.([0-9]{1,3}))?Z$/,
+    /(?:\.(\d{1,3}))?Z$/,
     (_, fraction = "") => `.${fraction.padEnd(3, "0")}Z`,
   );
   return Number.isFinite(time) && new Date(time).toISOString() === normalized;
@@ -200,9 +198,10 @@ export function devicePublicKey(publicKey: string): KeyObject {
   try {
     const bytes = Buffer.from(publicKey, "base64url");
     if (bytes.length !== 44 || bytes.toString("base64url") !== publicKey)
-      throw new Error();
+      throw new Error("Device public key is not canonical SPKI");
     const key = createPublicKey({ key: bytes, format: "der", type: "spki" });
-    if (key.asymmetricKeyType !== "ed25519") throw new Error();
+    if (key.asymmetricKeyType !== "ed25519")
+      throw new Error("Device public key must use Ed25519");
     return key;
   } catch {
     throw new BadRequestException("Invalid device public key");
@@ -230,7 +229,10 @@ export function canonicalJSON(value: unknown): string {
   if (value !== null && typeof value === "object")
     return `{${Object.keys(value)
       .filter(key => (value as Record<string, unknown>)[key] !== undefined)
-      .sort((left, right) => (left < right ? -1 : left > right ? 1 : 0))
+      .sort((left, right) => {
+        if (left < right) return -1;
+        return left > right ? 1 : 0;
+      })
       .map(
         key =>
           `${JSON.stringify(key)}:${canonicalJSON((value as Record<string, unknown>)[key])}`,

@@ -1569,8 +1569,7 @@ export class UserRepository {
     if (options.availableOnly) {
       predicates.push(
         "COALESCE(jsonb_boolean_value(user.properties, 'available'), false)",
-      );
-      predicates.push(`
+        `
         ($1::text IS NULL OR NOT EXISTS (
           SELECT 1
           FROM graph_relationships verification
@@ -1579,7 +1578,8 @@ export class UserRepository {
             AND verification.type = 'VERIFIED_FOR_ORG'
             AND organization.properties ->> 'orgId' = $1
         ))
-      `);
+      `,
+      );
     }
     if (options.talentListNodeId) {
       parameters.push(options.talentListNodeId);

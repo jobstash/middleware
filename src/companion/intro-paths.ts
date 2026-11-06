@@ -1,7 +1,7 @@
 import { ConfigService } from "@nestjs/config";
 import * as Sentry from "@sentry/node";
 import axios, { AxiosInstance } from "axios";
-import * as https from "https";
+import * as https from "node:https";
 import { PostgresService } from "src/postgres/postgres.service";
 import {
   GithubEndpoint,

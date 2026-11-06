@@ -50,7 +50,8 @@ export const weeklyJobsEmail = (input: {
   const roles = input.jobs.map(job => {
     const title = job.title || "Open role";
     const employer = job.organization?.name || job.project?.name || "JobStash";
-    const href = `${input.frontend}/${slugify(`${title}-${employer}`)}/${encodeURIComponent(job.shortUUID)}?utm_source=weekly_job_digest&utm_medium=email`;
+    const roleSlug = slugify(`${title}-${employer}`);
+    const href = `${input.frontend}/${roleSlug}/${encodeURIComponent(job.shortUUID)}?utm_source=weekly_job_digest&utm_medium=email`;
     const details = [
       ...new Set(
         [
@@ -92,18 +93,19 @@ export const weeklyJobsEmail = (input: {
     )
     .join("");
 
+  const plainRoles = roles
+    .map(role => {
+      const details = [role.details, role.location, `Posted ${role.posted}`]
+        .filter(Boolean)
+        .join("\n");
+      return `${role.title}\n${role.employer}\n${details}\nView role: ${role.href}`;
+    })
+    .join("\n\n");
   return {
     from: input.from,
     to: input.to,
     subject: "Your weekly JobStash matches",
-    text: `Your next move.\n${preview}\n\n${roles
-      .map(
-        role =>
-          `${role.title}\n${role.employer}\n${[role.details, role.location, `Posted ${role.posted}`].filter(Boolean).join("\n")}\nView role: ${role.href}`,
-      )
-      .join(
-        "\n\n",
-      )}\n\nSee all matches: ${matchesUrl}\n\nYou're receiving this because you opted in to weekly job matches.\nUnsubscribe: ${input.unsubscribeUrl}\nJobStash · Find your next move.`,
+    text: `Your next move.\n${preview}\n\n${plainRoles}\n\nSee all matches: ${matchesUrl}\n\nYou're receiving this because you opted in to weekly job matches.\nUnsubscribe: ${input.unsubscribeUrl}\nJobStash · Find your next move.`,
     html: `<!doctype html>
 <html lang="en" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Your weekly JobStash matches</title>

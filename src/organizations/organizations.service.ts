@@ -513,7 +513,7 @@ export class OrganizationsService {
         current: { totalJobs: 0, onlineJobs: 0, offlineJobs: 0 },
         monthlySeries: [],
         run: null,
-        ...(jobIngestionRows[0] ?? {}),
+        ...jobIngestionRows[0],
         ...etlJobIngestion,
         dailyJobViewers: Number(jobIngestionRows[0]?.dailyJobViewers ?? 0),
         totalJobs: Number(
@@ -553,12 +553,7 @@ export class OrganizationsService {
       generatedAt: new Date().toISOString(),
       ...lifecycle,
       lifecycleAvailable: lifecycleResult.status === "fulfilled",
-      lifecycleError:
-        lifecycleResult.status === "rejected"
-          ? lifecycleResult.reason instanceof Error
-            ? lifecycleResult.reason.message
-            : String(lifecycleResult.reason)
-          : null,
+      lifecycleError: this.settledErrorMessage(lifecycleResult),
       runtimeAvailable: runtime !== null,
       runtime,
     };
@@ -608,12 +603,7 @@ export class OrganizationsService {
     return {
       generatedAt: new Date().toISOString(),
       catalogAvailable: catalogResult.status === "fulfilled",
-      catalogError:
-        catalogResult.status === "rejected"
-          ? catalogResult.reason instanceof Error
-            ? catalogResult.reason.message
-            : String(catalogResult.reason)
-          : null,
+      catalogError: this.settledErrorMessage(catalogResult),
       current: { totalJobs: 0, onlineJobs: 0, offlineJobs: 0 },
       monthlySeries: [],
       run: null,
@@ -626,6 +616,15 @@ export class OrganizationsService {
           0,
       ),
     };
+  }
+
+  private settledErrorMessage(
+    result: PromiseSettledResult<unknown>,
+  ): string | null {
+    if (result.status === "fulfilled") return null;
+    return result.reason instanceof Error
+      ? result.reason.message
+      : String(result.reason);
   }
 
   private getGithubIndexerLifecycleRows(): Promise<Record<string, unknown>[]> {
@@ -711,11 +710,13 @@ export class OrganizationsService {
   }
 
   private getGithubIndexerStatusCandidates(rawUrl: string): string[] {
-    const cleaned = rawUrl.trim().replace(/\/+$/, "");
+    const cleaned = this.trimTrailingSlashes(rawUrl.trim());
     if (!cleaned) return [];
     const base = cleaned.split(/[?#]/)[0];
     if (!base) return [];
-    const normalized = base.replace(/\/+observability$/i, "");
+    const normalized = base.toLowerCase().endsWith("/observability")
+      ? this.trimTrailingSlashes(base.slice(0, -"observability".length))
+      : base;
     const candidates = new Set<string>();
     candidates.add(base);
     if (normalized && normalized !== base) {
@@ -724,6 +725,12 @@ export class OrganizationsService {
       candidates.add(`${base}/observability`);
     }
     return [...candidates];
+  }
+
+  private trimTrailingSlashes(value: string): string {
+    let end = value.length;
+    while (end > 0 && value[end - 1] === "/") end--;
+    return value.slice(0, end);
   }
 
   private normalizeCampaignRows(
@@ -818,7 +825,7 @@ export class OrganizationsService {
 
       const unique = [];
       for (const org of all) {
-        if (!unique.find(x => x.orgId === org.orgId)) {
+        if (!unique.some(x => x.orgId === org.orgId)) {
           unique.push(org);
         }
       }
@@ -1211,7 +1218,7 @@ export class OrganizationsService {
         };
       } else {
         this.logger.warn(
-          `Error queueing organization ${dto} for import: ${response2.data}`,
+          `Error queueing organization ${dto.url} for import: HTTP ${response2.status}`,
         );
         return {
           success: false,
@@ -1343,8 +1350,9 @@ export class OrganizationsService {
     }
   }
 
-  async delete(id: string, actor?: string): Promise<ResponseWithNoData> {
-    void actor;
+  async delete(id: string, _actor?: string): Promise<ResponseWithNoData> {
+    // Preserve the controller's mutation signature; deletion is ID-scoped.
+    void _actor;
     try {
       await this.graph.deleteNodeWithOwnedDescendants({
         rootLabel: "Organization",
@@ -1507,7 +1515,7 @@ export class OrganizationsService {
           };
         } else {
           this.logger.warn(
-            `Error queueing organization jobsite ${dto} for import: ${response2.data}`,
+            `Error queueing organization ${dto.orgId} jobsite ${dto.jobsiteId} for import: HTTP ${response2.status}`,
           );
           return {
             success: false,
@@ -1714,7 +1722,13 @@ export class OrganizationsService {
       return {
         success: true,
         message: "Updated organization projects successfully",
-        data: projects.map(project => String(project.properties.name)),
+        data: projects.map(project => {
+          const name = project.properties.name;
+          if (typeof name !== "string") {
+            throw new TypeError("Project name must be a string");
+          }
+          return name;
+        }),
       };
     } catch (error) {
       Sentry.captureException(error);

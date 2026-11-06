@@ -107,7 +107,7 @@ export class AgencyAlertsRepository {
   ): Promise<(AlertOrganization & { following: boolean })[]> {
     return rows(
       this.postgres,
-      `
+      String.raw`
       SELECT organization.organization_id AS "organizationId", organization.name,
         organization.slug, organization.payload ->> 'logoUrl' AS "logoUrl",
         EXISTS (SELECT 1 FROM agency_alert_follows follow WHERE follow.workspace_id = $1::uuid
@@ -115,10 +115,10 @@ export class AgencyAlertsRepository {
       FROM organization_search_documents organization
       WHERE NOT COALESCE(jsonb_boolean_value(organization.payload, 'blocked'), false)
         AND NOT COALESCE(jsonb_boolean_value(organization.payload, 'banned'), false)
-        AND ($3 = '' OR organization.name ILIKE '%' || $3 || '%' ESCAPE '\\')
+        AND ($3 = '' OR organization.name ILIKE '%' || $3 || '%' ESCAPE '\')
       ORDER BY organization.name, organization.organization_id LIMIT 25
     `,
-      [workspaceId, userId, query.replace(/[\\%_]/g, "\\$&")],
+      [workspaceId, userId, query.replace(/[\\%_]/g, String.raw`\$&`)],
     );
   }
 

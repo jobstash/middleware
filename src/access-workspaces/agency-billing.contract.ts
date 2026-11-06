@@ -50,9 +50,11 @@ export const agencyPlanEvidence = (
 
 export const agencyEntitlementForStripeStatus = (
   status: Stripe.Subscription.Status,
-): { entitlementEnabled: boolean; workspaceStatus: "active" | "cancelled" } =>
-  status === "active" || status === "trialing"
-    ? { entitlementEnabled: true, workspaceStatus: "active" }
-    : status === "canceled"
-      ? { entitlementEnabled: false, workspaceStatus: "cancelled" }
-      : { entitlementEnabled: false, workspaceStatus: "active" };
+): { entitlementEnabled: boolean; workspaceStatus: "active" | "cancelled" } => {
+  if (status === "active" || status === "trialing")
+    return { entitlementEnabled: true, workspaceStatus: "active" };
+  return {
+    entitlementEnabled: false,
+    workspaceStatus: status === "canceled" ? "cancelled" : "active",
+  };
+};

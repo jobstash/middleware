@@ -89,6 +89,21 @@ describe("Talent Pool Agency candidate projection", () => {
     expect(JSON.stringify(result)).not.toContain("candidate@example.com");
     expect(result.email).toBeNull();
   });
+  it("redacts long embedded contacts without truncating public prose", () => {
+    const contact = "x".repeat(100_000) + "@example.com";
+    const prose = "x".repeat(100_000) + "@not-a-domain";
+    const result = toTalentPoolCandidate({
+      name: `Reach (${contact})`,
+      github: prose,
+      email: contact,
+      skills: [],
+      showcases: [],
+      workHistory: [],
+    });
+    expect(result.name).toBeNull();
+    expect(result.github).toBe(prose);
+    expect(result.email).toBe(contact);
+  });
 
   it("normalizes missing work-history timestamps for the Talent Pool contract", () => {
     const result = toTalentPoolCandidate({

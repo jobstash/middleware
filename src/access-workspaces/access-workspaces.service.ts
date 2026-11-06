@@ -9,19 +9,21 @@ import {
 } from "@nestjs/common";
 import { domainToASCII } from "node:url";
 import * as psl from "psl";
-import { AccessWorkspacesRepository } from "./access-workspaces.repository";
-import { WorkspaceAuthorization } from "./access-workspaces.repository";
+import {
+  AccessWorkspacesRepository,
+  WorkspaceAuthorization,
+} from "./access-workspaces.repository";
+import { isEmailLikeValue } from "./email-like-values";
 import { AgencyBountyOpportunities } from "./access-workspaces.dto";
 
 const EMAIL_LIKE_KEY =
   /(?:^|[_-])(?:e-?mail|contact(?:e-?mail)?|worke-?mail)(?:$|[_-])/i;
-const EMAIL_LIKE_VALUE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const REVEALABLE_FIELDS = new Set(["info.email", "info.contactEmail"]);
 
 const withoutEmailLikeValues = (value: unknown): unknown => {
   if (Array.isArray(value)) return value.map(withoutEmailLikeValues);
   if (!value || typeof value !== "object") {
-    return typeof value === "string" && EMAIL_LIKE_VALUE.test(value)
+    return typeof value === "string" && isEmailLikeValue(value)
       ? undefined
       : value;
   }

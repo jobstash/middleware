@@ -37,7 +37,7 @@ import { ProfileService } from "src/auth/profile/profile.service";
 
 @Controller("subscriptions")
 export class SubscriptionsController {
-  private logger = new CustomLogger(SubscriptionsController.name);
+  private readonly logger = new CustomLogger(SubscriptionsController.name);
   constructor(
     private readonly userService: UserService,
     private readonly stripeService: StripeService,
