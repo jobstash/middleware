@@ -1,5 +1,6 @@
 ## 2026-11-06
 
+- Share the recommendation page-one fallback policy between uncached ranking and cached response slicing, preserving safe-positive-integer validation for NaN, infinities, zero, negative, fractional, null, and omitted pages. Extend cache/paging regressions without changing ranking, eligibility, or query timing.
 - Address the seven actionable findings left by the full default-branch rescan: separate recommendation eligibility, ingestion retry classification, and bounded object-comparison traversal; mark the actual injected cache/config references readonly; use static delimiter lookups. Preserve lazy query ordering, import-only retry policy, sorted comparison output, and its thirty-item bound with behavioral regressions.
 - Remediate the separately reviewed Sonar quality backlog without changing the security release or enabling new scanner products. Reject malformed scalar identifiers/text before hydration and destructive graph updates, preserve nullish compatibility, and keep parity comparisons from matching object identities.
 - Await provider deletion before local account removal, preserve already-absent provider idempotence, synchronize linked wallets before detached enrichment, and own enrichment/startup rejections. Preserve server-derived permissions and avoid blocking login on scorer enrichment.
