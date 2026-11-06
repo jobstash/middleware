@@ -103,18 +103,27 @@ export class AppModule implements OnModuleInit {
   onModuleInit(): void {
     Sentry.init({
       dsn: this.configService.get<string>("SENTRY_DSN"),
-      tracesSampleRate: this.configService.get<number>(
-        "SENTRY_TRACES_SAMPLE_RATE",
-        0.2,
+      // Preserve the deployed integer-parsing policy during the SDK upgrade.
+      // Fractional collection requires a separate, explicit policy change.
+      tracesSampleRate: Number.parseInt(
+        String(
+          this.configService.get<number>("SENTRY_TRACES_SAMPLE_RATE") ?? 0.2,
+        ),
+        10,
       ),
-      profileSessionSampleRate: this.configService.get<number>(
-        "SENTRY_PROFILE_SAMPLE_RATE",
-        0.2,
+      profileSessionSampleRate: Number.parseInt(
+        String(
+          this.configService.get<number>("SENTRY_PROFILE_SAMPLE_RATE") ?? 0.2,
+        ),
+        10,
       ),
       profileLifecycle: "trace",
       dataCollection: {
         userInfo: true,
         cookies: true,
+        // SDK 11 adds automatic LangChain embedding instrumentation.
+        // Do not newly collect recommendation/document inputs or outputs.
+        genAI: { inputs: false, outputs: false },
       },
       integrations: [
         nodeProfilingIntegration(),
