@@ -132,6 +132,7 @@ class BlocksTest(unittest.TestCase):
                 self.wfile.write(json.dumps(payload).encode())
 
             def do_POST(self):
+                self.rfile.read(int(self.headers.get("Content-Length", "0")))
                 self.do_GET()
 
         server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
