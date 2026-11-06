@@ -146,7 +146,11 @@ describe("InvestorsService fund list", () => {
     expect(sql).toContain("'fundParticipated'");
     expect(sql).toContain("'investmentRole'");
     expect(sql).toContain("round.fund_participated");
-    expect(sql).toContain("ownership.owner_count = 1");
+    expect(sql).toContain(
+      "financing_profile_node_id(selected.raw_round_node_id)",
+    );
+    expect(sql).toContain("profile_visible_financing_nodes(");
+    expect(sql).toContain("NOT entity_property_is_banned(child.properties)");
     expect(sql).toContain("social_edge.type = 'HAS_LINKEDIN'");
     expect(sql).toContain("https://www.linkedin.com/in/");
     expect(sql).toContain("social_edge.type = 'HAS_TWITTER'");

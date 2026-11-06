@@ -790,30 +790,35 @@ export class InvestorsService {
           selected_round_ownership AS MATERIALIZED (
             SELECT
               selected.raw_round_node_id,
-              min(owner_edge.source_id) AS owner_node_id,
-              count(DISTINCT owner_edge.source_id)::int AS owner_count
+              financing_profile_node_id(selected.raw_round_node_id) AS owner_node_id
             FROM selected_investment_edges selected
-            JOIN graph_relationships owner_edge
-              ON owner_edge.target_id = selected.raw_round_node_id
-             AND owner_edge.type = 'HAS_FUNDING_ROUND'
-            JOIN graph_nodes owner
-              ON owner.id = owner_edge.source_id
-             AND owner.label = 'Organization'
-            GROUP BY selected.raw_round_node_id
+          ),
+          candidate_profiles AS MATERIALIZED (
+            SELECT DISTINCT ownership.owner_node_id
+            FROM selected_round_ownership ownership
+            JOIN graph_nodes profile
+              ON profile.id = ownership.owner_node_id
+             AND profile.label = 'EntityProfile'
+             AND NOT entity_property_is_banned(profile.properties)
+          ),
+          visible_rounds AS MATERIALIZED (
+            SELECT
+              profile.owner_node_id,
+              financing.financing_node_id,
+              financing.properties
+            FROM candidate_profiles profile
+            CROSS JOIN LATERAL profile_visible_financing_nodes(
+              profile.owner_node_id, 'FundingRound'
+            ) financing
+            WHERE fund_round_stage(financing.properties ->> 'roundName') <> 'grant'
           ),
           selected_fund_round_nodes AS MATERIALIZED (
             SELECT
               selected.raw_round_node_id,
-              ownership.owner_node_id
+              visible.owner_node_id
             FROM selected_investment_edges selected
-            JOIN selected_round_ownership ownership
-              ON ownership.raw_round_node_id = selected.raw_round_node_id
-             AND ownership.owner_count = 1
-            JOIN graph_nodes owner
-              ON owner.id = ownership.owner_node_id
-             AND owner.label = 'Organization'
-             AND lower(COALESCE(owner.properties ->> 'banned', 'false'))
-                 NOT IN ('true', '1', 'yes', 'on')
+            JOIN visible_rounds visible
+              ON visible.financing_node_id = selected.raw_round_node_id
           ),
           portfolio AS MATERIALIZED (
             SELECT DISTINCT owner_node_id
@@ -821,15 +826,23 @@ export class InvestorsService {
           ),
           raw_valid_rounds AS MATERIALIZED (
             SELECT
-              funding_round.id AS round_node_id,
-              owner_edge.source_id AS owner_node_id,
+              funding_round.financing_node_id AS round_node_id,
+              portfolio.owner_node_id,
               funding_round.properties ->> 'id' AS id,
-              funding_round.properties ->> 'roundName' AS round_name,
+              COALESCE(
+                NULLIF(btrim(funding_round.properties ->> 'roundName'), ''),
+                'Unknown'
+              ) AS round_name,
               COALESCE(
                 jsonb_numeric_value(funding_round.properties, 'date'),
                 0
               ) AS round_date,
               CASE
+                WHEN funding_round.properties ->> 'raisedAmountUnit' = 'USD'
+                  THEN jsonb_numeric_value(
+                    funding_round.properties,
+                    'raisedAmount'
+                  )
                 WHEN NULLIF(funding_round.properties ->> 'source', '') IS NULL
                   THEN jsonb_numeric_value(
                     funding_round.properties,
@@ -847,22 +860,8 @@ export class InvestorsService {
               funding_round.properties ->> 'sourceLink' AS source_link,
               funding_round.properties ->> 'source' AS source
             FROM portfolio
-            JOIN graph_relationships owner_edge
-              ON owner_edge.source_id = portfolio.owner_node_id
-             AND owner_edge.type = 'HAS_FUNDING_ROUND'
-            JOIN graph_nodes funding_round
-              ON funding_round.id = owner_edge.target_id
-             AND funding_round.label = 'FundingRound'
-            WHERE NOT EXISTS (
-              SELECT 1
-              FROM graph_relationships other_owner
-              JOIN graph_nodes other_owner_node
-                ON other_owner_node.id = other_owner.source_id
-               AND other_owner_node.label = 'Organization'
-              WHERE other_owner.target_id = owner_edge.target_id
-                AND other_owner.type = 'HAS_FUNDING_ROUND'
-                AND other_owner.source_id <> owner_edge.source_id
-            )
+            JOIN visible_rounds funding_round
+              ON funding_round.owner_node_id = portfolio.owner_node_id
           ),
           round_event_nodes AS (
             SELECT
@@ -996,12 +995,24 @@ export class InvestorsService {
                 )
               ) AS payload
             FROM portfolio
-            JOIN graph_nodes owner
-              ON owner.id = portfolio.owner_node_id
-             AND owner.label = 'Organization'
+            -- Investment cards link to Organizations; Profile-only/project-only
+            -- investments remain in canonical fund metrics, not these cards.
+            -- Pick one unbanned member without multiplying Profile events.
+            CROSS JOIN LATERAL (
+              SELECT child.id, child.properties
+              FROM graph_relationships membership
+              JOIN graph_nodes child
+                ON child.id = membership.target_id
+               AND child.label = 'Organization'
+               AND NOT entity_property_is_banned(child.properties)
+              WHERE membership.source_id = portfolio.owner_node_id
+                AND membership.type = 'PROFILE_HAS_ORGANIZATION'
+              ORDER BY child.id
+              LIMIT 1
+            ) owner
             JOIN portfolio_rounds round
               ON round.owner_node_id = portfolio.owner_node_id
-            GROUP BY owner.id, owner.properties
+            GROUP BY portfolio.owner_node_id, owner.id, owner.properties
           ),
           investments AS (
             SELECT COALESCE(
