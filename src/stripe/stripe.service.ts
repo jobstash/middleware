@@ -4,7 +4,7 @@ import {
   Inject,
   Injectable,
 } from "@nestjs/common";
-import Stripe from "stripe";
+import Stripe = require("stripe");
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import {
   data,
@@ -531,7 +531,7 @@ export class StripeService {
     epochEnd: number,
     cursor?: string,
     limit?: number,
-    valueGroupingWindow?: Stripe.Billing.MeterListEventSummariesParams.ValueGroupingWindow,
+    valueGroupingWindow?: Stripe.Billing.MeterListEventSummariesParams["value_grouping_window"],
   ): Promise<ResponseWithOptionalData<QuotaUsage[]>> {
     try {
       const customer = data(await this.getCustomerBySubscriptionId(externalId));
@@ -1429,7 +1429,7 @@ export class StripeService {
 
       await this.stripe.subscriptions.update(externalId, {
         proration_behavior: isUpgrade ? "always_invoice" : "none",
-        billing_cycle_anchor: isUpgrade ? "now" : "unchanged",
+        billing_cycle_anchor: { type: isUpgrade ? "now" : "unchanged" },
         items: updateItems,
       });
 

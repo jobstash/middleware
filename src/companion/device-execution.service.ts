@@ -321,12 +321,7 @@ export class DeviceExecutionService {
     else if (operation === "matching_jobs")
       result = await matchingJobs(this.db, args.ids);
     else if (operation === "intro_paths")
-      result = await introPaths(
-        this.db,
-        this.introHttp,
-        device.owner,
-        args,
-      );
+      result = await introPaths(this.db, this.introHttp, device.owner, args);
     else {
       const batch = await matchingJobs(this.db, [args.id]);
       const job = batch.jobs[0];

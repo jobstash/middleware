@@ -1,4 +1,4 @@
-import Stripe from "stripe";
+import Stripe = require("stripe");
 import { HELP, runCandidateOffers } from "./candidate-stripe-offers";
 
 const PURPOSE = "recruiters-rip-candidate-v1";
@@ -71,7 +71,8 @@ describe("candidate Stripe operator CLI (synthetic transport)", () => {
     expect(coupon.idempotencyKey).toBe(`candidate-offer:${requestId}:coupon`);
     const promotion = fake.requests.find(r => r.path === "/v1/promotion_codes")!;
     expect(promotion.params.get("customer")).toBe("cus_selected");
-    expect(promotion.params.get("coupon")).toBe(`rr_candidate_${requestId}`);
+    expect(promotion.params.get("promotion[type]")).toBe("coupon");
+    expect(promotion.params.get("promotion[coupon]")).toBe(`rr_candidate_${requestId}`);
     expect(promotion.params.get("max_redemptions")).toBe("1");
     expect(promotion.params.get("expires_at")).toBe("2000000000");
     expect(promotion.params.get("code")).toBe("SELECTED100");

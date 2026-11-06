@@ -1,4 +1,4 @@
-import Stripe from "stripe";
+import Stripe = require("stripe");
 import {
   AGENCY_STRIPE_PLAN,
   agencyEntitlementForStripeStatus,

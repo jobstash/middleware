@@ -31,7 +31,7 @@ import { now } from "lodash";
 import { subMonths } from "date-fns";
 import { StripeService } from "src/stripe/stripe.service";
 import { ChangeSubscriptionInput } from "./dto/change-subscription.input";
-import Stripe from "stripe";
+import Stripe = require("stripe");
 import { SubscriptionEntity } from "src/shared/entities/subscription.entity";
 import { ProfileService } from "src/auth/profile/profile.service";
 
@@ -157,7 +157,7 @@ export class SubscriptionsController {
     @Query("cursor") cursor?: string,
     @Query("limit") limit?: number,
     @Query("valueGroupingWindow")
-    valueGroupingWindow?: Stripe.Billing.MeterListEventSummariesParams.ValueGroupingWindow,
+    valueGroupingWindow?: Stripe.Billing.MeterListEventSummariesParams["value_grouping_window"],
   ): Promise<ResponseWithOptionalData<QuotaUsage[]>> {
     this.logger.log(`/subscriptions/${orgId}/payg/${service}/usage ${address}`);
 

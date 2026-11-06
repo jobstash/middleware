@@ -1,5 +1,5 @@
 import { ServiceUnavailableException } from "@nestjs/common";
-import Stripe from "stripe";
+import Stripe = require("stripe");
 
 export interface CandidateSubscriptionState {
   status: "pending" | "active" | "expired";
@@ -10,7 +10,9 @@ export interface CandidateSubscriptionState {
   discount: { percentOff: number; endsAt: string | null } | null;
 }
 
-function providerId(value: string | { id: string } | null | undefined): string | undefined {
+function providerId(
+  value: string | { id: string } | null | undefined,
+): string | undefined {
   return typeof value === "string" ? value : value?.id;
 }
 
@@ -42,11 +44,21 @@ function invoiceDiscount(
       ...(subscription.discounts ?? []),
     ].find(value => typeof value !== "string" && value.id === discountId) ??
     (typeof applied.discount !== "string" ? applied.discount : undefined);
-  if (!discount || typeof discount === "string" || !("end" in discount) || discount.deleted)
+  if (
+    !discount ||
+    typeof discount === "string" ||
+    !("end" in discount) ||
+    discount.deleted
+  )
     throw new ServiceUnavailableException(
       "Membership discount evidence is unavailable",
     );
-  const coupon = discount.coupon;
+  const source = discount.source;
+  const coupon = source?.type === "coupon" ? source.coupon : undefined;
+  if (!coupon || typeof coupon === "string")
+    throw new ServiceUnavailableException(
+      "Membership coupon evidence is unavailable",
+    );
   const percentOff = coupon?.percent_off;
   const productId = providerId(item.price.product);
   const products = coupon?.applies_to?.products;
@@ -85,14 +97,14 @@ function invoiceDiscount(
     throw new ServiceUnavailableException(
       "Membership discount policy does not match",
     );
+  const discountEnd =
+    coupon.duration === "once" ? line.period.end : discount.end!;
   return {
     percentOff,
     endsAt:
       coupon.duration === "forever"
         ? null
-        : new Date(
-            (coupon.duration === "once" ? line.period.end : discount.end!) * 1000,
-          ).toISOString(),
+        : new Date(discountEnd * 1000).toISOString(),
   };
 }
 
@@ -155,7 +167,8 @@ export function readStripeSubscription(
   const customerId = providerId(subscription.customer);
   const lines = invoice.lines.data.filter(
     value =>
-      value.pricing?.price_details?.price === priceId && value.quantity === 1,
+      providerId(value.pricing?.price_details?.price) === priceId &&
+      value.quantity === 1,
   );
   const line = lines.length === 1 ? lines[0] : undefined;
   const parent = line?.parent?.subscription_item_details;

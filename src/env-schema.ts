@@ -1,4 +1,4 @@
-import * as Joi from "joi";
+import Joi = require("joi");
 
 const envSchema = Joi.object({
   ALLOWED_ORIGINS: Joi.string(),

@@ -45,7 +45,7 @@ import {
   LOOKUP_KEYS,
   METERED_SERVICE_LOOKUP_KEYS,
 } from "src/shared/constants";
-import Stripe from "stripe";
+import Stripe = require("stripe");
 import { StripeService } from "src/stripe/stripe.service";
 
 @Injectable()

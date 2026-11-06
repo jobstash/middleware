@@ -14,7 +14,7 @@ import { PeopleIntelligenceService } from "./people-intelligence.service";
         headers: {
           Authorization: `Bearer ${config.get<string>("SCORER_API_KEY")}`,
         },
-        httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+        httpsAgent: new https.Agent(),
         timeout: 30_000,
         baseURL: config.get<string>("SCORER_DOMAIN"),
       }),

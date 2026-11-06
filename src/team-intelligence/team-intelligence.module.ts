@@ -18,7 +18,7 @@ const TEAM_INTELLIGENCE_TIMEOUT_MS = 15_000;
             "SCORER_API_KEY",
           )}`,
         },
-        httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+        httpsAgent: new https.Agent(),
         timeout: TEAM_INTELLIGENCE_TIMEOUT_MS,
         baseURL: configService.get<string>("SCORER_DOMAIN"),
       }),

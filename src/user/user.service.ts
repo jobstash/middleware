@@ -25,11 +25,7 @@ import { randomToken, slugify } from "src/shared/helpers";
 import { GetAvailableUsersInput } from "./dto/get-available-users.input";
 import { ConfigService } from "@nestjs/config";
 import { ProfileService } from "src/auth/profile/profile.service";
-import {
-  User as PrivyUser,
-  WalletWithMetadata,
-  LinkedAccountWithMetadata,
-} from "@privy-io/server-auth";
+import { User as PrivyUser, LinkedAccount } from "@privy-io/node";
 import { PrivyService } from "src/auth/privy/privy.service";
 import { PermissionService } from "./permission.service";
 import { CheckWalletPermissions } from "src/shared/constants";
@@ -301,11 +297,7 @@ export class UserService {
 
   async syncPrivyEmails(wallet: string, privyUser: PrivyUser): Promise<void> {
     const candidates = [
-      privyUser.email?.address,
-      privyUser.google?.email,
-      privyUser.apple?.email,
-      privyUser.github?.email,
-      ...(privyUser.linkedAccounts ?? []).flatMap(account => {
+      ...(privyUser.linked_accounts ?? []).flatMap(account => {
         if (account.type === "email") return [account.address];
         if (
           account.type === "google_oauth" ||
@@ -646,9 +638,13 @@ export class UserService {
   ): Promise<void> {
     try {
       const wallets =
-        privyUser?.linkedAccounts
-          ?.filter(x => x.type === "wallet" && x.walletClientType !== "privy")
-          ?.map(x => (x as WalletWithMetadata).address) ?? [];
+        privyUser?.linked_accounts
+          ?.filter(
+            (account): account is Extract<LinkedAccount, { type: "wallet" }> =>
+              account.type === "wallet" &&
+              account.wallet_client_type !== "privy",
+          )
+          ?.map(account => account.address) ?? [];
       await this.users.syncLinkedWallets(wallet, wallets);
     } catch (err) {
       Sentry.withScope(scope => {
@@ -704,19 +700,40 @@ export class UserService {
           data: storedUser.getProperties(),
         };
       } else {
+        const farcaster = user.linked_accounts.find(
+          account => account.type === "farcaster",
+        );
+        const google = user.linked_accounts.find(
+          account => account.type === "google_oauth",
+        );
+        const apple = user.linked_accounts.find(
+          account => account.type === "apple_oauth",
+        );
+        const github = user.linked_accounts.find(
+          account => account.type === "github_oauth",
+        );
+        const telegram = user.linked_accounts.find(
+          account => account.type === "telegram",
+        );
+        const discord = user.linked_accounts.find(
+          account => account.type === "discord_oauth",
+        );
+        const twitter = user.linked_accounts.find(
+          account => account.type === "twitter_oauth",
+        );
         const newUserDto = {
           wallet: embeddedWallet,
           privyId: user.id,
           name:
-            user.farcaster?.displayName ??
-            user.google?.name ??
-            user.apple?.subject ??
-            user.github?.name ??
-            (user.telegram
-              ? `${user.telegram.firstName} ${user.telegram.lastName}`
+            farcaster?.display_name ??
+            google?.name ??
+            apple?.subject ??
+            github?.name ??
+            (telegram
+              ? `${telegram.first_name} ${telegram.last_name}`
               : null) ??
-            user.discord?.subject ??
-            user.twitter?.name ??
+            discord?.subject ??
+            twitter?.name ??
             null,
         };
 
@@ -1359,9 +1376,9 @@ export class UserService {
     await this.syncPrivyEmails(embeddedWallet, user);
     this.logger.log(`Syncing linked accounts for ${embeddedWallet}`);
     const account = (
-      type: LinkedAccountWithMetadata["type"],
-    ): LinkedAccountWithMetadata | undefined => {
-      return user?.["linkedAccounts"]?.find(x => x.type === type);
+      type: LinkedAccount["type"],
+    ): LinkedAccount | undefined => {
+      return user?.linked_accounts?.find(x => x.type === type);
     };
     const contact = {
       discord: account("discord_oauth")?.["username"] ?? null,

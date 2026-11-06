@@ -3,7 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { Cron } from "@nestjs/schedule";
 import { createHash } from "node:crypto";
 import { EntityManager } from "typeorm";
-import { User } from "@privy-io/server-auth";
+import { User } from "@privy-io/node";
 import { PostgresService } from "src/postgres/postgres.service";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 
@@ -89,12 +89,12 @@ export class PrivyThreatSyncService implements OnModuleInit, OnModuleDestroy {
   async syncUser(user: User): Promise<boolean> {
     if (!user?.id) return false;
     try {
-      const github = user.linkedAccounts
+      const github = user.linked_accounts
         ?.filter(account => account.type === "github_oauth")
         .sort(
           (left, right) =>
-            this.dateMillis(right.latestVerifiedAt ?? right.verifiedAt) -
-            this.dateMillis(left.latestVerifiedAt ?? left.verifiedAt),
+            (right.latest_verified_at ?? right.verified_at) -
+            (left.latest_verified_at ?? left.verified_at),
         )[0];
       const subjectHash = this.subjectHash(user.id);
       const githubLogin =
@@ -111,10 +111,11 @@ export class PrivyThreatSyncService implements OnModuleInit, OnModuleDestroy {
           );
           return;
         }
-        const createdAt = this.dateValue(user.createdAt) ?? new Date();
-        const firstSeenAt = this.dateValue(github.firstVerifiedAt) ?? createdAt;
+        const createdAt = this.epochDate(user.created_at) ?? new Date();
+        const firstSeenAt =
+          this.epochDate(github.first_verified_at) ?? createdAt;
         const lastSeenAt =
-          this.dateValue(github.latestVerifiedAt ?? github.verifiedAt) ??
+          this.epochDate(github.latest_verified_at ?? github.verified_at) ??
           firstSeenAt;
         await manager.query(
           `INSERT INTO threat_intel.jobstash_privy_accounts (
@@ -371,19 +372,6 @@ export class PrivyThreatSyncService implements OnModuleInit, OnModuleDestroy {
 
   private subjectHash(privyId: string): string {
     return createHash("sha256").update(`privy:${privyId}`).digest("hex");
-  }
-
-  private dateMillis(value: unknown): number {
-    return this.dateValue(value)?.valueOf() ?? 0;
-  }
-
-  private dateValue(value: unknown): Date | null {
-    if (value instanceof Date && !Number.isNaN(value.valueOf())) return value;
-    if (typeof value === "string" || typeof value === "number") {
-      const date = new Date(value);
-      if (!Number.isNaN(date.valueOf())) return date;
-    }
-    return null;
   }
 
   private epochDate(value: unknown): Date | null {

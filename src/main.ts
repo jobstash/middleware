@@ -1,17 +1,16 @@
-import type { Cluster } from "node:cluster";
+import cluster from "node:cluster";
 import { availableParallelism } from "node:os";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
-import "@sentry/tracing";
 import helmet from "helmet";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import { ValidationPipe } from "@nestjs/common";
 import type { RequestHandler } from "express";
-import type { IronSessionOptions } from "iron-session";
+import { getIronSession, type SessionOptions } from "iron-session";
 import * as dotenv from "dotenv";
 // import * as express from "express";
-import * as basicAuth from "express-basic-auth";
-import * as compression from "compression";
+import basicAuth = require("express-basic-auth");
+import compression = require("compression");
 import { PublicModule } from "./public/public.module";
 import { generatePublicApiSpec } from "./shared/helpers";
 import {
@@ -20,22 +19,9 @@ import {
 } from "./shared/constants/cors";
 dotenv.config();
 
-// This project intentionally compiles without `esModuleInterop`. Node exposes
-// `cluster` as a CommonJS object, so a default import emits an invalid
-// `.default` lookup at runtime.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const cluster = require("node:cluster") as Cluster;
-
-// iron-session 6 publishes runtime CommonJS files for this subpath, but its
-// package metadata points TypeScript at an unbuildable source entry.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { ironSession } = require("iron-session/express") as {
-  ironSession(options: IronSessionOptions): RequestHandler;
-};
-
 if (!process.env.SESSION_SECRET) throw new Error("SESSION_SECRET must be set");
 
-const ironOptions: IronSessionOptions = {
+const ironOptions: SessionOptions = {
   password: process.env.SESSION_SECRET,
   cookieName: "session",
   cookieOptions: {
@@ -48,12 +34,24 @@ async function bootstrap(): Promise<void> {
     rawBody: true,
     bodyParser: true,
   });
+  // Express 5 defaults to the simple parser; retain nested filter/array queries.
+  app.getHttpAdapter().getInstance().set("query parser", "extended");
   app.useGlobalPipes(
     new ValidationPipe({
       enableDebugMessages: process.env.NODE_ENV === "production" ? false : true,
     }),
   );
-  app.use(ironSession(ironOptions));
+  const sessionMiddleware: RequestHandler = async (req, res, next) => {
+    try {
+      Object.assign(req, {
+        session: await getIronSession(req, res, ironOptions),
+      });
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
+  app.use(sessionMiddleware);
   app.use(helmet());
   app.use(compression());
   app.enableCors({

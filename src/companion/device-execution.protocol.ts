@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException } from "@nestjs/common";
 import { createHash, createPublicKey, KeyObject, verify } from "node:crypto";
-import * as Joi from "joi";
+import Joi = require("joi");
 
 export interface DeviceIdentity {
   id: string;
@@ -30,7 +30,8 @@ export interface IntroPathsArgs {
   source?: GithubEndpoint;
   targets: GithubEndpoint[];
 }
-export const githubLoginPattern = /^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$(?![\s\S])/;
+export const githubLoginPattern =
+  /^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$(?![\s\S])/;
 interface DeviceInputs {
   pair: {
     requestId: string;
@@ -167,7 +168,10 @@ export function deviceInput<K extends keyof DeviceInputs>(
         throw new BadRequestException("Invalid publication window");
     } else if (input.operation === "intro_paths") {
       if (input.args.source)
-        input.args.source = { ...input.args.source, login: input.args.source.login.toLowerCase() };
+        input.args.source = {
+          ...input.args.source,
+          login: input.args.source.login.toLowerCase(),
+        };
       const seen = new Set<string>();
       input.args.targets = input.args.targets.flatMap(target => {
         const login = target.login.toLowerCase();

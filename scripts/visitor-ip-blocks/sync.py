@@ -7,9 +7,26 @@ import os
 from pathlib import Path
 import tempfile
 import time
-from urllib.request import Request, urlopen
+from urllib.error import HTTPError
+from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
 PREFIX = "jobstash-ip-block-"
+SOURCE_URL = "https://middleware.jobstash.xyz/telemetry/ip-blocks/proxy"
+STATUS_URL = "http://127.0.0.1/api/http/routers"
+OUTPUT_FILE = Path("/data/coolify/proxy/dynamic/jobstash-ip-blocks.yaml")
+
+class NoRedirects(HTTPRedirectHandler):
+    def redirect_request(self, request, fp, code, message, headers, newurl):
+        raise HTTPError(request.full_url, code, "Blocklist redirects are forbidden", headers, fp)
+
+def load_settings():
+    settings = json.loads(Path(os.environ.get("BLOCKLIST_SETTINGS", "/etc/jobstash-ip-blocks.json")).read_text())
+    expected = {"url": SOURCE_URL, "statusUrl": STATUS_URL, "file": str(OUTPUT_FILE)}
+    if any(settings.get(key) != value for key, value in expected.items()):
+        raise ValueError("Blocklist destinations must match the installed deployment")
+    if not isinstance(settings.get("secret"), str) or not settings["secret"]:
+        raise ValueError("Missing blocklist secret")
+    return settings
 
 def build_config(ips, revision):
     if not isinstance(ips, list):
@@ -35,6 +52,10 @@ def build_config(ips, revision):
     }}}
 
 def request_json(url, secret=None, body=None, host=None):
+    if url not in (SOURCE_URL, SOURCE_URL + "/ack", STATUS_URL):
+        raise ValueError("Unapproved blocklist destination")
+    if url == STATUS_URL and (secret is not None or body is not None):
+        raise ValueError("Router status must not receive blocklist credentials")
     headers = {"Accept": "application/json"}
     if secret:
         headers["x-blocklist-key"] = secret
@@ -43,7 +64,7 @@ def request_json(url, secret=None, body=None, host=None):
     if body is not None:
         headers["Content-Type"] = "application/json"
     request = Request(url, data=None if body is None else json.dumps(body).encode(), headers=headers)
-    with urlopen(request, timeout=5) as response:
+    with build_opener(ProxyHandler({}), NoRedirects()).open(request, timeout=5) as response:
         return json.load(response)
 
 def write_atomic(path, content):
@@ -65,10 +86,10 @@ def config_loaded(config, observed):
         for name, router in expected.items())
 
 def sync():
-    settings = json.loads(Path(os.environ.get("BLOCKLIST_SETTINGS", "/etc/jobstash-ip-blocks.json")).read_text())
-    snapshot = request_json(settings["url"], settings["secret"])
+    settings = load_settings()
+    snapshot = request_json(SOURCE_URL, settings["secret"])
     config = build_config(snapshot["ips"], snapshot["revision"])
-    path = Path(settings["file"])
+    path = OUTPUT_FILE
     encoded = json.dumps(config, indent=2).encode()
     previous = path.read_bytes() if path.exists() else None
     changed = previous != encoded
@@ -76,9 +97,9 @@ def sync():
         write_atomic(path, encoded)
     try:
         for attempt in range(8):
-            observed = request_json(settings["statusUrl"], host="jobstash-blocklist-check.internal")
+            observed = request_json(STATUS_URL, host="jobstash-blocklist-check.internal")
             if config_loaded(config, observed):
-                request_json(settings["url"] + "/ack", settings["secret"], {"revision": snapshot["revision"]})
+                request_json(SOURCE_URL + "/ack", settings["secret"], {"revision": snapshot["revision"]})
                 return
             time.sleep(1)
         raise RuntimeError("Traefik has not accepted the saved IP blocks")

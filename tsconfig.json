@@ -1,6 +1,8 @@
 {
   "compilerOptions": {
-    "module": "commonjs",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "esModuleInterop": true,
     "declaration": true,
     "removeComments": true,
     "emitDecoratorMetadata": true,
@@ -11,13 +13,19 @@
     "sourceRoot": "/",
     "inlineSources": true,
     "outDir": "./dist",
-    "baseUrl": "./",
+    "rootDir": "./",
+    "paths": {
+      "src/*": ["./src/*"]
+    },
+    "types": ["node", "jest", "multer"],
     "incremental": true,
     "skipLibCheck": true,
+    "strict": false,
     "strictNullChecks": false,
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false
-  }
+  },
+  "include": ["src/**/*.ts", "scripts/**/*.ts"]
 }

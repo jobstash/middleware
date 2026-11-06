@@ -902,7 +902,8 @@ export class TagRepository {
       this.postgres,
       `
         WITH inputs AS MATERIALIZED (
-          SELECT input, ordinal
+          SELECT input, ordinal, lower(input) AS lower_input,
+            slugify_text(input) AS normalized_input
           FROM unnest($1::text[]) WITH ORDINALITY AS value(input, ordinal)
         ), candidates AS MATERIALIZED (
           SELECT
@@ -911,11 +912,11 @@ export class TagRepository {
             tag.id AS source_tag_id,
             tag.properties,
             CASE
-              WHEN tag.properties ->> 'normalizedName' = slugify_text(input.input)
+              WHEN tag.properties ->> 'normalizedName' = input.normalized_input
                 THEN 1.0
               ELSE greatest(
-                similarity(lower(tag.properties ->> 'name'), lower(input.input)),
-                similarity(tag.properties ->> 'normalizedName', slugify_text(input.input))
+                similarity(lower(tag.properties ->> 'name'), input.lower_input),
+                similarity(tag.properties ->> 'normalizedName', input.normalized_input)
               )
             END AS base_score
           FROM inputs input
@@ -925,21 +926,21 @@ export class TagRepository {
             WHERE tag.label = 'Tag'
               AND ${unblockedPredicate("tag")}
               AND (
-                tag.properties ->> 'normalizedName' = slugify_text(input.input)
-                OR lower(tag.properties ->> 'name') % lower(input.input)
-                OR (tag.properties ->> 'normalizedName') % slugify_text(input.input)
-                OR lower(tag.properties ->> 'name') LIKE '%' || lower(input.input) || '%'
+                tag.properties ->> 'normalizedName' = input.normalized_input
+                OR lower(tag.properties ->> 'name') % input.lower_input
+                OR (tag.properties ->> 'normalizedName') % input.normalized_input
+                OR lower(tag.properties ->> 'name') LIKE '%' || input.lower_input || '%'
               )
             ORDER BY
-              (tag.properties ->> 'normalizedName' = slugify_text(input.input)) DESC,
+              (tag.properties ->> 'normalizedName' = input.normalized_input) DESC,
               greatest(
-                similarity(lower(tag.properties ->> 'name'), lower(input.input)),
-                similarity(tag.properties ->> 'normalizedName', slugify_text(input.input))
+                similarity(lower(tag.properties ->> 'name'), input.lower_input),
+                similarity(tag.properties ->> 'normalizedName', input.normalized_input)
               ) DESC,
               tag.id
             LIMIT $2
           ) tag
-        ), resolved AS (
+        ), resolved AS MATERIALIZED (
           SELECT
             candidate.input,
             candidate.ordinal,
@@ -950,24 +951,20 @@ export class TagRepository {
           FROM candidates candidate
           JOIN graph_nodes source ON source.id = candidate.source_tag_id
           ${canonicalJoins("source")}
-        ), scored AS (
-          SELECT
-            resolved.*,
-            count(DISTINCT job.job_node_id) AS job_count,
-            resolved.base_score * ln(count(DISTINCT job.job_node_id) + 2.0)
-              AS score
-          FROM resolved
+        ), job_counts AS MATERIALIZED (
+          SELECT selected.tag_id, count(DISTINCT job.job_node_id) AS job_count
+          FROM (SELECT DISTINCT tag_id FROM resolved) selected
           LEFT JOIN graph_relationships job_tag
-            ON job_tag.target_id = resolved.tag_id
+            ON job_tag.target_id = selected.tag_id
            AND job_tag.type = 'HAS_TAG'
           LEFT JOIN job_search_documents job
             ON job.job_node_id = job_tag.source_id
-          GROUP BY
-            resolved.input,
-            resolved.ordinal,
-            resolved.tag_id,
-            resolved.properties,
-            resolved.base_score
+          GROUP BY selected.tag_id
+        ), scored AS (
+          SELECT resolved.*, job_counts.job_count,
+            resolved.base_score * ln(job_counts.job_count + 2.0) AS score
+          FROM resolved
+          JOIN job_counts USING (tag_id)
         )
         SELECT DISTINCT ON (input, tag_id)
           input,

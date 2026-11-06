@@ -45,10 +45,10 @@ import { CompanionModule } from "./companion/companion.module";
     SentryModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
-      validationSchema: envSchema,
-      validationOptions: {
+      validationSchema: envSchema.prefs({
         abortEarly: false,
-      },
+        allowUnknown: true,
+      }),
     }),
     PostgresModule.forRootAsync({
       imports: [ConfigModule],
@@ -103,14 +103,28 @@ export class AppModule implements OnModuleInit {
   onModuleInit(): void {
     Sentry.init({
       dsn: this.configService.get<string>("SENTRY_DSN"),
-      tracesSampleRate: parseInt(
-        this.configService.get<string>("SENTRY_TRACES_SAMPLE_RATE") ?? "0.2",
+      // Preserve the deployed integer-parsing policy during the SDK upgrade.
+      // Fractional collection requires a separate, explicit policy change.
+      tracesSampleRate: Number.parseInt(
+        String(
+          this.configService.get<number>("SENTRY_TRACES_SAMPLE_RATE") ?? 0.2,
+        ),
+        10,
       ),
-      profilesSampleRate: parseInt(
-        this.configService.get<string>("SENTRY_PROFILE_SAMPLE_RATE") ?? "0.2",
+      profileSessionSampleRate: Number.parseInt(
+        String(
+          this.configService.get<number>("SENTRY_PROFILE_SAMPLE_RATE") ?? 0.2,
+        ),
+        10,
       ),
       profileLifecycle: "trace",
-      sendDefaultPii: true,
+      dataCollection: {
+        userInfo: true,
+        cookies: true,
+        // SDK 11 adds automatic LangChain embedding instrumentation.
+        // Do not newly collect recommendation/document inputs or outputs.
+        genAI: { inputs: false, outputs: false },
+      },
       integrations: [
         nodeProfilingIntegration(),
         Sentry.captureConsoleIntegration(),

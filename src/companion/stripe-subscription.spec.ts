@@ -1,4 +1,4 @@
-import Stripe from "stripe";
+import Stripe = require("stripe");
 import {
   CandidateSubscriptionState,
   readStripeSubscription,
@@ -13,13 +13,16 @@ interface DiscountFixture {
   invoice_item: null;
   start: number;
   end: number | null;
-  coupon: {
-    id: string;
-    livemode: boolean;
-    amount_off: null;
-    percent_off: number;
-    duration: "once" | "repeating" | "forever";
-    applies_to?: { products: string[] };
+  source: {
+    type: "coupon";
+    coupon: {
+      id: string;
+      livemode: boolean;
+      amount_off: null;
+      percent_off: number;
+      duration: "once" | "repeating" | "forever";
+      applies_to?: { products: string[] };
+    };
   };
 }
 
@@ -174,7 +177,7 @@ function subscription(): SubscriptionFixture {
 function discounted(
   value: SubscriptionFixture,
   percentOff: number,
-  duration: DiscountFixture["coupon"]["duration"],
+  duration: DiscountFixture["source"]["coupon"]["duration"],
 ): SubscriptionFixture {
   const coupon: DiscountFixture = {
     id: "di_owned",
@@ -185,13 +188,16 @@ function discounted(
     invoice_item: null,
     start,
     end: duration === "repeating" ? end - 3600 : null,
-    coupon: {
-      id: "coupon_owned",
-      livemode: true,
-      amount_off: null,
-      percent_off: percentOff,
-      duration,
-      applies_to: { products: [value.items.data[0].price.product] },
+    source: {
+      type: "coupon",
+      coupon: {
+        id: "coupon_owned",
+        livemode: true,
+        amount_off: null,
+        percent_off: percentOff,
+        duration,
+        applies_to: { products: [value.items.data[0].price.product] },
+      },
     },
   };
   value.discounts = [coupon];
@@ -360,7 +366,7 @@ describe("live Stripe membership state", () => {
   );
   it("accepts an unrestricted forever coupon", () => {
     const value = discounted(yearly(), 100, "forever");
-    delete value.discounts[0].coupon.applies_to;
+    delete value.discounts[0].source.coupon.applies_to;
     expect(parse(value).status).toBe("active");
   });
   it("returns the paid period end for a scoped 70 percent once offer", () => {
@@ -373,7 +379,9 @@ describe("live Stripe membership state", () => {
     });
   });
   it("accepts a customer-specific finite 100 percent monthly offer", () => {
-    expect(parse(discounted(subscription(), 100, "once")).status).toBe("active");
+    expect(parse(discounted(subscription(), 100, "once")).status).toBe(
+      "active",
+    );
   });
   it.each(["incomplete", "past_due", "unpaid", "paused", "canceled"])(
     "never grants discounted access for %s",
@@ -396,10 +404,10 @@ describe("live Stripe membership state", () => {
     "rejects %s discounts without hydrated monthly-only scope",
     duration => {
       const missing = discounted(subscription(), 70, duration);
-      delete missing.discounts[0].coupon.applies_to;
+      delete missing.discounts[0].source.coupon.applies_to;
       expect(() => parse(missing)).toThrow("discount policy");
       const broad = discounted(subscription(), 70, duration);
-      broad.discounts[0].coupon.applies_to = {
+      broad.discounts[0].source.coupon.applies_to = {
         products: ["prod_month", "prod_year"],
       };
       expect(() => parse(broad)).toThrow("discount policy");
@@ -412,10 +420,14 @@ describe("live Stripe membership state", () => {
     const value = discounted(subscription(), 70, "once");
     const unexpanded = {
       ...value.discounts[0],
-      coupon: { ...value.discounts[0].coupon },
+      source: {
+        ...value.discounts[0].source,
+        coupon: { ...value.discounts[0].source.coupon },
+      },
     };
-    delete unexpanded.coupon.applies_to;
-    value.latest_invoice.lines.data[0].discount_amounts[0].discount = unexpanded;
+    delete unexpanded.source.coupon.applies_to;
+    value.latest_invoice.lines.data[0].discount_amounts[0].discount =
+      unexpanded;
     expect(parse(value).status).toBe("active");
   });
   it("rejects foreign or unexpanded coupon evidence", () => {
@@ -453,7 +465,8 @@ describe("live Stripe membership state", () => {
       value.latest_invoice.customer = "cus_foreign";
     },
     (value: SubscriptionFixture): void => {
-      value.latest_invoice.parent.subscription_details.subscription = "sub_other";
+      value.latest_invoice.parent.subscription_details.subscription =
+        "sub_other";
     },
     (value: SubscriptionFixture): void => {
       value.latest_invoice.lines.data[0].parent.subscription_item_details.subscription =
@@ -470,8 +483,7 @@ describe("live Stripe membership state", () => {
       value.latest_invoice.lines.data[0].invoice = "in_other";
     },
     (value: SubscriptionFixture): void => {
-      value.latest_invoice.lines.data[0].parent.subscription_item_details.proration =
-        true;
+      value.latest_invoice.lines.data[0].parent.subscription_item_details.proration = true;
     },
     (value: SubscriptionFixture): void => {
       value.latest_invoice.lines.data[0].period.start = start - 1;

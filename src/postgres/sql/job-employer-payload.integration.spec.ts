@@ -13,7 +13,9 @@ describeDatabase("job WorkArrangementV1 payload in PostgreSQL", () => {
 
   beforeAll(async () => {
     if (!["localhost", "127.0.0.1"].includes(new URL(databaseUrl!).hostname)) {
-      throw new Error("Work-arrangement fixtures require an isolated local database");
+      throw new Error(
+        "Work-arrangement fixtures require an isolated local database",
+      );
     }
     db = new Client({ connectionString: databaseUrl });
     await db.connect();
@@ -52,7 +54,12 @@ describeDatabase("job WorkArrangementV1 payload in PostgreSQL", () => {
         onsiteOptions: [],
         [`${mode}Options`]: [
           option,
-          { ...option, optionKey: "explicit", mode, classification: "remote_unqualified" },
+          {
+            ...option,
+            optionKey: "explicit",
+            mode,
+            classification: "remote_unqualified",
+          },
         ],
       };
       const { rows } = await db.query(
@@ -121,8 +128,9 @@ describeDatabase("job WorkArrangementV1 payload in PostgreSQL", () => {
           const payload = rows[0].payload;
           expect(payload[`${mode}Options`]).toHaveLength(1);
           expect(payload[`${mode}Options`][0][field]).toEqual(value);
-          expect(WorkArrangementV1.WorkArrangementV1Type.decode(payload)._tag)
-            .toBe("Left");
+          expect(
+            WorkArrangementV1.WorkArrangementV1Type.decode(payload)._tag,
+          ).toBe("Left");
         }
       }
     },
@@ -134,12 +142,14 @@ describeDatabase("job WorkArrangementV1 payload in PostgreSQL", () => {
       const { rows } = await db.query(
         `SELECT ${jobWorkArrangementPayload("job")} AS payload
          FROM (SELECT $1::jsonb AS work_arrangement) job`,
-        [JSON.stringify({
-          classification,
-          remoteOptions: [{ scope: "global" }],
-          hybridOptions: [],
-          onsiteOptions: [],
-        })],
+        [
+          JSON.stringify({
+            classification,
+            remoteOptions: [{ scope: "global" }],
+            hybridOptions: [],
+            onsiteOptions: [],
+          }),
+        ],
       );
       const payload = rows[0].payload;
       expect(payload.classification).toEqual(classification);
@@ -148,8 +158,9 @@ describeDatabase("job WorkArrangementV1 payload in PostgreSQL", () => {
         mode: "remote",
         classification,
       });
-      expect(WorkArrangementV1.WorkArrangementV1Type.decode(payload)._tag)
-        .toBe("Left");
+      expect(WorkArrangementV1.WorkArrangementV1Type.decode(payload)._tag).toBe(
+        "Left",
+      );
     },
   );
 
@@ -157,12 +168,14 @@ describeDatabase("job WorkArrangementV1 payload in PostgreSQL", () => {
     const { rows } = await db.query(
       `SELECT ${jobWorkArrangementPayload("job")} AS payload
        FROM (SELECT $1::jsonb AS work_arrangement) job`,
-      [JSON.stringify({
-        classification: "conflicting",
-        remoteOptions: [{ scope: "global", mode: "onsite" }],
-        hybridOptions: [{ scope: "global", mode: "remote" }],
-        onsiteOptions: [{ scope: "global", mode: "hybrid" }],
-      })],
+      [
+        JSON.stringify({
+          classification: "conflicting",
+          remoteOptions: [{ scope: "global", mode: "onsite" }],
+          hybridOptions: [{ scope: "global", mode: "remote" }],
+          onsiteOptions: [{ scope: "global", mode: "hybrid" }],
+        }),
+      ],
     );
     expect(rows[0].payload.remoteOptions).toHaveLength(1);
     expect(rows[0].payload.hybridOptions).toHaveLength(1);

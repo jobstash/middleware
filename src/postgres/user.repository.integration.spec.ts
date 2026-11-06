@@ -510,6 +510,7 @@ describePostgres("UserRepository PostgreSQL integration", () => {
     const github = await createNode("GithubUser", "github:profile", {
       id: "github-profile-id",
       nodeId: "github-profile-node",
+      login: "user-one",
       avatarUrl: "https://example.com/avatar.png",
     });
     const location = await createNode("UserLocation", "location:profile", {

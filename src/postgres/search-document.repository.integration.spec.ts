@@ -1,7 +1,7 @@
 import { INestApplication } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Test } from "@nestjs/testing";
-import * as request from "supertest";
+import request = require("supertest");
 import { PBACGuard } from "src/auth/pbac.guard";
 import { OrganizationsService } from "src/organizations/organizations.service";
 import { ProjectsController } from "src/projects/projects.controller";
@@ -91,7 +91,12 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
     let app: INestApplication;
 
     beforeAll(async () => {
-      const service = new ProjectsService(undefined, undefined, repository, undefined);
+      const service = new ProjectsService(
+        undefined,
+        undefined,
+        repository,
+        undefined,
+      );
       const module = await Test.createTestingModule({
         controllers: [ProjectsController],
         providers: [
@@ -99,9 +104,17 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
           { provide: ProjectCategoryService, useValue: {} },
           { provide: OrganizationsService, useValue: {} },
           { provide: UserService, useValue: {} },
-          { provide: ConfigService, useValue: new ConfigService({ NFT_STORAGE_API_KEY: "fixture-only" }) },
+          {
+            provide: ConfigService,
+            useValue: new ConfigService({
+              NFT_STORAGE_API_KEY: "fixture-only",
+            }),
+          },
         ],
-      }).overrideGuard(PBACGuard).useValue({ canActivate: () => false }).compile();
+      })
+        .overrideGuard(PBACGuard)
+        .useValue({ canActivate: () => false })
+        .compile();
       app = module.createNestApplication();
       await app.init();
     });
@@ -124,14 +137,28 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
     it.each(["id", "slug"] as const)(
       "hydrates the real mixed-timestamp projection through the %s service entrypoint",
       async lookup => {
-        const service = new ProjectsService(undefined, undefined, repository, undefined);
-        const result = lookup === "id"
-          ? await service.getProjectDetailsById(doubleZeroEdgeProjection.id, undefined)
-          : await service.getProjectDetailsBySlug(doubleZeroEdgeProjection.normalizedName, undefined);
+        const service = new ProjectsService(
+          undefined,
+          undefined,
+          repository,
+          undefined,
+        );
+        const result =
+          lookup === "id"
+            ? await service.getProjectDetailsById(
+                doubleZeroEdgeProjection.id,
+                undefined,
+              )
+            : await service.getProjectDetailsBySlug(
+                doubleZeroEdgeProjection.normalizedName,
+                undefined,
+              );
 
         expect(result).toBeDefined();
         expect(result.id).toBe(doubleZeroEdgeProjection.id);
-        expect(result.organizations).toHaveLength(doubleZeroEdgeProjection.organizations.length);
+        expect(result.organizations).toHaveLength(
+          doubleZeroEdgeProjection.organizations.length,
+        );
         expect(result.jobs).toHaveLength(doubleZeroEdgeProjection.jobs.length);
         const rawTagGroups = [
           doubleZeroEdgeProjection.tags,
@@ -144,36 +171,50 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
           ...result.jobs.map(job => job.tags),
         ];
         responseTagGroups.forEach((tags, index) => {
-          expect(tags).toEqual(rawTagGroups[index].map(tag => ({
-            ...tag,
-            createdTimestamp: "createdTimestamp" in tag ? tag.createdTimestamp : null,
-          })));
+          expect(tags).toEqual(
+            rawTagGroups[index].map(tag => ({
+              ...tag,
+              createdTimestamp:
+                "createdTimestamp" in tag ? tag.createdTimestamp : null,
+            })),
+          );
         });
-        const stored = await repository.getProjectById<typeof doubleZeroEdgeProjection>(
-          doubleZeroEdgeProjection.id,
-        );
+        const stored = await repository.getProjectById<
+          typeof doubleZeroEdgeProjection
+        >(doubleZeroEdgeProjection.id);
         expect(stored).toEqual(doubleZeroEdgeProjection);
-        expect(stored.organizations[0].tags[0]).not.toHaveProperty("createdTimestamp");
+        expect(stored.organizations[0].tags[0]).not.toHaveProperty(
+          "createdTimestamp",
+        );
       },
     );
+
     it.each([
       `details/${doubleZeroEdgeProjection.id}`,
       `details/slug/${doubleZeroEdgeProjection.normalizedName}`,
-    ])("serves the stored projection through the real public HTTP route %s", async route => {
-      const response = await request(app.getHttpServer()).get(`/projects/${route}`).expect(200);
-      expect(response.body.id).toBe(doubleZeroEdgeProjection.id);
-      expect(response.body.jobs).toHaveLength(doubleZeroEdgeProjection.jobs.length);
-      expect(response.body.organizations[0].tags).toEqual(
-        doubleZeroEdgeProjection.organizations[0].tags.map(tag => ({
-          ...tag,
-          createdTimestamp: "createdTimestamp" in tag ? tag.createdTimestamp : null,
-        })),
-      );
-      expect(response.body.jobs[0].tags[0].createdTimestamp).toBeNull();
-      expect(response.body.jobs[1].tags[0].createdTimestamp)
-        .toBe(1774104023737);
-    });
-
+    ])(
+      "serves the stored projection through the real public HTTP route %s",
+      async route => {
+        const response = await request(app.getHttpServer())
+          .get(`/projects/${route}`)
+          .expect(200);
+        expect(response.body.id).toBe(doubleZeroEdgeProjection.id);
+        expect(response.body.jobs).toHaveLength(
+          doubleZeroEdgeProjection.jobs.length,
+        );
+        expect(response.body.organizations[0].tags).toEqual(
+          doubleZeroEdgeProjection.organizations[0].tags.map(tag => ({
+            ...tag,
+            createdTimestamp:
+              "createdTimestamp" in tag ? tag.createdTimestamp : null,
+          })),
+        );
+        expect(response.body.jobs[0].tags[0].createdTimestamp).toBeNull();
+        expect(response.body.jobs[1].tags[0].createdTimestamp).toBe(
+          1774104023737,
+        );
+      },
+    );
 
     it("does not hide a malformed stored timestamp by converting it to null or dropping its job", async () => {
       await postgres.query(
@@ -183,9 +224,12 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
          WHERE project_id = $1`,
         [doubleZeroEdgeProjection.id],
       );
-      const stored = await repository.getProjectById(doubleZeroEdgeProjection.id);
-      expect(() => new ProjectDetailsEntity(stored as never).getProperties())
-        .toThrow(/createdTimestamp/);
+      const stored = await repository.getProjectById(
+        doubleZeroEdgeProjection.id,
+      );
+      expect(() =>
+        new ProjectDetailsEntity(stored as never).getProperties(),
+      ).toThrow(/createdTimestamp/);
     });
   });
 
@@ -3657,8 +3701,9 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
       "ALTER TABLE job_search_documents DISABLE TRIGGER entity_ban_job_projection_guard",
     );
     try {
-      await postgres.query(
-        `
+      for (let offset = 0; offset < count; offset += 1_000) {
+        await postgres.query(
+          `
         INSERT INTO job_search_documents (
           job_node_id, structured_jobpost_id, short_uuid, organization_id,
           organization_name, title, access, salary, salary_currency, online,
@@ -3685,10 +3730,14 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
           to_tsvector('simple', 'Performance Engineer ' || n.node_key),
           '{}'::jsonb,
           jsonb_build_object('id', n.node_key, 'title', 'Performance Engineer')
-        FROM graph_nodes n
-        WHERE n.node_key LIKE 'perf-%'
+        FROM generate_series($1::integer, $2::integer) value
+        JOIN graph_nodes n
+          ON n.label = 'StructuredJobpost'
+         AND n.node_key = 'perf-' || value
       `,
-      );
+          [offset + 1, Math.min(offset + 1_000, count)],
+        );
+      }
     } finally {
       await postgres.query(
         "ALTER TABLE job_search_documents ENABLE TRIGGER entity_ban_job_projection_guard",

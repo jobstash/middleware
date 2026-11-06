@@ -92,7 +92,9 @@ export class OrganizationWithLinksEntity {
                 isBefore(now, nonZeroOrNull(jobpost?.featureEndDate) ?? now);
               return {
                 ...jobpost,
-                workArrangement: hydrateWorkArrangement(jobpost.workArrangement),
+                workArrangement: hydrateWorkArrangement(
+                  jobpost.workArrangement,
+                ),
                 salary: nonZeroOrNull(jobpost?.salary),
                 minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
                 maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),

@@ -1,10 +1,10 @@
 import { HttpService } from "@nestjs/axios";
-import { getSchemaPath } from "@nestjs/swagger";
 import {
+  getSchemaPath,
   OpenAPIObject,
   ReferenceObject,
   SchemaObject,
-} from "@nestjs/swagger/dist/interfaces/open-api-spec.interface";
+} from "@nestjs/swagger";
 import { AxiosError } from "axios";
 import { TransformFnParams } from "class-transformer";
 import {
@@ -32,7 +32,7 @@ import { CustomLogger } from "../utils/custom-logger";
 import Sqids from "sqids";
 import { PrivyService } from "src/auth/privy/privy.service";
 import { UserService } from "src/user/user.service";
-import { WalletWithMetadata } from "@privy-io/server-auth";
+import { LinkedAccount } from "@privy-io/node";
 import baseSlugify from "slugify";
 import { ShortOrgEntity, ShortOrgWithSummaryEntity } from "../entities";
 import { transliterate } from "transliteration";
@@ -582,9 +582,9 @@ export const createTestUser = async (
 ): Promise<string> => {
   const user = await privyService.getUserByEmail(TEST_EMAIL);
   const embeddedWallet = (
-    user.linkedAccounts.find(
-      x => x.type === "wallet" && x.walletClientType === "privy",
-    ) as WalletWithMetadata
+    user.linked_accounts.find(
+      x => x.type === "wallet" && x.wallet_client_type === "privy",
+    ) as Extract<LinkedAccount, { type: "wallet" }>
   )?.address;
   await userService.upsertPrivyUser(user, embeddedWallet);
   await userService.syncUserPermissions(embeddedWallet, [

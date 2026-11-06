@@ -1,5 +1,5 @@
 # ---------- build (toolchain + Yarn v1 pinned) ----------
-FROM node:22-alpine3.22 AS build
+FROM node:24-alpine3.24 AS build
 WORKDIR /usr/src/app
 
 # Toolchain for native deps (bufferutil, etc.)
@@ -12,7 +12,9 @@ RUN corepack enable && corepack prepare yarn@1.22.22 --activate
 
 # 1) Install (with dev) to build
 COPY package.json yarn.lock ./
+COPY patches ./patches
 RUN yarn install --frozen-lockfile --production=false --ignore-scripts \
+    && yarn patch-package --error-on-fail \
     && npm rebuild bcrypt --build-from-source --foreground-scripts
 
 # 2) Build
@@ -22,10 +24,11 @@ RUN yarn build
 # 3) Reinstall prod-only deps (still in build stage with toolchain)
 RUN rm -rf node_modules \
     && yarn install --frozen-lockfile --production --ignore-scripts \
+    && NODE_ENV=production yarn patch-package --error-on-fail \
     && npm rebuild bcrypt --build-from-source --foreground-scripts
 
 # ---------- runtime (no compilers, no installs, no yarn) ----------
-FROM node:22-alpine3.22 AS runtime
+FROM node:24-alpine3.24 AS runtime
 WORKDIR /usr/src/app
 
 # Coolify's Dockerfile health checks require curl or wget in the runtime image.

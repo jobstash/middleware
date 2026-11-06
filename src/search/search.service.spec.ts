@@ -1,6 +1,7 @@
 import { SearchRepository } from "src/postgres/search.repository";
 import { publicationDateRangeGenerator } from "src/shared/helpers";
 import { SearchService } from "./search.service";
+import { SearchPillarItemParams } from "./dto/search-pillar-items.input";
 
 describe("SearchService organization intelligence filters", () => {
   afterEach(() => jest.useRealTimers());
@@ -403,5 +404,39 @@ describe("SearchService organization intelligence filters", () => {
         ]),
       },
     });
+  });
+  it("paginates every fuzzy pillar match rather than fuzzysort's default first ten", async () => {
+    const service = new SearchService(
+      {} as SearchRepository,
+      {} as never,
+      {} as never,
+    );
+    const items = Array.from(
+      { length: 25 },
+      (_, index) => `Match${String(index).padStart(2, "0")}`,
+    );
+    jest.spyOn(service, "getPillar").mockResolvedValue({
+      slug: "names",
+      label: "Names",
+      items,
+    });
+
+    const pages = await Promise.all(
+      [1, 2, 3].map(page =>
+        service.searchPillarItems(
+          Object.assign(new SearchPillarItemParams(), {
+            nav: "projects",
+            pillar: "names",
+            query: "Match",
+            page,
+            limit: 10,
+          }),
+          undefined,
+        ),
+      ),
+    );
+    expect(pages[2]).toMatchObject({ page: 3, count: 5, total: 25 });
+    expect(pages.map(page => page.total)).toEqual([25, 25, 25]);
+    expect(pages.flatMap(page => page.data).sort()).toEqual(items.sort());
   });
 });

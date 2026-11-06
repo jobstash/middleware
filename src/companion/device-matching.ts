@@ -1,4 +1,8 @@
-import { JobSalary, employerLogoUrl, projectJobSalary } from "./job-card-details";
+import {
+  JobSalary,
+  employerLogoUrl,
+  projectJobSalary,
+} from "./job-card-details";
 import { MatchingCatalogueArgs } from "./device-execution.protocol";
 
 interface LocationEvidence {
@@ -9,28 +13,29 @@ interface LocationEvidence {
   hybridOptions?: unknown[];
   onsiteOptions?: unknown[];
 }
-type Row = LocationEvidence & Record<string, unknown> & {
-  id: string;
-  title: string;
-  company: string;
-  publishedTimestamp: string | number | null;
-  applyUrl: string | null;
-  logoUrl: string | null;
-  companyWebsite: string | null;
-  salaryPayload: Record<string, unknown>;
-  city: string | null;
-  location: string | null;
-  workMode: string | null;
-  seniority: string | null;
-  commitment: string | null;
-  classification: string | null;
-  description?: string | null;
-  headcount?: unknown;
-  stage?: string | null;
-  funding: unknown[];
-  projects: unknown[];
-  ad: string | null;
-};
+type Row = LocationEvidence &
+  Record<string, unknown> & {
+    id: string;
+    title: string;
+    company: string;
+    publishedTimestamp: string | number | null;
+    applyUrl: string | null;
+    logoUrl: string | null;
+    companyWebsite: string | null;
+    salaryPayload: Record<string, unknown>;
+    city: string | null;
+    location: string | null;
+    workMode: string | null;
+    seniority: string | null;
+    commitment: string | null;
+    classification: string | null;
+    description?: string | null;
+    headcount?: unknown;
+    stage?: string | null;
+    funding: unknown[];
+    projects: unknown[];
+    ad: string | null;
+  };
 type Catalogue = {
   query<T extends Record<string, unknown>>(
     sql: string,
@@ -266,7 +271,12 @@ export async function matchingCatalogue(
       `SELECT count(*) AS total FROM job_search_documents j WHERE ${predicate}`,
       parameters,
     );
-    return { total: Number(row.total), jobs: [], nextOffset: null, publicationWindow };
+    return {
+      total: Number(row.total),
+      jobs: [],
+      nextOffset: null,
+      publicationWindow,
+    };
   }
   const offset = args.offset ?? 0;
   // Count and page share a statement snapshot, including empty/out-of-range pages.
@@ -288,18 +298,27 @@ export async function matchingCatalogue(
     [...parameters, matchingCataloguePageSize, offset],
   );
   const total = Number(rows[0].total);
-  const jobs = rows.filter(row => row.id !== null).map(
-    ({ publishedTimestamp, applyUrl, salaryPayload, logoUrl, companyWebsite, ...job }) => {
-      Reflect.deleteProperty(job, "total");
-      return {
-        ...job,
-        logoUrl: employerLogoUrl(logoUrl, companyWebsite),
-        salary: projectJobSalary(salaryPayload),
-        publishedAt: new Date(Number(publishedTimestamp)).toISOString(),
-        ...(applyUrl ? { applyUrl } : {}),
-      };
-    },
-  );
+  const jobs = rows
+    .filter(row => row.id !== null)
+    .map(
+      ({
+        publishedTimestamp,
+        applyUrl,
+        salaryPayload,
+        logoUrl,
+        companyWebsite,
+        ...job
+      }) => {
+        Reflect.deleteProperty(job, "total");
+        return {
+          ...job,
+          logoUrl: employerLogoUrl(logoUrl, companyWebsite),
+          salary: projectJobSalary(salaryPayload),
+          publishedAt: new Date(Number(publishedTimestamp)).toISOString(),
+          ...(applyUrl ? { applyUrl } : {}),
+        };
+      },
+    );
   return {
     total,
     jobs,

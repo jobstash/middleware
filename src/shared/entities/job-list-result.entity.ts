@@ -213,7 +213,9 @@ export class JobListResultEntity {
 
                     return {
                       ...jobpost,
-                      workArrangement: hydrateWorkArrangement(jobpost.workArrangement),
+                      workArrangement: hydrateWorkArrangement(
+                        jobpost.workArrangement,
+                      ),
                       salary: nonZeroOrNull(jobpost?.salary),
                       minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
                       maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),
@@ -328,8 +330,7 @@ export class JobListResultEntity {
             hasUser: project.hasUser ?? false,
           }
         : null,
-      tags:
-        tags?.map(tag => new Tag(tag)) ?? [],
+      tags: tags?.map(tag => new Tag(tag)) ?? [],
     };
 
     if (transform) {
@@ -503,7 +504,9 @@ export class EcosystemJobListResultEntity {
 
                     return {
                       ...jobpost,
-                      workArrangement: hydrateWorkArrangement(jobpost.workArrangement),
+                      workArrangement: hydrateWorkArrangement(
+                        jobpost.workArrangement,
+                      ),
                       salary: nonZeroOrNull(jobpost?.salary),
                       minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
                       maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),
@@ -618,8 +621,7 @@ export class EcosystemJobListResultEntity {
             hasUser: project.hasUser ?? false,
           }
         : null,
-      tags:
-        tags?.map(tag => new Tag(tag)) ?? [],
+      tags: tags?.map(tag => new Tag(tag)) ?? [],
     };
 
     if (transform) {

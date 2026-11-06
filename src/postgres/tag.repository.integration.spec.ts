@@ -1,6 +1,94 @@
+import { Client } from "pg";
 import { PostgresService } from "./postgres.service";
 import { TagRepository } from "./tag.repository";
 import { createProfileMemberFixture } from "./postgres.integration-fixtures";
+
+const databaseUrl = process.env.RECOMMENDATIONS_TEST_DATABASE_URL;
+const describeDatabase = databaseUrl ? describe : describe.skip;
+
+describeDatabase("fuzzy tag matching in PostgreSQL", () => {
+  let db: Client;
+  let tags: TagRepository;
+  const schema = `fuzzy_tags_test_${process.pid}`;
+
+  beforeAll(async () => {
+    if (!["localhost", "127.0.0.1"].includes(new URL(databaseUrl!).hostname))
+      throw new Error("Tag fixtures require an isolated local database");
+    db = new Client({ connectionString: databaseUrl });
+    await db.connect();
+    await db.query(`
+      CREATE EXTENSION IF NOT EXISTS pg_trgm;
+      CREATE EXTENSION IF NOT EXISTS unaccent;
+      CREATE SCHEMA ${schema};
+      SET search_path TO ${schema}, public;
+      CREATE TABLE graph_nodes(id bigint PRIMARY KEY, label text, properties jsonb);
+      CREATE TABLE graph_relationships(source_id bigint, target_id bigint, type text);
+      CREATE INDEX ON graph_relationships(target_id, type, source_id);
+      CREATE INDEX ON graph_relationships(source_id, type, target_id);
+      CREATE TABLE job_search_documents(job_node_id bigint PRIMARY KEY);
+      CREATE FUNCTION slugify_text(value text) RETURNS text LANGUAGE sql STABLE AS $$
+        SELECT CASE WHEN value IS NULL THEN '' ELSE COALESCE(
+          NULLIF(trim(BOTH '-' FROM regexp_replace(lower(unaccent(value)), '[^a-z0-9]+', '-', 'g')), ''),
+          lower(trim(value))) END
+      $$;
+      CREATE INDEX ON graph_nodes USING gin (lower(properties ->> 'name') gin_trgm_ops) WHERE label = 'Tag';
+      CREATE INDEX ON graph_nodes USING gin ((properties ->> 'normalizedName') gin_trgm_ops) WHERE label = 'Tag';
+      INSERT INTO graph_nodes VALUES
+        (1, 'Tag', '{"id":"rust","name":"Rust","normalizedName":"rust","createdTimestamp":0}'),
+        (2, 'Tag', '{"id":"rust-lang","name":"Rust Lang","normalizedName":"rust-lang","createdTimestamp":0}'),
+        (3, 'Tag', '{"id":"python","name":"Python","normalizedName":"python","createdTimestamp":0}'),
+        (4, 'Tag', '{"id":"unknown","name":"Unknown","normalizedName":"unknown","createdTimestamp":0}'),
+        (10, 'PreferredDesignation', '{}'), (11, 'BlockedDesignation', '{}');
+      INSERT INTO graph_relationships VALUES
+        (1,10,'HAS_TAG_DESIGNATION'), (2,1,'IS_SYNONYM_OF'),
+        (3,11,'HAS_TAG_DESIGNATION'), (100,1,'HAS_TAG'),
+        (100,1,'HAS_TAG'), (101,1,'HAS_TAG'), (100,3,'HAS_TAG');
+      INSERT INTO job_search_documents VALUES (100), (101);
+    `);
+    tags = new TagRepository({
+      query: async (sql: string, parameters: unknown[]) =>
+        (await db.query(sql, parameters)).rows,
+    } as unknown as PostgresService);
+  });
+
+  afterAll(async () => {
+    if (db) {
+      await db.query(`DROP SCHEMA ${schema} CASCADE`);
+      await db.end();
+    }
+  });
+
+  it("shares canonical job counts across inputs without changing alias or blocking semantics", async () => {
+    const matches = await tags.fuzzyMatches([
+      "Rust",
+      "rust-lang",
+      "Rust",
+      "Python",
+      "Unknown",
+    ]);
+    expect(matches).toHaveLength(2);
+    expect(matches).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ input: "Rust", id: "rust", jobCount: 2 }),
+        expect.objectContaining({
+          input: "rust-lang",
+          id: "rust",
+          jobCount: 2,
+        }),
+      ]),
+    );
+    expect(
+      matches.every(match => Number.isFinite(match.score) && match.score > 0),
+    ).toBe(true);
+  });
+
+  it("retains zero-job candidates when requested", async () => {
+    expect(await tags.fuzzyMatches(["Unknown"], 5, false)).toEqual([
+      expect.objectContaining({ input: "Unknown", id: "unknown", jobCount: 0 }),
+    ]);
+    expect(await tags.fuzzyMatches([], 5, false)).toEqual([]);
+  });
+});
 
 const describePostgres =
   process.env.RUN_POSTGRES_INTEGRATION === "1" ? describe : describe.skip;

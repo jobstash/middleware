@@ -1012,7 +1012,7 @@ export class SearchService {
       const pillar = await this.getPillar(params, ecosystem);
       if (!pillar) return this.emptyPage();
       const results = params.query
-        ? go(params.query, pillar.items, { threshold: 0.3 }).map(
+        ? go(params.query, pillar.items, { threshold: 0.3, limit: 0 }).map(
             result => result.target,
           )
         : pillar.items;
@@ -1174,9 +1174,7 @@ export class SearchService {
         ),
       ];
       const filters: (
-        | SearchRangeFilter
-        | SingleSelectFilter
-        | MultiSelectFilter
+        SearchRangeFilter | SingleSelectFilter | MultiSelectFilter
       )[] = [];
       const singleFilterField = this.singleActiveFilterField(params);
       const filteredConfigs =

@@ -217,8 +217,7 @@ export class ProjectDetailsEntity {
             featured: isStillFeatured,
             onboardIntoWeb3: jobpost?.onboardIntoWeb3 ?? false,
             ethSeasonOfInternships: jobpost?.ethSeasonOfInternships ?? false,
-            tags:
-              jobpost?.tags.map(tag => new Tag(tag)) ?? [],
+            tags: jobpost?.tags.map(tag => new Tag(tag)) ?? [],
           };
         }) ?? [],
     });

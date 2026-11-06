@@ -1,4 +1,5 @@
 import { DelegateAccessRepository } from "./delegate-access.repository";
+import { createProfileMemberFixture } from "./postgres.integration-fixtures";
 import { PostgresService } from "./postgres.service";
 
 const describePostgres =
@@ -184,6 +185,9 @@ describePostgres("DelegateAccessRepository PostgreSQL integration", () => {
     key: string,
     properties: Record<string, unknown>,
   ): Promise<string> {
+    if (label === "Organization" || label === "Project") {
+      return createProfileMemberFixture(postgres, label, key, properties);
+    }
     const [row] = await postgres.query<{ id: string }>(
       `
         INSERT INTO graph_nodes (label, labels, node_key, properties)

@@ -1,4 +1,4 @@
-import Stripe from "stripe";
+import Stripe = require("stripe");
 import { AGENCY_STRIPE_PLAN } from "src/access-workspaces/agency-billing.contract";
 import { StripeService } from "./stripe.service";
 

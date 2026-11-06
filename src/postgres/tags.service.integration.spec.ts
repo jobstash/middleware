@@ -157,7 +157,9 @@ describePostgres("TagsService PostgreSQL integration", () => {
          SET properties = (properties - 'createdTimestamp') || $1::jsonb
          WHERE label = 'Tag' AND properties ->> 'id' = $2`,
         [
-          JSON.stringify(createdTimestamp === undefined ? {} : { createdTimestamp }),
+          JSON.stringify(
+            createdTimestamp === undefined ? {} : { createdTimestamp },
+          ),
           tag.getId(),
         ],
       );
@@ -171,9 +173,13 @@ describePostgres("TagsService PostgreSQL integration", () => {
         normalizedName: "typescript",
         createdTimestamp: createdTimestamp ?? null,
       };
-      expect((await service.findById(tag.getId())).getProperties()).toEqual(expected);
+      expect((await service.findById(tag.getId())).getProperties()).toEqual(
+        expected,
+      );
       await expect(service.findAll()).resolves.toEqual([expected]);
-      await expect(service.searchTags("typescript")).resolves.toEqual([expected]);
+      await expect(service.searchTags("typescript")).resolves.toEqual([
+        expected,
+      ]);
       await expect(service.getAllUnblockedTags()).resolves.toEqual([expected]);
       await expect(service.getPopularTags(10)).resolves.toEqual([expected]);
       await service.blockTag("typescript", "0xmoderator");

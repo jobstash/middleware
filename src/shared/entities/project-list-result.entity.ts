@@ -96,8 +96,7 @@ export class ProjectListResultEntity {
             onboardIntoWeb3: jobpost?.onboardIntoWeb3 ?? false,
             ethSeasonOfInternships: jobpost?.ethSeasonOfInternships ?? false,
             workArrangement: hydrateWorkArrangement(jobpost.workArrangement),
-            tags:
-              jobpost?.tags.map(tag => new Tag(tag)) ?? [],
+            tags: jobpost?.tags.map(tag => new Tag(tag)) ?? [],
           };
         }) ?? [],
       repos:
@@ -176,8 +175,7 @@ export class ProjectCompetitorListResultEntity {
           description: notStringOrNull(jobpost?.description),
           commitment: notStringOrNull(jobpost?.commitment),
           timestamp: nonZeroOrNull(jobpost?.timestamp),
-          tags:
-            jobpost?.tags.map(tag => new Tag(tag)) ?? [],
+          tags: jobpost?.tags.map(tag => new Tag(tag)) ?? [],
         })) ?? [],
       repos: project?.repos?.map(repo => ({ ...repo })) ?? [],
     });

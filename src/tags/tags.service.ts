@@ -114,8 +114,9 @@ export class TagsService {
 
   async getBlockedTags(): Promise<Tag[]> {
     try {
-      return (await this.tags.getTagsByDesignation("BlockedDesignation"))
-        .map(tag => new Tag(tag));
+      return (await this.tags.getTagsByDesignation("BlockedDesignation")).map(
+        tag => new Tag(tag),
+      );
     } catch (error) {
       this.captureDatabaseError("getBlockedTags", error);
       return undefined;
@@ -420,7 +421,9 @@ export class TagsService {
 
   async resolveAlias(value: string): Promise<ResolvedTagAlias | undefined> {
     const result = await this.tags.resolveAlias(slugify(value));
-    return result ? { ...result, canonical: new Tag(result.canonical) } : undefined;
+    return result
+      ? { ...result, canonical: new Tag(result.canonical) }
+      : undefined;
   }
 
   async batchMatchTags(

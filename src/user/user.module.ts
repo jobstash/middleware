@@ -43,7 +43,7 @@ import { AccessWorkspacesModule } from "src/access-workspaces/access-workspaces.
             "SCORER_API_KEY",
           )}`,
         },
-        httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+        httpsAgent: new https.Agent(),
         timeout: REALLY_LONG_TIME,
         baseURL: configService.get<string>("SCORER_DOMAIN"),
       }),

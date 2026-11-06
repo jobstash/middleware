@@ -12,4 +12,5 @@ tunnel.sh
 dist
 coverage
 *.log
-.middleware-funding-integrity
+.middleware-*/
+.security-*/

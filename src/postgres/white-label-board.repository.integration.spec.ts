@@ -1,3 +1,4 @@
+import { createProfileMemberFixture } from "./postgres.integration-fixtures";
 import { PostgresService } from "./postgres.service";
 import { WhiteLabelBoardRepository } from "./white-label-board.repository";
 
@@ -152,6 +153,10 @@ describePostgres("WhiteLabelBoardRepository PostgreSQL integration", () => {
     key: string,
     properties: Record<string, unknown>,
   ): Promise<void> {
+    if (label === "Organization" || label === "Project") {
+      await createProfileMemberFixture(postgres, label, key, properties);
+      return;
+    }
     await postgres.query(
       `
         INSERT INTO graph_nodes (label, labels, node_key, properties)

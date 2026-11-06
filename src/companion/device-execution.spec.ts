@@ -5,7 +5,11 @@ import {
   ForbiddenException,
   PayloadTooLargeException,
 } from "@nestjs/common";
-import { GUARDS_METADATA, PATH_METADATA, METHOD_METADATA } from "@nestjs/common/constants";
+import {
+  GUARDS_METADATA,
+  PATH_METADATA,
+  METHOD_METADATA,
+} from "@nestjs/common/constants";
 import { generateKeyPairSync, randomUUID, sign } from "node:crypto";
 import { PBACGuard } from "src/auth/pbac.guard";
 import { EntityManager } from "typeorm";
@@ -68,9 +72,14 @@ describe("hosted companion boundary", () => {
       { cancel } as unknown as SubscriptionService,
     );
     const body = { requestId: "617773b0-77be-4d96-8f7a-fb63393946b9" };
-    expect(Reflect.getMetadata(PATH_METADATA, controller.cancel)).toBe("subscription/cancel");
+    expect(Reflect.getMetadata(PATH_METADATA, controller.cancel)).toBe(
+      "subscription/cancel",
+    );
     expect(Reflect.getMetadata(METHOD_METADATA, controller.cancel)).toBe(1);
-    await controller.cancel({ address: "session-wallet" } as SessionObject, body);
+    await controller.cancel(
+      { address: "session-wallet" } as SessionObject,
+      body,
+    );
     expect(cancel).toHaveBeenCalledWith("session-wallet", body);
   });
 
@@ -227,17 +236,21 @@ describe("hosted companion boundary", () => {
     "past_2_weeks",
     "past_month",
     "all",
-  ] as const)("accepts exact caller-supplied bounds for %s", publicationRange => {
-    const args: MatchingCatalogueArgs = {
-      publicationRange,
-      since: publicationRange === "all" ? null : "2000-02-29T23:59:59.9Z",
-      until: "2026-10-20T10:15:30.123Z",
-      offset: Number.MAX_SAFE_INTEGER,
-      countOnly: true,
-    };
-    expect(deviceInput("platform", { operation: "matching_catalogue", args }))
-      .toEqual({ operation: "matching_catalogue", args });
-  });
+  ] as const)(
+    "accepts exact caller-supplied bounds for %s",
+    publicationRange => {
+      const args: MatchingCatalogueArgs = {
+        publicationRange,
+        since: publicationRange === "all" ? null : "2000-02-29T23:59:59.9Z",
+        until: "2026-10-20T10:15:30.123Z",
+        offset: Number.MAX_SAFE_INTEGER,
+        countOnly: true,
+      };
+      expect(
+        deviceInput("platform", { operation: "matching_catalogue", args }),
+      ).toEqual({ operation: "matching_catalogue", args });
+    },
+  );
 
   it.each(["", ".1", ".12", ".123"])(
     "preserves UTC timestamp precision %j without normalization",
@@ -247,8 +260,9 @@ describe("hosted companion boundary", () => {
         since: `2026-10-19T10:15:30${fraction}Z`,
         until: `2026-10-20T10:15:30${fraction}Z`,
       };
-      expect(deviceInput("platform", { operation: "matching_catalogue", args }))
-        .toEqual({ operation: "matching_catalogue", args });
+      expect(
+        deviceInput("platform", { operation: "matching_catalogue", args }),
+      ).toEqual({ operation: "matching_catalogue", args });
     },
   );
 
@@ -267,20 +281,32 @@ describe("hosted companion boundary", () => {
     "2026-10-19T00:00:00Z\n",
     "not-a-date",
   ])("rejects malformed or normalized-invalid bounds %j", timestamp => {
-    expect(() => deviceInput("platform", {
-      operation: "matching_catalogue",
-      args: { ...catalogueArgs, until: timestamp },
-    })).toThrow(BadRequestException);
-    expect(() => deviceInput("platform", {
-      operation: "matching_catalogue",
-      args: { ...catalogueArgs, publicationRange: "past_month", since: timestamp },
-    })).toThrow(BadRequestException);
+    expect(() =>
+      deviceInput("platform", {
+        operation: "matching_catalogue",
+        args: { ...catalogueArgs, until: timestamp },
+      }),
+    ).toThrow(BadRequestException);
+    expect(() =>
+      deviceInput("platform", {
+        operation: "matching_catalogue",
+        args: {
+          ...catalogueArgs,
+          publicationRange: "past_month",
+          since: timestamp,
+        },
+      }),
+    ).toThrow(BadRequestException);
   });
 
   it.each([
     { ...catalogueArgs, since: "2000-01-01T00:00:00Z" },
     { ...catalogueArgs, publicationRange: "today" },
-    { ...catalogueArgs, publicationRange: "past_week", since: catalogueArgs.until },
+    {
+      ...catalogueArgs,
+      publicationRange: "past_week",
+      since: catalogueArgs.until,
+    },
     {
       ...catalogueArgs,
       publicationRange: "past_week",
@@ -304,10 +330,12 @@ describe("hosted companion boundary", () => {
     { ...catalogueArgs, countOnly: null },
     {},
   ])("rejects mismatched windows or obsolete/coerced pagination %j", args => {
-    expect(() => deviceInput("platform", {
-      operation: "matching_catalogue",
-      args,
-    })).toThrow(BadRequestException);
+    expect(() =>
+      deviceInput("platform", {
+        operation: "matching_catalogue",
+        args,
+      }),
+    ).toThrow(BadRequestException);
   });
 
   function harness(paid = true): DeviceHarness {
@@ -340,10 +368,16 @@ describe("hosted companion boundary", () => {
     "denies unpaid catalogue requests before fetching (countOnly=%s)",
     async countOnly => {
       const { service, subscriptions } = harness(false);
-      await expect(service.platform(device, {
-        operation: "matching_catalogue",
-        args: { ...catalogueArgs, offset: Number.MAX_SAFE_INTEGER, countOnly },
-      })).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(
+        service.platform(device, {
+          operation: "matching_catalogue",
+          args: {
+            ...catalogueArgs,
+            offset: Number.MAX_SAFE_INTEGER,
+            countOnly,
+          },
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
       expect(matchingCatalogue).not.toHaveBeenCalled();
       expect(subscriptions.refresh).toHaveBeenCalledWith(device.owner);
       expect(subscriptions.entitled).toHaveBeenCalledWith(device.owner);
@@ -352,10 +386,12 @@ describe("hosted companion boundary", () => {
 
   it("rejects invalid catalogue input before querying or refreshing payment", async () => {
     const { service, query, subscriptions } = harness();
-    await expect(service.platform(device, {
-      operation: "matching_catalogue",
-      args: { ...catalogueArgs, limit: 1000 },
-    })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.platform(device, {
+        operation: "matching_catalogue",
+        args: { ...catalogueArgs, limit: 1000 },
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
     expect(query).not.toHaveBeenCalled();
     expect(subscriptions.refresh).not.toHaveBeenCalled();
     expect(matchingCatalogue).not.toHaveBeenCalled();
@@ -364,11 +400,16 @@ describe("hosted companion boundary", () => {
   it("rejects a revoked or foreign device before contacting payment or jobs", async () => {
     const { service, query, subscriptions } = harness();
     query.mockResolvedValueOnce([]);
-    await expect(service.platform(device, {
-      operation: "matching_catalogue",
-      args: { ...catalogueArgs, countOnly: true },
-    })).rejects.toBeInstanceOf(ForbiddenException);
-    expect(query).toHaveBeenCalledWith(expect.any(String), [device.id, device.owner]);
+    await expect(
+      service.platform(device, {
+        operation: "matching_catalogue",
+        args: { ...catalogueArgs, countOnly: true },
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(query).toHaveBeenCalledWith(expect.any(String), [
+      device.id,
+      device.owner,
+    ]);
     expect(subscriptions.refresh).not.toHaveBeenCalled();
     expect(matchingCatalogue).not.toHaveBeenCalled();
   });
@@ -403,10 +444,12 @@ describe("hosted companion boundary", () => {
         total: 100000,
         jobs: [],
       });
-      await expect(service.platform(device, {
-        operation: "matching_catalogue",
-        args: { ...catalogueArgs, countOnly },
-      })).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(
+        service.platform(device, {
+          operation: "matching_catalogue",
+          args: { ...catalogueArgs, countOnly },
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
       expect(matchingCatalogue).toHaveBeenCalledTimes(1);
     },
   );
@@ -415,14 +458,19 @@ describe("hosted companion boundary", () => {
     "withholds fetched data on payment expiry (countOnly=%s)",
     async countOnly => {
       const { service, subscriptions } = harness();
-      (matchingCatalogue as jest.Mock).mockResolvedValue({ total: 100000, jobs: [] });
+      (matchingCatalogue as jest.Mock).mockResolvedValue({
+        total: 100000,
+        jobs: [],
+      });
       subscriptions.entitled
         .mockResolvedValueOnce(true)
         .mockResolvedValueOnce(false);
-      await expect(service.platform(device, {
-        operation: "matching_catalogue",
-        args: { ...catalogueArgs, countOnly },
-      })).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(
+        service.platform(device, {
+          operation: "matching_catalogue",
+          args: { ...catalogueArgs, countOnly },
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
       expect(matchingCatalogue).toHaveBeenCalledTimes(1);
       expect(subscriptions.refresh).toHaveBeenCalledTimes(2);
     },
@@ -436,10 +484,12 @@ describe("hosted companion boundary", () => {
       (matchingCatalogue as jest.Mock).mockResolvedValue({ jobs: [] });
       if (afterFetch) subscriptions.refresh.mockResolvedValueOnce(undefined);
       subscriptions.refresh.mockRejectedValueOnce(failure);
-      await expect(service.platform(device, {
-        operation: "matching_catalogue",
-        args: catalogueArgs,
-      })).rejects.toBe(failure);
+      await expect(
+        service.platform(device, {
+          operation: "matching_catalogue",
+          args: catalogueArgs,
+        }),
+      ).rejects.toBe(failure);
       expect(matchingCatalogue).toHaveBeenCalledTimes(afterFetch ? 1 : 0);
     },
   );
@@ -463,12 +513,24 @@ describe("hosted companion boundary", () => {
     const targets = [{ login: "lifinance", kind: "organization" }];
     const source = { login: "duckdegen", kind: "user" };
     const scorerPath = {
-      hops: 1, tier: "direct", targetOrg: "lifinance",
+      hops: 1,
+      tier: "direct",
+      targetOrg: "lifinance",
       source: { login: "duckdegen", emails: [] },
       sourceEvidence: null,
       target: { login: "friend", emails: [] },
-      targetEvidence: { org: "lifinance", person: "friend", kind: "contribution", repos: ["lifinance/sdk"], firstSeen: null, lastSeen: null },
-      via: null, warmScore: 0.5, pathStrength: 10, edges: [],
+      targetEvidence: {
+        org: "lifinance",
+        person: "friend",
+        kind: "contribution",
+        repos: ["lifinance/sdk"],
+        firstSeen: null,
+        lastSeen: null,
+      },
+      via: null,
+      warmScore: 0.5,
+      pathStrength: 10,
+      edges: [],
     };
     function withGithub({ query }: DeviceHarness, login: string | null): void {
       query.mockImplementation(async (sql: string) => {
@@ -478,87 +540,194 @@ describe("hosted companion boundary", () => {
       });
     }
     const response = {
-      source, available: true, asOf: "2026-11-05T00:00:00.000Z", inferred: true,
+      source,
+      available: true,
+      asOf: "2026-11-05T00:00:00.000Z",
+      inferred: true,
       coverage: { source: "indexed", maxHops: 2 },
       targets: [{ ...targets[0], status: "ok", paths: [scorerPath] }],
     };
 
     it("denies unpaid owners before any lookup", async () => {
       const { service, post, query } = harness(false);
-      await expect(service.platform(device, {
-        operation: "intro_paths", args: { source, targets },
-      })).rejects.toThrow(new ForbiddenException("An active paid membership is required"));
+      await expect(
+        service.platform(device, {
+          operation: "intro_paths",
+          args: { source, targets },
+        }),
+      ).rejects.toThrow(
+        new ForbiddenException("An active paid membership is required"),
+      );
       expect(post).not.toHaveBeenCalled();
-      expect(query.mock.calls.some(([sql]) => sql.includes("HAS_LINKED_ACCOUNT"))).toBe(false);
+      expect(
+        query.mock.calls.some(([sql]) => sql.includes("HAS_LINKED_ACCOUNT")),
+      ).toBe(false);
     });
 
     it("reports missing default GitHub without blocking other operations", async () => {
       const h = harness();
       withGithub(h, null);
-      await expect(h.service.platform(device, {
-        operation: "intro_paths", args: { targets },
-      })).resolves.toEqual({
-        source: null, available: false, asOf: null, inferred: true,
-        coverage: { source: "unavailable", maxHops: 2 }, reason: "github_required",
+      await expect(
+        h.service.platform(device, {
+          operation: "intro_paths",
+          args: { targets },
+        }),
+      ).resolves.toEqual({
+        source: null,
+        available: false,
+        asOf: null,
+        inferred: true,
+        coverage: { source: "unavailable", maxHops: 2 },
+        reason: "github_required",
         targets: [{ ...targets[0], status: "unavailable", paths: [] }],
       });
       expect(h.post).not.toHaveBeenCalled();
-      await expect(h.service.platform(device, { operation: "status", args: {} })).resolves.toMatchObject({ github: null });
+      await expect(
+        h.service.platform(device, { operation: "status", args: {} }),
+      ).resolves.toMatchObject({ github: null });
     });
 
     it("resolves the linked default source and preserves graph evidence", async () => {
       const h = harness();
       withGithub(h, "DuckDegen");
       h.post.mockResolvedValue({ data: response });
-      await expect(h.service.platform(device, { operation: "intro_paths", args: { targets } })).resolves.toEqual(response);
-      expect(h.post).toHaveBeenCalledWith("/scorer/intro-paths/query", { source, targets, limit: 50 });
+      await expect(
+        h.service.platform(device, {
+          operation: "intro_paths",
+          args: { targets },
+        }),
+      ).resolves.toEqual(response);
+      expect(h.post).toHaveBeenCalledWith("/scorer/intro-paths/query", {
+        source,
+        targets,
+        limit: 50,
+      });
       expect(h.subscriptions.entitled).toHaveBeenCalledTimes(2);
     });
 
-    it.each(["user", "organization"])("queries explicit %s sources without account GitHub or job lookups", async kind => {
-      const h = harness();
-      withGithub(h, null);
-      const explicit = { login: "source-org", kind };
-      const evidence = { org: "source-org", person: "duckdegen", kind: "contribution", repos: ["source-org/sdk"], firstSeen: null, lastSeen: null };
-      const data = { ...response, source: explicit, targets: [{ ...response.targets[0], paths: [{ ...scorerPath, sourceEvidence: kind === "organization" ? evidence : null }] }] };
-      h.post.mockResolvedValue({ data });
-      await expect(h.service.platform(device, {
-        operation: "intro_paths",
-        args: { source: { login: "Source-Org", kind }, targets: [targets[0], { login: "LiFinance", kind: "organization" }] },
-      })).resolves.toEqual(data);
-      expect(h.post).toHaveBeenCalledWith("/scorer/intro-paths/query", { source: explicit, targets, limit: 50 });
-      expect(h.query.mock.calls.some(([sql]) => /HAS_LINKED_ACCOUNT|job_search_documents|organization_search_documents/.test(sql))).toBe(false);
-    });
+    it.each(["user", "organization"])(
+      "queries explicit %s sources without account GitHub or job lookups",
+      async kind => {
+        const h = harness();
+        withGithub(h, null);
+        const explicit = { login: "source-org", kind };
+        const evidence = {
+          org: "source-org",
+          person: "duckdegen",
+          kind: "contribution",
+          repos: ["source-org/sdk"],
+          firstSeen: null,
+          lastSeen: null,
+        };
+        const data = {
+          ...response,
+          source: explicit,
+          targets: [
+            {
+              ...response.targets[0],
+              paths: [
+                {
+                  ...scorerPath,
+                  sourceEvidence: kind === "organization" ? evidence : null,
+                },
+              ],
+            },
+          ],
+        };
+        h.post.mockResolvedValue({ data });
+        await expect(
+          h.service.platform(device, {
+            operation: "intro_paths",
+            args: {
+              source: { login: "Source-Org", kind },
+              targets: [
+                targets[0],
+                { login: "LiFinance", kind: "organization" },
+              ],
+            },
+          }),
+        ).resolves.toEqual(data);
+        expect(h.post).toHaveBeenCalledWith("/scorer/intro-paths/query", {
+          source: explicit,
+          targets,
+          limit: 50,
+        });
+        expect(
+          h.query.mock.calls.some(([sql]) =>
+            /HAS_LINKED_ACCOUNT|job_search_documents|organization_search_documents/.test(
+              sql,
+            ),
+          ),
+        ).toBe(false);
+      },
+    );
 
-    it.each(["no_paths", "source_not_indexed", "target_not_indexed", "unavailable"])("preserves %s coverage rather than inventing no connections", async status => {
-      const h = harness();
-      const data = { ...response, available: status !== "unavailable", targets: [{ ...targets[0], status, paths: [] }] };
-      h.post.mockResolvedValue({ data });
-      await expect(h.service.platform(device, { operation: "intro_paths", args: { source, targets } })).resolves.toEqual(data);
-    });
+    it.each([
+      "no_paths",
+      "source_not_indexed",
+      "target_not_indexed",
+      "unavailable",
+    ])(
+      "preserves %s coverage rather than inventing no connections",
+      async status => {
+        const h = harness();
+        const data = {
+          ...response,
+          available: status !== "unavailable",
+          targets: [{ ...targets[0], status, paths: [] }],
+        };
+        h.post.mockResolvedValue({ data });
+        await expect(
+          h.service.platform(device, {
+            operation: "intro_paths",
+            args: { source, targets },
+          }),
+        ).resolves.toEqual(data);
+      },
+    );
 
     it("reports unavailable when the scorer rejects", async () => {
       const h = harness();
       h.post.mockRejectedValue(new Error("scorer down"));
-      await expect(h.service.platform(device, {
-        operation: "intro_paths", args: { source, targets },
-      })).resolves.toEqual({
-        source, available: false, asOf: null, inferred: true,
-        coverage: { source: "unavailable", maxHops: 2 }, reason: "unavailable",
+      await expect(
+        h.service.platform(device, {
+          operation: "intro_paths",
+          args: { source, targets },
+        }),
+      ).resolves.toEqual({
+        source,
+        available: false,
+        asOf: null,
+        inferred: true,
+        coverage: { source: "unavailable", maxHops: 2 },
+        reason: "unavailable",
         targets: [{ ...targets[0], status: "unavailable", paths: [] }],
       });
     });
 
     it.each([
-      { jobIds: ["node:1"] }, {}, { targets: [] },
+      { jobIds: ["node:1"] },
+      {},
+      { targets: [] },
       { targets: Array.from({ length: 21 }, () => targets[0]) },
-      ...["-org", "org-", "org--name", "org_name", "https://github.com/lifinance", "org\n", "a".repeat(40)].map(login => ({ targets: [{ login, kind: "organization" }] })),
+      ...[
+        "-org",
+        "org-",
+        "org--name",
+        "org_name",
+        "https://github.com/lifinance",
+        "org\n",
+        "a".repeat(40),
+      ].map(login => ({ targets: [{ login, kind: "organization" }] })),
       { targets: [{ login: "org", kind: "company" }] },
       { targets, source: { login: "org", kind: "user", owner: "123" } },
-      { targets, source: null }, { targets, publicationRange: "all" },
+      { targets, source: null },
+      { targets, publicationRange: "all" },
     ])("rejects malformed endpoints before authorization %j", async args => {
       const { service, subscriptions, query } = harness();
-      await expect(service.platform(device, { operation: "intro_paths", args })).rejects.toBeInstanceOf(BadRequestException);
+      await expect(
+        service.platform(device, { operation: "intro_paths", args }),
+      ).rejects.toBeInstanceOf(BadRequestException);
       expect(query).not.toHaveBeenCalled();
       expect(subscriptions.refresh).not.toHaveBeenCalled();
     });

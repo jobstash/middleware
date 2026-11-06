@@ -211,7 +211,9 @@ export class JobDetailsEntity {
 
                     return {
                       ...jobpost,
-                      workArrangement: hydrateWorkArrangement(jobpost.workArrangement),
+                      workArrangement: hydrateWorkArrangement(
+                        jobpost.workArrangement,
+                      ),
                       salary: nonZeroOrNull(jobpost?.salary),
                       minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
                       maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),
@@ -295,8 +297,7 @@ export class JobDetailsEntity {
             hasUser: project.hasUser ?? false,
           }
         : null,
-      tags:
-        tags?.map(tag => new Tag(tag)) ?? [],
+      tags: tags?.map(tag => new Tag(tag)) ?? [],
     });
   }
 }

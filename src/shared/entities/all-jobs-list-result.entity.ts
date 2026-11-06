@@ -60,8 +60,7 @@ export class AllJobListResultEntity {
         : null,
       featured: isStillFeatured,
       project: project ?? null,
-      tags:
-        tags?.map(tag => new Tag(tag)) ?? [],
+      tags: tags?.map(tag => new Tag(tag)) ?? [],
     });
   }
 }
@@ -203,7 +202,9 @@ export class AllOrgJobsListResultEntity {
 
                 return {
                   ...jobpost,
-                  workArrangement: hydrateWorkArrangement(jobpost.workArrangement),
+                  workArrangement: hydrateWorkArrangement(
+                    jobpost.workArrangement,
+                  ),
                   salary: nonZeroOrNull(jobpost?.salary),
                   minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
                   maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),
@@ -262,8 +263,7 @@ export class AllOrgJobsListResultEntity {
             new OrgReviewEntity(review).getProperties(),
           ) ?? [],
       },
-      tags:
-        tags?.map(tag => new Tag(tag)) ?? [],
+      tags: tags?.map(tag => new Tag(tag)) ?? [],
       project: project ?? null,
     });
   }

@@ -173,7 +173,9 @@ export class OrgListResultEntity {
                 isBefore(now, nonZeroOrNull(jobpost?.featureEndDate) ?? now);
               return {
                 ...jobpost,
-                workArrangement: hydrateWorkArrangement(jobpost.workArrangement),
+                workArrangement: hydrateWorkArrangement(
+                  jobpost.workArrangement,
+                ),
                 salary: nonZeroOrNull(jobpost?.salary),
                 minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
                 maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),
@@ -236,8 +238,7 @@ export class OrgListResultEntity {
         ),
       ),
       ecosystems: organization?.ecosystems ?? [],
-      tags:
-        tags?.map(tag => new Tag(tag)) ?? [],
+      tags: tags?.map(tag => new Tag(tag)) ?? [],
       reviews:
         reviews?.map(r => new LeanOrgReviewEntity(r).getProperties()) ?? [],
     });
@@ -362,7 +363,9 @@ export class OrgDetailsResultEntity {
                 isBefore(now, nonZeroOrNull(jobpost?.featureEndDate) ?? now);
               return {
                 ...jobpost,
-                workArrangement: hydrateWorkArrangement(jobpost.workArrangement),
+                workArrangement: hydrateWorkArrangement(
+                  jobpost.workArrangement,
+                ),
                 salary: nonZeroOrNull(jobpost?.salary),
                 minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
                 maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),
@@ -425,8 +428,7 @@ export class OrgDetailsResultEntity {
         ),
       ),
       ecosystems: organization?.ecosystems ?? [],
-      tags:
-        tags?.map(tag => new Tag(tag)) ?? [],
+      tags: tags?.map(tag => new Tag(tag)) ?? [],
       reviews:
         reviews?.map(r => new LeanOrgReviewEntity(r).getProperties()) ?? [],
       jobs: jobs.map(x => new OrgJobEntity(x).getProperties()) ?? [],

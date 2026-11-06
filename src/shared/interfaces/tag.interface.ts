@@ -37,7 +37,10 @@ export class Tag {
     if (isLeft(result)) {
       const errors = report(result);
       const paths = result.left.map(error =>
-        error.context.map(entry => entry.key).filter(Boolean).join("."),
+        error.context
+          .map(entry => entry.key)
+          .filter(Boolean)
+          .join("."),
       );
       throw new Error(
         `tag instance with id ${this.id} failed validation with error '${errors.join("; ") || paths.join("; ")}'`,
