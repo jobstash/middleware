@@ -75,6 +75,10 @@ function recommendationRankingTime(rankedAt?: string): Date {
     : now;
 }
 
+function recommendationPage(page: number): number {
+  return Number.isSafeInteger(page) && page > 0 ? page : 1;
+}
+
 @Injectable()
 export class ProfileService {
   private readonly logger = new CustomLogger(ProfileService.name);
@@ -268,7 +272,7 @@ export class ProfileService {
       }
     }
     const size = Math.max(1, Math.min(limit, 50));
-    const currentPage = Number.isSafeInteger(page) && page > 0 ? page : 1;
+    const currentPage = recommendationPage(page);
     const offset = (currentPage - 1) * size;
     return {
       ...result,
@@ -378,7 +382,7 @@ export class ProfileService {
     allMatches = false,
   ): Promise<RecommendedJobsResponse> {
     const requestedLimit = Math.max(1, Math.min(limit, 50));
-    const requestedPage = Number.isSafeInteger(page) && page > 0 ? page : 1;
+    const requestedPage = recommendationPage(page);
     const rankingTime = recommendationRankingTime(rankedAt);
     const [hasPreferences, preferences] = await Promise.all([
       this.profiles.hasJobPreferences(wallet),
