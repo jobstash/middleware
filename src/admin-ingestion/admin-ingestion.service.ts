@@ -619,15 +619,24 @@ export class AdminIngestionService {
         return response.data;
       } catch (error_) {
         error = error_;
-        const status = axios.isAxiosError(error_)
-          ? error_.response?.status
-          : undefined;
-        if (!retryableImportRequest || (status !== undefined && status < 500)) {
+        if (!this.shouldRetryImportRequest(error_, retryableImportRequest)) {
           break;
         }
       }
     }
     return this.throwUpstreamError(error);
+  }
+
+  private shouldRetryImportRequest(
+    error: unknown,
+    retryable: boolean,
+  ): boolean {
+    if (!retryable) return false;
+    const status = axios.isAxiosError(error)
+      ? error.response?.status
+      : undefined;
+    if (status !== undefined && status < 500) return false;
+    return true;
   }
 
   private throwUpstreamError(error: unknown): never {

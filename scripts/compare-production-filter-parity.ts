@@ -849,6 +849,28 @@ const collectArrayDifferences = (
   }
 };
 
+const collectObjectDifferences = (
+  production: { [key: string]: JsonValue },
+  local: { [key: string]: JsonValue },
+  path: string,
+  output: string[],
+  limit: number,
+): void => {
+  const keys = new Set([...Object.keys(production), ...Object.keys(local)]);
+  for (const key of [...keys].sort((left, right) =>
+    left.localeCompare(right),
+  )) {
+    collectDifferences(
+      production[key],
+      local[key],
+      `${path}.${key}`,
+      output,
+      limit,
+    );
+    if (output.length >= limit) break;
+  }
+};
+
 const collectDifferences = (
   production: JsonValue | undefined,
   local: JsonValue | undefined,
@@ -878,22 +900,13 @@ const collectDifferences = (
       output.push(`${path}: object-type-mismatch`);
       return;
     }
-    const keys = new Set([
-      ...Object.keys(productionRecord),
-      ...Object.keys(localRecord),
-    ]);
-    for (const key of [...keys].sort((left, right) =>
-      left.localeCompare(right),
-    )) {
-      collectDifferences(
-        productionRecord[key],
-        localRecord[key],
-        `${path}.${key}`,
-        output,
-        limit,
-      );
-      if (output.length >= limit) break;
-    }
+    collectObjectDifferences(
+      productionRecord,
+      localRecord,
+      path,
+      output,
+      limit,
+    );
     return;
   }
   if (!Object.is(production, local)) {
