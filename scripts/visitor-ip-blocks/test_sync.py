@@ -49,10 +49,12 @@ class BlocksTest(unittest.TestCase):
 
     def test_invalid_and_changed_lists_rejected(self):
         for ips in [["example.com"], ["1.2.3.4/24"], ["1.2.3.4`) || Host(`any"], ["fe80::1%eth0"]]:
+            expected_revision = revision(ips)
             with self.subTest(ips=ips), self.assertRaises(ValueError):
-                blocklist.build_config(ips, revision(ips))
+                blocklist.build_config(ips, expected_revision)
+        empty_revision = revision([])
         with self.assertRaises(ValueError):
-            blocklist.build_config(["1.2.3.4"], revision([]))
+            blocklist.build_config(["1.2.3.4"], empty_revision)
 
     def test_only_confirm_exact_loaded_rules(self):
         config = blocklist.build_config(self.snapshot["ips"], self.snapshot["revision"])

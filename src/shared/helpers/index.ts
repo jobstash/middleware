@@ -1,6 +1,10 @@
 import { HttpService } from "@nestjs/axios";
-import { getSchemaPath } from "@nestjs/swagger";
-import { OpenAPIObject, ReferenceObject, SchemaObject } from "@nestjs/swagger";
+import {
+  getSchemaPath,
+  OpenAPIObject,
+  ReferenceObject,
+  SchemaObject,
+} from "@nestjs/swagger";
 import { AxiosError } from "axios";
 import { TransformFnParams } from "class-transformer";
 import {

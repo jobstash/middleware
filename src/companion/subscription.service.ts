@@ -103,8 +103,7 @@ export class SubscriptionService {
       lines.has_more ||
       lines.data.length !== 1 ||
       line?.quantity !== 1 ||
-      !price ||
-      price.currency !== "usd" ||
+      price?.currency !== "usd" ||
       price.recurring?.interval_count !== 1 ||
       !(
         (interval === "month" && price.unit_amount === 999) ||
@@ -182,12 +181,12 @@ export class SubscriptionService {
           "Membership discount evidence is unavailable",
         );
       const source = discount.source;
+      if (source?.type !== "coupon")
+        throw new ServiceUnavailableException(
+          "Membership coupon evidence is unavailable",
+        );
       const id =
-        source?.type === "coupon"
-          ? typeof source.coupon === "string"
-            ? source.coupon
-            : source.coupon?.id
-          : undefined;
+        typeof source.coupon === "string" ? source.coupon : source.coupon?.id;
       if (!id)
         throw new ServiceUnavailableException(
           "Membership coupon evidence is unavailable",
