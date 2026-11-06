@@ -80,6 +80,29 @@ describe("ProfileService recommended jobs", () => {
     expect(seen.size).toBe(601);
     expect(profiles.getRecommendedJobCandidates).toHaveBeenCalledTimes(1);
     expect(profiles.getRecommendationLocationCandidates).not.toHaveBeenCalled();
+    for (const invalidPage of [
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      Number.NEGATIVE_INFINITY,
+      0,
+      -1,
+      1.5,
+      Number.MAX_SAFE_INTEGER + 1,
+      null,
+      undefined,
+    ]) {
+      const fallback = await service.getRecommendedJobs(
+        "wallet",
+        30,
+        "web",
+        invalidPage,
+        result.rankedAt,
+      );
+      expect(fallback.page).toBe(1);
+      expect(fallback.jobs).toEqual(result.jobs);
+      expect(fallback.rankedAt).toBe(result.rankedAt);
+    }
+    expect(profiles.getRecommendedJobCandidates).toHaveBeenCalledTimes(1);
     profiles.getRecommendationRevision.mockResolvedValue("after-import");
     await service.getRecommendedJobs("wallet");
     expect(profiles.getRecommendedJobCandidates).toHaveBeenCalledTimes(2);
