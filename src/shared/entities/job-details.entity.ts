@@ -1,8 +1,10 @@
 import {
+  hydrateWorkArrangement,
   JobDetailsResult,
   OrganizationWithRelations,
   ProjectWithBaseRelations,
   StructuredJobpostWithRelations,
+  Tag,
 } from "../interfaces";
 import {
   generateOrgAggregateRating,
@@ -51,6 +53,7 @@ export class JobDetailsEntity {
 
     return new JobDetailsResult({
       ...jobpost,
+      workArrangement: hydrateWorkArrangement(jobpost.workArrangement),
       salary: nonZeroOrNull(jobpost?.salary),
       minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
       maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),
@@ -122,6 +125,8 @@ export class JobDetailsEntity {
             projects:
               organization?.projects?.map(project => ({
                 ...project,
+                summary: project.summary ?? "",
+                description: project.description ?? null,
                 defiLlamaId: notStringOrNull(project?.defiLlamaId),
                 defiLlamaSlug: notStringOrNull(project?.defiLlamaSlug),
                 defiLlamaParent: notStringOrNull(project?.defiLlamaParent),
@@ -206,6 +211,7 @@ export class JobDetailsEntity {
 
                     return {
                       ...jobpost,
+                      workArrangement: hydrateWorkArrangement(jobpost.workArrangement),
                       salary: nonZeroOrNull(jobpost?.salary),
                       minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
                       maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),
@@ -290,10 +296,7 @@ export class JobDetailsEntity {
           }
         : null,
       tags:
-        tags?.map(tag => ({
-          ...tag,
-          createdTimestamp: nonZeroOrNull(tag?.createdTimestamp),
-        })) ?? [],
+        tags?.map(tag => new Tag(tag)) ?? [],
     });
   }
 }

@@ -1,9 +1,11 @@
 import {
+  hydrateWorkArrangement,
   EcosystemJobListResult,
   JobListResult,
   OrganizationWithRelations,
   ProjectWithBaseRelations,
   StructuredJobpostWithRelations,
+  Tag,
 } from "../interfaces";
 import {
   generateOrgAggregateRating,
@@ -74,6 +76,7 @@ export class JobListResultEntity {
 
     const processed = {
       ...jobpost,
+      workArrangement: hydrateWorkArrangement(jobpost.workArrangement),
       salary: nonZeroOrNull(jobpost?.salary),
       minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
       maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),
@@ -144,6 +147,8 @@ export class JobListResultEntity {
             projects:
               organization?.projects?.map(project => ({
                 ...project,
+                summary: project.summary ?? "",
+                description: project.description ?? null,
                 defiLlamaId: notStringOrNull(project?.defiLlamaId),
                 defiLlamaSlug: notStringOrNull(project?.defiLlamaSlug),
                 defiLlamaParent: notStringOrNull(project?.defiLlamaParent),
@@ -208,6 +213,7 @@ export class JobListResultEntity {
 
                     return {
                       ...jobpost,
+                      workArrangement: hydrateWorkArrangement(jobpost.workArrangement),
                       salary: nonZeroOrNull(jobpost?.salary),
                       minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
                       maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),
@@ -323,10 +329,7 @@ export class JobListResultEntity {
           }
         : null,
       tags:
-        tags?.map(tag => ({
-          ...tag,
-          createdTimestamp: nonZeroOrNull(tag?.createdTimestamp),
-        })) ?? [],
+        tags?.map(tag => new Tag(tag)) ?? [],
     };
 
     if (transform) {
@@ -359,6 +362,7 @@ export class EcosystemJobListResultEntity {
 
     const processed = {
       ...jobpost,
+      workArrangement: hydrateWorkArrangement(jobpost.workArrangement),
       online: jobpost?.online ?? false,
       blocked: jobpost?.blocked ?? false,
       views: nonZeroOrNull(jobpost?.views) ?? 0,
@@ -433,6 +437,8 @@ export class EcosystemJobListResultEntity {
             projects:
               organization?.projects?.map(project => ({
                 ...project,
+                summary: project.summary ?? "",
+                description: project.description ?? null,
                 defiLlamaId: notStringOrNull(project?.defiLlamaId),
                 defiLlamaSlug: notStringOrNull(project?.defiLlamaSlug),
                 defiLlamaParent: notStringOrNull(project?.defiLlamaParent),
@@ -497,6 +503,7 @@ export class EcosystemJobListResultEntity {
 
                     return {
                       ...jobpost,
+                      workArrangement: hydrateWorkArrangement(jobpost.workArrangement),
                       salary: nonZeroOrNull(jobpost?.salary),
                       minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
                       maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),
@@ -612,10 +619,7 @@ export class EcosystemJobListResultEntity {
           }
         : null,
       tags:
-        tags?.map(tag => ({
-          ...tag,
-          createdTimestamp: nonZeroOrNull(tag?.createdTimestamp),
-        })) ?? [],
+        tags?.map(tag => new Tag(tag)) ?? [],
     };
 
     if (transform) {

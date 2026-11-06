@@ -3,6 +3,7 @@ import { StructuredJobpost } from "./structured-jobpost.interface";
 import * as t from "io-ts";
 import { isLeft } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
+import { Tag } from "./tag.interface";
 
 export class StructuredJobpostWithRelations extends StructuredJobpost {
   public static readonly StructuredJobpostWithRelationsType = t.intersection([
@@ -10,23 +11,13 @@ export class StructuredJobpostWithRelations extends StructuredJobpost {
     t.strict({
       classification: t.string,
       commitment: t.union([t.string, t.null]),
-      tags: t.array(
-        t.strict({
-          name: t.string,
-          normalizedName: t.string,
-          createdTimestamp: t.union([t.number, t.null]),
-        }),
-      ),
+      tags: t.array(Tag.TagType),
       locationType: t.union([t.string, t.null]),
     }),
   ]);
 
   @ApiProperty()
-  tags: {
-    name: string;
-    normalizedName: string;
-    createdTimestamp: number | null;
-  }[];
+  tags: Tag[];
 
   @ApiProperty()
   commitment: string | null;

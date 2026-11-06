@@ -1,3 +1,5 @@
+import { hydrateWorkArrangement } from "../interfaces/work-arrangement.interface";
+import { Tag } from "../interfaces/tag.interface";
 import { isAfter, isBefore } from "date-fns";
 import {
   generateOrgAggregateRating,
@@ -29,6 +31,7 @@ export class AllJobListResultEntity {
 
     return new AllJobsListResult({
       ...jobpost,
+      workArrangement: hydrateWorkArrangement(jobpost.workArrangement),
       salary: nonZeroOrNull(jobpost?.salary),
       minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
       maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),
@@ -58,10 +61,7 @@ export class AllJobListResultEntity {
       featured: isStillFeatured,
       project: project ?? null,
       tags:
-        tags?.map(tag => ({
-          ...tag,
-          createdTimestamp: nonZeroOrNull(tag?.createdTimestamp),
-        })) ?? [],
+        tags?.map(tag => new Tag(tag)) ?? [],
     });
   }
 }
@@ -87,6 +87,7 @@ export class AllOrgJobsListResultEntity {
 
     return new AllOrgJobsListResult({
       ...jobpost,
+      workArrangement: hydrateWorkArrangement(jobpost.workArrangement),
       salary: nonZeroOrNull(jobpost?.salary),
       minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
       maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),
@@ -139,6 +140,8 @@ export class AllOrgJobsListResultEntity {
         projects:
           organization?.projects?.map(project => ({
             ...project,
+            summary: project.summary ?? "",
+            description: project.description ?? null,
             defiLlamaId: notStringOrNull(project?.defiLlamaId),
             defiLlamaSlug: notStringOrNull(project?.defiLlamaSlug),
             defiLlamaParent: notStringOrNull(project?.defiLlamaParent),
@@ -200,6 +203,7 @@ export class AllOrgJobsListResultEntity {
 
                 return {
                   ...jobpost,
+                  workArrangement: hydrateWorkArrangement(jobpost.workArrangement),
                   salary: nonZeroOrNull(jobpost?.salary),
                   minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
                   maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),
@@ -259,10 +263,7 @@ export class AllOrgJobsListResultEntity {
           ) ?? [],
       },
       tags:
-        tags?.map(tag => ({
-          ...tag,
-          createdTimestamp: nonZeroOrNull(tag?.createdTimestamp),
-        })) ?? [],
+        tags?.map(tag => new Tag(tag)) ?? [],
       project: project ?? null,
     });
   }

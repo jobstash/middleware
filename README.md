@@ -208,6 +208,29 @@ yarn db:benchmark:postgres
 
 The benchmark enforces a 750 ms p95 and execution-time ceiling against the populated local search projections. The complete migration and cutover runbook is in `../etl/docs/postgresql-cutover.md`.
 
+### Sentry response-contract regression gate
+
+Use an isolated, migrated fixture database: these PostgreSQL suites reset their
+fixtures and must never target production or a database shared with another run.
+Set both `DATABASE_TEST_URL` and `RECOMMENDATIONS_TEST_DATABASE_URL` to that local
+database, then run on the deployed Node 22 / Nest 10 dependency baseline:
+
+```bash
+DOTENV_CONFIG_PATH=/dev/null RUN_POSTGRES_INTEGRATION=1 yarn jest --runInBand \
+  --testPathPattern='response-contracts.entity.spec|subscriptions.service.spec|search-document.repository|tags.service.integration|tag.repository|job-employer-payload' \
+  --testNamePattern='Sentry response|subscription renewal|^TagRepository|^TagsService|^job Work|^SearchDocumentRepository (?!PostgreSQL)|MIDDLEWARE-29B'
+yarn build
+```
+
+This targeted gate covers strict tag hydration (unknown timestamps become null;
+zero and valid numbers survive; malformed/non-finite values are rejected),
+project text and organization location defaults, contextual work-arrangement
+options, and renewal eligibility. The sanitized DoubleZero Edge fixture runs
+through the real public project detail HTTP routes, service, and PostgreSQL
+repository by both ID and slug. The full search/filter integration matrix remains
+available through `yarn test:postgres`; it needs the complete deployed migration
+chain, not just the profile and funding fixture baseline.
+
 ## Support
 
 To discuss problems, shoot a message to the `#discuss-problems` channel on Slack

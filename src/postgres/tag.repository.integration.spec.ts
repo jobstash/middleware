@@ -1,5 +1,6 @@
 import { PostgresService } from "./postgres.service";
 import { TagRepository } from "./tag.repository";
+import { createProfileMemberFixture } from "./postgres.integration-fixtures";
 
 const describePostgres =
   process.env.RUN_POSTGRES_INTEGRATION === "1" ? describe : describe.skip;
@@ -420,7 +421,8 @@ describePostgres("TagRepository PostgreSQL integration", () => {
     tagIds: string[],
   ): Promise<void> {
     const organizationId = `test-organization-${id}`;
-    const organizationNodeId = await createNode(
+    const organizationNodeId = await createProfileMemberFixture(
+      postgres,
       "Organization",
       `organization:${id}`,
       { orgId: organizationId, name: `Organization ${id}` },

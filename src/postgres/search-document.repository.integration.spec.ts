@@ -1,4 +1,16 @@
+import { INestApplication } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { Test } from "@nestjs/testing";
+import * as request from "supertest";
+import { PBACGuard } from "src/auth/pbac.guard";
+import { OrganizationsService } from "src/organizations/organizations.service";
+import { ProjectsController } from "src/projects/projects.controller";
+import { ProjectCategoryService } from "src/projects/project-category.service";
+import { UserService } from "src/user/user.service";
 import { performance } from "node:perf_hooks";
+import { ProjectsService } from "src/projects/projects.service";
+import { doubleZeroEdgeProjection } from "src/projects/fixtures/doublezero-edge.fixture";
+import { ProjectDetailsEntity } from "src/shared/entities/project-details.entity";
 import { JobFilterConfigsEntity } from "src/shared/entities";
 import { publicationDateRangeGenerator } from "src/shared/helpers";
 import { ORGANIZATION_VERTICALS } from "src/shared/organization-classifications";
@@ -73,6 +85,108 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
   beforeEach(async () => {
     await resetDatabase();
     await seedCoreDocuments();
+  });
+
+  describe("MIDDLEWARE-29B public projection response contract", () => {
+    let app: INestApplication;
+
+    beforeAll(async () => {
+      const service = new ProjectsService(undefined, undefined, repository, undefined);
+      const module = await Test.createTestingModule({
+        controllers: [ProjectsController],
+        providers: [
+          { provide: ProjectsService, useValue: service },
+          { provide: ProjectCategoryService, useValue: {} },
+          { provide: OrganizationsService, useValue: {} },
+          { provide: UserService, useValue: {} },
+          { provide: ConfigService, useValue: new ConfigService({ NFT_STORAGE_API_KEY: "fixture-only" }) },
+        ],
+      }).overrideGuard(PBACGuard).useValue({ canActivate: () => false }).compile();
+      app = module.createNestApplication();
+      await app.init();
+    });
+
+    afterAll(async () => app?.close());
+
+    beforeEach(async () => {
+      await postgres.query(
+        `UPDATE project_search_documents
+         SET project_id = $1, slug = $2, detail_payload = $3::jsonb
+         WHERE project_id = 'project-alpha'`,
+        [
+          doubleZeroEdgeProjection.id,
+          doubleZeroEdgeProjection.normalizedName,
+          JSON.stringify(doubleZeroEdgeProjection),
+        ],
+      );
+    });
+
+    it.each(["id", "slug"] as const)(
+      "hydrates the real mixed-timestamp projection through the %s service entrypoint",
+      async lookup => {
+        const service = new ProjectsService(undefined, undefined, repository, undefined);
+        const result = lookup === "id"
+          ? await service.getProjectDetailsById(doubleZeroEdgeProjection.id, undefined)
+          : await service.getProjectDetailsBySlug(doubleZeroEdgeProjection.normalizedName, undefined);
+
+        expect(result).toBeDefined();
+        expect(result.id).toBe(doubleZeroEdgeProjection.id);
+        expect(result.organizations).toHaveLength(doubleZeroEdgeProjection.organizations.length);
+        expect(result.jobs).toHaveLength(doubleZeroEdgeProjection.jobs.length);
+        const rawTagGroups = [
+          doubleZeroEdgeProjection.tags,
+          doubleZeroEdgeProjection.organizations[0].tags,
+          ...doubleZeroEdgeProjection.jobs.map(job => job.tags),
+        ];
+        const responseTagGroups = [
+          result.tags,
+          result.organizations[0].tags,
+          ...result.jobs.map(job => job.tags),
+        ];
+        responseTagGroups.forEach((tags, index) => {
+          expect(tags).toEqual(rawTagGroups[index].map(tag => ({
+            ...tag,
+            createdTimestamp: "createdTimestamp" in tag ? tag.createdTimestamp : null,
+          })));
+        });
+        const stored = await repository.getProjectById<typeof doubleZeroEdgeProjection>(
+          doubleZeroEdgeProjection.id,
+        );
+        expect(stored).toEqual(doubleZeroEdgeProjection);
+        expect(stored.organizations[0].tags[0]).not.toHaveProperty("createdTimestamp");
+      },
+    );
+    it.each([
+      `details/${doubleZeroEdgeProjection.id}`,
+      `details/slug/${doubleZeroEdgeProjection.normalizedName}`,
+    ])("serves the stored projection through the real public HTTP route %s", async route => {
+      const response = await request(app.getHttpServer()).get(`/projects/${route}`).expect(200);
+      expect(response.body.id).toBe(doubleZeroEdgeProjection.id);
+      expect(response.body.jobs).toHaveLength(doubleZeroEdgeProjection.jobs.length);
+      expect(response.body.organizations[0].tags).toEqual(
+        doubleZeroEdgeProjection.organizations[0].tags.map(tag => ({
+          ...tag,
+          createdTimestamp: "createdTimestamp" in tag ? tag.createdTimestamp : null,
+        })),
+      );
+      expect(response.body.jobs[0].tags[0].createdTimestamp).toBeNull();
+      expect(response.body.jobs[1].tags[0].createdTimestamp)
+        .toBe(1774104023737);
+    });
+
+
+    it("does not hide a malformed stored timestamp by converting it to null or dropping its job", async () => {
+      await postgres.query(
+        `UPDATE project_search_documents
+         SET detail_payload = jsonb_set(detail_payload,
+           '{jobs,0,tags,0,createdTimestamp}', '"not-a-timestamp"'::jsonb)
+         WHERE project_id = $1`,
+        [doubleZeroEdgeProjection.id],
+      );
+      const stored = await repository.getProjectById(doubleZeroEdgeProjection.id);
+      expect(() => new ProjectDetailsEntity(stored as never).getProperties())
+        .toThrow(/createdTimestamp/);
+    });
   });
 
   describe("canonical employer classification filters", () => {

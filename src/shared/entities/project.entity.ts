@@ -1,8 +1,10 @@
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
 import {
+  hydrateWorkArrangement,
   GraphNode,
   ProjectWithBaseRelations,
   ProjectWithRelations,
+  Tag,
 } from "../interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 
@@ -21,6 +23,7 @@ export class ProjectWithBaseRelationsEntity {
     return new ProjectWithBaseRelations({
       ...project,
       orgIds: project?.orgIds ?? [],
+      summary: project.summary ?? "",
       tokenSymbol: notStringOrNull(project?.tokenSymbol, ["-"]),
       tokenAddress: notStringOrNull(project?.tokenAddress, ["-"]),
       defiLlamaId: notStringOrNull(project?.defiLlamaId, ["-"]),
@@ -69,11 +72,9 @@ export class ProjectWithBaseRelationsEntity {
       jobs:
         (project?.jobs ?? []).map(job => ({
           ...job,
+          workArrangement: hydrateWorkArrangement(job.workArrangement),
           tags:
-            (job.tags ?? []).map(tag => ({
-              ...tag,
-              createdTimestamp: nonZeroOrNull(tag?.createdTimestamp),
-            })) ?? [],
+            (job.tags ?? []).map(tag => new Tag(tag)) ?? [],
         })) ?? [],
       repos: project?.repos ?? [],
       investors: project?.investors ?? [],
@@ -111,6 +112,7 @@ export class ProjectWithRelationsEntity {
     return new ProjectWithRelations({
       ...project,
       orgIds: project?.orgIds ?? [],
+      summary: project.summary ?? "",
       tokenSymbol: notStringOrNull(project?.tokenSymbol, ["-"]),
       tokenAddress: notStringOrNull(project?.tokenAddress, ["-"]),
       defiLlamaId: notStringOrNull(project?.defiLlamaId, ["-"]),
@@ -159,11 +161,9 @@ export class ProjectWithRelationsEntity {
       jobs:
         (project?.jobs ?? []).map(job => ({
           ...job,
+          workArrangement: hydrateWorkArrangement(job.workArrangement),
           tags:
-            (job.tags ?? []).map(tag => ({
-              ...tag,
-              createdTimestamp: nonZeroOrNull(tag?.createdTimestamp),
-            })) ?? [],
+            (job.tags ?? []).map(tag => new Tag(tag)) ?? [],
         })) ?? [],
       repos: project?.repos ?? [],
       investors: project?.investors ?? [],

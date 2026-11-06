@@ -185,3 +185,32 @@ export const EMPTY_WORK_ARRANGEMENT_V1: WorkArrangementV1 = {
   hybridOptions: [],
   onsiteOptions: [],
 };
+
+/**
+ * Stored mode-grouped options inherit the arrangement classification and their
+ * array's mode. Hydrate those contextual fields without changing explicit values
+ * or dropping options; the response codec still validates the complete result.
+ */
+export const hydrateWorkArrangement = (
+  arrangement: WorkArrangementV1 | null | undefined,
+): WorkArrangementV1 => {
+  if (arrangement == null) return EMPTY_WORK_ARRANGEMENT_V1;
+  const options = (
+    values: WorkLocationOption[],
+    mode: WorkMode,
+  ): WorkLocationOption[] =>
+    values.map(option => ({
+      ...option,
+      classification:
+        option.classification === undefined
+          ? arrangement.classification
+          : option.classification,
+      mode: option.mode === undefined ? mode : option.mode,
+    }));
+  return {
+    ...arrangement,
+    remoteOptions: options(arrangement.remoteOptions, "remote"),
+    hybridOptions: options(arrangement.hybridOptions, "hybrid"),
+    onsiteOptions: options(arrangement.onsiteOptions, "onsite"),
+  };
+};

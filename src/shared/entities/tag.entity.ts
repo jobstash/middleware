@@ -1,5 +1,4 @@
 import { GraphNode, Tag } from "../interfaces";
-import { nonZeroOrNull } from "../helpers";
 
 export class TagEntity {
   private readonly properties: Record<string, unknown>;
@@ -23,15 +22,6 @@ export class TagEntity {
     return this.properties.name as string;
   }
   getProperties(): Tag {
-    const { ...properties } = this.properties;
-
-    return {
-      id: properties.id as string,
-      name: properties.name as string,
-      normalizedName: properties.normalizedName as string,
-      createdTimestamp: nonZeroOrNull(
-        properties.createdTimestamp as number | string,
-      ),
-    };
+    return new Tag(this.properties as unknown as Tag);
   }
 }
