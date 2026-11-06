@@ -20,6 +20,17 @@ Set a private, random `VISITOR_BLOCKLIST_SECRET` on middleware and in the root-o
   "statusUrl": "http://127.0.0.1/api/http/routers"
 }
 ```
+The three destinations above are fixed by the installed synchronizer, not
+controlled by settings content. A mismatched URL, status URL, or output path is
+rejected before any network request or output-file access. Only the shared
+secret remains configurable. HTTP redirects and environment proxy forwarding
+are disabled, so neither an upstream redirect nor a proxy can redirect the
+blocklist credential or the local router-status request. Keep the settings and
+installed script root-owned and inaccessible to unprivileged writers.
+
+Run its offline regression and loopback-only HTTP smoke tests with
+`python3 -m unittest discover -s scripts/visitor-ip-blocks -p 'test_*.py'`.
+
 
 Install `scripts/visitor-ip-blocks/sync.py` at `/opt/jobstash-ip-blocks/sync.py`
 and the included service/timer files under `/etc/systemd/system`. Install

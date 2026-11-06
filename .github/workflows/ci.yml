@@ -9,6 +9,12 @@ on:
     paths:
       - "src/**.js"
       - "src/**.ts"
+      - "scripts/**"
+      - ".github/workflows/**"
+      - "Dockerfile"
+      - "package.json"
+      - "yarn.lock"
+      - "patches/**"
   pull_request:
     branches: [main, staging, dev]
 
@@ -53,6 +59,9 @@ jobs:
 
       - name: Unit tests
         run: yarn test --runInBand --ci --forceExit
+
+      - name: Proxy blocklist security regressions
+        run: python3 -m unittest discover -s scripts/visitor-ip-blocks -p 'test_*.py'
 
       # - name: Run Tests
       #   run: yarn test --detectOpenHandles --forceExit --ci --coverage --reporters=default --reporters=jest-junit

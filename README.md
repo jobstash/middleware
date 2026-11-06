@@ -271,9 +271,27 @@ yarn test --runInBand \
 These tests execute the actual SQL with synthetic activity, tag aliases, and
 work-arrangement payloads, including repeated applicants, future/old activity,
 organization scope, blocked tags, and zero-job matches.
-The 2026-11-06 isolated PostgreSQL 18.6 smoke passed all 14 tests across these
-three suites (8 activity, 2 tag, 4 employer-payload tests). This is functional
-fixture evidence, not a production latency guarantee.
+These are isolated fixture regressions, not a production latency guarantee.
+
+### Sentry response-contract regression gate
+
+Use an isolated, migrated fixture database. These suites reset their fixtures
+and must never target production or a database shared with another run. Set
+both `DATABASE_TEST_URL` and `RECOMMENDATIONS_TEST_DATABASE_URL` to that local
+database, then run with the Node 24 dependency graph:
+
+```bash
+DOTENV_CONFIG_PATH=/dev/null RUN_POSTGRES_INTEGRATION=1 yarn test --runInBand \
+  --testPathPatterns='response-contracts.entity.spec|subscriptions.service.spec|search-document.repository|tags.service.integration|tag.repository|job-employer-payload' \
+  --testNamePattern='Sentry response|subscription renewal|^TagRepository|^TagsService|^job Work|^SearchDocumentRepository (?!PostgreSQL)|MIDDLEWARE-29B'
+```
+
+This gate covers strict tag hydration (unknown timestamps become null; zero and
+valid numbers survive; malformed/non-finite values are rejected), project text
+and organization location defaults, contextual work-arrangement options, and
+renewal eligibility. The DoubleZero Edge fixture runs through real public
+project-detail HTTP routes, services, and the PostgreSQL repository by ID and
+slug. The full search/filter matrix needs the complete deployed migration chain.
 
 ## Support
 
