@@ -26,7 +26,11 @@ describe("PrivyGuard sequential authentication retries", () => {
     jest.mocked(PrivyClient).mockImplementation(
       () =>
         ({
-          utils: () => ({ auth: () => ({ verifyAccessToken }) }),
+          utils: () => ({
+            auth: (): { verifyAccessToken: jest.Mock } => ({
+              verifyAccessToken,
+            }),
+          }),
           users: () => ({ _get: getUser }),
         }) as unknown as PrivyClient,
     );
