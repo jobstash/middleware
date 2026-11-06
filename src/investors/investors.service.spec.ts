@@ -13,6 +13,30 @@ describe("InvestorsService fund list", () => {
     query.mockReset();
     query.mockResolvedValue([]);
   });
+  it.each([
+    { fromDate: null, toDate: "2026-01-01" },
+    { fromDate: "2026-02-30", toDate: "2026-03-01" },
+    { fromDate: "2026-03-02", toDate: "2026-03-01" },
+    { fromDate: "2026-01-01junk", toDate: "2026-03-01" },
+  ])("rejects malformed custom ranges before querying: %j", async dates => {
+    await expect(
+      service.getFundList({ activityWindow: "custom", ...dates }),
+    ).rejects.toThrow();
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it("keeps equal custom leap-day bounds inclusive through midnight UTC", async () => {
+    await service.getFundRoundStages({
+      activityWindow: "custom",
+      fromDate: "2024-02-29",
+      toDate: "2024-02-29",
+    });
+    expect(query.mock.calls[0][1]).toEqual([
+      Date.parse("2024-02-29T00:00:00Z") / 1000,
+      Date.parse("2024-03-01T00:00:00Z") / 1000,
+      null,
+    ]);
+  });
 
   it("refreshes a complete 200-fund batch on each owner's scheduled pass", async () => {
     const previousOwner = process.env.MIDDLEWARE_SCHEDULE_OWNER;

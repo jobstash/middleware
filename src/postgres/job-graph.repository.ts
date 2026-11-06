@@ -1216,6 +1216,10 @@ export class JobGraphRepository {
 
     return applications.map(application => {
       const applicant = application.applicant_properties;
+      const wallet = applicant.wallet ?? "";
+      if (typeof wallet !== "string") {
+        throw new TypeError("Applicant wallet must be a string");
+      }
       const profile = profilesById.get(application.applicant_id);
       const github =
         relatedByKey.get(application.applicant_id + ":HAS_GITHUB_USER") ?? {};
@@ -1245,7 +1249,7 @@ export class JobGraphRepository {
           application.application_properties.createdTimestamp,
         ),
         user: {
-          wallet: String(applicant.wallet ?? ""),
+          wallet,
           availableForWork: asBoolean(applicant.available),
           name: applicant.name ?? null,
           githubAvatar: github.avatarUrl ?? null,

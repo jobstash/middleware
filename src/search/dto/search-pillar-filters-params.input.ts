@@ -12,6 +12,12 @@ import { toList } from "src/shared/helpers";
 import { SearchNav } from "src/shared/interfaces";
 import { Compare } from "src/shared/validators";
 
+const transformBooleanFilter = ({ value }: { value: unknown }): unknown => {
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return value;
+};
+
 export class SearchPillarFiltersParams {
   @IsString()
   @IsNotEmpty()
@@ -221,72 +227,52 @@ export class SearchPillarFiltersParams {
   maxProgramBudget?: number | null = null;
 
   @IsOptional()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value,
-  )
+  @Transform(transformBooleanFilter)
   @IsBoolean()
   hasProjects?: boolean | null = null;
 
   @IsOptional()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value,
-  )
+  @Transform(transformBooleanFilter)
   @IsBoolean()
   hasJobs?: boolean | null = null;
 
   @IsOptional()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value,
-  )
+  @Transform(transformBooleanFilter)
   @IsBoolean()
   newActiveLeads?: boolean | null = null;
 
   @IsOptional()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value,
-  )
+  @Transform(transformBooleanFilter)
   @IsBoolean()
   steppedDownLeads?: boolean | null = null;
 
   @IsOptional()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value,
-  )
+  @Transform(transformBooleanFilter)
   @IsBoolean()
   movedLeads?: boolean | null = null;
 
   @IsOptional()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value,
-  )
+  @Transform(transformBooleanFilter)
   @IsBoolean()
   earlyLeadDepartures?: boolean | null = null;
 
   @IsOptional()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value,
-  )
+  @Transform(transformBooleanFilter)
   @IsBoolean()
   recentlyFunded?: boolean | null = null;
 
   @IsOptional()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value,
-  )
+  @Transform(transformBooleanFilter)
   @IsBoolean()
   hasAudits?: boolean | null = null;
 
   @IsOptional()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value,
-  )
+  @Transform(transformBooleanFilter)
   @IsBoolean()
   hasHacks?: boolean | null = null;
 
   @IsOptional()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value,
-  )
+  @Transform(transformBooleanFilter)
   @IsBoolean()
   hasToken?: boolean | null = null;
 }

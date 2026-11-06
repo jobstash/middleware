@@ -83,7 +83,7 @@ export interface Protocol {
   protocolsStats: ProtocolsStats | null;
   protocolType: "chain" | "protocol";
   methodologyURL: string;
-  methodology: unknown | string;
+  methodology: unknown;
   latestFetchIsOk: boolean;
   dailyRevenue: number;
   dailyUserFees?: number | null;
@@ -120,9 +120,9 @@ export interface Classic {
   breakdown24h: null;
   dailyRevenue: number;
   dailyUserFees?: number;
-  dailyHoldersRevenue: number | number;
+  dailyHoldersRevenue: number;
   dailySupplySideRevenue?: number;
-  dailyProtocolRevenue?: number | number;
+  dailyProtocolRevenue?: number;
 }
 
 export interface OptionsSummary {

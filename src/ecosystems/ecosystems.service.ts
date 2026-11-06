@@ -452,12 +452,12 @@ export class EcosystemsService {
           round => round.date,
         )[0];
         return new ShortOrgWithSummaryEntity({
-          orgId: String(payload.orgId ?? ""),
-          url: String(payload.website ?? ""),
-          name: String(payload.name ?? ""),
-          normalizedName: String(payload.normalizedName ?? ""),
-          summary: String(payload.summary ?? ""),
-          location: String(payload.location ?? ""),
+          orgId: this.memberText(payload.orgId),
+          url: this.memberText(payload.website),
+          name: this.memberText(payload.name),
+          normalizedName: this.memberText(payload.normalizedName),
+          summary: this.memberText(payload.summary),
+          location: this.memberText(payload.location),
           logoUrl: (payload.logoUrl as string | null | undefined) ?? null,
           projectCount: Array.isArray(payload.projects)
             ? payload.projects.length
@@ -469,6 +469,16 @@ export class EcosystemsService {
           ),
           lastFundingAmount: lastFundingRound?.raisedAmount ?? 0,
           lastFundingDate: lastFundingRound?.date ?? 0,
+          fundingStage: payload.fundingStage ?? null,
+          recentlyFunded: payload.recentlyFunded ?? false,
+          teamCoverageStatus: payload.teamCoverageStatus ?? null,
+          teamSignalsAsOf: payload.teamSignalsAsOf ?? null,
+          currentMaintainerCount: payload.currentMaintainerCount ?? null,
+          activeLeadCount: payload.activeLeadCount ?? null,
+          newActiveLeadCount: payload.newActiveLeadCount ?? null,
+          steppedDownLeadCount: payload.steppedDownLeadCount ?? null,
+          movedLeadCount: payload.movedLeadCount ?? null,
+          earlyLeadDepartureCount: payload.earlyLeadDepartureCount ?? null,
           grants: Array.isArray(payload.grants) ? payload.grants : [],
           ecosystems: Array.isArray(payload.ecosystems)
             ? payload.ecosystems
@@ -476,6 +486,14 @@ export class EcosystemsService {
         } as never).getProperties();
       }),
     });
+  }
+
+  private memberText(value: unknown): string {
+    if (value === null || value === undefined) return "";
+    if (typeof value !== "string") {
+      throw new TypeError("Ecosystem member text must be a string");
+    }
+    return value;
   }
 
   private capture(action: string, error: unknown, input?: unknown): void {

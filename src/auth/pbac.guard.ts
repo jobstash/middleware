@@ -13,7 +13,7 @@ import { CheckWalletPermissions } from "src/shared/constants";
 @Injectable()
 export class PBACGuard implements CanActivate {
   constructor(
-    private reflector: Reflector,
+    private readonly reflector: Reflector,
     private readonly authService: AuthService,
   ) {}
 
@@ -44,8 +44,7 @@ export class PBACGuard implements CanActivate {
             (requiredPermissions
               .filter(x => typeof x === "string")
               .every(x => userPermissions.includes(x as string)) &&
-              requiredPermissions.filter(x => typeof x === "string").length >
-                0)) &&
+              requiredPermissions.some(x => typeof x === "string"))) &&
           session?.address;
 
     if (canAccess) {

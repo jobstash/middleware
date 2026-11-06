@@ -1,4 +1,5 @@
 import type { WorkArrangementV1 } from "src/shared/interfaces/work-arrangement.interface";
+import type { TeamCoverageStatus } from "src/team-intelligence/team-intelligence.types";
 
 /**
  * Funding round for organization
@@ -44,7 +45,7 @@ export interface PillarOrganization {
   headcountEstimate: number | null;
   fundingRounds: PillarFundingRound[];
   investors: PillarInvestor[];
-  teamCoverageStatus: "current" | "unknown" | null;
+  teamCoverageStatus: TeamCoverageStatus | null;
   teamSignalsAsOf: string | null;
   currentMaintainerCount: number | null;
   activeLeadCount: number | null;

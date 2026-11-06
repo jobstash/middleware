@@ -42,7 +42,7 @@ const rounded = (value: number): number => Number(value.toFixed(8));
 const currencyFrom = (value: string): string | null => {
   const upper = value.toUpperCase();
   const codes = CURRENCY_CODES.filter(code =>
-    new RegExp(`\\b${code}\\b`).test(upper),
+    new RegExp(String.raw`\b${code}\b`).test(upper),
   );
   if (codes.includes("USD") && codes.includes("USDC")) return "USD_OR_USDC";
   if (codes.length === 1) return codes[0];
@@ -54,6 +54,45 @@ const currencyFrom = (value: string): string | null => {
   if (value.includes("₹")) return "INR";
   return null;
 };
+
+function koreanBountyAmount(value: string): string | null {
+  const suffix = /\s*만\s*원/y;
+  const amount = /\d+(?:[.,]\d+)?/y;
+  for (const start of value.matchAll(/\d+/g)) {
+    amount.lastIndex = start.index;
+    const number = amount.exec(value)!;
+    suffix.lastIndex = amount.lastIndex;
+    if (suffix.test(value)) return number[0];
+  }
+  return null;
+}
+
+function bountyNumberMatches(
+  value: string,
+): { number: string; suffix?: string }[] {
+  const starts = /(?<![\d.])\d/g;
+  const grouped = /\d{1,3}(?:,\d{3})+/y;
+  const decimal = /\d+(?:\.\d+)?/y;
+  const suffix = /\s*([kKmM])?(?!\d)/y;
+  const matches: { number: string; suffix?: string }[] = [];
+  let start: RegExpExecArray | null;
+  while ((start = starts.exec(value)) !== null) {
+    for (const format of [grouped, decimal]) {
+      format.lastIndex = start.index;
+      const number = format.exec(value);
+      if (!number) continue;
+      suffix.lastIndex = format.lastIndex;
+      const ending = suffix.exec(value);
+      if (!ending) continue;
+      matches.push({ number: number[0], suffix: ending[1] });
+      // Two numbers already make the amount ambiguous; later matches cannot restore it.
+      if (matches.length === 2) return matches;
+      starts.lastIndex = suffix.lastIndex;
+      break;
+    }
+  }
+  return matches;
+}
 
 export const parseKnownBountyAmount = (
   value: string | null,
@@ -70,23 +109,19 @@ export const parseKnownBountyAmount = (
     return null;
   }
 
-  const korean = normalized.match(/(\d+(?:[.,]\d+)?)\s*만\s*원/);
-  if (korean) {
-    const amount = Number(korean[1].replace(",", ".")) * 10_000;
+  const korean = koreanBountyAmount(normalized);
+  if (korean !== null) {
+    const amount = Number(korean.replace(",", ".")) * 10_000;
     return Number.isFinite(amount) ? { currency: "KRW", amount } : null;
   }
 
-  const matches = [
-    ...normalized.matchAll(
-      /(?<![\d.])(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)\s*([kKmM])?(?![\d])/g,
-    ),
-  ];
+  const matches = bountyNumberMatches(normalized);
   if (matches.length !== 1) return null;
   const currency = currencyFrom(normalized);
   if (!currency) return null;
-  const base = Number(matches[0][1].replaceAll(",", ""));
-  const suffix = matches[0][2]?.toUpperCase();
-  const multiplier = suffix === "K" ? 1_000 : suffix === "M" ? 1_000_000 : 1;
+  const base = Number(matches[0].number.replaceAll(",", ""));
+  const suffix = matches[0].suffix?.toUpperCase();
+  const multiplier = { K: 1_000, M: 1_000_000 }[suffix ?? ""] ?? 1;
   const amount = rounded(base * multiplier);
   return Number.isFinite(amount) && amount > 0 ? { currency, amount } : null;
 };

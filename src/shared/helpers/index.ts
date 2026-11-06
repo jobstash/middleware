@@ -42,7 +42,7 @@ export * from "./admin-directory";
 
 // Selects the prebuilt range predicate matching the supplied bounds.
 export const optionalMinMaxFilter = (
-  vals: { min?: number | undefined; max?: number | undefined },
+  vals: { min?: number; max?: number },
   both: string,
   minOnly: string,
   maxOnly: string,
@@ -124,16 +124,14 @@ export const jobListOrderBySelector = (args: {
 export const intConverter = (
   value: { low: number; high: number } | number | undefined | null,
 ): number => {
-  if (typeof value === "undefined" || value === null) {
+  if (value === undefined || value === null) {
     return 0;
+  } else if (typeof value === "number") {
+    return value;
   } else {
-    if (typeof value === "number") {
-      return value;
-    } else {
-      return Number(
-        BigInt(value.high) * 4_294_967_296n + BigInt(value.low >>> 0),
-      );
-    }
+    return Number(
+      BigInt(value.high) * 4_294_967_296n + BigInt(value.low >>> 0),
+    );
   }
 };
 
@@ -165,9 +163,8 @@ export const notStringOrNull = (
   if (
     space.includes(value) ||
     value === "" ||
-    typeof value === "undefined" ||
-    value === null ||
-    value === undefined
+    value === undefined ||
+    value === null
   ) {
     return null;
   } else {
@@ -178,24 +175,13 @@ export const notStringOrNull = (
 export const nonZeroOrNull = (
   value: { low: number; high: number } | number | string | null | undefined,
 ): number | null => {
-  if (
-    value === 0 ||
-    typeof value === "undefined" ||
-    value === null ||
-    value === undefined
-  ) {
+  if (value === 0 || value === undefined || value === null) {
     return null;
+  } else if (typeof value === "string") {
+    const trial = Number(value);
+    return Number.isNaN(trial) ? null : trial;
   } else {
-    if (typeof value === "string") {
-      const trial = Number(value);
-      if (Number.isNaN(trial)) {
-        return null;
-      } else {
-        return trial;
-      }
-    } else {
-      return typeof value === "object" ? intConverter(value) : value;
-    }
+    return typeof value === "object" ? intConverter(value) : value;
   }
 };
 
@@ -217,35 +203,39 @@ export const publicationDateRangeGenerator = (
         startDate: startOfDay(now).getTime(),
         endDate: currentInstantExclusive,
       };
-    case "this-week":
+    case "this-week": {
       const sevenDaysAgo = subDays(now, 7);
       return {
         startDate: startOfDay(sevenDaysAgo).getTime(),
         endDate: currentInstantExclusive,
       };
+    }
     case "this-month":
       return {
         startDate: startOfMonth(now).getTime(),
         endDate: currentInstantExclusive,
       };
-    case "past-2-weeks":
+    case "past-2-weeks": {
       const twoWeeksAgo = subWeeks(now, 2);
       return {
         startDate: startOfDay(twoWeeksAgo).getTime(),
         endDate: currentInstantExclusive,
       };
-    case "past-3-months":
+    }
+    case "past-3-months": {
       const threeMonthsAgo = subMonths(now, 3);
       return {
         startDate: startOfDay(threeMonthsAgo).getTime(),
         endDate: currentInstantExclusive,
       };
-    case "past-6-months":
+    }
+    case "past-6-months": {
       const sixMonthsAgo = subMonths(now, 6);
       return {
         startDate: startOfDay(sixMonthsAgo).getTime(),
         endDate: currentInstantExclusive,
       };
+    }
     default:
       return { startDate: null, endDate: null };
   }
@@ -271,16 +261,14 @@ export const responseSchemaWrapper = (
 export const toList = ({ value }: TransformFnParams): string[] | null => {
   if (typeof value === "string") {
     return value.split(",");
-  } else if (typeof value === "undefined") {
+  } else if (value === undefined) {
     return null;
   } else {
     return value;
   }
 };
 
-export const transformToNullIfUndefined = (
-  value: unknown | undefined,
-): unknown => {
+export const transformToNullIfUndefined = (value: unknown): unknown => {
   return value === undefined ? null : value;
 };
 
@@ -294,14 +282,10 @@ export const inferObjectType = (obj: unknown): string => {
       if (Array.from(obj).every(x => inferObjectType(x) === first)) {
         objectString = `Array<${first}>`;
       } else {
-        if (typeof first === "undefined") {
-          objectString = "Array<unknown>";
-        } else {
-          const types = Array.from(
-            new Set([...Array.from(obj).map(x => inferObjectType(x))]),
-          );
-          objectString = `Array<${types.join(" | ")}>`;
-        }
+        const types = Array.from(
+          new Set(Array.from(obj).map(x => inferObjectType(x))),
+        );
+        objectString = `Array<${types.join(" | ")}>`;
       }
     } else if (obj === null) {
       objectString = "null";
@@ -325,7 +309,7 @@ export const hasDuplicates = <A, B>(
   actionableDataExtractor: (item: A) => string,
 ): boolean => {
   const props = data.map(uniquePropertyExtractor);
-  const propsSet = new Set([...props]);
+  const propsSet = new Set(props);
   if (props.length === propsSet.size) {
     return false;
   } else {
@@ -348,16 +332,17 @@ export const hasDuplicates = <A, B>(
     for (const [item, count] of countMap.entries()) {
       if (count > 1) {
         const indexes = indexesMap.get(item);
-        const firstX = indexes.slice(undefined, indexes.length - 1);
+        const firstX = indexes.slice(0, -1);
+        const relevantData = indexesMap
+          .get(item)
+          .map(x => `idx ${x}: ${actionableDataExtractor(data[x])}`)
+          .join("\n            ");
         console.log(
           `${itemName} '${item}' is found ${count} times at indexes: ${firstX.join(
             ", ",
-          )} and ${indexes[indexes.length - 1]}.
+          )} and ${indexes.at(-1)}.
         Relevant data:
-          ${indexesMap
-            .get(item)
-            .map(x => `idx ${x}: ${actionableDataExtractor(data[x])}`).join(`
-            `)}`,
+          ${relevantData}`,
         );
         hasDuplicates = true;
       }
@@ -567,7 +552,7 @@ export const resetTestDB = async (
     httpService.post<string>("execute-commands").pipe(
       catchError((err: AxiosError) => {
         logger.error(`${err.name} ${err.message}`);
-        throw Error(
+        throw new Error(
           "There was an unexpected error refreshing the test database",
         );
       }),
@@ -641,8 +626,8 @@ export const isValidUrl = (urlString: string): boolean => {
     }
     const url = new URL(urlString);
     return ["http:", "https:"].includes(url.protocol);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  } catch (_) {
+  } catch {
+    // Normalize both URL parser errors and username rejection to this public error.
     throw new Error("Not a valid URL: " + urlString);
   }
 };
@@ -719,7 +704,8 @@ export const slugifyFacetLabel = (str: string | null | undefined): string => {
   const slug = transliterate(str)
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    // Non-alphanumeric runs above have already collapsed to single hyphens.
+    .replace(/^-|-$/g, "");
   return slug || str.trim().toLowerCase();
 };
 
@@ -742,6 +728,34 @@ interface MixOptions {
   maxJitter?: number;
   /** Seed for reproducible randomness; if omitted, Math.random() is used */
   seed?: number;
+}
+
+function interleavePositions(
+  N: number,
+  kB: number,
+  maxJitter: number,
+  rng: () => number,
+): number[] {
+  const idealPositions: number[] = [];
+  for (let i = 0; i < kB; i++) {
+    const pos = Math.round(((i + 0.5) * N) / kB - 0.5);
+    idealPositions.push(Math.max(0, Math.min(N - 1, pos)));
+  }
+
+  const positions: number[] = [];
+  let lastPlaced = -1;
+  for (let i = 0; i < idealPositions.length; i++) {
+    const jitter = Math.floor((rng() * 2 - 1) * maxJitter);
+    const minAllowed = lastPlaced + 1;
+    const maxAllowed = N - (kB - i);
+    const candidate = Math.min(
+      Math.max(idealPositions[i] + jitter, minAllowed),
+      maxAllowed,
+    );
+    positions.push(candidate);
+    lastPlaced = candidate;
+  }
+  return positions;
 }
 
 /**
@@ -769,27 +783,7 @@ function interleaveSemiRandom<A, B>(
   const rng = opts.seed != null ? makeRng(opts.seed) : Math.random;
   const maxJitter = opts.maxJitter ?? Math.max(1, Math.floor(N / (kB * 3)));
 
-  const idealPositions: number[] = [];
-  for (let i = 0; i < kB; i++) {
-    const pos = Math.round(((i + 0.5) * N) / kB - 0.5);
-    idealPositions.push(Math.max(0, Math.min(N - 1, pos)));
-  }
-
-  const positions: number[] = [];
-  let lastPlaced = -1;
-  for (let i = 0; i < idealPositions.length; i++) {
-    const base = idealPositions[i];
-    const jitter = Math.floor((rng() * 2 - 1) * maxJitter);
-    let candidate = base + jitter;
-
-    const minAllowed = lastPlaced + 1;
-    const maxAllowed = N - (kB - i);
-    candidate = Math.max(candidate, minAllowed);
-    candidate = Math.min(candidate, maxAllowed);
-
-    positions.push(candidate);
-    lastPlaced = candidate;
-  }
+  const positions = interleavePositions(N, kB, maxJitter, rng);
 
   const aIdxEnd = Math.min(A.length, N);
   let ai = 0;
@@ -800,12 +794,11 @@ function interleaveSemiRandom<A, B>(
   for (let i = 0; i < N; i++) {
     const shouldPlaceB = pi < positions.length && i === positions[pi];
 
-    if (shouldPlaceB && bi < B.length) {
-      firstWindow.push(B[bi++]);
-      pi++;
-    } else if (ai < aIdxEnd) {
-      firstWindow.push(A[ai++]);
-    } else if (bi < B.length && pi < positions.length) {
+    if (
+      (shouldPlaceB || ai >= aIdxEnd) &&
+      bi < B.length &&
+      pi < positions.length
+    ) {
       firstWindow.push(B[bi++]);
       pi++;
     } else if (ai < A.length) {

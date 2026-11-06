@@ -731,129 +731,32 @@ export class OrganizationsController {
         ...dto
       } = body;
 
-      if (aliases !== undefined) {
-        const res1 = await this.updateOrgAliases(
-          { ...EMPTY_SESSION_OBJECT, address },
-          {
-            orgId: id,
-            aliases,
-          },
+      const updateOrganizationIdentityLinksError =
+        await this.updateOrganizationIdentityLinks(
+          id,
+          { aliases, websites, twitters, githubs },
+          address,
         );
+      if (updateOrganizationIdentityLinksError)
+        return updateOrganizationIdentityLinksError;
 
-        if (!res1.success) {
-          return res1;
-        }
-      }
-
-      if (websites !== undefined) {
-        const res3 = await this.organizationsService.updateOrgWebsites({
-          orgId: id,
-          websites,
-        });
-
-        if (!res3.success) {
-          return res3;
-        }
-      }
-
-      if (twitters !== undefined) {
-        const res4 = await this.organizationsService.updateOrgTwitters({
-          orgId: id,
-          twitters,
-        });
-
-        if (!res4.success) {
-          return res4;
-        }
-      }
-
-      if (githubs !== undefined) {
-        const res5 = await this.organizationsService.updateOrgGithubs({
-          orgId: id,
-          githubs,
-        });
-
-        if (!res5.success) {
-          return res5;
-        }
-      }
-
-      if (discords !== undefined) {
-        const res6 = await this.organizationsService.updateOrgDiscords({
-          orgId: id,
+      const updateOrganizationCommunityLinksError =
+        await this.updateOrganizationCommunityLinks(id, {
           discords,
-        });
-
-        if (!res6.success) {
-          return res6;
-        }
-      }
-
-      if (docs !== undefined) {
-        const res7 = await this.organizationsService.updateOrgDocs({
-          orgId: id,
-          docsites: docs,
-        });
-
-        if (!res7.success) {
-          return res7;
-        }
-      }
-
-      if (telegrams !== undefined) {
-        const res8 = await this.organizationsService.updateOrgTelegrams({
-          orgId: id,
+          docs,
           telegrams,
         });
+      if (updateOrganizationCommunityLinksError)
+        return updateOrganizationCommunityLinksError;
 
-        if (!res8.success) {
-          return res8;
-        }
-      }
-
-      if (projects !== undefined) {
-        const res10 = await this.organizationsService.updateOrgProjects(
-          id,
+      const updateOrganizationProjectLinksError =
+        await this.updateOrganizationProjectLinks(id, {
           projects,
-        );
-
-        if (!res10.success) {
-          return {
-            success: res10.success,
-            message: "Error updating org projects",
-          };
-        }
-      }
-
-      if (detectedJobsites !== undefined) {
-        const res11 = await this.organizationsService.updateOrgDetectedJobsites(
-          {
-            orgId: id,
-            detectedJobsites,
-          },
-        );
-
-        if (!res11.success) {
-          return {
-            success: res11.success,
-            message: "Error updating org detected jobsites",
-          };
-        }
-      }
-
-      if (jobsites !== undefined) {
-        const res12 = await this.organizationsService.updateOrgJobsites({
-          orgId: id,
+          detectedJobsites,
           jobsites,
         });
-
-        if (!res12.success) {
-          return {
-            success: res12.success,
-            message: "Error updating org jobsites",
-          };
-        }
-      }
+      if (updateOrganizationProjectLinksError)
+        return updateOrganizationProjectLinksError;
 
       const result = await this.organizationsService.update(id, dto);
 
@@ -882,6 +785,153 @@ export class OrganizationsController {
         success: false,
         message: `An unexpected error occured`,
       };
+    }
+  }
+
+  private async updateOrganizationIdentityLinks(
+    id: string,
+    links: Pick<
+      UpdateOrganizationInput,
+      "aliases" | "websites" | "twitters" | "githubs"
+    >,
+    address: SessionObject["address"],
+  ): Promise<ResponseWithNoData | undefined> {
+    const { aliases, websites, twitters, githubs } = links;
+    if (aliases !== undefined) {
+      const res1 = await this.updateOrgAliases(
+        { ...EMPTY_SESSION_OBJECT, address },
+        {
+          orgId: id,
+          aliases,
+        },
+      );
+
+      if (!res1.success) {
+        return res1;
+      }
+    }
+
+    if (websites !== undefined) {
+      const res3 = await this.organizationsService.updateOrgWebsites({
+        orgId: id,
+        websites,
+      });
+
+      if (!res3.success) {
+        return res3;
+      }
+    }
+
+    if (twitters !== undefined) {
+      const res4 = await this.organizationsService.updateOrgTwitters({
+        orgId: id,
+        twitters,
+      });
+
+      if (!res4.success) {
+        return res4;
+      }
+    }
+
+    if (githubs !== undefined) {
+      const res5 = await this.organizationsService.updateOrgGithubs({
+        orgId: id,
+        githubs,
+      });
+
+      if (!res5.success) {
+        return res5;
+      }
+    }
+  }
+
+  private async updateOrganizationCommunityLinks(
+    id: string,
+    links: Pick<UpdateOrganizationInput, "discords" | "docs" | "telegrams">,
+  ): Promise<ResponseWithNoData | undefined> {
+    const { discords, docs, telegrams } = links;
+    if (discords !== undefined) {
+      const res6 = await this.organizationsService.updateOrgDiscords({
+        orgId: id,
+        discords,
+      });
+
+      if (!res6.success) {
+        return res6;
+      }
+    }
+
+    if (docs !== undefined) {
+      const res7 = await this.organizationsService.updateOrgDocs({
+        orgId: id,
+        docsites: docs,
+      });
+
+      if (!res7.success) {
+        return res7;
+      }
+    }
+
+    if (telegrams !== undefined) {
+      const res8 = await this.organizationsService.updateOrgTelegrams({
+        orgId: id,
+        telegrams,
+      });
+
+      if (!res8.success) {
+        return res8;
+      }
+    }
+  }
+
+  private async updateOrganizationProjectLinks(
+    id: string,
+    links: Pick<
+      UpdateOrganizationInput,
+      "projects" | "detectedJobsites" | "jobsites"
+    >,
+  ): Promise<ResponseWithNoData | undefined> {
+    const { projects, detectedJobsites, jobsites } = links;
+    if (projects !== undefined) {
+      const res10 = await this.organizationsService.updateOrgProjects(
+        id,
+        projects,
+      );
+
+      if (!res10.success) {
+        return {
+          success: res10.success,
+          message: "Error updating org projects",
+        };
+      }
+    }
+
+    if (detectedJobsites !== undefined) {
+      const res11 = await this.organizationsService.updateOrgDetectedJobsites({
+        orgId: id,
+        detectedJobsites,
+      });
+
+      if (!res11.success) {
+        return {
+          success: res11.success,
+          message: "Error updating org detected jobsites",
+        };
+      }
+    }
+
+    if (jobsites !== undefined) {
+      const res12 = await this.organizationsService.updateOrgJobsites({
+        orgId: id,
+        jobsites,
+      });
+
+      if (!res12.success) {
+        return {
+          success: res12.success,
+          message: "Error updating org jobsites",
+        };
+      }
     }
   }
 

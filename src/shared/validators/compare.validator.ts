@@ -8,10 +8,9 @@ import {
 
 @ValidatorConstraint({ name: "Compare" })
 export class CompareConstraint implements ValidatorConstraintInterface {
-  // eslint-disable-next-line
-  validate(value: any, args: ValidationArguments): boolean {
+  validate<Value>(value: Value, args: ValidationArguments): boolean {
     const [targetProperty, operator, comparatorFunction] = args.constraints;
-    const targetPropertyValue = args.object[targetProperty];
+    const targetPropertyValue: Value = args.object[targetProperty];
 
     if (
       value === null ||
@@ -19,35 +18,31 @@ export class CompareConstraint implements ValidatorConstraintInterface {
       targetPropertyValue === null
     ) {
       return true;
-    } else {
-      if (operator !== null) {
-        switch (operator) {
-          case "==":
-            return value == targetPropertyValue;
-          case "===":
-            return value === targetPropertyValue;
-          case ">":
-            return value > targetPropertyValue;
-          case "<":
-            return value < targetPropertyValue;
-          case "!=":
-            return value != targetPropertyValue;
-          case "!==":
-            return value !== targetPropertyValue;
-          case ">=":
-            return value >= targetPropertyValue;
-          case "<=":
-            return value <= targetPropertyValue;
-          default:
-            return false;
-        }
-      } else {
-        if (comparatorFunction !== null) {
-          return comparatorFunction(value, targetPropertyValue);
-        } else {
+    } else if (operator !== null) {
+      switch (operator) {
+        case "==":
+          return value == targetPropertyValue;
+        case "===":
+          return value === targetPropertyValue;
+        case ">":
+          return value > targetPropertyValue;
+        case "<":
+          return value < targetPropertyValue;
+        case "!=":
+          return value != targetPropertyValue;
+        case "!==":
+          return value !== targetPropertyValue;
+        case ">=":
+          return value >= targetPropertyValue;
+        case "<=":
+          return value <= targetPropertyValue;
+        default:
           return false;
-        }
       }
+    } else if (comparatorFunction !== null) {
+      return comparatorFunction(value, targetPropertyValue);
+    } else {
+      return false;
     }
   }
 
@@ -57,15 +52,16 @@ export class CompareConstraint implements ValidatorConstraintInterface {
   }
 }
 
-export function Compare(
+export function Compare<Value, TargetValue>(
   targetProperty: string,
   operator?: "==" | "===" | ">" | "<" | "!=" | "!==" | ">=" | "<=",
-  // eslint-disable-next-line
-  comparatorFunction?: (value: any, targetPropertyValue: any) => boolean,
+  comparatorFunction?: (
+    value: Value,
+    targetPropertyValue: TargetValue,
+  ) => boolean,
   validationOptions?: ValidationOptions,
-) {
-  // eslint-disable-next-line
-  return function (object: any, propertyName: string): void {
+): (object: object, propertyName: string) => void {
+  return function (object: object, propertyName: string): void {
     registerDecorator({
       target: object.constructor,
       propertyName: propertyName,

@@ -26,9 +26,11 @@ export class SuggestedJobsInput {
 
   @ApiPropertyOptional({ default: false })
   @IsOptional()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : (value ?? false),
-  )
+  @Transform(({ value }) => {
+    if (value === "true") return true;
+    if (value === "false") return false;
+    return value ?? false;
+  })
   @IsBoolean()
   isExpert: boolean = false;
 

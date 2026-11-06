@@ -29,7 +29,7 @@ import { responseSchemaWrapper } from "src/shared/helpers";
 
 @Controller("audits")
 export class AuditsController {
-  private logger = new CustomLogger(AuditsController.name);
+  private readonly logger = new CustomLogger(AuditsController.name);
   constructor(
     private readonly auditsService: AuditsService,
     private readonly authService: AuthService,

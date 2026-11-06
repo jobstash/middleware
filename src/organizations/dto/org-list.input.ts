@@ -72,41 +72,51 @@ export class OrgListParams {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value,
-  )
+  @Transform(({ value }) => {
+    if (value === "true") return true;
+    if (value === "false") return false;
+    return value;
+  })
   @IsBoolean()
   newActiveLeads?: boolean | null = null;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value,
-  )
+  @Transform(({ value }) => {
+    if (value === "true") return true;
+    if (value === "false") return false;
+    return value;
+  })
   @IsBoolean()
   steppedDownLeads?: boolean | null = null;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value,
-  )
+  @Transform(({ value }) => {
+    if (value === "true") return true;
+    if (value === "false") return false;
+    return value;
+  })
   @IsBoolean()
   movedLeads?: boolean | null = null;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value,
-  )
+  @Transform(({ value }) => {
+    if (value === "true") return true;
+    if (value === "false") return false;
+    return value;
+  })
   @IsBoolean()
   earlyLeadDepartures?: boolean | null = null;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value,
-  )
+  @Transform(({ value }) => {
+    if (value === "true") return true;
+    if (value === "false") return false;
+    return value;
+  })
   @IsBoolean()
   recentlyFunded?: boolean | null = null;
 
@@ -160,9 +170,11 @@ export class OrgListParams {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value,
-  )
+  @Transform(({ value }) => {
+    if (value === "true") return true;
+    if (value === "false") return false;
+    return value;
+  })
   @IsBoolean()
   hasProjects?: boolean | null = null;
 

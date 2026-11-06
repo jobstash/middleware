@@ -426,11 +426,12 @@ export class JobsController {
     },
   })
   async getFeaturedJobsList(
-    @Param("orgId") orgId: string | null = null,
+    @Param("orgId") orgId: string | null | undefined,
     @Headers(ECOSYSTEM_HEADER)
     ecosystem: string | undefined,
     @Session() { address, permissions }: SessionObject,
   ): Promise<ResponseWithOptionalData<JobListResult[]>> {
+    if (orgId === undefined) orgId = null;
     this.logger.log(`/jobs/featured`);
     if (permissions.includes(CheckWalletPermissions.SUPER_ADMIN)) {
       if (orgId === "all") {
@@ -438,42 +439,38 @@ export class JobsController {
       } else {
         return this.jobsService.getFeaturedJobsByOrgId(ecosystem, orgId);
       }
-    } else {
-      const userOrgId =
-        await this.userService.findOrgIdByMemberUserWallet(address);
-      const subscription = data(
-        await this.subscriptionService.getSubscriptionInfoByOrgId(userOrgId),
-      );
-      if (subscription.isActive()) {
-        if (permissions.includes(CheckWalletPermissions.ECOSYSTEM_MANAGER)) {
-          return this.jobsService.getFeaturedJobsByOrgId(ecosystem, orgId);
-        } else {
-          if (orgId === null) {
-            throw new BadRequestException({
-              success: false,
-              message: "Must specify orgId",
-            });
-          } else {
-            if (
-              (await this.userService.isOrgMember(address, orgId)) ||
-              (await this.userService.isOrgOwner(address, orgId))
-            ) {
-              return this.jobsService.getFeaturedJobsByOrgId(ecosystem, orgId);
-            } else {
-              throw new UnauthorizedException({
-                success: false,
-                message: "You are not authorized to access this resource",
-              });
-            }
-          }
-        }
-      } else {
-        throw new UnauthorizedException({
-          success: false,
-          message: "You are not authorized to access this resource",
-        });
-      }
     }
+
+    const userOrgId =
+      await this.userService.findOrgIdByMemberUserWallet(address);
+    const subscription = data(
+      await this.subscriptionService.getSubscriptionInfoByOrgId(userOrgId),
+    );
+    if (!subscription.isActive()) {
+      throw new UnauthorizedException({
+        success: false,
+        message: "You are not authorized to access this resource",
+      });
+    }
+    if (permissions.includes(CheckWalletPermissions.ECOSYSTEM_MANAGER)) {
+      return this.jobsService.getFeaturedJobsByOrgId(ecosystem, orgId);
+    }
+    if (orgId === null) {
+      throw new BadRequestException({
+        success: false,
+        message: "Must specify orgId",
+      });
+    }
+    if (
+      (await this.userService.isOrgMember(address, orgId)) ||
+      (await this.userService.isOrgOwner(address, orgId))
+    ) {
+      return this.jobsService.getFeaturedJobsByOrgId(ecosystem, orgId);
+    }
+    throw new UnauthorizedException({
+      success: false,
+      message: "You are not authorized to access this resource",
+    });
   }
 
   @Get("/org/:id")
@@ -599,18 +596,16 @@ export class JobsController {
       (await this.userService.isOrgOwner(address, id))
     ) {
       return this.jobsService.getAllJobsByOrgId(id, page, limit);
+    } else if (
+      permissions.includes(CheckWalletPermissions.ECOSYSTEM_MANAGER) ||
+      permissions.includes(CheckWalletPermissions.SUPER_ADMIN)
+    ) {
+      return this.jobsService.getAllJobsByOrgId(id, page, limit);
     } else {
-      if (
-        permissions.includes(CheckWalletPermissions.ECOSYSTEM_MANAGER) ||
-        permissions.includes(CheckWalletPermissions.SUPER_ADMIN)
-      ) {
-        return this.jobsService.getAllJobsByOrgId(id, page, limit);
-      } else {
-        throw new UnauthorizedException({
-          success: false,
-          message: "You are not allowed to access this resource",
-        });
-      }
+      throw new UnauthorizedException({
+        success: false,
+        message: "You are not allowed to access this resource",
+      });
     }
   }
 
@@ -651,18 +646,16 @@ export class JobsController {
       (await this.userService.isOrgOwner(address, id))
     ) {
       return this.jobsService.getOrgAllJobsListFilters(id);
+    } else if (
+      permissions.includes(CheckWalletPermissions.ECOSYSTEM_MANAGER) ||
+      permissions.includes(CheckWalletPermissions.SUPER_ADMIN)
+    ) {
+      return this.jobsService.getOrgAllJobsListFilters(id);
     } else {
-      if (
-        permissions.includes(CheckWalletPermissions.ECOSYSTEM_MANAGER) ||
-        permissions.includes(CheckWalletPermissions.SUPER_ADMIN)
-      ) {
-        return this.jobsService.getOrgAllJobsListFilters(id);
-      } else {
-        throw new UnauthorizedException({
-          success: false,
-          message: "You are not allowed to access this resource",
-        });
-      }
+      throw new UnauthorizedException({
+        success: false,
+        message: "You are not allowed to access this resource",
+      });
     }
   }
 
@@ -702,9 +695,11 @@ export class JobsController {
       | "archived"
       | "new"
       | "interviewing"
-      | "hired" = "all",
+      | "hired"
+      | undefined,
     @Session() { address }: SessionObject,
   ): Promise<ResponseWithOptionalData<JobApplicant[]>> {
+    if (list === undefined) list = "all";
     this.logger.log(`/jobs/org/${id}/applicants`);
     if (!(await this.userService.isOrgMember(address, id))) {
       throw new ForbiddenException({
@@ -1037,7 +1032,7 @@ export class JobsController {
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/jobs/change-classification`);
     try {
-      return this.jobsService.changeJobClassification(address, dto);
+      return await this.jobsService.changeJobClassification(address, dto);
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -1069,7 +1064,7 @@ export class JobsController {
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/jobs/feature`);
     try {
-      return this.jobsService.featureJobpost(dto);
+      return await this.jobsService.featureJobpost(dto);
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -1170,176 +1165,191 @@ export class JobsController {
       await this.accountService.getDelegateAccess(userOrgId, jobOrgId),
     );
 
-    if (
+    const canUpdate =
       userOrgId === jobOrgId ||
       session.permissions.includes(CheckWalletPermissions.SUPER_ADMIN) ||
       (session.permissions.includes(CheckWalletPermissions.ECOSYSTEM_MANAGER) &&
-        delegateAccess === "accepted")
-    ) {
-      this.logger.log(`/jobs/update/${shortUUID} ${JSON.stringify(body)}`);
-      const oldJob =
-        await this.jobsService.getJobDetailsByUuidForUpdate(shortUUID);
-      const {
-        commitment,
-        classification,
-        locationType,
-        project,
-        isBlocked,
-        isOnline,
-        tags,
-        ...dto
-      } = body;
-      const { address } = session;
-
-      // Prepare promises for independent operations
-      const updatePromises: Promise<ResponseWithNoData>[] = [];
-
-      // Block/unblock
-      if (oldJob.blocked !== isBlocked) {
-        console.log("Block/unblock");
-        if (isBlocked === true) {
-          updatePromises.push(
-            this.jobsService.blockJobs(address, { shortUUIDs: [shortUUID] }),
-          );
-        } else if (isBlocked === false) {
-          updatePromises.push(
-            this.jobsService.unblockJobs(address, { shortUUIDs: [shortUUID] }),
-          );
-        }
-      }
-
-      // Online/offline
-      if (oldJob.online !== isOnline) {
-        console.log("Online/offline");
-        if (isOnline === true) {
-          updatePromises.push(
-            this.jobsService.makeJobsOnline(address, {
-              shortUUIDs: [shortUUID],
-            }),
-          );
-        } else if (isOnline === false) {
-          updatePromises.push(
-            this.jobsService.makeJobsOffline(address, {
-              shortUUIDs: [shortUUID],
-            }),
-          );
-        }
-      }
-
-      // Commitment
-      if (commitment !== oldJob.commitment) {
-        console.log("Commitment");
-        updatePromises.push(
-          this.jobsService.changeJobCommitment(address, {
-            shortUUID,
-            commitment,
-          }),
-        );
-      }
-
-      // Classification
-      if (classification !== oldJob.classification) {
-        console.log("Classification");
-        updatePromises.push(
-          this.jobsService.changeJobClassification(address, {
-            shortUUIDs: [shortUUID],
-            classification,
-          }),
-        );
-      }
-
-      // Location type
-      if (locationType !== oldJob.locationType) {
-        console.log("Location type");
-        updatePromises.push(
-          this.jobsService.changeJobLocationType(address, {
-            shortUUID,
-            locationType,
-          }),
-        );
-      }
-
-      // Project
-      if (project !== (oldJob.project?.id ?? null)) {
-        console.log("Project");
-        updatePromises.push(
-          this.jobsService.changeJobProject(address, {
-            shortUUID,
-            projectId: project,
-          }),
-        );
-      }
-
-      const hasSameTags = (
-        arr1: { normalizedName: string }[],
-        arr2: { normalizedName: string }[],
-      ): boolean => {
-        const tags1 = map(arr1, "normalizedName");
-        const tags2 = map(arr2, "normalizedName");
-        return isEmpty(xor(tags1, tags2));
-      };
-
-      // Tags
-      if (!hasSameTags(tags, oldJob.tags)) {
-        console.log("Tags");
-        updatePromises.push(
-          this.editTags(session, { shortUUID, tags: tags.map(x => x.name) }),
-        );
-      }
-
-      const excludedFields = [
-        "commitment",
-        "classification",
-        "locationType",
-        "project",
-        "tags",
-        "isBlocked",
-        "isOnline",
-      ];
-
-      const dtoSubset = { ...dto };
-      excludedFields.forEach(field => delete dtoSubset[field]);
-
-      const oldJobSubset = { ...oldJob };
-      excludedFields.forEach(field => delete oldJobSubset[field]);
-
-      if (!isEqual(oldJobSubset, dtoSubset)) {
-        console.log("Metadata");
-        updatePromises.push(
-          this.jobsService
-            .update(shortUUID, dtoSubset)
-            .then(res => ({
-              success: res,
-              message: "Job metadata updated successfully",
-            }))
-            .catch(err => ({
-              success: false,
-              message: `Error updating job metadata: ${err.message}`,
-            })),
-        );
-      }
-
-      // Wait for all updates to complete
-      const results = await Promise.all(updatePromises);
-
-      // Check for any failed operations
-      for (const res of results) {
-        if (res && res.success === false) {
-          this.logger.error(res.message);
-          return res;
-        }
-      }
-
-      return {
-        success: true,
-        message: "Job metadata updated successfully",
-      };
-    } else {
+        delegateAccess === "accepted");
+    if (!canUpdate) {
       throw new ForbiddenException({
         success: false,
         message: "You are not authorized to perform this action",
       });
     }
+    this.logger.log(`/jobs/update/${shortUUID} ${JSON.stringify(body)}`);
+    const oldJob =
+      await this.jobsService.getJobDetailsByUuidForUpdate(shortUUID);
+    const {
+      commitment,
+      classification,
+      locationType,
+      project,
+      isBlocked,
+      isOnline,
+      tags,
+      ...dto
+    } = body;
+    const { address } = session;
+
+    // Prepare promises for independent operations
+    const updatePromises = this.getJobStatusUpdates(
+      address,
+      shortUUID,
+      oldJob,
+      isBlocked,
+      isOnline,
+    );
+
+    // Commitment
+    if (commitment !== oldJob.commitment) {
+      console.log("Commitment");
+      updatePromises.push(
+        this.jobsService.changeJobCommitment(address, {
+          shortUUID,
+          commitment,
+        }),
+      );
+    }
+
+    // Classification
+    if (classification !== oldJob.classification) {
+      console.log("Classification");
+      updatePromises.push(
+        this.jobsService.changeJobClassification(address, {
+          shortUUIDs: [shortUUID],
+          classification,
+        }),
+      );
+    }
+
+    // Location type
+    if (locationType !== oldJob.locationType) {
+      console.log("Location type");
+      updatePromises.push(
+        this.jobsService.changeJobLocationType(address, {
+          shortUUID,
+          locationType,
+        }),
+      );
+    }
+
+    // Project
+    if (project !== (oldJob.project?.id ?? null)) {
+      console.log("Project");
+      updatePromises.push(
+        this.jobsService.changeJobProject(address, {
+          shortUUID,
+          projectId: project,
+        }),
+      );
+    }
+
+    const hasSameTags = (
+      arr1: { normalizedName: string }[],
+      arr2: { normalizedName: string }[],
+    ): boolean => {
+      const tags1 = map(arr1, "normalizedName");
+      const tags2 = map(arr2, "normalizedName");
+      return isEmpty(xor(tags1, tags2));
+    };
+
+    // Tags
+    if (!hasSameTags(tags, oldJob.tags)) {
+      console.log("Tags");
+      updatePromises.push(
+        this.editTags(session, { shortUUID, tags: tags.map(x => x.name) }),
+      );
+    }
+
+    const excludedFields = [
+      "commitment",
+      "classification",
+      "locationType",
+      "project",
+      "tags",
+      "isBlocked",
+      "isOnline",
+    ];
+
+    const dtoSubset = { ...dto };
+    excludedFields.forEach(field => delete dtoSubset[field]);
+
+    const oldJobSubset = { ...oldJob };
+    excludedFields.forEach(field => delete oldJobSubset[field]);
+
+    if (!isEqual(oldJobSubset, dtoSubset)) {
+      console.log("Metadata");
+      updatePromises.push(
+        this.jobsService
+          .update(shortUUID, dtoSubset)
+          .then(res => ({
+            success: res,
+            message: "Job metadata updated successfully",
+          }))
+          .catch(err => ({
+            success: false,
+            message: `Error updating job metadata: ${err.message}`,
+          })),
+      );
+    }
+
+    // Wait for all updates to complete
+    const results = await Promise.all(updatePromises);
+
+    // Check for any failed operations
+    for (const res of results) {
+      if (res?.success === false) {
+        this.logger.error(res.message);
+        return res;
+      }
+    }
+
+    return {
+      success: true,
+      message: "Job metadata updated successfully",
+    };
+  }
+
+  private getJobStatusUpdates(
+    address: string,
+    shortUUID: string,
+    oldJob: EcosystemJobListResult,
+    isBlocked: boolean,
+    isOnline: boolean,
+  ): Promise<ResponseWithNoData>[] {
+    const updatePromises: Promise<ResponseWithNoData>[] = [];
+    // Block/unblock
+    if (oldJob.blocked !== isBlocked) {
+      console.log("Block/unblock");
+      if (isBlocked === true) {
+        updatePromises.push(
+          this.jobsService.blockJobs(address, { shortUUIDs: [shortUUID] }),
+        );
+      } else if (isBlocked === false) {
+        updatePromises.push(
+          this.jobsService.unblockJobs(address, { shortUUIDs: [shortUUID] }),
+        );
+      }
+    }
+
+    // Online/offline
+    if (oldJob.online !== isOnline) {
+      console.log("Online/offline");
+      if (isOnline === true) {
+        updatePromises.push(
+          this.jobsService.makeJobsOnline(address, {
+            shortUUIDs: [shortUUID],
+          }),
+        );
+      } else if (isOnline === false) {
+        updatePromises.push(
+          this.jobsService.makeJobsOffline(address, {
+            shortUUIDs: [shortUUID],
+          }),
+        );
+      }
+    }
+    return updatePromises;
   }
 
   @Post("/block")
@@ -1496,7 +1506,7 @@ export class JobsController {
     @Param("uuid") uuid: string,
     @Query("flag") flag: string | undefined,
     @Headers(ECOSYSTEM_HEADER)
-    ecosystem: string | undefined = undefined,
+    ecosystem: string | undefined,
     @Session() session: SessionObject,
   ): Promise<
     ResponseWithOptionalData<{

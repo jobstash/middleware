@@ -44,6 +44,19 @@ import {
 } from "src/access-workspaces/agency-billing.contract";
 import { AccessWorkspaceBillingRepository } from "src/postgres/access-workspace-billing.repository";
 
+type StripeCustomer = Stripe.Customer | Stripe.DeletedCustomer | undefined;
+
+interface PendingSubscriptionChange {
+  jobstash: string | null;
+  extraSeats: number | null;
+  veri: string | null;
+  stashAlert: boolean | null;
+  stashPool: boolean | null;
+  atsIntegration: boolean | null;
+  jobPromotions: number | null;
+  cancellationDate: number | null;
+}
+
 @Injectable()
 export class StripeService {
   private readonly logger = new CustomLogger(StripeService.name);
@@ -149,11 +162,7 @@ export class StripeService {
 
   async getCustomerByEmail(
     email: string,
-  ): Promise<
-    ResponseWithOptionalData<
-      Stripe.Customer | Stripe.DeletedCustomer | undefined
-    >
-  > {
+  ): Promise<ResponseWithOptionalData<StripeCustomer>> {
     try {
       const customers = await this.stripe.customers.list({
         email,
@@ -183,11 +192,7 @@ export class StripeService {
 
   async getCustomerById(
     id: string,
-  ): Promise<
-    ResponseWithOptionalData<
-      Stripe.Customer | Stripe.DeletedCustomer | undefined
-    >
-  > {
+  ): Promise<ResponseWithOptionalData<StripeCustomer>> {
     try {
       const customer = await this.stripe.customers.retrieve(id);
       return {
@@ -215,11 +220,7 @@ export class StripeService {
 
   async getCustomerBySubscriptionId(
     id: string,
-  ): Promise<
-    ResponseWithOptionalData<
-      Stripe.Customer | Stripe.DeletedCustomer | undefined
-    >
-  > {
+  ): Promise<ResponseWithOptionalData<StripeCustomer>> {
     try {
       const subscription = await this.stripe.subscriptions.retrieve(id);
       const customer = await this.stripe.customers.retrieve(
@@ -250,18 +251,7 @@ export class StripeService {
 
   async getPendingSubscriptionChange(
     currentSubscription: Subscription,
-  ): Promise<
-    ResponseWithOptionalData<{
-      jobstash: string | null;
-      extraSeats: number | null;
-      veri: string | null;
-      stashAlert: boolean | null;
-      stashPool: boolean | null;
-      atsIntegration: boolean | null;
-      jobPromotions: number | null;
-      cancellationDate: number | null;
-    }>
-  > {
+  ): Promise<ResponseWithOptionalData<PendingSubscriptionChange>> {
     try {
       if (currentSubscription.tier === "starter") {
         return {
@@ -327,65 +317,12 @@ export class StripeService {
           };
         }
 
-        const getLookupKey = (id: string): string | undefined => {
-          const priceId = pendingItems.find(item => item.id === id)?.pricing
-            .price_details.price;
-          if (priceId) {
-            return prices.find(price => price.id === priceId)?.lookup_key;
-          }
-          return undefined;
-        };
-
-        const jobstashLine = pendingItems.find(item =>
-          getLookupKey(item.id)?.startsWith("jobstash_"),
+        return this.pendingInvoiceChange(
+          pendingItems,
+          prices,
+          currentSubscription,
+          subscription,
         );
-        const veriLine = pendingItems.find(item =>
-          getLookupKey(item.id)?.startsWith("veri_"),
-        );
-        const stashAlertLine = pendingItems.find(
-          item => getLookupKey(item.id) === LOOKUP_KEYS.STASH_ALERT_PRICE,
-        );
-
-        const newJobstash =
-          getLookupKey(jobstashLine?.id)?.split("_")[1] ?? null;
-        const newExtraSeats = (jobstashLine?.quantity ?? 1) - 1;
-        const newVeri = getLookupKey(veriLine?.id)?.split("_")[1] ?? null;
-        const newStashAlert = !!stashAlertLine;
-
-        const {
-          tier,
-          extraSeats,
-          veri,
-          stashAlert,
-          atsIntegration,
-          stashPool,
-          jobPromotions,
-        } = currentSubscription;
-
-        const {
-          jobPromotions: newJobPromotions,
-          atsIntegration: newAtsIntegration,
-          stashPool: newStashPool,
-        } = JOBSTASH_QUOTA[newJobstash];
-
-        return {
-          success: true,
-          message: "Pending subscription change retrieved successfully",
-          data: {
-            jobstash: newJobstash !== tier ? newJobstash : null,
-            extraSeats: newExtraSeats !== extraSeats ? newExtraSeats : null,
-            veri: newVeri !== veri ? newVeri : null,
-            stashAlert: newStashAlert !== stashAlert ? newStashAlert : null,
-            atsIntegration:
-              newAtsIntegration !== atsIntegration ? newAtsIntegration : null,
-            stashPool: newStashPool !== stashPool ? newStashPool : null,
-            jobPromotions:
-              newJobPromotions !== jobPromotions ? newJobPromotions : null,
-            cancellationDate: subscription.cancel_at
-              ? subscription.cancel_at
-              : null,
-          },
-        };
       }
     } catch (error) {
       Sentry.withScope(scope => {
@@ -418,14 +355,16 @@ export class StripeService {
   ): Promise<
     ResponseWithOptionalData<{ id: string; url: string; total: number }>
   > {
-    const successUrl =
-      action === "new-subscription"
-        ? `${this.domain}/payment/confirmation` + (flag ? `?flag=${flag}` : "")
-        : this.configService.get("FE_DOMAIN") + "/jobs";
-    const cancelUrl =
-      action === "new-subscription"
-        ? `${this.domain}` + (flag ? `?flag=${flag}` : "")
-        : this.configService.get("FE_DOMAIN") + "/jobs";
+    let successUrl: string;
+    let cancelUrl: string;
+    if (action === "new-subscription") {
+      const flagQuery = flag ? `?flag=${flag}` : "";
+      successUrl = `${this.domain}/payment/confirmation${flagQuery}`;
+      cancelUrl = `${this.domain}${flagQuery}`;
+    } else {
+      successUrl = this.configService.get("FE_DOMAIN") + "/jobs";
+      cancelUrl = this.configService.get("FE_DOMAIN") + "/jobs";
+    }
     try {
       const session = await this.stripe.checkout.sessions.create({
         mode,
@@ -679,15 +618,16 @@ export class StripeService {
 
     try {
       switch (action) {
-        case "job-promotion":
+        case "job-promotion": {
           this.logger.log(`Handling job promotion webhook event`);
           const shortUUID = (
             JSON.parse(metadata.calldata) as unknown as JobPromotionMetadata
           ).shortUUID;
           await this.jobsService.handleJobPromotion(shortUUID);
           break;
+        }
 
-        case "new-subscription":
+        case "new-subscription": {
           this.logger.log("Handling new subscription webhook event");
           const calldata = JSON.parse(
             metadata.calldata,
@@ -697,7 +637,7 @@ export class StripeService {
               calldata.orgId,
             ),
           );
-          if (existing && existing.tier === "starter") {
+          if (existing?.tier === "starter") {
             const invoice = session.invoice as string;
             const subscription = await this.stripe.subscriptions.retrieve(
               session.subscription as string,
@@ -714,6 +654,7 @@ export class StripeService {
             );
           }
           break;
+        }
 
         case "agency-subscription": {
           const workspaceId = metadata.workspaceId;
@@ -838,9 +779,9 @@ export class StripeService {
     const veriLine = itemLines.find(l => l.lookupKey?.startsWith("veri_"));
     const newVeri = veriLine ? veriLine.lookupKey.split("_")[1] : null;
 
-    const newStashAlert =
-      itemLines.find(l => l.lookupKey === LOOKUP_KEYS.STASH_ALERT_PRICE) !==
-      undefined;
+    const newStashAlert = itemLines.some(
+      l => l.lookupKey === LOOKUP_KEYS.STASH_ALERT_PRICE,
+    );
 
     const isPlanChange =
       existing.tier !== newTier ||
@@ -1193,13 +1134,15 @@ export class StripeService {
   }): Promise<ResponseWithOptionalData<string>> {
     try {
       const { wallet, dto, flag } = input;
-      const lookupKeys = [
-        dto.jobstash ? BUNDLE_LOOKUP_KEYS.JOBSTASH[dto.jobstash] : null,
-        dto.veri ? BUNDLE_LOOKUP_KEYS.VERI[dto.veri] : null,
-        dto.stashAlert ? LOOKUP_KEYS.STASH_ALERT_PRICE : null,
-      ].filter(Boolean);
+      const lookupKeys = new Set(
+        [
+          dto.jobstash ? BUNDLE_LOOKUP_KEYS.JOBSTASH[dto.jobstash] : null,
+          dto.veri ? BUNDLE_LOOKUP_KEYS.VERI[dto.veri] : null,
+          dto.stashAlert ? LOOKUP_KEYS.STASH_ALERT_PRICE : null,
+        ].filter(Boolean),
+      );
       const prices = await this.getProductPrices().then(x =>
-        x.filter(x => lookupKeys.includes(x.lookup_key)),
+        x.filter(x => lookupKeys.has(x.lookup_key)),
       );
       const lineItems = prices.map(x => {
         if (x.lookup_key.includes("jobstash")) {
@@ -1290,6 +1233,146 @@ export class StripeService {
     }
   }
 
+  private pendingInvoiceChange(
+    pendingItems: Stripe.InvoiceLineItem[],
+    prices: Stripe.Price[],
+    currentSubscription: Subscription,
+    subscription: Stripe.Subscription,
+  ): ResponseWithOptionalData<PendingSubscriptionChange> {
+    const getLookupKey = (id: string): string | undefined => {
+      const priceId = pendingItems.find(item => item.id === id)?.pricing
+        .price_details.price;
+      if (priceId) {
+        return prices.find(price => price.id === priceId)?.lookup_key;
+      }
+      return undefined;
+    };
+
+    const jobstashLine = pendingItems.find(item =>
+      getLookupKey(item.id)?.startsWith("jobstash_"),
+    );
+    const veriLine = pendingItems.find(item =>
+      getLookupKey(item.id)?.startsWith("veri_"),
+    );
+    const stashAlertLine = pendingItems.some(
+      item => getLookupKey(item.id) === LOOKUP_KEYS.STASH_ALERT_PRICE,
+    );
+
+    const newJobstash = getLookupKey(jobstashLine?.id)?.split("_")[1] ?? null;
+    const newExtraSeats = (jobstashLine?.quantity ?? 1) - 1;
+    const newVeri = getLookupKey(veriLine?.id)?.split("_")[1] ?? null;
+    const newStashAlert = stashAlertLine;
+
+    const {
+      tier,
+      extraSeats,
+      veri,
+      stashAlert,
+      atsIntegration,
+      stashPool,
+      jobPromotions,
+    } = currentSubscription;
+
+    const {
+      jobPromotions: newJobPromotions,
+      atsIntegration: newAtsIntegration,
+      stashPool: newStashPool,
+    } = JOBSTASH_QUOTA[newJobstash];
+
+    return {
+      success: true,
+      message: "Pending subscription change retrieved successfully",
+      data: {
+        jobstash: newJobstash !== tier ? newJobstash : null,
+        extraSeats: newExtraSeats !== extraSeats ? newExtraSeats : null,
+        veri: newVeri !== veri ? newVeri : null,
+        stashAlert: newStashAlert !== stashAlert ? newStashAlert : null,
+        atsIntegration:
+          newAtsIntegration !== atsIntegration ? newAtsIntegration : null,
+        stashPool: newStashPool !== stashPool ? newStashPool : null,
+        jobPromotions:
+          newJobPromotions !== jobPromotions ? newJobPromotions : null,
+        cancellationDate: subscription.cancel_at
+          ? subscription.cancel_at
+          : null,
+      },
+    };
+  }
+
+  private subscriptionUpdateItems(
+    dto: ChangeSubscriptionInput,
+    prices: Stripe.Price[],
+    subscription: Stripe.Subscription,
+  ): Stripe.SubscriptionUpdateParams.Item[] {
+    const priceId = (lk: string): string =>
+      prices.find(p => p.lookup_key === lk)?.id;
+    const itemsByKey = new Map(
+      subscription.items.data.map(i => [i.price.lookup_key, i]),
+    );
+
+    const bundleKey = BUNDLE_LOOKUP_KEYS.JOBSTASH[dto.jobstash];
+    const veriKey = dto.veri ? BUNDLE_LOOKUP_KEYS.VERI[dto.veri] : null;
+
+    const updateItems: Stripe.SubscriptionUpdateParams.Item[] = [];
+
+    for (const [k, itm] of itemsByKey) {
+      if (k?.startsWith("jobstash_") && k !== bundleKey)
+        updateItems.push({ id: itm.id, deleted: true });
+      if (
+        k?.startsWith("veri_") &&
+        k !== veriKey &&
+        k !== LOOKUP_KEYS.VERI_PAYG_PRICE
+      )
+        updateItems.push({ id: itm.id, deleted: true });
+    }
+
+    if (itemsByKey.has(bundleKey)) {
+      const itm = itemsByKey.get(bundleKey);
+      updateItems.push({
+        id: itm.id,
+        price: priceId(bundleKey),
+        quantity: 1 + dto.extraSeats,
+      });
+    } else {
+      updateItems.push({
+        price: priceId(bundleKey),
+        quantity: 1 + dto.extraSeats,
+      });
+    }
+
+    if (veriKey) {
+      if (!itemsByKey.has(veriKey)) {
+        updateItems.push({ price: priceId(veriKey), quantity: 1 });
+      }
+    }
+
+    this.appendOptionalSubscriptionItems(dto, itemsByKey, priceId, updateItems);
+    return updateItems;
+  }
+
+  private appendOptionalSubscriptionItems(
+    dto: ChangeSubscriptionInput,
+    itemsByKey: Map<string, Stripe.SubscriptionItem>,
+    priceId: (key: string) => string,
+    updateItems: Stripe.SubscriptionUpdateParams.Item[],
+  ): void {
+    const stashKey = dto.stashAlert ? LOOKUP_KEYS.STASH_ALERT_PRICE : null;
+    const paygKey = dto.paygOptIn ? LOOKUP_KEYS.VERI_PAYG_PRICE : null;
+    const stashExisting = itemsByKey.get(LOOKUP_KEYS.STASH_ALERT_PRICE);
+    if (stashKey && !stashExisting) {
+      updateItems.push({ price: priceId(stashKey), quantity: 1 });
+    } else if (!stashKey && stashExisting) {
+      updateItems.push({ id: stashExisting.id, deleted: true });
+    }
+
+    const paygExisting = itemsByKey.get(LOOKUP_KEYS.VERI_PAYG_PRICE);
+    if (paygKey && !paygExisting) {
+      updateItems.push({ price: priceId(paygKey) });
+    } else if (!paygKey && paygExisting) {
+      updateItems.push({ id: paygExisting.id, deleted: true });
+    }
+  }
+
   async initiateSubscriptionChange(
     wallet: string,
     email: string,
@@ -1357,63 +1440,11 @@ export class StripeService {
         { expand: ["items.data.price"] },
       )) as Stripe.Subscription;
 
-      const priceId = (lk: string): string =>
-        prices.find(p => p.lookup_key === lk)?.id;
-      const itemsByKey = new Map(
-        subscription.items.data.map(i => [i.price.lookup_key, i]),
+      const updateItems = this.subscriptionUpdateItems(
+        dto,
+        prices,
+        subscription,
       );
-
-      const bundleKey = BUNDLE_LOOKUP_KEYS.JOBSTASH[dto.jobstash];
-      const veriKey = dto.veri ? BUNDLE_LOOKUP_KEYS.VERI[dto.veri] : null;
-      const stashKey = dto.stashAlert ? LOOKUP_KEYS.STASH_ALERT_PRICE : null;
-      const paygKey = dto.paygOptIn ? LOOKUP_KEYS.VERI_PAYG_PRICE : null;
-
-      const updateItems: Stripe.SubscriptionUpdateParams.Item[] = [];
-
-      for (const [k, itm] of itemsByKey) {
-        if (k?.startsWith("jobstash_") && k !== bundleKey)
-          updateItems.push({ id: itm.id, deleted: true });
-        if (
-          k?.startsWith("veri_") &&
-          k !== veriKey &&
-          k !== LOOKUP_KEYS.VERI_PAYG_PRICE
-        )
-          updateItems.push({ id: itm.id, deleted: true });
-      }
-
-      if (itemsByKey.has(bundleKey)) {
-        const itm = itemsByKey.get(bundleKey);
-        updateItems.push({
-          id: itm.id,
-          price: priceId(bundleKey),
-          quantity: 1 + dto.extraSeats,
-        });
-      } else {
-        updateItems.push({
-          price: priceId(bundleKey),
-          quantity: 1 + dto.extraSeats,
-        });
-      }
-
-      if (veriKey) {
-        if (!itemsByKey.has(veriKey)) {
-          updateItems.push({ price: priceId(veriKey), quantity: 1 });
-        }
-      }
-
-      const stashExisting = itemsByKey.get(LOOKUP_KEYS.STASH_ALERT_PRICE);
-      if (stashKey && !stashExisting) {
-        updateItems.push({ price: priceId(stashKey), quantity: 1 });
-      } else if (!stashKey && stashExisting) {
-        updateItems.push({ id: stashExisting.id, deleted: true });
-      }
-
-      const paygExisting = itemsByKey.get(LOOKUP_KEYS.VERI_PAYG_PRICE);
-      if (paygKey && !paygExisting) {
-        updateItems.push({ price: priceId(paygKey) });
-      } else if (!paygKey && paygExisting) {
-        updateItems.push({ id: paygExisting.id, deleted: true });
-      }
 
       const bundleUpgraded =
         JOBSTASH_BUNDLE_PRICING[dto.jobstash] >

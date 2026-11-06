@@ -335,9 +335,10 @@ export class TagsService {
   async unlinkSynonyms(
     originTagNormalizedName: string,
     synonymNormalizedName: string,
-    synonymSuggesterWallet: string,
+    _synonymSuggesterWallet: string,
   ): Promise<Tag[]> {
-    void synonymSuggesterWallet;
+    // The public mutation signature retains the caller's wallet.
+    void _synonymSuggesterWallet;
     const first = await this.tags.findByNormalizedName(originTagNormalizedName);
     const second = await this.tags.findByNormalizedName(synonymNormalizedName);
     if (!first || !second) return [];
@@ -494,12 +495,11 @@ export class TagsService {
         }
       }
 
+      ranked.sort((first, second) => second.score - first.score);
       return {
         success: true,
         message: "Batch matched tags successfully",
-        data: ranked
-          .sort((first, second) => second.score - first.score)
-          .slice(0, Math.max(0, maxResults)),
+        data: ranked.slice(0, Math.max(0, maxResults)),
       };
     } catch (error) {
       this.captureDatabaseError("batchMatchTags", error);

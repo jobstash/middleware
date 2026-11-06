@@ -373,6 +373,25 @@ describe("Sentry response contract regressions", () => {
     expect(WorkArrangementV1.WorkArrangementV1Type.is(result)).toBe(true);
   });
 
+  it.each(["mode", "classification"])(
+    "retains explicit null %s values for strict rejection rather than defaulting",
+    field => {
+      const arrangement = {
+        ...storedArrangement,
+        onsiteOptions: [{ ...storedOption, [field]: null }],
+      };
+      const hydrated = hydrateWorkArrangement(arrangement as never);
+      expect(hydrated.onsiteOptions[0][field]).toBeNull();
+      expect(WorkArrangementV1.WorkArrangementV1Type.is(hydrated)).toBe(false);
+      expect(() =>
+        new ProjectListResultEntity({
+          ...project,
+          jobs: [{ ...job, workArrangement: arrangement }],
+        } as never).getProperties(),
+      ).toThrow(/workArrangement/);
+    },
+  );
+
   it("does not hide malformed work options behind contextual defaults", () => {
     const malformed = {
       ...storedArrangement,

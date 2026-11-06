@@ -323,6 +323,16 @@ const compareCase = async (
     fetchResponse(`${productionUrl}${path}`, matrixCase.headers),
     fetchResponse(`${localUrl}${path}`, matrixCase.headers),
   ]);
+  return compareFilterResponses(spec, matrixCase, production, local);
+};
+
+export const compareFilterResponses = (
+  spec: FilterEndpointSpec,
+  matrixCase: FilterMatrixCase,
+  production: HttpResult,
+  local: HttpResult,
+): CaseResult => {
+  const path = buildPath(matrixCase);
   const statusMatch = production.status === local.status;
   const baselineUnavailable =
     production.status === 0 || production.status >= 500;
@@ -394,6 +404,41 @@ const compareCase = async (
     };
   }
 
+  return compareSuccessfulCollections(spec, matrixCase, production, local, {
+    path,
+    statusMatch,
+    baselineUnavailable,
+    failureReasons,
+    exactContractMatch,
+    missingTypes,
+    extraTypes,
+  });
+};
+
+const compareSuccessfulCollections = (
+  spec: FilterEndpointSpec,
+  matrixCase: FilterMatrixCase,
+  production: HttpResult,
+  local: HttpResult,
+  context: {
+    path: string;
+    statusMatch: boolean;
+    baselineUnavailable: boolean;
+    failureReasons: string[];
+    exactContractMatch: boolean;
+    missingTypes: string[];
+    extraTypes: string[];
+  },
+): CaseResult => {
+  const {
+    path,
+    statusMatch,
+    baselineUnavailable,
+    failureReasons,
+    exactContractMatch,
+    missingTypes,
+    extraTypes,
+  } = context;
   const productionItems = collectionAt(
     production.body,
     matrixCase.collectionPath,
@@ -465,96 +510,130 @@ const compareCase = async (
     100,
     Math.max(1, Number(matrixCase.query.limit ?? 20)),
   );
-  const mutablePayloadDriftTolerated =
-    spec.productionSourceMayDrift === true &&
-    identitiesMatch &&
-    contractMatch &&
-    envelopeMatch &&
-    semanticMatch &&
-    !exactMatchingItems.equal;
-  const compatibleDriftContract =
-    exactContractMatch ||
-    compatibleSampledContracts(productionItems, localItems, typePaths);
-  const mutableCollectionDriftTolerated =
-    spec.productionSourceMayDrift === true &&
-    compatibleDriftContract &&
-    matchingItems.equal &&
-    boundedMutableCollectionDrift({
-      productionTotal,
-      localTotal,
-      productionItems: productionItems.length,
-      localItems: localItems.length,
-      requestedLimit,
-      matchedIdentities: matchingItems.matched,
-      sortSignaturesMatch,
-    });
-  const mutableSortDriftTolerated =
-    spec.productionSourceMayDrift === true &&
-    spec.mutableSortFields?.includes(
-      String(matrixCase.query.orderBy ?? "publicationDate"),
-    ) === true &&
-    matchingItems.equal &&
-    boundedMutableSortDrift({
-      productionTotal,
-      localTotal,
-      productionItems: productionItems.length,
-      localItems: localItems.length,
-      requestedLimit,
-      matchedIdentities: matchingItems.matched,
-    });
-  const sourceDriftTolerated =
-    mutablePayloadDriftTolerated ||
-    mutableCollectionDriftTolerated ||
-    mutableSortDriftTolerated;
-  if (sourceDriftTolerated) {
-    const retainedFailures = failureReasons.filter(
-      reason =>
-        ![
-          "identity-order-mismatch",
-          "contract-mismatch",
-          "pagination-envelope-mismatch",
-          "response-value-mismatch",
-        ].includes(reason),
-    );
-    failureReasons.splice(0, failureReasons.length, ...retainedFailures);
-  }
-  const productionCollectionTruncated =
-    spec.productionCollectionMayTruncate === true &&
-    truncatedProductionCollection({
-      productionTotal,
-      localTotal,
-      productionItems: productionItems.length,
-      requestedPage,
-      requestedLimit,
-      exactContractMatch,
-    });
-  const productionServiceFallback =
-    (spec.productionBaselineMayFail === true ||
-      spec.productionCollectionMayTruncate === true) &&
-    numberProperty(production.body, "page") === -1 &&
-    productionItems.length === 0;
-  const productionLongEmptySuccessFallback =
-    spec.productionEmptySuccessMayFail === true &&
-    longRunningEmptySuccessFallback({
-      productionStatus: production.status,
-      productionElapsedMs: production.elapsedMs,
-      productionBytes: production.bytes,
-      productionTotal,
-      productionItems: productionItems.length,
-      localTotal,
-      localItems: localItems.length,
-    });
-  if (
-    productionCollectionTruncated ||
-    productionServiceFallback ||
-    productionLongEmptySuccessFallback
-  ) {
-    const nonSemanticFailures = failureReasons.filter(
-      reason =>
-        reason === "status-mismatch" || reason.startsWith("local-status:"),
-    );
-    failureReasons.splice(0, failureReasons.length, ...nonSemanticFailures);
-  }
+  const assessSourceDrift = (): boolean => {
+    const mutablePayloadDriftTolerated =
+      spec.productionSourceMayDrift === true &&
+      identitiesMatch &&
+      contractMatch &&
+      envelopeMatch &&
+      semanticMatch &&
+      !exactMatchingItems.equal;
+    const compatibleDriftContract =
+      exactContractMatch ||
+      compatibleSampledContracts(productionItems, localItems, typePaths);
+    const mutableCollectionDriftTolerated =
+      spec.productionSourceMayDrift === true &&
+      compatibleDriftContract &&
+      matchingItems.equal &&
+      boundedMutableCollectionDrift({
+        productionTotal,
+        localTotal,
+        productionItems: productionItems.length,
+        localItems: localItems.length,
+        requestedLimit,
+        matchedIdentities: matchingItems.matched,
+        sortSignaturesMatch,
+      });
+    const mutableSortDriftTolerated =
+      spec.productionSourceMayDrift === true &&
+      spec.mutableSortFields?.includes(
+        String(matrixCase.query.orderBy ?? "publicationDate"),
+      ) === true &&
+      matchingItems.equal &&
+      boundedMutableSortDrift({
+        productionTotal,
+        localTotal,
+        productionItems: productionItems.length,
+        localItems: localItems.length,
+        requestedLimit,
+        matchedIdentities: matchingItems.matched,
+      });
+    const sourceDriftTolerated =
+      mutablePayloadDriftTolerated ||
+      mutableCollectionDriftTolerated ||
+      mutableSortDriftTolerated;
+    if (sourceDriftTolerated) {
+      const retainedFailures = failureReasons.filter(
+        reason =>
+          ![
+            "identity-order-mismatch",
+            "contract-mismatch",
+            "pagination-envelope-mismatch",
+            "response-value-mismatch",
+          ].includes(reason),
+      );
+      failureReasons.splice(0, failureReasons.length, ...retainedFailures);
+    }
+    return sourceDriftTolerated;
+  };
+  const sourceDriftTolerated = assessSourceDrift();
+  const assessProductionBaseline = () => {
+    const productionCollectionTruncated =
+      spec.productionCollectionMayTruncate === true &&
+      truncatedProductionCollection({
+        productionTotal,
+        localTotal,
+        productionItems: productionItems.length,
+        requestedPage,
+        requestedLimit,
+        exactContractMatch,
+      });
+    const productionServiceFallback =
+      (spec.productionBaselineMayFail === true ||
+        spec.productionCollectionMayTruncate === true) &&
+      numberProperty(production.body, "page") === -1 &&
+      productionItems.length === 0;
+    const productionLongEmptySuccessFallback =
+      spec.productionEmptySuccessMayFail === true &&
+      longRunningEmptySuccessFallback({
+        productionStatus: production.status,
+        productionElapsedMs: production.elapsedMs,
+        productionBytes: production.bytes,
+        productionTotal,
+        productionItems: productionItems.length,
+        localTotal,
+        localItems: localItems.length,
+      });
+    if (
+      productionCollectionTruncated ||
+      productionServiceFallback ||
+      productionLongEmptySuccessFallback
+    ) {
+      const nonSemanticFailures = failureReasons.filter(
+        reason =>
+          reason === "status-mismatch" || reason.startsWith("local-status:"),
+      );
+      failureReasons.splice(0, failureReasons.length, ...nonSemanticFailures);
+    }
+    return {
+      productionCollectionTruncated,
+      productionServiceFallback,
+      productionLongEmptySuccessFallback,
+    };
+  };
+  const {
+    productionCollectionTruncated,
+    productionServiceFallback,
+    productionLongEmptySuccessFallback,
+  } = assessProductionBaseline();
+  const comparisonLabels = (): Pick<
+    CaseResult,
+    "identityComparison" | "baselineReason"
+  > => {
+    let identityComparison: CaseResult["identityComparison"] = "mismatch";
+    if (exactIdentitiesMatch) identityComparison = "exact";
+    else if (sortSignaturesMatch) identityComparison = "legacy-tie-equivalent";
+    let baselineReason: string | undefined;
+    if (productionServiceFallback)
+      baselineReason = "live-production-service-fallback";
+    else if (productionLongEmptySuccessFallback)
+      baselineReason = "live-production-long-empty-success-fallback";
+    else if (productionCollectionTruncated)
+      baselineReason =
+        "live-production-collection-truncated-during-entity-mapping";
+    return { identityComparison, baselineReason };
+  };
+  const { identityComparison, baselineReason } = comparisonLabels();
 
   return {
     id: matrixCase.id,
@@ -572,11 +651,7 @@ const compareCase = async (
     exactContractMatch,
     envelopeMatch,
     identitiesMatch,
-    identityComparison: exactIdentitiesMatch
-      ? "exact"
-      : sortSignaturesMatch
-        ? "legacy-tie-equivalent"
-        : "mismatch",
+    identityComparison,
     matchedIdentityCount: matchingItems.matched,
     sourceDriftTolerated,
     sortSignaturesMatch,
@@ -595,13 +670,7 @@ const compareCase = async (
       productionCollectionTruncated ||
       productionServiceFallback ||
       productionLongEmptySuccessFallback,
-    baselineReason: productionServiceFallback
-      ? "live-production-service-fallback"
-      : productionLongEmptySuccessFallback
-        ? "live-production-long-empty-success-fallback"
-        : productionCollectionTruncated
-          ? "live-production-collection-truncated-during-entity-mapping"
-          : undefined,
+    baselineReason,
     failureReasons,
     productionError: production.error,
     localError: local.error,
@@ -756,6 +825,30 @@ const identityOf = (item: JsonValue, key: string): string => {
     : "<missing>";
 };
 
+const collectArrayDifferences = (
+  production: JsonValue[],
+  local: JsonValue[],
+  path: string,
+  output: string[],
+  limit: number,
+): void => {
+  if (production.length !== local.length) {
+    output.push(
+      `${path}.length: production=${production.length} local=${local.length}`,
+    );
+  }
+  const length = Math.min(production.length, local.length);
+  for (let index = 0; index < length && output.length < limit; index++) {
+    collectDifferences(
+      production[index],
+      local[index],
+      `${path}[${index}]`,
+      output,
+      limit,
+    );
+  }
+};
+
 const collectDifferences = (
   production: JsonValue | undefined,
   local: JsonValue | undefined,
@@ -775,21 +868,7 @@ const collectDifferences = (
       output.push(`${path}: collection-type-mismatch`);
       return;
     }
-    if (production.length !== local.length) {
-      output.push(
-        `${path}.length: production=${production.length} local=${local.length}`,
-      );
-    }
-    const length = Math.min(production.length, local.length);
-    for (let index = 0; index < length && output.length < limit; index++) {
-      collectDifferences(
-        production[index],
-        local[index],
-        `${path}[${index}]`,
-        output,
-        limit,
-      );
-    }
+    collectArrayDifferences(production, local, path, output, limit);
     return;
   }
   const productionRecord = jsonRecord(production);
@@ -923,4 +1002,4 @@ function nonNegativeInteger(raw: string | undefined, fallback: number): number {
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
 }
 
-void main();
+if (require.main === module) main();

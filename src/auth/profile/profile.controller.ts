@@ -67,7 +67,7 @@ import { EmailDigestTokenInput } from "./dto/email-digest-token.input";
 import { EmailDigestState } from "src/postgres/email-digest.repository";
 import { RecommendationCareerInput } from "./dto/recommendation-career.input";
 
-const SOCIAL_LABELS = [
+const SOCIAL_LABELS = new Set([
   "Website",
   "Lens",
   "LinkedIn",
@@ -76,7 +76,7 @@ const SOCIAL_LABELS = [
   "Discord",
   "Github",
   "Farcaster",
-];
+]);
 
 type ApplyStatusResponse =
   | { status: "can_apply"; applyUrl: string }
@@ -93,7 +93,7 @@ type ApplyResponse =
 
 @Controller("profile")
 export class ProfileController {
-  private logger = new CustomLogger(ProfileController.name);
+  private readonly logger = new CustomLogger(ProfileController.name);
   constructor(
     private readonly rpcService: RpcService,
     private readonly userService: UserService,
@@ -176,9 +176,7 @@ export class ProfileController {
     const missing: string[] = [];
     if (!showcase?.some(item => item.label === "CV")) missing.push("resume");
     const hasEmail = await this.userService.hasVerifiedEmail(address);
-    const hasSocial = showcase?.some(item =>
-      SOCIAL_LABELS.includes(item.label),
-    );
+    const hasSocial = showcase?.some(item => SOCIAL_LABELS.has(item.label));
     if (!hasEmail || !hasSocial) missing.push("socials");
 
     const privyId = await this.profileService.getPrivyId(address);

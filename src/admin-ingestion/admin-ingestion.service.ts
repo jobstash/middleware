@@ -521,7 +521,8 @@ export class AdminIngestionService {
     id: string,
     _status?: "needs_review" | "resolved",
   ): Promise<unknown> {
-    void _status; // Retain the legacy call signature; detail retrieval is status independent.
+    // The legacy status argument does not affect an ID-scoped lookup.
+    void _status;
     return this.request("GET", `/entity-collisions/${id}`);
   }
 
@@ -616,16 +617,20 @@ export class AdminIngestionService {
       try {
         const response = await axios.request<T>(config);
         return response.data;
-      } catch (caught) {
-        error = caught;
-        const status = axios.isAxiosError(caught)
-          ? caught.response?.status
+      } catch (error_) {
+        error = error_;
+        const status = axios.isAxiosError(error_)
+          ? error_.response?.status
           : undefined;
         if (!retryableImportRequest || (status !== undefined && status < 500)) {
           break;
         }
       }
     }
+    return this.throwUpstreamError(error);
+  }
+
+  private throwUpstreamError(error: unknown): never {
     if (!axios.isAxiosError(error)) {
       throw new BadGatewayException({
         success: false,
@@ -637,11 +642,12 @@ export class AdminIngestionService {
       { message?: unknown } | string | undefined;
     const rawMessage =
       typeof responseData === "string" ? responseData : responseData?.message;
-    const message = Array.isArray(rawMessage)
-      ? rawMessage.filter(item => typeof item === "string").join("; ")
-      : typeof rawMessage === "string"
-        ? rawMessage
-        : "Ingestion service request failed";
+    let message = "Ingestion service request failed";
+    if (Array.isArray(rawMessage)) {
+      message = rawMessage.filter(item => typeof item === "string").join("; ");
+    } else if (typeof rawMessage === "string") {
+      message = rawMessage;
+    }
     const status = [
       HttpStatus.BAD_REQUEST,
       HttpStatus.NOT_FOUND,
@@ -663,8 +669,7 @@ export class AdminIngestionService {
         "fields",
         "relationships",
       ]) {
-        if (Object.prototype.hasOwnProperty.call(responseData, key))
-          details[key] = responseData[key];
+        if (Object.hasOwn(responseData, key)) details[key] = responseData[key];
       }
     }
     throw new HttpException({ success: false, message, ...details }, status);

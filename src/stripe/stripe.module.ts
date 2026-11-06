@@ -25,23 +25,19 @@ import { SubscriptionService as CandidateSubscriptionService } from "src/compani
     CandidateSubscriptionService,
     {
       provide: "STRIPE_CLIENT",
-      useFactory: async (configService: ConfigService): Promise<Stripe> =>
+      useFactory: (configService: ConfigService): Stripe =>
         new Stripe(configService.get<string>("STRIPE_API_KEY")),
       inject: [ConfigService],
     },
     {
       provide: "STRIPE_WEBHOOK_SECRET",
-      useFactory: async (
-        configService: ConfigService,
-      ): Promise<string | undefined> =>
+      useFactory: (configService: ConfigService): string | undefined =>
         configService.get<string>("STRIPE_WEBHOOK_SECRET"),
       inject: [ConfigService],
     },
     {
       provide: "DOMAIN",
-      useFactory: async (
-        configService: ConfigService,
-      ): Promise<string | undefined> =>
+      useFactory: (configService: ConfigService): string | undefined =>
         configService.get<string>("ORG_ADMIN_DOMAIN"),
       inject: [ConfigService],
     },

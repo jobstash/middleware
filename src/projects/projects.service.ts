@@ -305,7 +305,6 @@ export class ProjectsService {
       | "jobs"
       | "investors"
       | "repos"
-      | "ecosystems"
     >[]
   > {
     try {
@@ -475,13 +474,7 @@ export class ProjectsService {
   ): Promise<
     Omit<
       ProjectWithRelations,
-      | "hacks"
-      | "audits"
-      | "chains"
-      | "ecosystems"
-      | "jobs"
-      | "repos"
-      | "ecosystems"
+      "hacks" | "audits" | "chains" | "ecosystems" | "jobs" | "repos"
     >
   > {
     try {
@@ -646,7 +639,7 @@ export class ProjectsService {
         };
       } else {
         this.logger.warn(
-          `Error queueing project ${dto} for import: ${response2.data}`,
+          `Error queueing project ${dto.url} for import: HTTP ${response2.status}`,
         );
         return {
           success: false,
@@ -786,7 +779,9 @@ export class ProjectsService {
         ...projected,
         ...updated.properties,
         orgIds: projected?.orgIds ?? [],
-        summary: projected?.summary ?? String(updated.properties.summary ?? ""),
+        summary: this.projectSummary(
+          projected?.summary ?? updated.properties.summary,
+        ),
         description:
           projected?.description ??
           (updated.properties.description as string | null) ??
@@ -903,8 +898,9 @@ export class ProjectsService {
     }
   }
 
-  async delete(id: string, actor?: string): Promise<ResponseWithNoData> {
-    void actor;
+  async delete(id: string, _actor?: string): Promise<ResponseWithNoData> {
+    // Preserve the controller's mutation signature; deletion is ID-scoped.
+    void _actor;
     try {
       await this.graph.deleteNodeWithOwnedDescendants({
         rootLabel: "Project",
@@ -1023,7 +1019,9 @@ export class ProjectsService {
         ...projected,
         ...updated.properties,
         orgIds: projected?.orgIds ?? [],
-        summary: projected?.summary ?? String(updated.properties.summary ?? ""),
+        summary: this.projectSummary(
+          projected?.summary ?? updated.properties.summary,
+        ),
         description:
           projected?.description ??
           (updated.properties.description as string | null) ??
@@ -1181,6 +1179,14 @@ export class ProjectsService {
     }
   }
 
+  private projectSummary(value: unknown): string {
+    if (value === null || value === undefined) return "";
+    if (typeof value !== "string") {
+      throw new TypeError("Project summary must be a string");
+    }
+    return value;
+  }
+
   private async setProjectCategory(
     projectId: string,
     categoryName: string,
@@ -1197,13 +1203,17 @@ export class ProjectsService {
         `runtime:category:${slugify(categoryName)}`,
       );
     }
+    const categoryId = category.properties.id;
+    if (typeof categoryId !== "string") {
+      throw new TypeError("Project category id must be a string");
+    }
     await this.graph.setRelationshipsToNodes({
       sourceLabel: "Project",
       sourceWhere: { id: projectId },
       type: "HAS_CATEGORY",
       targetLabel: "ProjectCategory",
       targetProperty: "id",
-      targetValues: [String(category.properties.id)],
+      targetValues: [categoryId],
       replace: true,
     });
   }

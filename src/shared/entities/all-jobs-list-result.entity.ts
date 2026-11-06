@@ -22,7 +22,7 @@ export class AllJobListResultEntity {
     const jobpost = this.raw;
     const { organization, tags, project } = jobpost;
 
-    const now = new Date().getTime();
+    const now = Date.now();
 
     const isStillFeatured =
       jobpost?.featured === true &&
@@ -77,7 +77,7 @@ export class AllOrgJobsListResultEntity {
         generateOrgAggregateRating(review.rating),
       ) ?? [];
 
-    const now = new Date().getTime();
+    const now = Date.now();
 
     const isStillFeatured =
       jobpost?.featured === true &&
@@ -190,7 +190,7 @@ export class AllOrgJobsListResultEntity {
             ecosystems: project.ecosystems ?? [],
             jobs:
               project?.jobs?.map(jobpost => {
-                const now = new Date().getTime();
+                const now = Date.now();
 
                 const isStillFeatured =
                   jobpost?.featured === true &&

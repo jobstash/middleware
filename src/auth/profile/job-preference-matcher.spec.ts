@@ -42,6 +42,52 @@ const preferences: JobPreferences = {
 };
 
 describe("matchWorkLocationOptions", () => {
+  it.each([
+    ["two days per month", "one day per month", null],
+    ["twice each quarter", "one day per month", "confirmedMatches"],
+    ["1.5 times a month", "two days per month", "confirmedMatches"],
+    [
+      "one" + " ".repeat(100_000) + "day per month",
+      "one day per month",
+      "confirmedMatches",
+    ],
+    [
+      "one" + " ".repeat(100_000) + "not a cadence",
+      "one day per month",
+      "needsChecking",
+    ],
+    [
+      "9".repeat(100_000) + " days per month",
+      "one day per month",
+      "needsChecking",
+    ],
+    ["1.2.3 days per month", "2.5 days per month", "confirmedMatches"],
+  ])(
+    "evaluates explicit attendance counts, including long near misses",
+    (attendanceCadence, travelTolerance, group) => {
+      const result = matchWorkLocationOptions(
+        {},
+        [option({ attendanceCadence })],
+        {
+          ...preferences,
+          attendancePreference: "hybrid_ok",
+          travelTolerance,
+        },
+      );
+      expect(result?.group ?? null).toBe(group);
+    },
+  );
+
+  it.each([
+    "office attendance is optional",
+    "on-site work optional",
+    "in office optional",
+  ])("retains optional attendance grammar: %s", attendanceCadence => {
+    expect(
+      matchWorkLocationOptions({}, [option({ attendanceCadence })], preferences)
+        ?.group,
+    ).toBe("confirmedMatches");
+  });
   it("rejects Singapore hybrid and unstated office locations for Netherlands recommendations", () => {
     const local = {
       ...preferences,

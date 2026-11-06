@@ -7,10 +7,9 @@ function throwTypeError(): never {
 const endings = ["/", ":", "?", "#"];
 const starters = [".", "/", "@"];
 
-type Url = string;
 type Urls = string | Array<string>;
-type ReturnUrls = Array<Url> | Array<Promise<Url>>;
-type ReturnUrl = Url | Promise<Url | null>;
+type ReturnUrls = Array<string> | Array<Promise<string>>;
+type ReturnUrl = string | Promise<string | null>;
 
 /**
  * Options to extract domain.
@@ -20,11 +19,11 @@ type GetDomainOptions = {
 };
 
 /**
- * @param {Url} url
+ * @param {string} url
  * @param {GetDomainOptions} opts `{ tld: true }` permit to get Top Level Domain like `*.co.uk`
  * @returns {ReturnUrl} Returns a URL or a promise of a URL if the PSL lib is being used
  */
-function getDomainFromUrl(url: Url, opts: GetDomainOptions): ReturnUrl {
+function getDomainFromUrl(url: string, opts: GetDomainOptions): ReturnUrl {
   let domainInc = 0;
   let offsetDomain = 0;
   let offsetStartSlice = 0;
@@ -34,7 +33,7 @@ function getDomainFromUrl(url: Url, opts: GetDomainOptions): ReturnUrl {
 
   // Find end offset of domain
   while (len-- && ++i) {
-    if (domainInc && endings.indexOf(url[i]) > -1) {
+    if (domainInc && endings.includes(url[i])) {
       break;
     }
 
@@ -54,7 +53,7 @@ function getDomainFromUrl(url: Url, opts: GetDomainOptions): ReturnUrl {
   // Find offset before domain name.
   while (i--) {
     // Look for sub domain, protocol or basic auth
-    if (starters.indexOf(url[i]) === -1) {
+    if (!starters.includes(url[i])) {
       continue;
     }
 
@@ -73,31 +72,37 @@ function getDomainFromUrl(url: Url, opts: GetDomainOptions): ReturnUrl {
 
   // Very customized if statement for tlds
   if (opts.tld) {
-    let offsetStart = 0;
-    const starters: Array<string> = ["/", "@"];
-    let i: number = offsetDomain;
-
-    while (i--) {
-      if (starters.indexOf(url[i]) > -1) {
-        offsetStart = i + 1;
-
-        break;
-      }
-    }
-
-    return import("psl")
-      .then(psl => Promise.resolve(psl.get(url.slice(offsetStart, offsetPath))))
-      .catch(error => {
-        console.error(error);
-
-        throw Error(
-          "You must install psl library (https://www.npmjs.com/package/psl) to use `tld` option",
-        );
-      });
+    return getTopLevelDomain(url, offsetDomain, offsetPath);
   }
 
   // Tried several approaches slicing a string. Can't get it any faster than this.
   return url.slice(offsetStartSlice, offsetPath);
+}
+
+function getTopLevelDomain(
+  url: string,
+  offsetDomain: number,
+  offsetPath: number,
+): Promise<string | null> {
+  let offsetStart = 0;
+  const starters = ["/", "@"];
+  let i = offsetDomain;
+
+  while (i--) {
+    if (starters.includes(url[i])) {
+      offsetStart = i + 1;
+      break;
+    }
+  }
+
+  return import("psl")
+    .then(psl => psl.get(url.slice(offsetStart, offsetPath)))
+    .catch(error => {
+      console.error(error);
+      throw new Error(
+        "You must install psl library (https://www.npmjs.com/package/psl) to use `tld` option",
+      );
+    });
 }
 
 /**

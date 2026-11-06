@@ -50,13 +50,7 @@ export type FilterMatrixCase = {
   headers: Record<string, string>;
   coveredParameters: string[];
   kind:
-    | "baseline"
-    | "single"
-    | "pair"
-    | "range"
-    | "sort"
-    | "header"
-    | "validation";
+    "baseline" | "single" | "pair" | "range" | "sort" | "header" | "validation";
   productionBaselineMayFail: boolean;
 };
 
@@ -561,6 +555,62 @@ export const FILTER_ENDPOINT_SPECS: FilterEndpointSpec[] = [
   },
 ];
 
+type AddMatrixCase = (
+  id: string,
+  kind: FilterMatrixCase["kind"],
+  query: Record<string, MatrixPrimitive>,
+  coveredParameters: string[],
+  headers?: Record<string, string>,
+) => void;
+
+const addSortCases = (spec: FilterEndpointSpec, add: AddMatrixCase): void => {
+  const order = spec.parameters.find(parameter => parameter.name === "order");
+  const orderBy = spec.parameters.find(
+    parameter => parameter.name === "orderBy",
+  );
+  if (order && orderBy) {
+    for (const field of orderBy.values) {
+      for (const direction of order.values) {
+        add(
+          `sort:${field.label}:${direction.label}`,
+          "sort",
+          { orderBy: field.value, order: direction.value },
+          ["orderBy", "order"],
+        );
+      }
+    }
+  }
+};
+
+const addPairCases = (spec: FilterEndpointSpec, add: AddMatrixCase): void => {
+  const interacting = spec.parameters.filter(
+    parameter => parameter.interaction !== false,
+  );
+  for (let leftIndex = 0; leftIndex < interacting.length; leftIndex++) {
+    for (
+      let rightIndex = leftIndex + 1;
+      rightIndex < interacting.length;
+      rightIndex++
+    ) {
+      const left = interacting[leftIndex];
+      const right = interacting[rightIndex];
+      for (const leftValue of left.pairValues ?? left.values.slice(0, 1)) {
+        for (const rightValue of right.pairValues ?? right.values.slice(0, 1)) {
+          add(
+            `pair:${left.name}:${leftValue.label}:${right.name}:${rightValue.label}`,
+            "pair",
+            {
+              [left.name]: leftValue.value,
+              [right.name]: rightValue.value,
+            },
+            [left.name, right.name],
+          );
+        }
+      }
+    }
+  }
+};
+
 export const generateFilterMatrix = (
   spec: FilterEndpointSpec,
   scope: "single" | "pair" = "pair",
@@ -628,22 +678,7 @@ export const generateFilterMatrix = (
     );
   }
 
-  const order = spec.parameters.find(parameter => parameter.name === "order");
-  const orderBy = spec.parameters.find(
-    parameter => parameter.name === "orderBy",
-  );
-  if (order && orderBy) {
-    for (const field of orderBy.values) {
-      for (const direction of order.values) {
-        add(
-          `sort:${field.label}:${direction.label}`,
-          "sort",
-          { orderBy: field.value, order: direction.value },
-          ["orderBy", "order"],
-        );
-      }
-    }
-  }
+  addSortCases(spec, add);
 
   for (const item of spec.headerValues ?? []) {
     const headerName = spec.headerName;
@@ -657,35 +692,7 @@ export const generateFilterMatrix = (
     );
   }
 
-  if (scope === "pair") {
-    const interacting = spec.parameters.filter(
-      parameter => parameter.interaction !== false,
-    );
-    for (let leftIndex = 0; leftIndex < interacting.length; leftIndex++) {
-      for (
-        let rightIndex = leftIndex + 1;
-        rightIndex < interacting.length;
-        rightIndex++
-      ) {
-        const left = interacting[leftIndex];
-        const right = interacting[rightIndex];
-        for (const leftValue of left.pairValues ?? left.values.slice(0, 1)) {
-          for (const rightValue of right.pairValues ??
-            right.values.slice(0, 1)) {
-            add(
-              `pair:${left.name}:${leftValue.label}:${right.name}:${rightValue.label}`,
-              "pair",
-              {
-                [left.name]: leftValue.value,
-                [right.name]: rightValue.value,
-              },
-              [left.name, right.name],
-            );
-          }
-        }
-      }
-    }
-  }
+  if (scope === "pair") addPairCases(spec, add);
 
   return deduplicateCases(cases);
 };

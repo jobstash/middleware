@@ -3,6 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { Cron } from "@nestjs/schedule";
 import { OpenAIEmbeddings } from "@langchain/openai";
 import {
+  EmbeddingInput,
   RecommendationEmbeddingRepository,
   RECOMMENDATION_EMBEDDING_MODEL,
 } from "src/postgres/recommendation-embedding.repository";
@@ -19,6 +20,35 @@ export class RecommendationEmbeddingService implements OnApplicationBootstrap {
     private readonly repository: RecommendationEmbeddingRepository,
     private readonly config: ConfigService,
   ) {}
+  private async embedDocument(
+    input: EmbeddingInput,
+    model: OpenAIEmbeddings,
+  ): Promise<boolean> {
+    const sentences = recommendationSentences(input.content).filter(
+      sentence => sentence.weight >= 0.35,
+    );
+    const reusable = await this.repository.reusable(
+      input,
+      sentences.map(s => s.hash),
+    );
+    const missing = sentences.filter(s => !reusable.has(s.hash));
+    if (missing.length) {
+      const vectors = await model.embedDocuments(missing.map(s => s.text));
+      if (vectors.length !== missing.length)
+        throw new Error("Incomplete embedding response");
+      missing.forEach((sentence, index) =>
+        reusable.set(sentence.hash, vectors[index]),
+      );
+    }
+    return await this.repository.store(
+      input,
+      sentences.map(sentence => ({
+        ...sentence,
+        embedding: reusable.get(sentence.hash)!,
+      })),
+    );
+  }
+
   onApplicationBootstrap(): void {
     void this.refresh();
   }
@@ -55,34 +85,7 @@ export class RecommendationEmbeddingService implements OnApplicationBootstrap {
             while (!paused && next < inputs.length) {
               const input = inputs[next++];
               try {
-                const sentences = recommendationSentences(input.content).filter(
-                  sentence => sentence.weight >= 0.35,
-                );
-                const reusable = await this.repository.reusable(
-                  input,
-                  sentences.map(s => s.hash),
-                );
-                const missing = sentences.filter(s => !reusable.has(s.hash));
-                if (missing.length) {
-                  const vectors = await model.embedDocuments(
-                    missing.map(s => s.text),
-                  );
-                  if (vectors.length !== missing.length)
-                    throw new Error("Incomplete embedding response");
-                  missing.forEach((sentence, index) =>
-                    reusable.set(sentence.hash, vectors[index]),
-                  );
-                }
-                if (
-                  await this.repository.store(
-                    input,
-                    sentences.map(sentence => ({
-                      ...sentence,
-                      embedding: reusable.get(sentence.hash)!,
-                    })),
-                  )
-                )
-                  completed++;
+                if (await this.embedDocument(input, model)) completed++;
               } catch (error) {
                 const status = (error as { status?: number })?.status;
                 if (status === 429 || status === 401 || status === 403)
@@ -93,9 +96,9 @@ export class RecommendationEmbeddingService implements OnApplicationBootstrap {
                 try {
                   await this.repository.fail(input);
                   failed++;
-                } catch (failure) {
+                } catch (error_) {
                   paused = true;
-                  throw failure;
+                  throw error_;
                 }
               }
             }

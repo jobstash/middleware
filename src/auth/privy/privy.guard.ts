@@ -12,8 +12,8 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 @Injectable()
 export class PrivyGuard implements CanActivate {
   private static readonly MAX_AUTH_ATTEMPTS = 4;
-  private privy: PrivyClient;
-  private logger = new CustomLogger(PrivyGuard.name);
+  private readonly privy: PrivyClient;
+  private readonly logger = new CustomLogger(PrivyGuard.name);
   constructor(private readonly configService: ConfigService) {
     this.privy = new PrivyClient({
       appId: this.configService.get<string>("PRIVY_APP_ID"),

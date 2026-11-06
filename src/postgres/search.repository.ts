@@ -390,24 +390,10 @@ export class SearchRepository {
     if (!match) throw new BadRequestException("Invalid pillar");
     const [, prefix, value] = match;
     if (prefix === "o") {
-      const org = await this.getOrganizationPillar(value);
-      // An unknown organization must never broaden the request to every job.
-      return {
-        organizationId: String(org?.orgId ?? "__missing_organization__"),
-      };
+      return this.resolveOrganizationJobPillar(value);
     }
     if (prefix === "l") {
-      const place = await this.resolvePlacePillar(value);
-      if (!place) return { cities: [value] }; // Preserve legacy free-text location pillars as individual cards.
-      const key =
-        place.kind === "city"
-          ? "cities"
-          : place.kind === "country"
-            ? "countries"
-            : place.kind === "continent"
-              ? "continents"
-              : "regions";
-      return { [key]: [`place:${place.placeId}`] };
+      return this.resolveLocationJobPillar(value);
     }
     if (prefix === "s") {
       const key = {
@@ -421,13 +407,7 @@ export class SearchRepository {
       return { seniority: [key] };
     }
     if (prefix === "b") {
-      if (["expertJobs", "onboardIntoWeb3"].includes(value))
-        return { [value]: true };
-      if (value === "beginner-friendly") return { onboardIntoWeb3: true };
-      if (value === "pays-in-crypto") return { paysInCrypto: true };
-      if (value === "offers-token-allocation")
-        return { offersTokenAllocation: true };
-      throw new BadRequestException("Unknown boolean pillar");
+      return this.resolveBooleanJobPillar(value);
     }
     const key = {
       cl: "classifications",
@@ -442,6 +422,43 @@ export class SearchRepository {
     }[prefix];
     if (!key) throw new BadRequestException("Unknown pillar");
     return { [key]: [value] };
+  }
+
+  private resolveBooleanJobPillar(value: string): Partial<JobListParams> {
+    if (["expertJobs", "onboardIntoWeb3"].includes(value)) {
+      return { [value]: true };
+    }
+    if (value === "beginner-friendly") return { onboardIntoWeb3: true };
+    if (value === "pays-in-crypto") return { paysInCrypto: true };
+    if (value === "offers-token-allocation") {
+      return { offersTokenAllocation: true };
+    }
+    throw new BadRequestException("Unknown boolean pillar");
+  }
+
+  private async resolveOrganizationJobPillar(
+    value: string,
+  ): Promise<Partial<JobListParams>> {
+    const org = await this.getOrganizationPillar(value);
+    // Only an absent organization may use the restrictive missing sentinel.
+    if (!org) return { organizationId: "__missing_organization__" };
+    if (typeof org.orgId !== "string") {
+      throw new TypeError("Organization pillar orgId must be a string");
+    }
+    return { organizationId: org.orgId };
+  }
+
+  private async resolveLocationJobPillar(
+    value: string,
+  ): Promise<Partial<JobListParams>> {
+    const place = await this.resolvePlacePillar(value);
+    // Preserve legacy free-text location pillars as individual cards.
+    if (!place) return { cities: [value] };
+    let key = "regions";
+    if (place.kind === "city") key = "cities";
+    else if (place.kind === "country") key = "countries";
+    else if (place.kind === "continent") key = "continents";
+    return { [key]: [`place:${place.placeId}`] };
   }
 
   async getOrganizationMarketSlug(orgId: string): Promise<string | undefined> {
@@ -1074,7 +1091,9 @@ export class SearchRepository {
       );
       return rows.map(row => ({
         id: row.id,
-        label: `${row.title}${row.organizationName ? ` at ${row.organizationName}` : ""}`,
+        label: row.organizationName
+          ? `${row.title} at ${row.organizationName}`
+          : row.title,
         href: `/${slugify(row.title)}/${row.id}`,
       }));
     }

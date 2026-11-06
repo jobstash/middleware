@@ -73,7 +73,7 @@ export class AppService {
 
   async sitemap(): Promise<string | undefined> {
     const FE_DOMAIN = this.configService.get<string>("FE_DOMAIN");
-    const recentTimestamp = new Date().getTime();
+    const recentTimestamp = Date.now();
     try {
       const jobs = await this.jobsService.getFrontendSitemapJobs();
       return `<?xml version="1.0" encoding="UTF-8"?>
@@ -137,7 +137,7 @@ export class AppService {
 
   async evSitemap(): Promise<string | undefined> {
     const EV_DOMAIN = this.configService.get<string>("EV_DOMAIN");
-    const recentTimestamp = new Date().getTime();
+    const recentTimestamp = Date.now();
 
     const organizations =
       await this.organizationsService.getEvSitemapOrganizations();

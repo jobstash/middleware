@@ -9,7 +9,7 @@ import { ScorerService } from "src/scorer/scorer.service";
 import { HttpModule } from "@nestjs/axios";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { REALLY_LONG_TIME } from "src/shared/constants";
-import * as https from "https";
+import * as https from "node:https";
 import { ProfileModule } from "src/auth/profile/profile.module";
 import { PrivyModule } from "src/auth/privy/privy.module";
 import { Auth0Module } from "src/auth0/auth0.module";

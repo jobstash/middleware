@@ -44,7 +44,7 @@ export class JobDetailsEntity {
         generateOrgAggregateRating(review.rating),
       ) ?? [];
 
-    const now = new Date().getTime();
+    const now = Date.now();
 
     const isStillFeatured =
       jobpost?.featured === true &&
@@ -64,11 +64,10 @@ export class JobDetailsEntity {
       onboardIntoWeb3: jobpost?.onboardIntoWeb3 ?? false,
       ethSeasonOfInternships: jobpost?.ethSeasonOfInternships ?? false,
       offersTokenAllocation: jobpost?.offersTokenAllocation ?? null,
-      url: protectLink
-        ? jobpost?.access === "protected"
+      url:
+        protectLink && jobpost?.access === "protected"
           ? null
-          : notStringOrNull(jobpost?.url)
-        : notStringOrNull(jobpost?.url),
+          : notStringOrNull(jobpost?.url),
       title: notStringOrNull(jobpost?.title),
       summary: notStringOrNull(jobpost?.summary),
       description: notStringOrNull(jobpost?.description),
@@ -196,7 +195,7 @@ export class JobDetailsEntity {
                   })) ?? [],
                 jobs:
                   project?.jobs?.map(jobpost => {
-                    const now = new Date().getTime();
+                    const now = Date.now();
 
                     const isStillFeatured =
                       jobpost?.featured === true &&

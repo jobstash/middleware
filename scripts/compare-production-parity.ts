@@ -10,12 +10,7 @@ import {
 } from "./filter-parity-comparison";
 
 type JsonValue =
-  | null
-  | boolean
-  | number
-  | string
-  | JsonValue[]
-  | { [key: string]: JsonValue };
+  null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
 type OpenApiOperation = Record<string, JsonValue>;
 type OpenApiDocument = {
@@ -540,7 +535,9 @@ const operationEntries = (document: OpenApiDocument): OperationEntry[] => {
       if (!methods.has(method)) return [];
       const operationId = operation.operationId;
       if (typeof operationId !== "string") {
-        throw new Error(`${method.toUpperCase()} ${path} has no operationId`);
+        throw new TypeError(
+          `${method.toUpperCase()} ${path} has no operationId`,
+        );
       }
       return [
         {
@@ -583,13 +580,29 @@ const templatePattern = (path: string): RegExp =>
       .map(segment =>
         /^\{[^}]+\}$/.test(segment)
           ? "[^/]+"
-          : segment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+          : segment.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`),
       )
       .join("/")}$`,
   );
 
-const materializePath = (path: string): string =>
-  path.replace(/\{[^}]+\}/g, "parity-probe");
+export const materializePath = (path: string): string => {
+  const parts: string[] = [];
+  let copiedThrough = 0;
+  let searchFrom = 0;
+  while (searchFrom < path.length) {
+    const open = path.indexOf("{", searchFrom);
+    if (open < 0) break;
+    const close = path.indexOf("}", open + 1);
+    if (close < 0) break;
+    if (close > open + 1) {
+      parts.push(path.slice(copiedThrough, open), "parity-probe");
+      copiedThrough = close + 1;
+    }
+    searchFrom = close + 1;
+  }
+  parts.push(path.slice(copiedThrough));
+  return parts.join("");
+};
 
 const discoverProtectedOperationIds = (): Set<string> => {
   const operationIds = new Set<string>();
@@ -605,9 +618,9 @@ const discoverProtectedOperationIds = (): Set<string> => {
       for (const member of node.members) {
         if (!ts.isMethodDeclaration(member) || !member.name) continue;
         const decorators = nodeDecorators(member);
-        const names = decorators.map(decoratorName);
+        const names = new Set(decorators.map(decoratorName));
         const permissionGuarded =
-          names.includes("Permissions") && names.includes("UseGuards");
+          names.has("Permissions") && names.has("UseGuards");
         const externalGuarded = decorators.some(decorator => {
           const expression = decorator.expression;
           return (
@@ -725,7 +738,46 @@ const fetchResponse = async (
   }
 };
 
-const compareResponseBodies = (
+const compareCollectionItemTypes = (
+  productionItems: JsonValue[],
+  localItems: JsonValue[],
+  identityKey: string,
+  missingTypes: string[],
+  extraTypes: string[],
+): number => {
+  const productionByIdentity = new Map(
+    productionItems.flatMap(item => {
+      const identity = jsonRecord(item)?.[identityKey];
+      return typeof identity === "string" || typeof identity === "number"
+        ? [[String(identity), item] as const]
+        : [];
+    }),
+  );
+
+  let matchedItems = 0;
+  for (const localItem of localItems) {
+    const identity = jsonRecord(localItem)?.[identityKey];
+    if (typeof identity !== "string" && typeof identity !== "number") continue;
+    const productionItem = productionByIdentity.get(String(identity));
+    if (!productionItem) continue;
+    matchedItems++;
+    const productionItemTypes = typePaths(productionItem);
+    const localItemTypes = typePaths(localItem);
+    missingTypes.push(
+      ...productionItemTypes
+        .filter(value => !localItemTypes.includes(value))
+        .map(value => `data[${String(identity)}]${value.slice(1)}`),
+    );
+    extraTypes.push(
+      ...localItemTypes
+        .filter(value => !productionItemTypes.includes(value))
+        .map(value => `data[${String(identity)}]${value.slice(1)}`),
+    );
+  }
+  return matchedItems;
+};
+
+export const compareResponseBodies = (
   production: JsonValue,
   local: JsonValue,
   runtimeCase: RuntimeCase,
@@ -807,35 +859,13 @@ const compareResponseBodies = (
   const extraTypes = localEnvelopeTypes.filter(
     value => !productionEnvelopeTypes.includes(value),
   );
-  const productionByIdentity = new Map(
-    productionItems.flatMap(item => {
-      const identity = jsonRecord(item)?.[identityKey];
-      return typeof identity === "string" || typeof identity === "number"
-        ? [[String(identity), item] as const]
-        : [];
-    }),
+  const matchedItems = compareCollectionItemTypes(
+    productionItems,
+    localItems,
+    identityKey,
+    missingTypes,
+    extraTypes,
   );
-
-  let matchedItems = 0;
-  for (const localItem of localItems) {
-    const identity = jsonRecord(localItem)?.[identityKey];
-    if (typeof identity !== "string" && typeof identity !== "number") continue;
-    const productionItem = productionByIdentity.get(String(identity));
-    if (!productionItem) continue;
-    matchedItems++;
-    const productionItemTypes = typePaths(productionItem);
-    const localItemTypes = typePaths(localItem);
-    missingTypes.push(
-      ...productionItemTypes
-        .filter(value => !localItemTypes.includes(value))
-        .map(value => `data[${String(identity)}]${value.slice(1)}`),
-    );
-    extraTypes.push(
-      ...localItemTypes
-        .filter(value => !productionItemTypes.includes(value))
-        .map(value => `data[${String(identity)}]${value.slice(1)}`),
-    );
-  }
   if (
     productionItems.length > 0 &&
     localItems.length > 0 &&
@@ -871,26 +901,28 @@ const compareResponseBodies = (
       exactContractMatch: missingTypes.length === 0 && extraTypes.length === 0,
     });
 
-  let semanticMatch: boolean | undefined;
-  if (runtimeCase.compareSemanticValue) {
+  const compareSemantics = (): boolean | undefined => {
+    if (!runtimeCase.compareSemanticValue) return undefined;
     if (runtimeCase.maximumIdentityDrift === undefined) {
-      semanticMatch =
+      return (
         semanticHash(production, runtimeCase.ignoredSemanticKeys) ===
-        semanticHash(local, runtimeCase.ignoredSemanticKeys);
-    } else {
-      const matchedComparison = matchingItemsSemanticallyEqual(
-        productionItems,
-        localItems,
-        identityKey,
-        runtimeCase.ignoredSemanticKeys,
+        semanticHash(local, runtimeCase.ignoredSemanticKeys)
       );
-      semanticMatch =
-        identityDriftAccepted &&
-        matchedComparison.equal &&
-        semanticHash(productionEnvelope, runtimeCase.ignoredSemanticKeys) ===
-          semanticHash(localEnvelope, runtimeCase.ignoredSemanticKeys);
     }
-  }
+    const matchedComparison = matchingItemsSemanticallyEqual(
+      productionItems,
+      localItems,
+      identityKey,
+      runtimeCase.ignoredSemanticKeys,
+    );
+    return (
+      identityDriftAccepted &&
+      matchedComparison.equal &&
+      semanticHash(productionEnvelope, runtimeCase.ignoredSemanticKeys) ===
+        semanticHash(localEnvelope, runtimeCase.ignoredSemanticKeys)
+    );
+  };
+  const semanticMatch = compareSemantics();
 
   return {
     shapeMatch: missingTypes.length === 0 && extraTypes.length === 0,
@@ -1045,7 +1077,9 @@ function requiredUrl(name: string, value: string | undefined): string {
   return value.replace(/\/$/, "");
 }
 
-main().catch(error => {
-  console.error(error);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch(error => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}

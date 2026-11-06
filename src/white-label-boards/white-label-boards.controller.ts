@@ -79,7 +79,7 @@ export class WhiteLabelBoardsController {
       });
     }
     const wlb = await this.whiteLabelBoardsService.findOnePublic(
-      route ? route : (domain ?? ""),
+      route || (domain ?? ""),
     );
     if (!wlb.success && !data(wlb)) {
       throw new NotFoundException({
@@ -126,7 +126,7 @@ export class WhiteLabelBoardsController {
       });
     }
     const wlb = await this.whiteLabelBoardsService.findOnePublic(
-      route ? route : (domain ?? ""),
+      route || (domain ?? ""),
     );
     if (!wlb.success && !data(wlb)) {
       throw new NotFoundException({

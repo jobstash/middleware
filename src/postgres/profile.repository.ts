@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
 import { EntityManager } from "typeorm";
 import type { RecommendationCareerInput } from "src/auth/profile/dto/recommendation-career.input";
-import { EMPTY_RECOMMENDATION_PROFILE } from "src/shared/interfaces";
 import {
+  EMPTY_RECOMMENDATION_PROFILE,
   JobListResult,
   WorkArrangementClassification,
   WorkLocationOption,
@@ -30,10 +30,32 @@ type RecommendationLocationCandidate = {
 };
 
 type QueryExecutor = PostgresService | EntityManager;
+type JobInteraction = "APPLIED_TO" | "BOOKMARKED" | "VIEWED_DETAILS";
+type JobInteractionEvent = "job_view" | "job_apply" | "job_bookmark";
 
 type NodeRecord = {
   nodeId: string;
   properties: Record<string, unknown>;
+};
+
+const scalarIdentifier = (value: unknown, field: string): string => {
+  if (typeof value !== "string") {
+    throw new TypeError(`${field} must be a string`);
+  }
+  return value;
+};
+
+const optionalIdentity = (value: unknown, field: string): string | null => {
+  return value === null || value === undefined
+    ? null
+    : scalarIdentifier(value, field);
+};
+
+const workHistoryRecord = (value: unknown): Record<string, unknown> => {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    throw new TypeError("Work history entries must be objects");
+  }
+  return value as Record<string, unknown>;
 };
 
 const normalizedHost = (value: string): string | null => {
@@ -353,6 +375,14 @@ export class ProfileRepository {
         [profileId.trim()],
       );
       if (!target) return { outcome: "not_found" as const };
+      const publicProfileId = scalarIdentifier(
+        target.profileProperties.id ?? target.profileNodeId,
+        "Profile id",
+      );
+      const publicInfoId = scalarIdentifier(
+        target.infoProperties.id ?? target.infoNodeId,
+        "ProfileInfo id",
+      );
 
       const slug = input.slug.trim().toLowerCase();
       const aliases = [
@@ -462,9 +492,9 @@ export class ProfileRepository {
       return {
         outcome: "updated" as const,
         data: {
-          id: String(profileProperties.id ?? target.profileNodeId),
+          id: publicProfileId,
           slug,
-          profileInfoId: String(infoProperties.id ?? target.infoNodeId),
+          profileInfoId: publicInfoId,
         },
       };
     });
@@ -749,32 +779,26 @@ export class ProfileRepository {
       "commitments",
       "showcase_repositories",
     ]);
+    const fillConditions: Record<string, string> = {
+      minimum_salary:
+        "user_job_preferences.salary_currency IS NULL OR user_job_preferences.salary_currency = EXCLUDED.salary_currency",
+      salary_currency: "user_job_preferences.minimum_salary IS NULL",
+      utc_offset_minutes:
+        "user_job_preferences.residence_country IS NULL OR user_job_preferences.residence_country = EXCLUDED.residence_country",
+      company_size_min:
+        "user_job_preferences.company_size_max IS NULL OR EXCLUDED.company_size_min <= user_job_preferences.company_size_max",
+      company_size_max:
+        "user_job_preferences.company_size_min IS NULL OR EXCLUDED.company_size_max >= user_job_preferences.company_size_min",
+    };
     const assignments = columns
-      .map(
-        column =>
-          `${column} = ${
-            !options.fillMissing
-              ? `EXCLUDED.${column}`
-              : arrays.has(column)
-                ? `CASE WHEN cardinality(user_job_preferences.${column}) > 0 THEN user_job_preferences.${column} ELSE EXCLUDED.${column} END`
-                : `COALESCE(user_job_preferences.${column}, CASE WHEN ${
-                    (
-                      {
-                        minimum_salary:
-                          "user_job_preferences.salary_currency IS NULL OR user_job_preferences.salary_currency = EXCLUDED.salary_currency",
-                        salary_currency:
-                          "user_job_preferences.minimum_salary IS NULL",
-                        utc_offset_minutes:
-                          "user_job_preferences.residence_country IS NULL OR user_job_preferences.residence_country = EXCLUDED.residence_country",
-                        company_size_min:
-                          "user_job_preferences.company_size_max IS NULL OR EXCLUDED.company_size_min <= user_job_preferences.company_size_max",
-                        company_size_max:
-                          "user_job_preferences.company_size_min IS NULL OR EXCLUDED.company_size_max >= user_job_preferences.company_size_min",
-                      } as Record<string, string>
-                    )[column] ?? "TRUE"
-                  } THEN EXCLUDED.${column} END)`
-          }`,
-      )
+      .map(column => {
+        if (!options.fillMissing) return `${column} = EXCLUDED.${column}`;
+        if (arrays.has(column)) {
+          return `${column} = CASE WHEN cardinality(user_job_preferences.${column}) > 0 THEN user_job_preferences.${column} ELSE EXCLUDED.${column} END`;
+        }
+        const condition = fillConditions[column] ?? "TRUE";
+        return `${column} = COALESCE(user_job_preferences.${column}, CASE WHEN ${condition} THEN EXCLUDED.${column} END)`;
+      })
       .join(",\n");
     const rows = await queryRows<{ userNodeId: string }>(
       options.executor ?? this.postgres,
@@ -1705,7 +1729,7 @@ export class ProfileRepository {
           [caseId],
         );
       }
-      return { ...(updated?.value ?? {}), notice };
+      return { ...updated?.value, notice };
     });
   }
 
@@ -1972,7 +1996,9 @@ export class ProfileRepository {
       "",
       emails,
     );
-    return organizations.map(value => String(value.id));
+    return organizations.map(value =>
+      scalarIdentifier(value.id, "Organization id"),
+    );
   }
 
   async replaceVerifications(
@@ -2337,34 +2363,7 @@ export class ProfileRepository {
       );
       if (profiles.length !== 1) return false;
 
-      const ratingKeys = [
-        "onboarding",
-        "careerGrowth",
-        "benefits",
-        "workLifeBalance",
-        "diversityInclusion",
-        "management",
-        "product",
-        "compensation",
-      ];
-      const componentRatings = ratingKeys
-        .map(key => patch[key])
-        .filter(
-          (value): value is number =>
-            typeof value === "number" && value >= 1 && value <= 5,
-        );
-      const explicitRating = patch.rating;
-      const rating =
-        typeof explicitRating === "number" &&
-        explicitRating >= 1 &&
-        explicitRating <= 5
-          ? Math.round(explicitRating)
-          : componentRatings.length
-            ? Math.round(
-                componentRatings.reduce((total, value) => total + value, 0) /
-                  componentRatings.length,
-              )
-            : null;
+      const rating = this.reviewRating(patch);
       const reviewParts = [
         typeof patch.title === "string" ? patch.title.trim() : "",
         typeof patch.pros === "string" && patch.pros.trim()
@@ -2376,20 +2375,16 @@ export class ProfileRepository {
       ].filter(Boolean);
       const reviewText = reviewParts.length ? reviewParts.join("\n\n") : null;
       const salary =
-        Object.prototype.hasOwnProperty.call(patch, "salary") &&
+        Object.hasOwn(patch, "salary") &&
         (patch.salary === null || typeof patch.salary === "number")
           ? patch.salary
           : undefined;
-      const currency =
-        salary === null
-          ? null
-          : typeof patch.currency === "string"
-            ? patch.currency.trim().toUpperCase()
-            : undefined;
-      const tokenAllocation = Object.prototype.hasOwnProperty.call(
-        patch,
-        "offersTokenAllocation",
-      )
+      let currency: string | null | undefined;
+      if (salary === null) currency = null;
+      else if (typeof patch.currency === "string") {
+        currency = patch.currency.trim().toUpperCase();
+      }
+      const tokenAllocation = Object.hasOwn(patch, "offersTokenAllocation")
         ? patch.offersTokenAllocation
         : undefined;
       const inserted = await queryRows(
@@ -2442,6 +2437,37 @@ export class ProfileRepository {
       );
       return inserted.length === 1;
     });
+  }
+
+  private reviewRating(patch: Record<string, unknown>): number | null {
+    const componentRatings = [
+      "onboarding",
+      "careerGrowth",
+      "benefits",
+      "workLifeBalance",
+      "diversityInclusion",
+      "management",
+      "product",
+      "compensation",
+    ]
+      .map(key => patch[key])
+      .filter(
+        (value): value is number =>
+          typeof value === "number" && value >= 1 && value <= 5,
+      );
+    const explicitRating = patch.rating;
+    if (
+      typeof explicitRating === "number" &&
+      explicitRating >= 1 &&
+      explicitRating <= 5
+    ) {
+      return Math.round(explicitRating);
+    }
+    if (!componentRatings.length) return null;
+    return Math.round(
+      componentRatings.reduce((total, value) => total + value, 0) /
+        componentRatings.length,
+    );
   }
 
   async findReview(id: string): Promise<Record<string, unknown> | undefined> {
@@ -2670,6 +2696,31 @@ export class ProfileRepository {
     workHistory: Record<string, unknown>[],
     adjacentRepos: Record<string, unknown>[],
   ): Promise<boolean> {
+    // Validate the entire refresh before deleting any cached history. Identity
+    // fields retain their legacy nullish precedence, including empty strings.
+    const histories = workHistory.map(value => {
+      const history = workHistoryRecord(value);
+      const name = optionalIdentity(history.name, "Work history name");
+      const login = optionalIdentity(history.login, "Work history login");
+      const identity = name ?? login ?? "";
+      const rawRepositories = history.repositories ?? [];
+      if (!Array.isArray(rawRepositories)) {
+        throw new TypeError("Work history repositories must be an array");
+      }
+      const repositories = rawRepositories.map(value => {
+        const repository = workHistoryRecord(value);
+        const url = optionalIdentity(
+          repository.url,
+          "Work history repository url",
+        );
+        const name = optionalIdentity(
+          repository.name,
+          "Work history repository name",
+        );
+        return { repository, identity: url ?? name ?? "" };
+      });
+      return { history, identity, repositories };
+    });
     return this.postgres.transaction(async manager => {
       const account = await this.findNode("User", { wallet }, manager);
       if (!account) return false;
@@ -2700,14 +2751,11 @@ export class ProfileRepository {
         `,
         [account.nodeId, JSON.stringify({ cryptoNative, cryptoAdjacent })],
       );
-      for (const history of workHistory) {
-        const repositories = Array.isArray(history.repositories)
-          ? (history.repositories as Record<string, unknown>[])
-          : [];
+      for (const { history, identity, repositories } of histories) {
         const historyNode = await this.insertNode(manager, "UserWorkHistory", {
           ...history,
           repositories: undefined,
-          compositeKey: `${wallet}::${String(history.name ?? history.login ?? "")}`,
+          compositeKey: `${wallet}::${identity}`,
           createdAt: history.createdAt ?? Date.now(),
           updatedAt: history.updatedAt ?? null,
         });
@@ -2717,13 +2765,16 @@ export class ProfileRepository {
           historyNode,
           "HAS_WORK_HISTORY",
         );
-        for (const repository of repositories) {
+        for (const {
+          repository,
+          identity: repositoryIdentity,
+        } of repositories) {
           const repositoryNode = await this.insertNode(
             manager,
             "UserWorkHistoryRepo",
             {
               ...repository,
-              compositeKey: `${wallet}::${String(history.name ?? history.login ?? "")}::${String(repository.url ?? repository.name ?? "")}`,
+              compositeKey: `${wallet}::${identity}::${repositoryIdentity}`,
               createdAt: repository.createdAt ?? Date.now(),
               updatedAt: repository.updatedAt ?? null,
             },
@@ -2866,7 +2917,7 @@ export class ProfileRepository {
   async setJobInteraction(
     wallet: string,
     shortUuid: string,
-    type: "APPLIED_TO" | "BOOKMARKED" | "VIEWED_DETAILS",
+    type: JobInteraction,
     activity?: {
       eventKey?: string;
       surface?: string;
@@ -2886,12 +2937,9 @@ export class ProfileRepository {
       await this.insertRelationship(manager, account.nodeId, job.nodeId, type, {
         createdTimestamp: Date.now(),
       });
-      const eventType =
-        type === "APPLIED_TO"
-          ? "job_apply"
-          : type === "BOOKMARKED"
-            ? "job_bookmark"
-            : "job_view";
+      let eventType: JobInteractionEvent = "job_view";
+      if (type === "APPLIED_TO") eventType = "job_apply";
+      else if (type === "BOOKMARKED") eventType = "job_bookmark";
       await this.insertActivityEvent(manager, {
         userNodeId: account.nodeId,
         jobNodeId: job.nodeId,
@@ -2998,7 +3046,7 @@ export class ProfileRepository {
   async hasJobInteraction(
     wallet: string,
     shortUuid: string,
-    type: "APPLIED_TO" | "BOOKMARKED" | "VIEWED_DETAILS",
+    type: JobInteraction,
   ): Promise<boolean> {
     const [row] = await queryRows<{ found: boolean }>(
       this.postgres,
@@ -3023,7 +3071,7 @@ export class ProfileRepository {
   async removeJobInteraction(
     wallet: string,
     shortUuid: string,
-    type: "APPLIED_TO" | "BOOKMARKED" | "VIEWED_DETAILS",
+    type: JobInteraction,
   ): Promise<boolean> {
     return this.postgres.transaction(async manager => {
       const rows = await queryRows<{

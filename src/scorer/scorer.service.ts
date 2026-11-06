@@ -14,7 +14,7 @@ import * as Sentry from "@sentry/node";
 
 @Injectable()
 export class ScorerService {
-  private logger = new CustomLogger(ScorerService.name);
+  private readonly logger = new CustomLogger(ScorerService.name);
 
   constructor(private readonly httpService: HttpService) {}
 
