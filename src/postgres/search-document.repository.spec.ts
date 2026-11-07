@@ -27,11 +27,18 @@ describe("SearchDocumentRepository", () => {
   });
 
   it("rejects a cutover before the canonical backfill is ready", async () => {
-    query.mockResolvedValueOnce([{ ready: false }]);
+    query.mockResolvedValueOnce([{ ready: false, marketReady: true }]);
     await expect(repository.onModuleInit()).rejects.toThrow(
       "Search projections are not ready",
     );
-    query.mockResolvedValueOnce([{ ready: true }]);
+    query.mockResolvedValueOnce([{ ready: true, marketReady: false }]);
+    await expect(repository.onModuleInit()).rejects.toThrow(
+      "market publication migration 274",
+    );
+    expect(query.mock.calls[0][0]).toContain(
+      "274_market_projection_publication",
+    );
+    query.mockResolvedValueOnce([{ ready: true, marketReady: true }]);
     await expect(repository.onModuleInit()).resolves.toBeUndefined();
   });
 

@@ -277,12 +277,19 @@ export class SearchDocumentRepository implements OnModuleInit {
   constructor(private readonly postgres: PostgresService) {}
 
   async onModuleInit(): Promise<void> {
-    const [state] = await this.postgres.query<{ ready: boolean }>(
-      "SELECT search_projections_ready() AS ready",
+    const [state] = await this.postgres.query<{
+      ready: boolean;
+      marketReady: boolean;
+    }>(
+      `SELECT search_projections_ready() AS ready,
+        EXISTS (
+          SELECT 1 FROM schema_migrations
+          WHERE version = '274_market_projection_publication'
+        ) AS "marketReady"`,
     );
-    if (!state?.ready) {
+    if (!state?.ready || !state.marketReady) {
       throw new Error(
-        "Search projections are not ready: complete the filter projection migrations and backfill before starting middleware.",
+        "Search projections are not ready: complete the filter projection migrations/backfill and market publication migration 274 before starting middleware.",
       );
     }
   }

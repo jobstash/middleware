@@ -104,7 +104,9 @@ duplicate jobs.
 
 The filter-query cutover requires the paired ETL filter-projection migrations,
 their complete backfill, and `SELECT search_projections_ready()` returning true.
-Middleware checks readiness at startup and refuses an incomplete cutover.
+The startup gate additionally requires migration
+`274_market_projection_publication`, whose table supplies the coordinated
+market response publication metadata. Middleware refuses an incomplete cutover.
 Migration 264's separately approved online exception does not authorize this
 deployment or any new migration.
 
