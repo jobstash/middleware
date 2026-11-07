@@ -85,7 +85,11 @@ describePostgres("materialized job filter query parity", () => {
         { provide: JobsService, useValue: service },
         {
           provide: AuthService,
-          useValue: { getSession: async () => ({ permissions: [] }) },
+          useValue: {
+            getSession: async (): Promise<{ permissions: string[] }> => ({
+              permissions: [],
+            }),
+          },
         },
         ...[
           TagsService,
@@ -161,7 +165,7 @@ describePostgres("materialized job filter query parity", () => {
   async function legacyCandidates(
     orderBy: JobListOrderBy,
     direction: "asc" | "desc",
-  ) {
+  ): Promise<Array<{ job_node_id: string; access: "public" | "protected" }>> {
     return (
       await client.query(`WITH candidates AS (
       SELECT job_node_id, access,
