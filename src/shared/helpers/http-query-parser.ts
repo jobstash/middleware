@@ -2,7 +2,9 @@ import { BadRequestException } from "@nestjs/common";
 import { parse, ParsedQs } from "qs";
 
 /** Preserve extended query syntax without overflow objects or silent truncation. */
-export function parseHttpQuery(query: string): ParsedQs {
+export function parseHttpQuery(query: string | null | undefined): ParsedQs {
+  // Express passes `null` when the URL has no query string at all.
+  if (!query) return {};
   try {
     const parameters = query.split("&", 4098);
     if (parameters.length > 4096) {
