@@ -89,11 +89,11 @@ function loadBaseline(): {
     overrides: Record<string, unknown> = {},
   ): Record<string, unknown> => {
     const filename = resolve(__dirname, "..", path);
-    const source = execFileSync("git", ["show", `${BASELINE_SHA}:${path}`], {
-      cwd: resolve(__dirname, ".."),
-      encoding: "utf8",
-      env: { ...process.env, PATH: "/usr/bin:/bin" },
-    });
+    const source = execFileSync(
+      "/usr/bin/git",
+      ["show", `${BASELINE_SHA}:${path}`],
+      { cwd: resolve(__dirname, ".."), encoding: "utf8" },
+    );
     const javascript = transpileModule(source, {
       compilerOptions: {
         module: ModuleKind.CommonJS,
