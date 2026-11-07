@@ -154,15 +154,18 @@ function fixtureTruncate(sql: string): string {
     );
   if (
     !match ||
-    match[1].split(/\s*,\s*/).some(table => !fixtureTables.includes(table))
+    match[1]
+      .split(",")
+      .map(table => table.trim())
+      .some(table => !fixtureTables.includes(table))
   ) {
     throw new Error(
       "Fixture reset accepts only a single fixed allowlisted TRUNCATE statement",
     );
   }
   return `TRUNCATE TABLE ${match[1]
-    .split(/\s*,\s*/)
-    .map(table => `public.${table}`)
+    .split(",")
+    .map(table => `public.${table.trim()}`)
     .join(", ")} ${match[2] ? "RESTART IDENTITY " : ""}CASCADE`;
 }
 

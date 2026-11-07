@@ -92,6 +92,7 @@ function loadBaseline(): {
     const source = execFileSync("git", ["show", `${BASELINE_SHA}:${path}`], {
       cwd: resolve(__dirname, ".."),
       encoding: "utf8",
+      env: { ...process.env, PATH: "/usr/bin:/bin" },
     });
     const javascript = transpileModule(source, {
       compilerOptions: {
@@ -355,7 +356,9 @@ async function main(): Promise<void> {
     const canonical = (value: unknown): unknown => {
       if (Array.isArray(value)) {
         return value.every(item => typeof item === "string")
-          ? [...value].sort()
+          ? ([...value] as string[]).sort((left, right) =>
+              left.localeCompare(right),
+            )
           : value.map(canonical);
       }
       if (value && typeof value === "object")
