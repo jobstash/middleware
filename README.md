@@ -95,6 +95,13 @@ The existing `classifications` parameter remains the job-role filter.
 `unclassified` (Unclassified). Web2 is a display label, not a new stored value.
 Unknown values receive the standard query validation error.
 
+Job filter inputs are bounded after HTTP query decoding: `query`, `titleQuery`,
+`organizationId`, and each individual list value allow at most 256 characters;
+each list allows at most 100 entries. Oversized values receive HTTP 400 before
+the search service runs. Values are never truncated or silently deduplicated;
+accepted array order, duplicate values, optional null/empty inputs, and existing
+pagination semantics remain unchanged. Canonical enum validation still applies.
+
 Filtering reads the typed `job_search_documents.employer_vertical` projection
 of the actual Organization or Project employer. It does not inherit another
 entity's classification from a shared profile, infer classifications from job

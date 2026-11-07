@@ -4,6 +4,7 @@
 - Add exact `GET /jobs/count` for the global header, reusing feed eligibility without constructing groups/cards. Bound non-fuzzy individual candidate transfer to the randomized priority window and requested tail, preserving totals, legacy page slices, featured sorts, and complete fuzzy matching.
 - Gate middleware startup on completed canonical projection migrations/backfill and add real PostgreSQL filter, count, ordering, and pagination parity regressions. Preserve Node 24/Alpine 3.24 runtime upgrades; no production migration or rollout is implied.
 - Assemble each job-market API response inside one PostgreSQL repeatable-read snapshot, matching ETL's atomic daily/intelligence publication. Job-market series are PostgreSQL-only; indirect ClickHouse collaboration changes enter through published job documents, not invented market tables or a distributed-transaction claim.
+- Reject job search text, organization IDs, and individual filter values longer than 256 characters or filter lists exceeding 100 entries with HTTP 400. Preserve accepted values and pagination without truncation/deduplication; exercise actual Nest/Express query parsing at both boundaries.
 
 ## 2026-11-06
 

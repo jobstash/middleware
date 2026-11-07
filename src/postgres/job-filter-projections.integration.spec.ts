@@ -6,6 +6,7 @@ import {
 import { PostgresService } from "./postgres.service";
 import { sprinkleProtectedJobs } from "src/shared/helpers";
 import { JobListOrderBy } from "src/shared/types";
+import { parseHttpQuery } from "src/shared/helpers/http-query-parser";
 import { Test } from "@nestjs/testing";
 import request = require("supertest");
 import { JobsController } from "src/jobs/jobs.controller";
@@ -97,7 +98,7 @@ describePostgres("materialized job filter query parity", () => {
       ],
     }).compile();
     const app = module.createNestApplication();
-    app.getHttpAdapter().getInstance().set("query parser", "extended");
+    app.getHttpAdapter().getInstance().set("query parser", parseHttpQuery);
     try {
       await app.init();
       const response = await request(app.getHttpServer())

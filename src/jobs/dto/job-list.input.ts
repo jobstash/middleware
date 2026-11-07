@@ -1,12 +1,14 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { Transform, Type } from "class-transformer";
 import {
+  ArrayMaxSize,
   IsArray,
   IsBoolean,
   IsIn,
   IsNumber,
   IsOptional,
   IsString,
+  MaxLength,
   Min,
 } from "class-validator";
 import { WORK_MODES } from "src/shared/interfaces";
@@ -24,6 +26,7 @@ export class JobListParams {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(256)
   organizationId?: string;
 
   @ApiPropertyOptional()
@@ -182,38 +185,56 @@ export class JobListParams {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @Type(() => String)
   @Transform(toList)
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsString({ each: true })
+  @MaxLength(256, { each: true })
   tags?: string[] | null = null;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @Type(() => String)
   @Transform(toList)
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsString({ each: true })
+  @MaxLength(256, { each: true })
   organizations?: string[] | null = null;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @Type(() => String)
   @Transform(toList)
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsString({ each: true })
+  @MaxLength(256, { each: true })
   chains?: string[] | null = null;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @Type(() => String)
   @Transform(toList)
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsString({ each: true })
+  @MaxLength(256, { each: true })
   ecosystems?: string[] | null = null;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @Type(() => String)
   @Transform(toList)
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsString({ each: true })
+  @MaxLength(256, { each: true })
   projects?: string[] | null = null;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @Type(() => String)
   @Transform(toList)
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsString({ each: true })
+  @MaxLength(256, { each: true })
   classifications?: string[] | null = null;
 
   @ApiPropertyOptional({
@@ -224,21 +245,29 @@ export class JobListParams {
   })
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(100)
+  @IsString({ each: true })
+  @MaxLength(256, { each: true })
   @IsIn(ORGANIZATION_VERTICALS, { each: true })
-  @Type(() => String)
   @Transform(toList)
   organizationClassifications?: OrganizationVertical[] | null = null;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @Type(() => String)
   @Transform(toList)
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsString({ each: true })
+  @MaxLength(256, { each: true })
   commitments?: string[] | null = null;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @Type(() => String)
   @Transform(toList)
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsString({ each: true })
+  @MaxLength(256, { each: true })
   fundingRounds?: string[] | null = null;
 
   @ApiPropertyOptional({
@@ -246,20 +275,29 @@ export class JobListParams {
       "Canonical current equity funding stages (for example seed or series-a)",
   })
   @IsOptional()
-  @Type(() => String)
   @Transform(toList)
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsString({ each: true })
+  @MaxLength(256, { each: true })
   fundingStages?: string[] | null = null;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @Type(() => String)
   @Transform(toList)
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsString({ each: true })
+  @MaxLength(256, { each: true })
   investors?: string[] | null = null;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @Type(() => String)
   @Transform(toList)
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsString({ each: true })
+  @MaxLength(256, { each: true })
   seniority?: string[] | null = null;
 
   @ApiPropertyOptional({
@@ -269,8 +307,11 @@ export class JobListParams {
   })
   @IsOptional()
   @IsIn(JOB_WORK_MODE_FILTERS, { each: true })
-  @Type(() => String)
   @Transform(toList)
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsString({ each: true })
+  @MaxLength(256, { each: true })
   workModes?: string[] | null = null;
 
   @ApiPropertyOptional({
@@ -278,16 +319,22 @@ export class JobListParams {
       "Canonical place/timezone availability keys returned by /jobs/filters",
   })
   @IsOptional()
-  @Type(() => String)
   @Transform(toList)
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsString({ each: true })
+  @MaxLength(256, { each: true })
   availability?: string[] | null = null;
 
   @ApiPropertyOptional({
     description: "Canonical city availability keys returned by /jobs/filters",
   })
   @IsOptional()
-  @Type(() => String)
   @Transform(toList)
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsString({ each: true })
+  @MaxLength(256, { each: true })
   cities?: string[] | null = null;
 
   @ApiPropertyOptional({
@@ -295,8 +342,11 @@ export class JobListParams {
       "Canonical administrative, world, or business region availability keys",
   })
   @IsOptional()
-  @Type(() => String)
   @Transform(toList)
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsString({ each: true })
+  @MaxLength(256, { each: true })
   regions?: string[] | null = null;
 
   @ApiPropertyOptional({
@@ -304,8 +354,11 @@ export class JobListParams {
       "Canonical country availability keys returned by /jobs/filters",
   })
   @IsOptional()
-  @Type(() => String)
   @Transform(toList)
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsString({ each: true })
+  @MaxLength(256, { each: true })
   countries?: string[] | null = null;
 
   @ApiPropertyOptional({
@@ -313,8 +366,11 @@ export class JobListParams {
       "Canonical continent availability keys returned by /jobs/filters",
   })
   @IsOptional()
-  @Type(() => String)
   @Transform(toList)
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsString({ each: true })
+  @MaxLength(256, { each: true })
   continents?: string[] | null = null;
 
   @ApiPropertyOptional({
@@ -322,8 +378,11 @@ export class JobListParams {
       "Canonical IANA timezone or UTC-offset keys returned by /jobs/filters",
   })
   @IsOptional()
-  @Type(() => String)
   @Transform(toList)
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsString({ each: true })
+  @MaxLength(256, { each: true })
   timezones?: string[] | null = null;
 
   @ApiPropertyOptional({
@@ -332,8 +391,11 @@ export class JobListParams {
     example: "utc-08,utc-09",
   })
   @IsOptional()
-  @Type(() => String)
   @Transform(toList)
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsString({ each: true })
+  @MaxLength(256, { each: true })
   collaborationHours?: string[] | null = null;
 
   @ApiPropertyOptional()
@@ -507,7 +569,7 @@ export class JobListParams {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  @Type(() => String)
+  @MaxLength(256)
   query: string | null = null;
 
   @ApiPropertyOptional({
@@ -515,6 +577,6 @@ export class JobListParams {
   })
   @IsOptional()
   @IsString()
-  @Type(() => String)
+  @MaxLength(256)
   titleQuery?: string | null = null;
 }
