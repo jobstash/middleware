@@ -284,10 +284,17 @@ export async function resetPostgresFixture(
       );
     }
     await manager.query(statement);
+    const [github] = await manager.query(
+      "SELECT to_regclass('public.github_anchor_projection_receipts') IS NOT NULL AS installed",
+    );
+    // Referencing receipt tables must participate in the same TRUNCATE even
+    // when empty. Keep this optional dependency explicit, never broad CASCADE.
     await manager.query(`TRUNCATE TABLE public.search_projection_transactions,
       public.search_projection_events, public.search_projection_sources,
       public.search_projection_publications, public.job_import_projection_publications,
-      public.search_projection_commit_jobs, public.search_projection_commit_visibility`);
+      public.search_projection_commit_jobs, public.search_projection_commit_visibility${
+        github.installed ? ", public.github_anchor_projection_receipts" : ""
+      }`);
     if (/\bpublic\.(?:graph_nodes|jobpost_import_runs)\b/.test(statement)) {
       // Production retains deleted-run identities deliberately. Isolated fixture
       // graph/run resets instead start with no previously published import.
