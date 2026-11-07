@@ -661,6 +661,7 @@ export const RELEASE_ROUTE_MANIFEST = [
     "jobs/change-classification",
     "active",
   ],
+  ["JobsController", "getJobCount", "GET", "jobs/count", "active"],
   [
     "JobsController",
     "getJobDetailsByUuid",
