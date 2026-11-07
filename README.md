@@ -95,13 +95,73 @@ The existing `classifications` parameter remains the job-role filter.
 `unclassified` (Unclassified). Web2 is a display label, not a new stored value.
 Unknown values receive the standard query validation error.
 
-Filtering reads the existing `vertical` property of the actual projected
-Organization or Project employer through its corresponding search document.
-It does not inherit another entity's classification from a shared profile,
-infer classifications from job titles, or treat a missing classification as
-`unclassified`. Selection happens before results, group counts, and pagination;
-multiple selections never duplicate jobs. No schema migration or classification
-backfill is required.
+Job filter inputs are bounded after HTTP query decoding: `query`, `titleQuery`,
+`organizationId`, and each individual list value allow at most 256 characters;
+each list allows at most 100 entries. Oversized values receive HTTP 400 before
+the search service runs. Values are never truncated or silently deduplicated;
+accepted array order, duplicate values, optional null/empty inputs, and existing
+pagination semantics remain unchanged. Canonical enum validation still applies.
+The shared extended parser rejects more than 4,096 query parameters and decoded
+prototype-shaped structural keys with HTTP 400 rather than dropping filters.
+Ordinary values such as `constructor` are not structural keys and remain valid.
+
+Filtering reads the typed `job_search_documents.employer_vertical` projection
+of the actual Organization or Project employer. It does not inherit another
+entity's classification from a shared profile, infer classifications from job
+titles, or treat a missing classification as `unclassified`. Selection happens
+before results, group counts, and pagination; multiple selections never
+duplicate jobs.
+
+The filter-query cutover requires the paired ETL filter-projection migrations,
+their complete backfill, and `SELECT search_projections_ready()` returning true.
+The startup gate additionally requires migration
+`274_market_projection_publication`, whose table supplies the coordinated
+market response publication metadata. Middleware refuses an incomplete cutover.
+Migration 264's separately approved online exception does not authorize this
+deployment or any new migration.
+
+All job filter consumers use typed indexed facts for employer classification,
+strict remote eligibility, legacy work modes, geography aliases, collaboration
+hours, and payment flags. Facet keys/labels and current import-batch membership
+are maintained materialized relations; reads do not rebuild them. The ETL
+projection worker must remain enabled: transactional dirty events retain
+unacknowledged versions until refreshed, while visibility/access/status and
+new-job ownership updates retain their synchronous publication boundary.
+
+`GET /jobs/count` returns `{ "totalJobs": number }` for the exact unfiltered
+global feed eligibility, using the same guard and visibility predicate as the
+feed without grouping or hydrating cards. It intentionally does not accept
+filter parameters or change the semantics of filtered/grouped totals.
+
+Non-fuzzy individual pages fetch the bounded protected/public priority window
+and the requested tail slices, preserving featured ordering, all sort modes,
+legacy pagination, and randomized protected placement. Free-text `query`
+retains the complete fuzzysort candidate set and threshold: it is not replaced
+by full-text search or silently capped. `titleQuery` remains the separate
+indexed title-only full-text search. Team-signal filters still depend on the
+scorer snapshot and preserve the existing unavailable-snapshot bypass; that
+behavior is not a projection-freshness guarantee.
+
+Run the filter workload only against a dedicated loopback `filter_*` database:
+`ALLOW_ISOLATED_FILTER_BENCHMARK=1 DATABASE_TEST_URL=<loopback-test-url> yarn db:benchmark:filters`.
+The runner does not load `.env`, rejects remote targets, captures actual
+repository query plans/buffers, and reports p95/p99, pool waits, slow statements,
+and Node memory/CPU at concurrency 1/4/16/32. Set
+`FILTER_BENCHMARK_PARITY=1` to compare the pinned deployed baseline's actual
+compiled repositories against the candidate before measuring;
+`FILTER_BENCHMARK_BASELINE=1` measures that baseline on the same fixture.
+Baseline mode includes the former full-feed header count and four facet loads
+in its render-fanout case. A declared workload envelope is not a guarantee
+against arbitrary request rates. Projection mutation durability is covered by
+the paired ETL regression suite; middleware read parity is in
+`src/postgres/job-filter-projections.integration.spec.ts`.
+The benchmark rejects fixtures with fewer than 50,000 documents or 1,000
+eligible online jobs, so an empty projection cannot accidentally produce a
+passing performance report. The legacy search-document integration matrix
+deliberately retains rich read-model values for query-only comparisons after
+canonical graph publication; classification, ownership, and work-arrangement
+sources still use real graph/extraction writes with guards enabled. Do not
+report that controlled query fixture as end-to-end writer freshness proof.
 
 ## Agency partners and job alerts
 

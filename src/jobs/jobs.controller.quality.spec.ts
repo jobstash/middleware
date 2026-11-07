@@ -7,6 +7,7 @@ import { CheckWalletPermissions } from "src/shared/constants";
 import { SessionObject } from "src/shared/types";
 import { JobsController } from "./jobs.controller";
 import { UpdateJobMetadataInput } from "./dto/update-job-metadata.input";
+import { GUARDS_METADATA, PATH_METADATA } from "@nestjs/common/constants";
 
 const success = { success: true, message: "ok" };
 const session = (permissions: string[] = []): SessionObject => ({
@@ -24,6 +25,7 @@ function fixture(): {
   account: Record<string, jest.Mock>;
 } {
   const jobs = {
+    getJobCount: jest.fn().mockResolvedValue({ totalJobs: 53122 }),
     getFeaturedJobs: jest.fn().mockResolvedValue(success),
     getFeaturedJobsByOrgId: jest.fn().mockResolvedValue(success),
     getJobsByOrgIdWithApplicants: jest.fn().mockResolvedValue(success),
@@ -93,6 +95,20 @@ function metadata(): UpdateJobMetadataInput {
 
 describe("JobsController quality refactor contracts", () => {
   afterEach(() => jest.restoreAllMocks());
+
+  it("returns the exact count through the same guard as the feed", async () => {
+    const { controller, jobs } = fixture();
+    await expect(controller.getJobCount()).resolves.toEqual({
+      totalJobs: 53122,
+    });
+    expect(jobs.getJobCount).toHaveBeenCalledWith();
+    expect(Reflect.getMetadata(PATH_METADATA, controller.getJobCount)).toBe(
+      "count",
+    );
+    expect(
+      Reflect.getMetadata(GUARDS_METADATA, controller.getJobCount),
+    ).toEqual(Reflect.getMetadata(GUARDS_METADATA, controller.getJobFeed));
+  });
 
   it("keeps super-admin featured access independent of subscriptions", async () => {
     const { controller, jobs, user } = fixture();

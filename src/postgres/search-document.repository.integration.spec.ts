@@ -22,6 +22,7 @@ import {
 import { SearchDocumentRepository } from "./search-document.repository";
 import { PostgresService } from "./postgres.service";
 import { SearchRepository } from "./search.repository";
+import { resetPostgresFixture } from "../../test/postgres-reset";
 
 type JobSearchParams = Parameters<SearchDocumentRepository["searchJobs"]>[0];
 type OrganizationSearchParams = Parameters<
@@ -247,10 +248,30 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
         SET properties = employer.properties || '{"vertical":"crypto"}'::jsonb
         FROM project_search_documents project
         WHERE employer.id = project.project_node_id;
+      `);
+      await preserveJobQuerySnapshot("job-public-acme", async () => {
+        // Classification follows the real employer path, not a hand-written
+        // project_id on a job still owned by an organization.
+        await postgres.query(`
+          UPDATE graph_relationships ownership
+          SET source_id = (
+            SELECT id FROM graph_nodes
+            WHERE label = 'Project' AND properties ->> 'id' = 'project-alpha'
+          )
+          WHERE ownership.type = 'HAS_JOBSITE'
+            AND ownership.target_id = (
+              SELECT id FROM graph_nodes
+              WHERE label = 'Jobsite'
+                AND node_key = 'job-public-acme:fixture-jobsite'
+            )
+        `);
+      });
+      await postgres.query(`
         UPDATE job_search_documents
         SET organization_id = NULL, organization_name = NULL,
           project_id = 'project-alpha', organization_has_expert_jobs = false
         WHERE structured_jobpost_id = 'job-public-acme';
+        UPDATE job_search_documents SET payload = payload;
       `);
     });
 
@@ -269,9 +290,12 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
             UNION ALL
             SELECT project_node_id FROM project_search_documents
             WHERE project_id = 'project-alpha'
-          )
+          );
         `,
           [vertical],
+        );
+        await postgres.query(
+          "UPDATE job_search_documents SET payload = payload",
         );
         const result = await repository.searchJobs({
           organizationClassifications: [vertical],
@@ -298,7 +322,8 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
       expect(crypto.data.map(job => job.id)).toEqual(["job-public-acme"]);
       await postgres.query(`
         UPDATE graph_nodes SET properties = properties - 'vertical'
-        WHERE id IN (SELECT project_node_id FROM project_search_documents)
+        WHERE id IN (SELECT project_node_id FROM project_search_documents);
+        UPDATE job_search_documents SET payload = payload
       `);
       expect(
         (
@@ -345,24 +370,7 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
 
   describe("organization feed", () => {
     it("returns every latest-batch title, one full card, and paginates whole groups", async () => {
-      for (const [organizationId, count, base] of [
-        ["org-acme", 200, 10000],
-        ["org-beta", 6, 20000],
-      ] as const) {
-        for (let i = 0; i < count; i++)
-          await insertJob({
-            id: `stack-${organizationId}-${i}`,
-            title: `Engineer ${i}`,
-            access: "public",
-            organizationId,
-            organizationName: organizationId,
-            organizationHasExpertJobs: false,
-            salary: i < 3 ? 200000 : 100000,
-            publishedTimestamp: base + i,
-            tags: ["typescript"],
-            projectNames: [],
-          });
-      }
+      await seedFeedJobs();
       await postgres.query(`
         INSERT INTO jobpost_import_runs (
           id, trigger, status, completed_at, source_key, idempotency_key, input_fingerprint
@@ -385,6 +393,9 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
         UPDATE job_search_documents
           SET jobsite_id = structured_jobpost_id || ':fixture-jobsite'
           WHERE structured_jobpost_id LIKE 'stack-%';
+        SELECT refresh_job_latest_import_memberships(
+          ARRAY(SELECT organization_node_id FROM organization_search_documents)
+        );
       `);
       const first = await repository.searchLatestImportJobGroups({
         startDate: 10000,
@@ -444,7 +455,8 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
         SET properties = employer.properties || '{"vertical":"ai"}'::jsonb
         FROM organization_search_documents organization
         WHERE employer.id = organization.organization_node_id
-          AND organization.organization_id = 'org-acme'
+          AND organization.organization_id = 'org-acme';
+        UPDATE job_search_documents SET payload = payload
       `);
       const classified = await repository.searchLatestImportJobGroups({
         startDate: 10000,
@@ -461,19 +473,15 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
     });
 
     it("keeps open jobs from older imports in complete stacks with every title", async () => {
-      for (let i = 0; i < 7; i++)
-        await insertJob({
-          id: `older-open-${i}`,
-          title: `Engineer ${i}`,
-          access: "public",
+      await seedFeedJobs(
+        Array.from({ length: 7 }, (_, index) => ({
+          id: `older-open-${index}`,
           organizationId: "org-acme",
-          organizationName: "Acme",
-          organizationHasExpertJobs: false,
+          title: `Engineer ${index}`,
           salary: 100000,
-          publishedTimestamp: 10000 + i,
-          tags: ["typescript"],
-          projectNames: [],
-        });
+          timestamp: 10000 + index,
+        })),
+      );
       const page = await repository.searchJobGroups({
         startDate: 10000,
         limit: 1,
@@ -2557,7 +2565,7 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
             'orgId', 'org-acme',
             'name', 'Acme'
           )
-      WHERE label = 'Organization' AND properties ->> 'id' = 'org-acme'
+      WHERE label = 'Organization' AND properties ->> 'orgId' = 'org-acme'
     `);
     const [organization] = await postgres.query<{ id: string }>(`
       SELECT id::text AS id
@@ -2660,13 +2668,6 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
   });
 
   it("round-trips every emitted job facet option to at least one result", async () => {
-    // The projection guard derives legacy eligibility from the source graph;
-    // make the compact fixture carry the production organization identity.
-    await postgres.query(`
-      UPDATE graph_nodes
-      SET properties = properties || jsonb_build_object('orgId', node_key)
-      WHERE label = 'Organization'
-    `);
     await configureJobFilterDocuments();
     await postgres.query(`
       UPDATE job_search_documents
@@ -2828,14 +2829,26 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
   }, 120_000);
 
   async function resetDatabase(): Promise<void> {
-    await postgres.query(
+    await resetPostgresFixture(
+      postgres,
       `TRUNCATE TABLE jobpost_import_runs, graph_nodes RESTART IDENTITY CASCADE`,
     );
   }
 
   async function createNode(label: string, key: string): Promise<string> {
     if (label === "Organization" || label === "Project") {
-      return createProfileMemberFixture(postgres, label, key, { id: key });
+      return createProfileMemberFixture(postgres, label, key, {
+        [label === "Organization" ? "orgId" : "id"]: key,
+        // Direct project employers require canonical descriptive strings to
+        // pass the legacy eligibility guard. Beta intentionally lacks them for
+        // the preserved-invalid-job fixture.
+        ...(key === "project-alpha"
+          ? {
+              summary: "Alpha protocol",
+              description: "Alpha protocol engineering",
+            }
+          : {}),
+      });
     }
     const [row] = await postgres.query<{ id: string }>(
       `
@@ -2853,81 +2866,126 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
     return row.id;
   }
 
+  async function seedFeedJobs(
+    jobs: {
+      id: string;
+      organizationId: string;
+      title: string;
+      salary: number;
+      timestamp: number;
+    }[] = [
+      { organizationId: "org-acme", count: 200, base: 10000 },
+      { organizationId: "org-beta", count: 6, base: 20000 },
+    ].flatMap(({ organizationId, count, base }) =>
+      Array.from({ length: count }, (_, index) => ({
+        id: `stack-${organizationId}-${index}`,
+        organizationId,
+        title: `Engineer ${index}`,
+        salary: index < 3 ? 200000 : 100000,
+        timestamp: base + index,
+      })),
+    ),
+  ): Promise<void> {
+    const [template] = await postgres.query<{
+      document: Record<string, unknown>;
+    }>(
+      `SELECT to_jsonb(job) AS document FROM job_search_documents job
+       WHERE structured_jobpost_id = 'job-public-acme'`,
+    );
+    // Publish nodes and ownership in one transaction so the deferred single-
+    // employer guard sees the complete graph, with one batched job refresh.
+    await postgres.transaction(async manager => {
+      await manager.query(
+        `INSERT INTO graph_nodes (label, labels, node_key, properties)
+       SELECT kind.label, ARRAY[kind.label], job.id || kind.suffix,
+         jsonb_build_object(
+           'id', job.id || kind.suffix,
+           'type', 'custom',
+           'url', CASE WHEN kind.label = 'Jobsite'
+             THEN 'https://fixture.invalid/jobs'
+             ELSE 'https://fixture.invalid/jobs/' || job.id END
+         )
+       FROM jsonb_to_recordset($1::jsonb) job(id text)
+       CROSS JOIN (VALUES
+         ('StructuredJobpost', ''), ('Jobsite', ':fixture-jobsite'),
+         ('Jobpost', ':fixture-raw-job')
+       ) kind(label, suffix)`,
+        [JSON.stringify(jobs)],
+      );
+      await manager.query(
+        `INSERT INTO graph_relationships (source_id, target_id, type, relationship_key)
+       SELECT edge.source_id, edge.target_id, edge.type, ''
+       FROM jsonb_to_recordset($1::jsonb) job(id text, "organizationId" text)
+       JOIN graph_nodes employer ON employer.label = 'Organization'
+         AND employer.properties ->> 'orgId' = job."organizationId"
+       JOIN graph_nodes site ON site.label = 'Jobsite'
+         AND site.node_key = job.id || ':fixture-jobsite'
+       JOIN graph_nodes raw ON raw.label = 'Jobpost'
+         AND raw.node_key = job.id || ':fixture-raw-job'
+       JOIN graph_nodes structured ON structured.label = 'StructuredJobpost'
+         AND structured.node_key = job.id
+       CROSS JOIN LATERAL (VALUES
+         (employer.id, site.id, 'HAS_JOBSITE'),
+         (site.id, raw.id, 'HAS_JOBPOST'),
+         (raw.id, structured.id, 'HAS_STRUCTURED_JOBPOST')
+       ) edge(source_id, target_id, type)`,
+        [JSON.stringify(jobs)],
+      );
+    });
+    // As in insertJob, query snapshots follow committed source publication.
+    await postgres.query(
+      `DELETE FROM job_search_documents WHERE structured_jobpost_id = ANY($1::text[])`,
+      [jobs.map(job => job.id)],
+    );
+    await postgres.query(
+      `INSERT INTO job_search_documents
+       SELECT (jsonb_populate_record(NULL::job_search_documents,
+         $2::jsonb || jsonb_build_object(
+           'job_node_id', structured.id, 'structured_jobpost_id', job.id,
+           'short_uuid', job.id, 'organization_id', job."organizationId",
+           'organization_name', job."organizationId", 'title', job.title,
+           'salary', job.salary, 'published_timestamp', job.timestamp,
+           'organization_has_expert_jobs', false, 'project_names', '[]'::jsonb,
+           'payload', jsonb_build_object(
+             'id', job.id, 'shortUUID', job.id, 'title', job.title,
+             'access', 'public', 'salary', job.salary, 'salaryCurrency', 'USD',
+             'timestamp', job.timestamp, 'tags', '[]'::jsonb,
+             'organization', jsonb_build_object(
+               'orgId', job."organizationId", 'name', job."organizationId"
+             )
+           )
+         )
+       )).*
+       FROM jsonb_to_recordset($1::jsonb) job(
+         id text, "organizationId" text, title text, salary numeric, timestamp bigint
+       )
+       JOIN graph_nodes structured ON structured.label = 'StructuredJobpost'
+         AND structured.node_key = job.id`,
+      [JSON.stringify(jobs), JSON.stringify(template.document)],
+    );
+    await postgres.query(
+      `
+      WITH published AS (
+        UPDATE job_search_documents SET detail_payload = payload
+        WHERE structured_jobpost_id = ANY($1::text[])
+        RETURNING *
+      )
+      INSERT INTO job_search_owners (job_node_id, organization_node_id, organization_id)
+      SELECT job.job_node_id, employer.id, job.organization_id
+      FROM published job
+      JOIN graph_nodes employer ON employer.label = 'Organization'
+        AND employer.properties ->> 'orgId' = job.organization_id
+      ON CONFLICT DO NOTHING
+    `,
+      [jobs.map(job => job.id)],
+    );
+  }
+
   async function seedCoreDocuments(): Promise<void> {
     const acmeNodeId = await createNode("Organization", "org-acme");
     const betaNodeId = await createNode("Organization", "org-beta");
     const alphaNodeId = await createNode("Project", "project-alpha");
     const betaProjectNodeId = await createNode("Project", "project-beta");
-
-    await postgres.query(
-      `
-        INSERT INTO organization_search_documents (
-          organization_node_id, organization_id, slug, name, normalized_name,
-          location, headcount_estimate, ecosystems, managed_ecosystems,
-          project_ids, project_names, categories,
-          chains, investors, funding_rounds, tags, recent_funding_timestamp,
-          recent_job_timestamp, aggregate_rating, has_projects, search_text,
-          search_vector, search_values, names, filter_labels, payload
-        ) VALUES
-        (
-          $1, 'org-acme', 'acme', 'Acme', 'acme', 'berlin', 120,
-          ARRAY['ethereum'], ARRAY['ethereum'], ARRAY['project-alpha'], ARRAY['alpha'], ARRAY['company'],
-          ARRAY['ethereum'], ARRAY['paradigm'], ARRAY['series-a'],
-          ARRAY['solidity'], 200, 300, 4.5, true, 'Acme Berlin Alpha',
-          to_tsvector('simple', 'Acme Berlin Alpha'), ARRAY['Acme', 'Acme Labs'],
-          ARRAY['acme', 'acme-labs'],
-          '{"investors":{"paradigm":"Paradigm"},"fundingRounds":{"series-a":"Series A"},"ecosystems":{"ethereum":"Ethereum"},"categories":{"company":"Company"},"locations":{"berlin":"Berlin"}}',
-          '{"orgId":"org-acme","name":"Acme","category":"Company","projects":[],"investors":[],"fundingRounds":[],"ecosystems":["Ethereum"],"aliases":[],"tags":[],"location":"Berlin"}'
-        ),
-        (
-          $2, 'org-beta', 'beta', 'Beta', 'beta', 'lisbon', 20,
-          ARRAY['ethereum'], ARRAY['ethereum'], ARRAY['project-beta'], ARRAY['beta'], ARRAY['protocol'],
-          ARRAY['base'], ARRAY['variant'], ARRAY['seed'],
-          ARRAY['typescript'], 100, 250, 4.0, true, 'Beta Lisbon',
-          to_tsvector('simple', 'Beta Lisbon'), ARRAY['Beta', 'Beta Systems'], ARRAY['beta'],
-          '{"investors":{"variant":"Variant"},"fundingRounds":{"seed":"Seed"},"ecosystems":{"ethereum":"Ethereum"},"categories":{"protocol":"Protocol"},"locations":{"lisbon":"Lisbon"}}',
-          '{"orgId":"org-beta","name":"Beta","category":"Protocol","projects":[],"investors":[],"fundingRounds":[],"ecosystems":["Ethereum"],"aliases":[],"tags":[],"location":"Lisbon"}'
-        )
-      `,
-      [acmeNodeId, betaNodeId],
-    );
-
-    await postgres.query(
-      `
-        INSERT INTO project_search_documents (
-          project_node_id, project_id, slug, name, normalized_name,
-          organization_ids, organization_names, ecosystems, managed_ecosystems,
-          categories, chains,
-          investors, tags, has_hacks, has_audits, has_token,
-          token_address_not_explicit_null, tvl,
-          monthly_volume, monthly_active_users, monthly_fees, monthly_revenue,
-          search_text, search_vector, search_values, names, filter_labels, payload
-        ) VALUES
-        (
-          $1, 'project-alpha', 'alpha', 'Alpha', 'alpha', ARRAY['org-acme'],
-          ARRAY['acme'], ARRAY['ethereum'], ARRAY['ethereum'], ARRAY['defi'], ARRAY['ethereum'],
-          ARRAY['paradigm'], ARRAY['solidity'], false, true, true, true, 1500000,
-          500000, 1000, 5000, 2000, 'Alpha DeFi',
-          to_tsvector('simple', 'Alpha DeFi'), ARRAY['Alpha', 'Alpha Protocol'], ARRAY['alpha'],
-          '{"organizations":{"acme":"Acme"},"chains":{"ethereum":"Ethereum"},"ecosystems":{"ethereum":"Ethereum"},"categories":{"defi":"DeFi"},"investors":{"paradigm":"Paradigm"}}',
-          '{"id":"project-alpha","name":"Alpha","audits":[],"hacks":[],"chains":[],"jobs":[],"investors":[],"aliases":[],"orgNames":["Acme"],"ecosystems":["Ethereum"],"category":"DeFi","tvl":1500000,"monthlyVolume":500000,"monthlyFees":5000,"monthlyRevenue":2000}'
-        ),
-        (
-          $2, 'project-beta', 'beta', 'Beta', 'beta', ARRAY['org-beta'],
-          ARRAY['beta'], ARRAY['ethereum'], ARRAY['ethereum'], ARRAY['infrastructure'], ARRAY['base'],
-          ARRAY['variant'], ARRAY['typescript'], true, false, false, true, 500000,
-          100000, 500, 1000, 500, 'Beta Infrastructure',
-          to_tsvector('simple', 'Beta Infrastructure'), ARRAY['Beta', 'Beta Network'], ARRAY['beta'],
-          '{"organizations":{"beta":"Beta"},"chains":{"base":"Base"},"ecosystems":{"ethereum":"Ethereum"},"categories":{"infrastructure":"Infrastructure"},"investors":{"variant":"Variant"}}',
-          '{"id":"project-beta","name":"Beta","audits":[],"hacks":[],"chains":[],"jobs":[],"investors":[],"aliases":[],"orgNames":["Beta"],"ecosystems":["Ethereum"],"category":"Infrastructure","tvl":500000,"monthlyVolume":100000,"monthlyFees":1000,"monthlyRevenue":500}'
-        )
-      `,
-      [alphaNodeId, betaProjectNodeId],
-    );
-    await postgres.query(`
-      UPDATE organization_search_documents SET detail_payload = payload;
-      UPDATE project_search_documents SET detail_payload = payload
-    `);
 
     await insertJob({
       id: "job-protected",
@@ -3003,6 +3061,82 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
       tags: ["solidity"],
       projectNames: ["beta"],
     });
+    // These directory matrices exercise independent read-model values, not ETL
+    // aggregation. Publish them only after canonical ownership has committed:
+    // migration 268 refreshes directory dependencies while attaching each job.
+    await postgres.query(`
+      DELETE FROM organization_search_documents;
+      DELETE FROM project_search_documents;
+    `);
+    await postgres.query(
+      `
+        INSERT INTO organization_search_documents (
+          organization_node_id, organization_id, slug, name, normalized_name,
+          location, headcount_estimate, ecosystems, managed_ecosystems,
+          project_ids, project_names, categories,
+          chains, investors, funding_rounds, tags, recent_funding_timestamp,
+          recent_job_timestamp, aggregate_rating, has_projects, search_text,
+          search_vector, search_values, names, filter_labels, payload
+        ) VALUES
+        (
+          $1, 'org-acme', 'acme', 'Acme', 'acme', 'berlin', 120,
+          ARRAY['ethereum'], ARRAY['ethereum'], ARRAY['project-alpha'], ARRAY['alpha'], ARRAY['company'],
+          ARRAY['ethereum'], ARRAY['paradigm'], ARRAY['series-a'],
+          ARRAY['solidity'], 200, 300, 4.5, true, 'Acme Berlin Alpha',
+          to_tsvector('simple', 'Acme Berlin Alpha'), ARRAY['Acme', 'Acme Labs'],
+          ARRAY['acme', 'acme-labs'],
+          '{"investors":{"paradigm":"Paradigm"},"fundingRounds":{"series-a":"Series A"},"ecosystems":{"ethereum":"Ethereum"},"categories":{"company":"Company"},"locations":{"berlin":"Berlin"}}',
+          '{"orgId":"org-acme","name":"Acme","category":"Company","projects":[],"investors":[],"fundingRounds":[],"ecosystems":["Ethereum"],"aliases":[],"tags":[],"location":"Berlin"}'
+        ),
+        (
+          $2, 'org-beta', 'beta', 'Beta', 'beta', 'lisbon', 20,
+          ARRAY['ethereum'], ARRAY['ethereum'], ARRAY['project-beta'], ARRAY['beta'], ARRAY['protocol'],
+          ARRAY['base'], ARRAY['variant'], ARRAY['seed'],
+          ARRAY['typescript'], 100, 250, 4.0, true, 'Beta Lisbon',
+          to_tsvector('simple', 'Beta Lisbon'), ARRAY['Beta', 'Beta Systems'], ARRAY['beta'],
+          '{"investors":{"variant":"Variant"},"fundingRounds":{"seed":"Seed"},"ecosystems":{"ethereum":"Ethereum"},"categories":{"protocol":"Protocol"},"locations":{"lisbon":"Lisbon"}}',
+          '{"orgId":"org-beta","name":"Beta","category":"Protocol","projects":[],"investors":[],"fundingRounds":[],"ecosystems":["Ethereum"],"aliases":[],"tags":[],"location":"Lisbon"}'
+        )
+      `,
+      [acmeNodeId, betaNodeId],
+    );
+
+    await postgres.query(
+      `
+        INSERT INTO project_search_documents (
+          project_node_id, project_id, slug, name, normalized_name,
+          organization_ids, organization_names, ecosystems, managed_ecosystems,
+          categories, chains,
+          investors, tags, has_hacks, has_audits, has_token,
+          token_address_not_explicit_null, tvl,
+          monthly_volume, monthly_active_users, monthly_fees, monthly_revenue,
+          search_text, search_vector, search_values, names, filter_labels, payload
+        ) VALUES
+        (
+          $1, 'project-alpha', 'alpha', 'Alpha', 'alpha', ARRAY['org-acme'],
+          ARRAY['acme'], ARRAY['ethereum'], ARRAY['ethereum'], ARRAY['defi'], ARRAY['ethereum'],
+          ARRAY['paradigm'], ARRAY['solidity'], false, true, true, true, 1500000,
+          500000, 1000, 5000, 2000, 'Alpha DeFi',
+          to_tsvector('simple', 'Alpha DeFi'), ARRAY['Alpha', 'Alpha Protocol'], ARRAY['alpha'],
+          '{"organizations":{"acme":"Acme"},"chains":{"ethereum":"Ethereum"},"ecosystems":{"ethereum":"Ethereum"},"categories":{"defi":"DeFi"},"investors":{"paradigm":"Paradigm"}}',
+          '{"id":"project-alpha","name":"Alpha","audits":[],"hacks":[],"chains":[],"jobs":[],"investors":[],"aliases":[],"orgNames":["Acme"],"ecosystems":["Ethereum"],"category":"DeFi","tvl":1500000,"monthlyVolume":500000,"monthlyFees":5000,"monthlyRevenue":2000}'
+        ),
+        (
+          $2, 'project-beta', 'beta', 'Beta', 'beta', ARRAY['org-beta'],
+          ARRAY['beta'], ARRAY['ethereum'], ARRAY['ethereum'], ARRAY['infrastructure'], ARRAY['base'],
+          ARRAY['variant'], ARRAY['typescript'], true, false, false, true, 500000,
+          100000, 500, 1000, 500, 'Beta Infrastructure',
+          to_tsvector('simple', 'Beta Infrastructure'), ARRAY['Beta', 'Beta Network'], ARRAY['beta'],
+          '{"organizations":{"beta":"Beta"},"chains":{"base":"Base"},"ecosystems":{"ethereum":"Ethereum"},"categories":{"infrastructure":"Infrastructure"},"investors":{"variant":"Variant"}}',
+          '{"id":"project-beta","name":"Beta","audits":[],"hacks":[],"chains":[],"jobs":[],"investors":[],"aliases":[],"orgNames":["Beta"],"ecosystems":["Ethereum"],"category":"Infrastructure","tvl":500000,"monthlyVolume":100000,"monthlyFees":1000,"monthlyRevenue":500}'
+        )
+      `,
+      [alphaNodeId, betaProjectNodeId],
+    );
+    await postgres.query(`
+      UPDATE organization_search_documents SET detail_payload = payload;
+      UPDATE project_search_documents SET detail_payload = payload
+    `);
   }
 
   async function insertJob(input: {
@@ -3024,16 +3158,16 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
       input.legacyListEligible === false
         ? await postgres.query<{ ownerNodeId: string }>(
             `
-              SELECT project_node_id::text AS "ownerNodeId"
-              FROM project_search_documents
-              WHERE project_id = 'project-beta'
+              SELECT id::text AS "ownerNodeId"
+              FROM graph_nodes
+              WHERE label = 'Project' AND properties ->> 'id' = 'project-beta'
             `,
           )
         : await postgres.query<{ ownerNodeId: string }>(
             `
-              SELECT organization_node_id::text AS "ownerNodeId"
-              FROM organization_search_documents
-              WHERE organization_id = $1
+              SELECT id::text AS "ownerNodeId"
+              FROM graph_nodes
+              WHERE label = 'Organization' AND properties ->> 'orgId' = $1
             `,
             [input.organizationId],
           );
@@ -3050,6 +3184,12 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
               ? "onsite"
               : "remote",
       },
+    );
+    // Ownership publication now creates the canonical row at commit. Replace
+    // it with this deliberately controlled read-model fixture, not a duplicate.
+    await postgres.query(
+      "DELETE FROM job_search_documents WHERE job_node_id = $1",
+      [nodeId],
     );
     const searchText = `${input.title} ${input.organizationName}`;
     await postgres.query(
@@ -3121,6 +3261,7 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
         SELECT $1, organization_node_id, organization_id
         FROM organization_search_documents
         WHERE organization_id = $2
+        ON CONFLICT DO NOTHING
       `,
       [nodeId, input.organizationId],
     );
@@ -3365,6 +3506,97 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
         JSON.stringify(options),
       ],
     );
+    await postgres.query(
+      "UPDATE job_search_documents SET payload = payload WHERE structured_jobpost_id = $1",
+      [structuredJobpostId],
+    );
+  }
+
+  async function preserveJobQuerySnapshot(
+    structuredJobpostId: string,
+    publishSource: () => Promise<void>,
+  ): Promise<void> {
+    // The query matrix deliberately gives jobs sharing an employer different
+    // funding/market/taxonomy values. Those are read-model inputs, independent
+    // of source publication. Let canonical triggers finish first, then restore
+    // only these inputs; work arrangement and typed filter facts are rebuilt by
+    // the normal projection triggers from the real graph/extraction sources.
+    const columns = [
+      "structured_jobpost_id",
+      "short_uuid",
+      "organization_id",
+      "availability_keys",
+      "required_availability_keys",
+      "organization_name",
+      "project_id",
+      "title",
+      "access",
+      "salary",
+      "salary_currency",
+      "online",
+      "blocked",
+      "featured",
+      "organization_has_expert_jobs",
+      "published_timestamp",
+      "legacy_list_eligible",
+      "tags",
+      "project_names",
+      "investor_names",
+      "funding_round_names",
+      "chain_names",
+      "classifications",
+      "commitments",
+      "location_types",
+      "ecosystems",
+      "seniority",
+      "managed_ecosystems",
+      "headcount_estimate",
+      "max_tvl",
+      "max_monthly_volume",
+      "max_monthly_fees",
+      "max_monthly_revenue",
+      "min_tvl",
+      "min_monthly_volume",
+      "min_monthly_fees",
+      "min_monthly_revenue",
+      "sort_project_tvl",
+      "sort_project_monthly_volume",
+      "sort_project_monthly_fees",
+      "sort_project_monthly_revenue",
+      "sort_project_audit_count",
+      "sort_project_hack_count",
+      "sort_project_chain_count",
+      "latest_funding_timestamp",
+      "latest_funding_round_name",
+      "has_token",
+      "has_audits",
+      "has_hacks",
+      "onboard_into_web3",
+      "location",
+      "search_text",
+      "search_values",
+      "search_vector",
+      "filter_labels",
+      "payload",
+      "detail_payload",
+    ].join(", ");
+    const [snapshot] = await postgres.query<{
+      document: Record<string, unknown>;
+    }>(
+      `SELECT to_jsonb(job) AS document FROM job_search_documents job
+       WHERE structured_jobpost_id = $1`,
+      [structuredJobpostId],
+    );
+    await publishSource();
+    await postgres.query(
+      `UPDATE job_search_documents
+       SET (${columns}) = (
+         SELECT ${columns}
+         FROM jsonb_populate_record(NULL::job_search_documents, $2::jsonb)
+       )
+       WHERE job_node_id = $1`,
+      [snapshot.document.job_node_id, JSON.stringify(snapshot.document)],
+    );
   }
 
   async function setWorkArrangementConclusion(
@@ -3378,8 +3610,9 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
       | "unstated",
     fullyRemote: boolean | null,
   ): Promise<void> {
-    await postgres.query(
-      `
+    await preserveJobQuerySnapshot(structuredJobpostId, async () => {
+      await postgres.query(
+        `
         UPDATE graph_nodes structured
         SET properties = jsonb_set(
           jsonb_set(
@@ -3389,15 +3622,16 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
             true
           ),
           '{workArrangementFullyRemote}',
-          to_jsonb($3::boolean),
+          COALESCE(to_jsonb($3::boolean), 'null'::jsonb),
           true
         )
         FROM job_search_documents job
         WHERE job.structured_jobpost_id = $1
           AND structured.id = job.job_node_id;
-      `,
-      [structuredJobpostId, classification, fullyRemote],
-    );
+        `,
+        [structuredJobpostId, classification, fullyRemote],
+      );
+    });
     await postgres.query(
       `
         UPDATE job_search_documents

@@ -1,7 +1,7 @@
 import type { JobFeedGroup, JobFeedPage } from "src/jobs/dto/job-feed.output";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { Injectable } from "@nestjs/common";
+import { Injectable, OnModuleInit } from "@nestjs/common";
 import { go } from "fuzzysort";
 import { JobListParams } from "src/jobs/dto/job-list.input";
 import { OrgListParams } from "src/organizations/dto/org-list.input";
@@ -234,157 +234,14 @@ class SqlPredicateBuilder {
 const normalizeList = (values?: string[] | null): string[] | null =>
   values?.map(value => slugify(value)).filter(Boolean) ?? null;
 
-const restrictedRemoteOption = (optionAlias: string): string => `(
-  ${optionAlias}.mode = 'remote'
-  AND ${optionAlias}.arrangement_confidence IN ('source_stated', 'parsed')
-  AND ${optionAlias}.employer_authored_remote_evidence
-  AND (
-    ${optionAlias}.scope IN ('region', 'country_list')
-    OR cardinality(${optionAlias}.countries) > 0
-    OR cardinality(${optionAlias}.excluded_countries) > 0
-    OR cardinality(${optionAlias}.regions) > 0
-    OR cardinality(${optionAlias}.excluded_regions) > 0
-    OR ${optionAlias}.required_minimum_utc_offset_minutes IS NOT NULL
-    OR ${optionAlias}.required_maximum_utc_offset_minutes IS NOT NULL
-    OR ${optionAlias}.timezone_preference_strength = 'required'
-    OR (
-      (
-        ${optionAlias}.minimum_utc_offset_minutes IS NOT NULL
-        OR ${optionAlias}.maximum_utc_offset_minutes IS NOT NULL
-      )
-      AND ${optionAlias}.timezone_preference_strength <> 'preferred'
-    )
-    OR cardinality(${optionAlias}.residency_requirements) > 0
-    OR NULLIF(btrim(${optionAlias}.residency_requirement), '') IS NOT NULL
-    OR cardinality(${optionAlias}.work_authorizations) > 0
-    OR NULLIF(btrim(${optionAlias}.work_authorization), '') IS NOT NULL
-    OR NULLIF(btrim(${optionAlias}.attendance_cadence), '') IS NOT NULL
-    OR NULLIF(btrim(${optionAlias}.travel_requirement), '') IS NOT NULL
-  )
-)`;
+type JobCandidatePage = {
+  total: number;
+  candidates: JobSearchCandidate[];
+};
 
-const safeAvailability = (columnPrefix = ""): string => `(CASE
-  WHEN jsonb_typeof(${columnPrefix}payload -> 'availability') = 'array'
-    THEN ${columnPrefix}payload -> 'availability'
-  ELSE '[]'::jsonb
-END)`;
-
-const structuredGeographyIsWellFormed = (columnPrefix = ""): string => `(
-  (
-    ${columnPrefix}payload -> 'availability' IS NULL
-    OR jsonb_typeof(${columnPrefix}payload -> 'availability') = 'array'
-  )
-  AND NOT EXISTS (
-    SELECT 1
-    FROM jsonb_array_elements(${safeAvailability(columnPrefix)})
-      availability_item(item)
-    WHERE jsonb_typeof(availability_item.item) <> 'object'
-  )
-)`;
-
-const requiredRemoteAvailability = (columnPrefix = ""): string => `EXISTS (
-  SELECT 1
-  FROM jsonb_array_elements(${safeAvailability(columnPrefix)})
-    required_remote_availability(item)
-  WHERE required_remote_availability.item ->> 'workMode' = 'remote'
-    AND COALESCE(
-      required_remote_availability.item ->> 'requirement',
-      'required'
-    ) = 'required'
-    AND slugify_text(COALESCE(
-      required_remote_availability.item ->> 'placeName',
-      required_remote_availability.item ->> 'placeText',
-      required_remote_availability.item ->> 'rawText',
-      ''
-    )) NOT IN (
-      '', 'remote', 'global', 'worldwide', 'anywhere',
-      'any-location', 'remote-any-location', 'remote-worldwide',
-      'anywhere-on-earth'
-    )
-)`;
-
-/**
- * A job is 100% Remote only when the current LLM extraction contains a clean
- * global remote option and the StructuredJobpost classification agrees that
- * it is fully remote. A hard restriction on any remote option disqualifies
- * the job. Onsite and hybrid options remain independent, so an employer can
- * still offer a separately located office arm.
- *
- * Read only committed extraction tables. Import staging data is unfinished
- * and must never change a public search result.
- */
-export const strictFullyRemotePredicate = (columnPrefix = ""): string => `(
-  ${columnPrefix}work_arrangement ->> 'version' = 'WorkArrangementV1'
-  AND ${columnPrefix}work_arrangement ->> 'classification' = 'verified_remote'
-  AND ${columnPrefix}work_arrangement ->> 'fullyRemote' = 'true'
-  AND ${structuredGeographyIsWellFormed(columnPrefix)}
-  AND NOT ${requiredRemoteAvailability(columnPrefix)}
-  AND EXISTS (
-  SELECT 1
-  FROM (
-    SELECT DISTINCT ON (
-      extraction.raw_job_node_id,
-      extraction.jobsite_node_id
-    )
-      extraction.raw_job_node_id,
-      extraction.jobsite_node_id,
-      extraction.extractor_version
-    FROM graph_relationships structured_job
-    JOIN job_availability_extractions extraction
-      ON extraction.raw_job_node_id = structured_job.source_id
-    WHERE structured_job.target_id = ${columnPrefix}job_node_id
-      AND structured_job.type = 'HAS_STRUCTURED_JOBPOST'
-    ORDER BY
-      extraction.raw_job_node_id,
-      extraction.jobsite_node_id,
-      extraction.extracted_at DESC,
-      extraction.extractor_version DESC
-  ) latest_extraction
-  JOIN job_work_location_options remote_option USING (
-    raw_job_node_id,
-    jobsite_node_id,
-    extractor_version
-  )
-  HAVING bool_or(
-    remote_option.mode = 'remote'
-    AND remote_option.scope = 'global'
-    AND remote_option.arrangement_confidence IN ('source_stated', 'parsed')
-    AND remote_option.employer_authored_remote_evidence
-    AND cardinality(remote_option.countries) = 0
-    AND cardinality(remote_option.excluded_countries) = 0
-    AND cardinality(remote_option.regions) = 0
-    AND cardinality(remote_option.excluded_regions) = 0
-    AND remote_option.required_minimum_utc_offset_minutes IS NULL
-    AND remote_option.required_maximum_utc_offset_minutes IS NULL
-    AND remote_option.timezone_preference_strength <> 'required'
-    AND (
-      (
-        remote_option.minimum_utc_offset_minutes IS NULL
-        AND remote_option.maximum_utc_offset_minutes IS NULL
-      )
-      OR remote_option.timezone_preference_strength = 'preferred'
-    )
-    AND cardinality(remote_option.residency_requirements) = 0
-    AND NULLIF(btrim(remote_option.residency_requirement), '') IS NULL
-    AND cardinality(remote_option.work_authorizations) = 0
-    AND NULLIF(btrim(remote_option.work_authorization), '') IS NULL
-    AND NULLIF(btrim(remote_option.attendance_cadence), '') IS NULL
-    AND NULLIF(btrim(remote_option.travel_requirement), '') IS NULL
-  )
-  AND NOT COALESCE(bool_or(
-    ${restrictedRemoteOption("remote_option")}
-  ), false)
-  )
-)`;
-
-const projectedWorkModes = (columnPrefix = ""): string => `array_cat(
-  COALESCE(${columnPrefix}location_types, ARRAY[]::text[]),
-  CASE
-    WHEN ${strictFullyRemotePredicate(columnPrefix)}
-      THEN ARRAY['fully_remote']::text[]
-    ELSE ARRAY[]::text[]
-  END
-)`;
+/** Canonical extraction semantics are computed transactionally by the projection. */
+export const strictFullyRemotePredicate = (columnPrefix = ""): string =>
+  `${columnPrefix}strict_fully_remote`;
 
 const activeRangeBound = (value?: number | null): boolean =>
   value !== null && value !== undefined && value !== 0;
@@ -416,8 +273,26 @@ const legacyPageSlice = <T>(values: T[], page: number, limit: number): T[] => {
 };
 
 @Injectable()
-export class SearchDocumentRepository {
+export class SearchDocumentRepository implements OnModuleInit {
   constructor(private readonly postgres: PostgresService) {}
+
+  async onModuleInit(): Promise<void> {
+    const [state] = await this.postgres.query<{
+      ready: boolean;
+      marketReady: boolean;
+    }>(
+      `SELECT search_projections_ready() AS ready,
+        EXISTS (
+          SELECT 1 FROM schema_migrations
+          WHERE version = '274_market_projection_publication'
+        ) AS "marketReady"`,
+    );
+    if (!state?.ready || !state.marketReady) {
+      throw new Error(
+        "Search projections are not ready: complete the filter projection migrations/backfill and market publication migration 274 before starting middleware.",
+      );
+    }
+  }
 
   async getJobsRevision(): Promise<{ revision: string }> {
     const [row] = await this.postgres.query<{ revision: string }>(`
@@ -1220,60 +1095,21 @@ export class SearchDocumentRepository {
       params.fundingRounds,
     );
     where.addFacetKeyOverlap("chains", "chain_names", params.chains);
-    where.addFacetKeyOverlap(
-      "classifications",
-      "classifications",
-      params.classifications,
-    );
+    const classifications = normalizeList(params.classifications);
+    if (classifications?.length) {
+      where.add(
+        `classification_compat_keys && ${where.bind(
+          classifications.flatMap(key => [key, key.replaceAll("-", "")]),
+        )}::text[]`,
+      );
+    }
     if (params.organizationClassifications?.length) {
-      const classifications = where.bind(params.organizationClassifications);
-      // Resolve only the projected employer, not other entities in its profile.
-      // EXISTS keeps jobs and totals unique even if graph relations multiply.
-      where.add(`(
-        EXISTS (
-          SELECT 1
-          FROM organization_search_documents classification_organization
-          JOIN graph_nodes classification_employer
-            ON classification_employer.id =
-              classification_organization.organization_node_id
-           AND classification_employer.label = 'Organization'
-          WHERE classification_organization.organization_id =
-            job_search_documents.organization_id
-            AND classification_employer.properties ->> 'vertical'
-              = ANY(${classifications}::text[])
-        )
-        OR EXISTS (
-          SELECT 1
-          FROM project_search_documents classification_project
-          JOIN graph_nodes classification_employer
-            ON classification_employer.id = classification_project.project_node_id
-           AND classification_employer.label = 'Project'
-          WHERE classification_project.project_id = job_search_documents.project_id
-            AND classification_employer.properties ->> 'vertical'
-              = ANY(${classifications}::text[])
-        )
-      )`);
+      where.add(
+        `employer_vertical = ANY(${where.bind(params.organizationClassifications)}::text[])`,
+      );
     }
     where.addFacetKeyOverlap("commitments", "commitments", params.commitments);
-    const workModes = normalizeList(params.workModes);
-    if (workModes?.length) {
-      const requestedModes = where.bind(workModes);
-      where.add(`EXISTS (
-        SELECT 1
-        FROM unnest(${requestedModes}::text[]) requested(mode)
-        WHERE CASE replace(requested.mode, '_', '-')
-          WHEN 'remote' THEN
-            'remote' = ANY(COALESCE(location_types, ARRAY[]::text[]))
-            OR ${strictFullyRemotePredicate()}
-          WHEN 'fully-remote' THEN ${strictFullyRemotePredicate()}
-          WHEN 'hybrid' THEN
-            'hybrid' = ANY(COALESCE(location_types, ARRAY[]::text[]))
-          WHEN 'onsite' THEN
-            'onsite' = ANY(COALESCE(location_types, ARRAY[]::text[]))
-          ELSE false
-        END
-      )`);
-    }
+    where.addArrayOverlap("work_mode_keys", params.workModes);
     const addGeographyFacet = (
       facet:
         | "availability"
@@ -1287,27 +1123,15 @@ export class SearchDocumentRepository {
       const keys = values?.map(value => value.trim()).filter(Boolean);
       if (!keys?.length) return;
       const parameter = where.bind(keys);
-      where.add(`(
-        availability_keys && ${parameter}::text[]
-        ${
-          facet === "cities" || facet === "availability"
-            ? `OR slugify_text(location) = ANY(${parameter}::text[])
-        OR EXISTS (
-          SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(payload -> 'availability') = 'array'
-            THEN payload -> 'availability' ELSE '[]'::jsonb END) entry(item)
-          WHERE slugify_text(COALESCE(entry.item ->> 'placeName', entry.item ->> 'placeText')) = ANY(${parameter}::text[])
-        )`
-            : ""
-        }
-        OR EXISTS (
-          SELECT 1
-          FROM jsonb_each_text(
-            COALESCE(filter_labels -> '${facet}', '{}'::jsonb)
-          ) geography(internal_key, public_label)
-          WHERE geography.internal_key = ANY(${parameter}::text[])
-             OR slugify_text(geography.public_label) = ANY(${parameter}::text[])
-        )
-      )`);
+      const columns = {
+        availability: "availability_filter_keys",
+        cities: "city_filter_keys",
+        regions: "region_filter_keys",
+        countries: "country_filter_keys",
+        continents: "continent_filter_keys",
+        timezones: "timezone_filter_keys",
+      };
+      where.add(`${columns[facet]} && ${parameter}::text[]`);
     };
     addGeographyFacet("availability", params.availability);
     addGeographyFacet("cities", params.cities);
@@ -1323,14 +1147,13 @@ export class SearchDocumentRepository {
   ): void {
     const collaborationHours = normalizeList(params.collaborationHours);
     if (collaborationHours?.length) {
-      where.add(`job_team_collaboration_hour_keys(
-        organization_id,
-        project_id
-      ) && ${where.bind(collaborationHours)}::text[]`);
+      where.add(
+        `collaboration_hour_keys && ${where.bind(collaborationHours)}::text[]`,
+      );
     }
     where.addFacetKeyOverlap(
       "fundingStages",
-      "ARRAY[slugify_text(current_funding_stage)]",
+      "ARRAY[funding_stage_key]",
       params.fundingStages,
     );
     if (params.teamOrganizationIds !== undefined) {
@@ -1344,16 +1167,17 @@ export class SearchDocumentRepository {
 
     where.addFacetKeyOverlap(
       "organizations",
-      "ARRAY[slugify_text(organization_name)]",
+      "ARRAY[organization_name_key]",
       params.organizations,
     );
     if (params.organizationId?.trim())
       where.addEqual("organization_id", params.organizationId.trim());
-    for (const key of ["paysInCrypto", "offersTokenAllocation"] as const) {
+    for (const [key, column] of [
+      ["paysInCrypto", "pays_in_crypto"],
+      ["offersTokenAllocation", "offers_token_allocation"],
+    ] as const) {
       if (params[key] !== null && params[key] !== undefined) {
-        where.add(
-          `lower(COALESCE(payload ->> '${key}', 'false')) = ${where.bind(String(params[key]))}`,
-        );
+        where.add(`${column} = ${where.bind(String(params[key]))}`);
       }
     }
     const seniorities = normalizeList(params.seniority);
@@ -1476,6 +1300,15 @@ export class SearchDocumentRepository {
     }
   }
 
+  async getJobCount(): Promise<{ totalJobs: number }> {
+    const where = this.jobPredicates({});
+    const [row] = await this.postgres.query<{ total: string }>(
+      `SELECT count(*)::text AS total FROM job_search_documents ${where.toSql()}`,
+      where.parameters,
+    );
+    return { totalJobs: Number(row.total) };
+  }
+
   async searchJobGroups(
     params: JobSearchParams,
   ): Promise<JobFeedPage<JobFeedGroup>> {
@@ -1508,13 +1341,16 @@ export class SearchDocumentRepository {
       ), selected AS MATERIALIZED (
         SELECT * FROM groups ORDER BY newest DESC NULLS LAST, group_key
         LIMIT ${limitParam} OFFSET ${offsetParam}
+      ), selected_jobs AS MATERIALIZED (
+        SELECT eligible.* FROM eligible
+        JOIN selected USING (group_key)
       ), cards AS (
         SELECT selected.*, picked.job_node_id, picked.published_timestamp,
           ${jobEmployerPayload("job.payload")} AS payload
         FROM selected
         CROSS JOIN LATERAL (
-          SELECT job_node_id, published_timestamp FROM eligible
-          WHERE eligible.group_key = selected.group_key
+          SELECT job_node_id, published_timestamp FROM selected_jobs
+          WHERE selected_jobs.group_key = selected.group_key
           ORDER BY published_timestamp DESC NULLS LAST, job_node_id LIMIT 5
         ) picked
         JOIN job_search_documents job ON job.job_node_id = picked.job_node_id
@@ -1534,10 +1370,10 @@ export class SearchDocumentRepository {
               'id', job.structured_jobpost_id, 'shortUUID', job.short_uuid,
               'title', job.title, 'location', job.location,
               'seniority', job.seniority, 'classification', job.payload ->> 'classification'
-            ) ORDER BY eligible.published_timestamp DESC NULLS LAST, eligible.job_node_id)
-            FROM eligible
-            JOIN job_search_documents job ON job.job_node_id = eligible.job_node_id
-            WHERE eligible.group_key = entries.group_key
+            ) ORDER BY selected_jobs.published_timestamp DESC NULLS LAST, selected_jobs.job_node_id)
+            FROM selected_jobs
+            JOIN job_search_documents job ON job.job_node_id = selected_jobs.job_node_id
+            WHERE selected_jobs.group_key = entries.group_key
           )
         ) ORDER BY newest DESC NULLS LAST, group_key) FROM entries), '[]'::jsonb) AS data
     `,
@@ -1566,139 +1402,18 @@ export class SearchDocumentRepository {
       data: JobFeedGroup[];
     }>(
       `
-      WITH completed_jobsite_batches AS (
-        SELECT COALESCE(item.employer_id, item.organization_id) AS organization_id,
-          run.id AS run_id, run.completed_at, 'jobposts'::text AS source_key
-        FROM jobpost_import_runs run
-        JOIN jobpost_import_run_items item ON item.run_id = run.id
-        WHERE run.source_key = 'jobposts'
-          AND run.status IN ('completed', 'completed_with_errors')
-          AND run.completed_at IS NOT NULL
-          AND COALESCE(item.employer_label, 'Organization') = 'Organization'
-          AND COALESCE(item.employer_id, item.organization_id) IS NOT NULL
-        GROUP BY COALESCE(item.employer_id, item.organization_id), run.id, run.completed_at
-        HAVING bool_and(item.status IN ('succeeded', 'skipped'))
-      ), latest_jobsite_batches AS MATERIALIZED (
-        SELECT DISTINCT ON (organization_id) * FROM completed_jobsite_batches
-        ORDER BY organization_id, completed_at DESC, run_id DESC
-      ), hirechain_owners AS MATERIALIZED (
-        -- Resolve current URL ownership once, independently of retained run history.
-        SELECT employer.properties ->> 'orgId' AS organization_id,
-          array_agg(DISTINCT raw_job.properties ->> 'url') AS urls
-        FROM graph_nodes jobsite
-        JOIN graph_relationships ownership ON ownership.target_id = jobsite.id
-          AND ownership.type = 'HAS_JOBSITE'
-        JOIN graph_nodes employer ON employer.id = ownership.source_id
-          AND employer.label = 'Organization'
-          AND employer.properties ->> 'orgId' IS NOT NULL
-        JOIN graph_relationships posted ON posted.source_id = jobsite.id
-          AND posted.type = 'HAS_JOBPOST'
-        JOIN graph_nodes raw_job ON raw_job.id = posted.target_id
-          AND raw_job.label = 'Jobpost' AND raw_job.properties ? 'url'
-        WHERE jobsite.label = 'Jobsite' AND jobsite.properties ->> 'type' = 'hirechain'
-        GROUP BY employer.properties ->> 'orgId'
-      ), latest_hirechain_batches AS MATERIALIZED (
-        SELECT owner.organization_id, recent.run_id, recent.completed_at,
-          'hirechain'::text AS source_key
-        FROM hirechain_owners owner
-        LEFT JOIN latest_jobsite_batches jobsite USING (organization_id)
-        CROSS JOIN LATERAL (
-          SELECT run.id AS run_id, run.completed_at
-          FROM jobpost_import_runs run
-          WHERE run.source_key = 'hirechain'
-            AND run.status IN ('completed', 'completed_with_errors')
-            AND run.completed_at IS NOT NULL
-            AND (jobsite.run_id IS NULL
-              OR (run.completed_at, run.id) > (jobsite.completed_at, jobsite.run_id))
-            AND EXISTS (
-              SELECT 1 FROM jobpost_import_run_items item
-              WHERE item.run_id = run.id AND item.item_kind = 'hirechain_job'
-                AND item.stable_external_id = ANY(owner.urls)
-            )
-            AND NOT EXISTS (
-              SELECT 1 FROM jobpost_import_run_items item
-              WHERE item.run_id = run.id AND item.item_kind = 'hirechain_job'
-                AND item.stable_external_id = ANY(owner.urls) AND item.status <> 'succeeded'
-            )
-            AND EXISTS (
-              SELECT 1 FROM jobpost_import_run_items finalizer
-              WHERE finalizer.run_id = run.id AND finalizer.item_kind = 'hirechain_finalize'
-                AND finalizer.status = 'succeeded'
-                AND jsonb_typeof(finalizer.input_payload -> 'previouslyStructuredUrls') = 'array'
-            )
-          ORDER BY run.completed_at DESC, run.id DESC LIMIT 1
-        ) recent
-      ), latest_batches AS MATERIALIZED (
-        -- Select the run before job filters. Empty runs never resurrect an older batch.
-        SELECT DISTINCT ON (organization_id) organization_id, run_id, source_key
-        FROM (
-          SELECT * FROM latest_jobsite_batches
-          UNION ALL
-          SELECT * FROM latest_hirechain_batches
-        ) completed
-        ORDER BY organization_id, completed_at DESC, run_id DESC
-      ), hirechain_previous_urls AS MATERIALIZED (
-        -- Only expand snapshots for selected runs; never load every old snapshot.
-        SELECT selected.run_id, previous.url
-        FROM (SELECT DISTINCT run_id FROM latest_batches WHERE source_key = 'hirechain') selected
-        JOIN jobpost_import_run_items finalizer ON finalizer.run_id = selected.run_id
-          AND finalizer.item_kind = 'hirechain_finalize'
-        CROSS JOIN LATERAL jsonb_array_elements_text(
-          finalizer.input_payload -> 'previouslyStructuredUrls'
-        ) previous(url)
-      ), hirechain_jobs AS MATERIALIZED (
-        SELECT DISTINCT latest.run_id, latest.organization_id, raw_job.id AS raw_job_node_id
-        FROM latest_batches latest
-        JOIN hirechain_owners owner USING (organization_id)
-        JOIN jobpost_import_run_items item ON item.run_id = latest.run_id
-          AND latest.source_key = 'hirechain' AND item.item_kind = 'hirechain_job'
-          AND item.stable_external_id = ANY(owner.urls)
-        LEFT JOIN hirechain_previous_urls previous ON previous.run_id = item.run_id
-          AND previous.url = item.stable_external_id
-        JOIN graph_nodes raw_job ON raw_job.label = 'Jobpost'
-          AND raw_job.properties ? 'url'
-          AND raw_job.properties ->> 'url' = item.stable_external_id
-        WHERE previous.url IS NULL
-      ), eligible AS MATERIALIZED (
+      WITH eligible AS MATERIALIZED (
         SELECT job_node_id, structured_jobpost_id, short_uuid, title, location, seniority,
           organization_id, jobsite_id, published_timestamp,
           CASE WHEN organization_id IS NOT NULL THEN 'org:' || organization_id
             ELSE 'job:' || job_node_id::text END AS group_key
         FROM job_search_documents
         ${where.toSql()}
-      ), eligible_import_jobs AS MATERIALIZED (
-        -- Start with published structured jobs. Older discoveries must not drive
-        -- tens of thousands of raw-job URL lookups before visibility is checked.
-        SELECT eligible.job_node_id, latest.run_id, item.jobsite_id,
-          raw_job.properties ->> 'url' AS source_url
-        FROM eligible
-        JOIN latest_batches latest ON latest.organization_id = eligible.organization_id
-          AND latest.source_key = 'jobposts'
-        JOIN jobpost_import_run_items item ON item.run_id = latest.run_id
-          AND item.jobsite_id = eligible.jobsite_id
-          AND COALESCE(item.employer_id, item.organization_id) = eligible.organization_id
-          AND COALESCE(item.employer_label, 'Organization') = 'Organization'
-        JOIN graph_relationships structured ON structured.target_id = eligible.job_node_id
-          AND structured.type = 'HAS_STRUCTURED_JOBPOST'
-        JOIN graph_nodes raw_job ON raw_job.id = structured.source_id
-          AND raw_job.label = 'Jobpost'
       ), batch_jobs AS MATERIALIZED (
-        SELECT DISTINCT eligible.*, imported.run_id
-        FROM eligible_import_jobs imported
-        JOIN jobpost_import_run_discoveries discovery ON discovery.run_id = imported.run_id
-          AND discovery.jobsite_id = imported.jobsite_id
-          AND discovery.discovery_key = imported.source_url
-        JOIN eligible ON eligible.job_node_id = imported.job_node_id
-        UNION ALL
-        SELECT DISTINCT eligible.*, latest.run_id
-        FROM latest_batches latest
-        JOIN hirechain_jobs imported ON imported.run_id = latest.run_id
-          AND imported.organization_id = latest.organization_id
-          AND latest.source_key = 'hirechain'
-        JOIN graph_relationships structured ON structured.source_id = imported.raw_job_node_id
-          AND structured.type = 'HAS_STRUCTURED_JOBPOST'
-        JOIN eligible ON eligible.job_node_id = structured.target_id
-          AND eligible.organization_id = latest.organization_id
+        SELECT eligible.*, imported.run_id
+        FROM eligible
+        JOIN job_latest_import_memberships imported USING (job_node_id)
+        WHERE eligible.organization_id IS NOT NULL
         UNION ALL
         -- Project-owned jobs retain their existing individual feed entries.
         SELECT eligible.*, NULL::uuid AS run_id
@@ -1751,6 +1466,109 @@ export class SearchDocumentRepository {
     };
   }
 
+  /**
+   * Only the first 100–200 positions are randomized. After that window the
+   * existing algorithm appends remaining protected jobs, then public jobs.
+   * Count first within this statement and fetch only those prefixes plus the
+   * requested tail slices; never transfer every eligible candidate to Node.
+   */
+  private async getUnsearchedJobPage(
+    sourceSql: string,
+    orderSql: string,
+    parameters: unknown[],
+    paging: { page: number; limit: number },
+  ): Promise<JobCandidatePage> {
+    const bindings = [...parameters];
+    const bind = (value: number): string => {
+      bindings.push(value);
+      return `$${bindings.length}::numeric`;
+    };
+    const start = bind(Math.trunc((paging.page - 1) * paging.limit));
+    const end = bind(Math.trunc(paging.page * paging.limit));
+    const page = bind(paging.page);
+    const limit = bind(paging.limit);
+    const slice = (
+      access: "public" | "protected",
+      offset: string,
+      length: string,
+    ): string => `COALESCE((
+      SELECT jsonb_agg(
+        to_jsonb(candidate) || jsonb_build_object('job_node_id', candidate.job_node_id::text)
+        ORDER BY ${orderSql}
+      )
+      FROM (
+        SELECT * FROM filtered WHERE access = '${access}'
+        ORDER BY ${orderSql}
+        LIMIT (${length})::bigint OFFSET (${offset})::bigint
+      ) candidate
+    ), '[]'::jsonb)`;
+    const [row] = await this.postgres.query<{
+      total: string;
+      source_total: string;
+      slice_start: string;
+      slice_end: string;
+      window_size: string;
+      window_jobs: JobSearchCandidate[];
+      tail_jobs: JobSearchCandidate[];
+    }>(
+      `WITH filtered AS NOT MATERIALIZED (${sourceSql}),
+      counts AS MATERIALIZED (
+        SELECT count(*) AS source_total,
+          count(*) FILTER (WHERE access = 'public') AS public_count,
+          count(*) FILTER (WHERE access = 'protected') AS protected_count
+        FROM filtered
+      ), sizes AS (
+        SELECT *, public_count + protected_count AS total,
+          least(200, greatest(100, floor(source_total * 0.5)))::bigint AS window_size
+        FROM counts
+      ), normalized AS (
+        SELECT *,
+          CASE WHEN ${page} > ceil(total / NULLIF(${limit}, 0)) THEN 0
+            WHEN ${start} < 0 THEN greatest(total + ${start}, 0)
+            ELSE least(${start}, total) END::bigint AS slice_start,
+          CASE WHEN ${page} > ceil(total / NULLIF(${limit}, 0)) THEN 0
+            WHEN ${end} < 0 THEN greatest(total + ${end}, 0)
+            ELSE least(${end}, total) END::bigint AS slice_end,
+          least(protected_count, window_size) AS protected_prefix,
+          least(total, window_size) AS prefix_size
+        FROM sizes
+      ), offsets AS (
+        SELECT *, least(public_count, window_size - protected_prefix) AS public_prefix,
+          greatest(slice_start - prefix_size, 0) AS tail_start,
+          greatest(slice_end - prefix_size, 0) AS tail_end
+        FROM normalized
+      ), bounds AS (
+        SELECT *,
+          least(protected_count - protected_prefix, tail_start) AS protected_offset,
+          greatest(0, least(protected_count - protected_prefix, tail_end)
+            - least(protected_count - protected_prefix, tail_start)) AS protected_length,
+          greatest(0, tail_start - (protected_count - protected_prefix)) AS public_offset,
+          greatest(0, tail_end - greatest(tail_start, protected_count - protected_prefix)) AS public_length,
+          CASE WHEN slice_start < prefix_size AND slice_end > slice_start
+            THEN window_size ELSE 0 END AS requested_prefix
+        FROM offsets
+      )
+      SELECT total::text, source_total::text, slice_start::text, slice_end::text,
+        window_size::text,
+        ${slice("protected", "0", "requested_prefix")}
+          || ${slice("public", "0", "requested_prefix")} AS window_jobs,
+        ${slice("protected", "protected_prefix + protected_offset", "protected_length")}
+          || ${slice("public", "public_prefix + public_offset", "public_length")} AS tail_jobs
+      FROM bounds`,
+      bindings,
+    );
+    const firstWindow = sprinkleProtectedJobs(
+      row.window_jobs,
+      Number(row.source_total),
+    ).slice(0, Number(row.window_size));
+    return {
+      total: Number(row.total),
+      candidates: firstWindow
+        .slice(Number(row.slice_start), Number(row.slice_end))
+        .concat(row.tail_jobs),
+    };
+  }
+
   async searchJobs(
     params: JobSearchParams,
   ): Promise<SearchPage<JobListResult>> {
@@ -1791,9 +1609,7 @@ export class SearchDocumentRepository {
       `;
     };
     const paging = legacyPageValues(params.page, params.limit);
-    const unsearchedCandidates = await this.postgres.query<JobSearchCandidate>(
-      `
-        WITH filtered AS (
+    const sourceSql = `
           SELECT
             job_node_id,
             access,
@@ -1812,51 +1628,70 @@ export class SearchDocumentRepository {
             ${candidateSearchValues}
           FROM job_search_documents
           ${where.toSql()}
-        )
-        SELECT *
-        FROM filtered
-        ORDER BY ${baseOrder()}
-      `,
-      where.parameters,
-    );
-    const candidates = params.query
-      ? unsearchedCandidates.filter(
+      `;
+    let selected: JobCandidatePage;
+    if (params.query) {
+      const candidates = await this.postgres.query<JobSearchCandidate>(
+        `WITH filtered AS (${sourceSql})
+         SELECT * FROM filtered ORDER BY ${baseOrder()}`,
+        where.parameters,
+      );
+      // Fuzzysort's threshold is not equivalent to PostgreSQL full-text or
+      // trigram search. Retain its complete candidate set and exact matcher.
+      const sprinkled = sprinkleProtectedJobs(
+        candidates.filter(
           candidate =>
             go(params.query, candidate.search_values ?? [], { threshold: 0.3 })
               .length > 0,
-        )
-      : unsearchedCandidates;
-    const sprinkled = sprinkleProtectedJobs(candidates);
-    const page = legacyPageSlice(sprinkled, paging.page, paging.limit);
+        ),
+      );
+      selected = {
+        total: sprinkled.length,
+        candidates: legacyPageSlice(sprinkled, paging.page, paging.limit),
+      };
+    } else {
+      selected = await this.getUnsearchedJobPage(
+        sourceSql,
+        baseOrder(),
+        where.parameters,
+        paging,
+      );
+    }
+    const page = selected.candidates;
     if (!page.length) {
       return {
         page: paging.page,
         count: 0,
-        total: sprinkled.length,
+        total: selected.total,
         data: [],
       };
     }
 
+    const requestedIds = where.bind(
+      page.map(candidate => candidate.job_node_id),
+    );
     const rows = await this.postgres.query<{ payload: JobListResult }>(
       `
         WITH page AS (
           SELECT job_node_id, ordinality
-          FROM unnest($1::bigint[]) WITH ORDINALITY
+          FROM unnest(${requestedIds}::bigint[]) WITH ORDINALITY
             AS requested(job_node_id, ordinality)
         )
         SELECT ${jobEmployerPayload("job.payload")} AS payload
         FROM page
-        JOIN job_search_documents job ON job.job_node_id = page.job_node_id
+        JOIN (
+          SELECT * FROM job_search_documents ${where.toSql()}
+        ) job ON job.job_node_id = page.job_node_id
         ${jobEmployerJoins()}
         ORDER BY page.ordinality
       `,
-      [page.map(candidate => candidate.job_node_id)],
+      where.parameters,
     );
 
     return {
       page: paging.page,
       count: rows.length,
-      total: sprinkled.length,
+      total: selected.total,
       data: rows.map(row => row.payload),
     };
   }
@@ -1993,32 +1828,11 @@ export class SearchDocumentRepository {
             job.job_node_id,
             job.salary,
             job.salary_currency,
-            job.tags,
-            job.classifications,
-            job.commitments,
-            ${projectedWorkModes("job.")} AS work_modes,
-            job.availability_keys,
+            job.collaboration_hour_keys,
             job.seniority,
-            job.filter_labels,
-            job.organization_id AS job_organization_id,
             job.project_id AS job_project_id,
-            job.project_names AS job_project_names,
-            job.organization_name AS job_organization_name,
-            job.investor_names AS job_investor_names,
-            job.funding_round_names AS job_funding_round_names,
-            job.current_funding_stage AS job_current_funding_stage,
-            job.chain_names AS job_chain_names,
-            job.ecosystems AS job_ecosystems,
             owner.organization_id AS owner_organization_id,
-            organization.name AS owner_organization_name,
-            organization.headcount_estimate AS owner_headcount_estimate,
-            organization.project_names AS owner_project_names,
-            organization.investors AS owner_investor_names,
-            organization.funding_rounds AS owner_funding_round_names,
-            organization.current_funding_stage AS owner_current_funding_stage,
-            organization.chains AS owner_chain_names,
-            organization.ecosystems AS owner_ecosystems,
-            organization.filter_labels AS owner_filter_labels
+            organization.headcount_estimate AS owner_headcount_estimate
           FROM job_search_documents job
           LEFT JOIN job_search_owners owner ON owner.job_node_id = job.job_node_id
           LEFT JOIN organization_search_documents organization
@@ -2029,22 +1843,9 @@ export class SearchDocumentRepository {
             job_node_id,
             salary,
             salary_currency,
-            tags,
-            classifications,
-            commitments,
-            work_modes,
-            availability_keys,
+            collaboration_hour_keys,
             seniority,
-            filter_labels,
-            job_organization_id,
-            job_project_id,
-            job_project_names,
-            job_organization_name,
-            job_investor_names,
-            job_funding_round_names,
-            job_current_funding_stage,
-            job_chain_names,
-            job_ecosystems
+            job_project_id
           FROM scoped_jobs
           ORDER BY job_node_id
         ), scoped_filter_keys AS MATERIALIZED (
@@ -2052,51 +1853,9 @@ export class SearchDocumentRepository {
             category,
             array_agg(filter_key ORDER BY filter_key) AS filter_keys
           FROM (
-            SELECT category, filter_key
-            FROM (
-              SELECT facet.category, filter_key
-              FROM scoped_job_documents filter_doc
-              CROSS JOIN LATERAL (
-                VALUES
-                  ('tags', filter_doc.tags),
-                  ('projects', filter_doc.job_project_names),
-                  (
-                    'organizations',
-                    ARRAY[slugify_text(filter_doc.job_organization_name)]
-                  ),
-                  ('investors', filter_doc.job_investor_names),
-                  ('fundingRounds', filter_doc.job_funding_round_names),
-                  (
-                    'fundingStages',
-                    ARRAY[slugify_text(filter_doc.job_current_funding_stage)]
-                  ),
-                  ('chains', filter_doc.job_chain_names),
-                  ('ecosystems', filter_doc.job_ecosystems),
-                  ('classifications', filter_doc.classifications),
-                  ('commitments', filter_doc.commitments),
-                  ('workModes', filter_doc.work_modes),
-                  ('availability', filter_doc.availability_keys)
-              ) facet(category, filter_values)
-              CROSS JOIN LATERAL unnest(facet.filter_values) filter_key
-              WHERE filter_key IS NOT NULL AND filter_key <> ''
-              UNION ALL
-              SELECT geography.category, availability_key
-              FROM scoped_job_documents filter_doc
-              CROSS JOIN LATERAL (
-                VALUES
-                  ('cities', filter_doc.filter_labels -> 'cities'),
-                  ('regions', filter_doc.filter_labels -> 'regions'),
-                  ('countries', filter_doc.filter_labels -> 'countries'),
-                  ('continents', filter_doc.filter_labels -> 'continents'),
-                  ('timezones', filter_doc.filter_labels -> 'timezones')
-              ) geography(category, labels)
-              CROSS JOIN LATERAL unnest(
-                filter_doc.availability_keys
-              ) availability_key
-              WHERE COALESCE(geography.labels, '{}'::jsonb)
-                ? availability_key
-            ) expanded_keys
-            GROUP BY category, filter_key
+            SELECT DISTINCT facet.category, facet.filter_key
+            FROM scoped_job_documents filter_doc
+            JOIN job_search_filter_keys facet USING (job_node_id)
           ) distinct_keys
           GROUP BY category
         ), scoped_filter_label_maps AS MATERIALIZED (
@@ -2104,84 +1863,20 @@ export class SearchDocumentRepository {
             category,
             jsonb_object_agg(slug, label ORDER BY slug) AS label_map
           FROM (
-            SELECT
-              category,
-              slug,
-              min(label) AS label
+            SELECT labels.category, labels.filter_key AS slug, min(labels.label) AS label
             FROM scoped_job_documents label_doc
-            CROSS JOIN LATERAL jsonb_each(
-              COALESCE(label_doc.filter_labels, '{}'::jsonb)
-            ) category_labels(category, labels)
-            CROSS JOIN LATERAL jsonb_each_text(
-              CASE jsonb_typeof(category_labels.labels)
-                WHEN 'object' THEN category_labels.labels
-                ELSE '{}'::jsonb
-              END
-            ) labels(slug, label)
-            GROUP BY category, slug
+            JOIN job_search_filter_labels labels USING (job_node_id)
+            GROUP BY labels.category, labels.filter_key
           ) distinct_labels
           GROUP BY category
-        ), scoped_team_children AS MATERIALIZED (
-          SELECT
-            'Organization'::text AS child_label,
-            job_organization_id AS child_public_id
-          FROM scoped_job_documents
-          WHERE job_organization_id IS NOT NULL
-          UNION
-          SELECT
-            'Project'::text AS child_label,
-            job_project_id AS child_public_id
-          FROM scoped_job_documents
-          WHERE job_project_id IS NOT NULL
         ), scoped_collaboration_hours AS MATERIALIZED (
-          SELECT DISTINCT
-            'utc-' || lpad(hour_value::text, 2, '0') AS hour_key
-          FROM team_collaboration_bands band
-          JOIN graph_nodes profile
-            ON profile.id = band.profile_node_id
-           AND profile.label = 'EntityProfile'
-          JOIN graph_relationships membership
-            ON membership.source_id = profile.id
-           AND membership.type IN (
-             'PROFILE_HAS_ORGANIZATION',
-             'PROFILE_HAS_PROJECT'
-           )
-          JOIN graph_nodes child ON child.id = membership.target_id
-          JOIN scoped_team_children scoped_child
-            ON scoped_child.child_label = child.label
-           AND scoped_child.child_public_id = CASE child.label
-             WHEN 'Organization' THEN child.properties ->> 'orgId'
-             WHEN 'Project' THEN child.properties ->> 'id'
-           END
-          CROSS JOIN LATERAL generate_series(0, 23) AS hours(hour_value)
-          WHERE NOT entity_property_is_banned(profile.properties)
-            AND NOT entity_property_is_banned(child.properties)
-            AND (
-              (
-                band.minimum_utc_minute <= band.maximum_utc_minute
-                AND band.minimum_utc_minute <= hour_value * 60 + 59
-                AND band.maximum_utc_minute >= hour_value * 60
-              )
-              OR (
-                band.minimum_utc_minute > band.maximum_utc_minute
-                AND (
-                  band.minimum_utc_minute <= hour_value * 60 + 59
-                  OR band.maximum_utc_minute >= hour_value * 60
-                )
-              )
-            )
+          SELECT DISTINCT hour_key
+          FROM scoped_job_documents
+          CROSS JOIN LATERAL unnest(collaboration_hour_keys) AS hours(hour_key)
         ), scoped_organizations AS MATERIALIZED (
           SELECT DISTINCT ON (owner_organization_id)
             owner_organization_id,
-            owner_organization_name,
-            owner_headcount_estimate,
-            owner_project_names,
-            owner_investor_names,
-            owner_funding_round_names,
-            owner_current_funding_stage,
-            owner_chain_names,
-            owner_ecosystems,
-            owner_filter_labels
+            owner_headcount_estimate
           FROM scoped_jobs
           WHERE owner_organization_id IS NOT NULL
           ORDER BY owner_organization_id

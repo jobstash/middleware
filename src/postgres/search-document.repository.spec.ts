@@ -6,10 +6,53 @@ describe("SearchDocumentRepository", () => {
   let repository: SearchDocumentRepository;
 
   beforeEach(() => {
-    query = jest.fn().mockResolvedValue([]);
+    query = jest.fn().mockImplementation(async (sql: string) =>
+      sql.includes("source_total::text")
+        ? [
+            {
+              total: "0",
+              source_total: "0",
+              slice_start: "0",
+              slice_end: "0",
+              window_size: "100",
+              window_jobs: [],
+              tail_jobs: [],
+            },
+          ]
+        : [],
+    );
     repository = new SearchDocumentRepository({
       query,
     } as unknown as PostgresService);
+  });
+
+  it("rejects a cutover before the canonical backfill is ready", async () => {
+    query.mockResolvedValueOnce([{ ready: false, marketReady: true }]);
+    await expect(repository.onModuleInit()).rejects.toThrow(
+      "Search projections are not ready",
+    );
+    query.mockResolvedValueOnce([{ ready: true, marketReady: false }]);
+    await expect(repository.onModuleInit()).rejects.toThrow(
+      "market publication migration 274",
+    );
+    expect(query.mock.calls[0][0]).toContain(
+      "274_market_projection_publication",
+    );
+    query.mockResolvedValueOnce([{ ready: true, marketReady: true }]);
+    await expect(repository.onModuleInit()).resolves.toBeUndefined();
+  });
+
+  it("counts exactly the global feed eligibility without constructing cards", async () => {
+    query.mockResolvedValueOnce([{ total: "53122" }]);
+    await expect(repository.getJobCount()).resolves.toEqual({
+      totalJobs: 53122,
+    });
+    const [sql] = query.mock.calls[0];
+    expect(sql).toContain("count(*)::text AS total");
+    expect(sql).toContain("legacy_list_eligible");
+    expect(sql).toContain("num_nonnulls(organization_id, project_id) = 1");
+    expect(sql).toContain("organization_has_expert_jobs");
+    expect(sql).not.toMatch(/GROUP BY|jsonb|JOIN|LIMIT/);
   });
 
   it("keeps nested pillar bindings after outer filters and rejects an empty team scope", async () => {
@@ -437,61 +480,18 @@ describe("SearchDocumentRepository", () => {
       "project_names",
       "investor_names",
       "chain_names",
-      "classifications",
       "commitments",
     ]) {
       expect(sql).toContain(`(${column}) &&`);
     }
     expect(sql).toContain("(funding_round_names) &&");
-    expect(sql).toContain("'remote' = ANY(COALESCE(location_types");
-    expect(sql).toContain("FROM graph_relationships structured_job");
-    expect(sql).toContain("JOIN job_availability_extractions extraction");
-    expect(sql).toContain("JOIN job_work_location_options remote_option");
-    expect(sql).toContain("remote_option.scope = 'global'");
-    expect(sql).toContain(
-      "remote_option.arrangement_confidence IN ('source_stated', 'parsed')",
-    );
-    expect(sql).toContain("remote_option.employer_authored_remote_evidence");
-    expect(sql).toContain(
-      "work_arrangement ->> 'version' = 'WorkArrangementV1'",
-    );
-    expect(sql).toContain(
-      "work_arrangement ->> 'classification' = 'verified_remote'",
-    );
-    expect(sql).toContain("work_arrangement ->> 'fullyRemote' = 'true'");
-    expect(sql).not.toContain("required_availability_keys");
-    expect(sql).toContain("payload -> 'availability'");
-    expect(sql).toContain("required_remote_availability.item ->> 'workMode'");
-    expect(sql).toContain(
-      "required_remote_availability.item ->> 'requirement'",
-    );
-    expect(sql).toContain("jsonb_typeof(payload -> 'availability') = 'array'");
-    expect(sql).toContain("jsonb_typeof(availability_item.item) <> 'object'");
-    expect(sql).toContain("'remote-any-location', 'remote-worldwide'");
-    expect(sql).not.toContain("lower(COALESCE(location, ''))");
-    expect(sql).not.toContain("lower(COALESCE(title, ''))");
-    expect(sql).toContain("NOT COALESCE(bool_or");
-    expect(sql).toContain("remote_option.scope IN ('region', 'country_list')");
-    expect(sql).toContain(
-      "remote_option.required_minimum_utc_offset_minutes IS NULL",
-    );
-    expect(sql).toContain(
-      "remote_option.timezone_preference_strength <> 'required'",
-    );
-    expect(sql).toContain(
-      "cardinality(remote_option.residency_requirements) = 0",
-    );
-    expect(sql).toContain("cardinality(remote_option.work_authorizations) = 0");
-    expect(sql).toContain(
-      "NULLIF(btrim(remote_option.attendance_cadence), '') IS NULL",
-    );
-    expect(sql).toContain(
-      "NULLIF(btrim(remote_option.travel_requirement), '') IS NULL",
-    );
-    expect(sql).not.toContain("structured_job_refresh_staging");
+    expect(sql).toContain("work_mode_keys &&");
+    expect(sql).toContain("classification_compat_keys &&");
+    expect(sql).not.toContain("graph_relationships");
+    expect(sql).not.toContain("job_availability_extractions");
+    expect(sql).not.toContain("job_work_location_options");
+    expect(sql).not.toContain("jsonb_array_elements");
     expect(sql).not.toContain("job_has_work_location_mode");
-    expect(sql).toContain("FROM unnest(classifications) facet_key");
-    expect(sql).toContain("replace(facet_key, '-', '')");
     expect(parameters).toEqual(
       expect.arrayContaining([
         ["solidity"],
@@ -499,7 +499,7 @@ describe("SearchDocumentRepository", () => {
         ["investor-a"],
         ["series-a"],
         ["ethereum"],
-        ["engineering"],
+        ["engineering", "engineering"],
         ["fulltime"],
         ["remote"],
       ]),
@@ -512,14 +512,12 @@ describe("SearchDocumentRepository", () => {
     });
 
     const [sql, parameters] = query.mock.calls[0];
-    expect(sql).toContain("FROM unnest(classifications) facet_key");
-    expect(sql).toContain("replace(facet_key, '-', '')");
-    expect(parameters).toEqual(
-      expect.arrayContaining([
-        ["engineeringmanagement"],
-        ["engineeringmanagement"],
-      ]),
-    );
+    expect(sql).toContain("classification_compat_keys &&");
+    expect(sql).not.toContain("unnest(classifications)");
+    expect(parameters).toContainEqual([
+      "engineeringmanagement",
+      "engineeringmanagement",
+    ]);
   });
 
   it("accepts SEO geography slugs and legacy internal keys", async () => {
@@ -533,16 +531,17 @@ describe("SearchDocumentRepository", () => {
     });
 
     const [sql, parameters] = query.mock.calls[0];
-    expect(sql.match(/availability_keys &&/g)).toHaveLength(6);
-    expect(sql.match(/jsonb_each_text/g)).toHaveLength(6);
-    expect(sql).toContain("filter_labels -> 'availability'");
-    expect(sql).toContain("filter_labels -> 'cities'");
-    expect(sql).toContain("filter_labels -> 'regions'");
-    expect(sql).toContain("filter_labels -> 'countries'");
-    expect(sql).toContain("filter_labels -> 'continents'");
-    expect(sql).toContain("filter_labels -> 'timezones'");
-    expect(sql).toContain("geography.internal_key = ANY");
-    expect(sql).toContain("slugify_text(geography.public_label) = ANY");
+    for (const column of [
+      "availability_filter_keys",
+      "city_filter_keys",
+      "region_filter_keys",
+      "country_filter_keys",
+      "continent_filter_keys",
+      "timezone_filter_keys",
+    ])
+      expect(sql).toContain(`${column} &&`);
+    expect(sql).not.toContain("jsonb_each_text");
+    expect(sql).not.toContain("slugify_text");
     expect(parameters).toEqual(
       expect.arrayContaining([
         ["berlin"],
@@ -596,7 +595,7 @@ describe("SearchDocumentRepository", () => {
     });
 
     const [sql, parameters] = query.mock.calls[0];
-    expect(sql).toContain("job_team_collaboration_hour_keys(");
+    expect(sql).toContain("collaboration_hour_keys &&");
     expect(sql).toContain("organization_id");
     expect(sql).toContain("project_id");
     expect(parameters).toContainEqual(["utc-08", "utc-17"]);
@@ -676,7 +675,7 @@ describe("SearchDocumentRepository", () => {
     expect(sql).toContain("websearch_to_tsquery('simple', $1)");
     expect(sql).not.toContain("lower(title) % lower($1)");
     expect(sql).toContain("NULL::text[] AS search_values");
-    expect(parameters).toEqual(["technical clerk"]);
+    expect(parameters).toEqual(["technical clerk", 0, 10, 1, 10]);
   });
 
   it("uses the projected legacy fuzzysort targets", async () => {
@@ -722,11 +721,23 @@ describe("SearchDocumentRepository", () => {
       access: "public",
       search_values: [],
     }));
-    query.mockResolvedValueOnce(candidates).mockResolvedValueOnce(
-      candidates.map(candidate => ({
-        payload: { id: `job-${candidate.job_node_id}` },
-      })),
-    );
+    query
+      .mockResolvedValueOnce([
+        {
+          total: "123",
+          source_total: "123",
+          slice_start: "0",
+          slice_end: "123",
+          window_size: "100",
+          window_jobs: candidates.slice(0, 100),
+          tail_jobs: candidates.slice(100),
+        },
+      ])
+      .mockResolvedValueOnce(
+        candidates.map(candidate => ({
+          payload: { id: `job-${candidate.job_node_id}` },
+        })),
+      );
 
     const result = await repository.searchJobs({ page: 1, limit: 5000 });
 
@@ -734,7 +745,7 @@ describe("SearchDocumentRepository", () => {
     expect(result.data[0]).toEqual({ id: "job-1" });
     expect(result.data.at(-1)).toEqual({ id: "job-123" });
     expect(query).toHaveBeenCalledTimes(2);
-    expect(query.mock.calls[0][0]).not.toContain("LIMIT");
+    expect(query.mock.calls[0][0]).toContain("LIMIT");
     expect(query.mock.calls[1][1]).toEqual([
       candidates.map(candidate => candidate.job_node_id),
     ]);
@@ -747,7 +758,17 @@ describe("SearchDocumentRepository", () => {
       search_values: [],
     }));
     query
-      .mockResolvedValueOnce(candidates)
+      .mockResolvedValueOnce([
+        {
+          total: "5",
+          source_total: "5",
+          slice_start: "1",
+          slice_end: "3",
+          window_size: "100",
+          window_jobs: candidates,
+          tail_jobs: [],
+        },
+      ])
       .mockResolvedValueOnce([
         { payload: { id: "job-2" } },
         { payload: { id: "job-3" } },
@@ -798,7 +819,9 @@ describe("SearchDocumentRepository", () => {
     expect(sql).toContain("WITH scoped_jobs AS MATERIALIZED");
     expect(sql).toContain("NOT job.blocked");
     expect(sql).toContain("organization_has_expert_jobs");
-    expect(sql).toContain("CROSS JOIN LATERAL jsonb_each(");
+    expect(sql).toContain("JOIN job_search_filter_labels labels");
+    expect(sql).toContain("JOIN job_search_filter_keys facet");
+    expect(sql).not.toContain("jsonb_each");
     expect(sql).toContain('AS "tagLabels"');
     expect(sql).toContain('AS "projectLabels"');
     expect(sql).toContain('AS "organizationLabels"');
@@ -808,23 +831,14 @@ describe("SearchDocumentRepository", () => {
     expect(sql).toContain("scoped_filter_keys AS MATERIALIZED");
     expect(sql).toContain("scoped_filter_label_maps AS MATERIALIZED");
     expect(sql).toContain("scoped_collaboration_hours AS MATERIALIZED");
-    expect(sql).toContain("FROM team_collaboration_bands band");
+    expect(sql).toContain("unnest(collaboration_hour_keys)");
     expect(sql).not.toContain("job_team_collaboration_hour_keys(");
     expect(sql).not.toContain("structured_job_work_location_modes(");
     expect(sql).toContain('AS "availabilityLabels"');
-    expect(sql).toContain("('cities', filter_doc.filter_labels -> 'cities')");
+    expect(sql).not.toContain("filter_doc.filter_labels");
     expect(sql).toContain('AS "cityLabels"');
-    expect(sql).toContain(
-      "('countries', filter_doc.filter_labels -> 'countries')",
-    );
     expect(sql).toContain('AS "countryLabels"');
-    expect(sql).toContain(
-      "('continents', filter_doc.filter_labels -> 'continents')",
-    );
     expect(sql).toContain('AS "continentLabels"');
-    expect(sql).toContain(
-      "('timezones', filter_doc.filter_labels -> 'timezones')",
-    );
     expect(sql).toContain('AS "timezoneLabels"');
     expect(sql).toContain('AS "collaborationHours"');
     expect(sql).toContain('AS "collaborationHourLabels"');

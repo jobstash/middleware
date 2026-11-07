@@ -99,12 +99,12 @@ const geographicSuggestionCandidates = (source: string): string =>
         SELECT
           ${source}.job_node_id,
           '${facet}'::text AS facet,
-          entry.value AS label,
+          entry.label AS label,
           '${facet === "timezones" ? "tz" : "l"}'::text AS prefix
         FROM ${source}
-        CROSS JOIN LATERAL jsonb_each_text(
-          COALESCE(${source}.filter_labels -> '${facet}', '{}'::jsonb)
-        ) entry
+        JOIN job_search_filter_labels entry
+          ON entry.job_node_id = ${source}.job_node_id
+         AND entry.category = '${facet}'
       `,
     )
     .join("\nUNION ALL\n");
@@ -137,17 +137,23 @@ const labelArrayWithFallback = (
   )
 `;
 
+const jobLabelArray = (key: string): string => `ARRAY(
+  SELECT label FROM job_search_filter_labels
+  WHERE job_node_id = source.job_node_id AND category = '${key}'
+  ORDER BY label
+)`;
+
 const placeLabelArray = (): string => `
   ARRAY(
     SELECT DISTINCT location.value
     FROM unnest(
-      ${labelArray("locations")}
+      ${jobLabelArray("locations")}
       || ARRAY(
-        SELECT entry.value
-        FROM jsonb_each_text(
-          COALESCE(source.filter_labels -> 'availability', '{}'::jsonb)
-        ) entry
-        WHERE entry.key LIKE 'place:%' OR entry.key LIKE 'raw:%'
+        SELECT entry.label
+        FROM job_search_filter_labels entry
+        WHERE entry.job_node_id = source.job_node_id
+          AND entry.category = 'availability'
+          AND (entry.filter_key LIKE 'place:%' OR entry.filter_key LIKE 'raw:%')
       )
     ) location(value)
     WHERE location.value <> ''
@@ -315,16 +321,13 @@ export class SearchRepository {
       }>(
         `
           SELECT jsonb_build_object(
-            'tags', ${labelArray("tags")},
+            'tags', ${jobLabelArray("tags")},
             'locations', ${placeLabelArray()},
-            'timezones', ${labelArray("timezones")},
-            'collaborationHours', job_team_collaboration_hour_keys(
-              source.organization_id,
-              source.project_id
-            ),
-            'commitments', ${labelArray("commitments")},
-            'locationTypes', structured_job_work_location_modes(source.job_node_id),
-            'classifications', ${labelArray("classifications")},
+            'timezones', ${jobLabelArray("timezones")},
+            'collaborationHours', source.collaboration_hour_keys,
+            'commitments', ${jobLabelArray("commitments")},
+            'locationTypes', source.pillar_work_mode_keys,
+            'classifications', ${jobLabelArray("classifications")},
             'seniority', CASE
               WHEN source.seniority IS NULL THEN ARRAY[]::text[]
               WHEN source.seniority = '1' THEN ARRAY['intern']::text[]
@@ -334,10 +337,10 @@ export class SearchRepository {
               WHEN source.seniority = '5' THEN ARRAY['head']::text[]
               ELSE ARRAY[source.seniority]::text[]
             END,
-            'organizations', ${labelArray("organizations")},
-            'investors', ${labelArray("investors")},
-            'fundingRounds', ${labelArray("fundingRounds")}
-            ,'fundingStages', ${labelArray("fundingStages")}
+            'organizations', ${jobLabelArray("organizations")},
+            'investors', ${jobLabelArray("investors")},
+            'fundingRounds', ${jobLabelArray("fundingRounds")}
+            ,'fundingStages', ${jobLabelArray("fundingStages")}
           ) AS config
           FROM job_search_documents source
           WHERE source.online
@@ -580,29 +583,11 @@ export class SearchRepository {
             place
               ? `(
                   ${bind(`place:${place.placeId}`)} = ANY(job.availability_keys)
-                  OR EXISTS (
-                    SELECT 1
-                    FROM jsonb_array_elements(
-                      COALESCE(job.payload -> 'availability', '[]'::jsonb)
-                    ) availability(item)
-                    WHERE slugify_text(COALESCE(
-                      availability.item ->> 'placeName',
-                      availability.item ->> 'placeText'
-                    )) = ${bind(value)}
-                  )
+                  OR ${bind(value)} = ANY(job.structured_place_keys)
                 )`
               : `(
-                  slugify_text(job.location) = ${bind(value)}
-                  OR EXISTS (
-                    SELECT 1
-                    FROM jsonb_array_elements(
-                      COALESCE(job.payload -> 'availability', '[]'::jsonb)
-                    ) availability(item)
-                    WHERE slugify_text(COALESCE(
-                      availability.item ->> 'placeName',
-                      availability.item ->> 'placeText'
-                    )) = ${bind(value)}
-                  )
+                  job.location_key = ${bind(value)}
+                  OR ${bind(value)} = ANY(job.structured_place_keys)
                 )`,
           );
         }
@@ -610,20 +595,14 @@ export class SearchRepository {
       case "timezones":
         predicates.push(`EXISTS (
           SELECT 1
-          FROM jsonb_each_text(
-            COALESCE(job.filter_labels -> 'timezones', '{}'::jsonb)
-          ) timezone(key, label)
-          WHERE slugify_text(timezone.label) = ${bind(value)}
+          FROM job_search_filter_labels timezone
+          WHERE timezone.job_node_id = job.job_node_id
+            AND timezone.category = 'timezones'
+            AND slugify_text(timezone.label) = ${bind(value)}
         )`);
         break;
       case "collaborationHours":
-        predicates.push(
-          `job_has_team_collaboration_hour(
-            job.organization_id,
-            job.project_id,
-            ${bind(value)}
-          )`,
-        );
+        predicates.push(`${bind(value)} = ANY(job.collaboration_hour_keys)`);
         break;
       case "commitments":
         predicates.push(hasFacetKey("commitments", value, "job.commitments"));
@@ -633,7 +612,9 @@ export class SearchRepository {
           predicates.push(strictFullyRemotePredicate("job."));
         } else {
           predicates.push(
-            `job_has_work_location_mode(job.job_node_id, ${bind(value)})`,
+            slugify(value) === "remote"
+              ? "job.pillar_work_mode_keys && ARRAY['remote', 'remote_or_office', 'fully_remote']::text[]"
+              : `${bind(slugify(value).replaceAll("-", "_"))} = ANY(job.pillar_work_mode_keys)`,
           );
         }
         break;
@@ -693,10 +674,7 @@ export class SearchRepository {
     const rows = await this.postgres.query<{ payload: PillarJobPayload }>(
       `
         SELECT job.detail_payload || jsonb_build_object(
-          'collaborationHours', job_team_collaboration_hour_keys(
-            job.organization_id,
-            job.project_id
-          ),
+          'collaborationHours', job.collaboration_hour_keys,
           'organization', CASE
             WHEN job.organization_id IS NOT NULL
               AND job.project_id IS NULL
@@ -867,53 +845,39 @@ export class SearchRepository {
             AND published_timestamp >= $1
             AND published_timestamp <= $2
         ), facets AS (
-          SELECT 'tags'::text AS type, entry.key, entry.value AS label,
+          SELECT entry.category AS type, entry.filter_key AS key, entry.label,
             job_node_id, published_timestamp
           FROM active
-          CROSS JOIN LATERAL jsonb_each_text(
-            COALESCE(filter_labels -> 'tags', '{}'::jsonb)
-          ) entry
+          JOIN job_search_filter_labels entry USING (job_node_id)
+          WHERE entry.category IN (
+            'tags', 'commitments', 'classifications', 'organizations',
+            'investors', 'fundingRounds', 'fundingStages'
+          )
           UNION ALL
-          SELECT 'locations', slugify_text(entry.value), entry.value,
+          SELECT 'locations', slugify_text(entry.label), entry.label,
             job_node_id, published_timestamp
           FROM active
-          CROSS JOIN LATERAL jsonb_each_text(
-            COALESCE(filter_labels -> 'availability', '{}'::jsonb)
-          ) entry
-          WHERE entry.key LIKE 'place:%'
+          JOIN job_search_filter_labels entry USING (job_node_id)
+          WHERE entry.category = 'availability' AND entry.filter_key LIKE 'place:%'
           UNION ALL
-          SELECT 'locations', slugify_text(
-              COALESCE(item ->> 'placeName', item ->> 'placeText')
-            ),
-            COALESCE(item ->> 'placeName', item ->> 'placeText'),
+          SELECT 'locations', slugify_text(place_label), place_label,
             job_node_id, published_timestamp
           FROM active
-          CROSS JOIN LATERAL jsonb_array_elements(
-            COALESCE(payload -> 'availability', '[]'::jsonb)
-          ) item
-          WHERE COALESCE(item ->> 'placeName', item ->> 'placeText') IS NOT NULL
+          CROSS JOIN LATERAL unnest(structured_place_labels) place_label
           UNION ALL
-          SELECT 'timezones', slugify_text(entry.value), entry.value,
+          SELECT 'timezones', slugify_text(entry.label), entry.label,
             job_node_id, published_timestamp
           FROM active
-          CROSS JOIN LATERAL jsonb_each_text(
-            COALESCE(filter_labels -> 'timezones', '{}'::jsonb)
-          ) entry
+          JOIN job_search_filter_labels entry USING (job_node_id)
+          WHERE entry.category = 'timezones'
           UNION ALL
           SELECT 'collaborationHours', collaboration_hour,
             substring(collaboration_hour FROM 5 FOR 2) || ':00 UTC',
             job_node_id, published_timestamp
           FROM active
           CROSS JOIN LATERAL unnest(
-            job_team_collaboration_hour_keys(organization_id, project_id)
+            collaboration_hour_keys
           ) collaboration_hour
-          UNION ALL
-          SELECT 'commitments', entry.key, entry.value, job_node_id,
-            published_timestamp
-          FROM active
-          CROSS JOIN LATERAL jsonb_each_text(
-            COALESCE(filter_labels -> 'commitments', '{}'::jsonb)
-          ) entry
           UNION ALL
           SELECT 'locationTypes', replace(mode, '_', '-'),
             CASE mode
@@ -925,16 +889,9 @@ export class SearchRepository {
             published_timestamp
           FROM active
           CROSS JOIN LATERAL unnest(
-            structured_job_work_location_modes(job_node_id)
+            pillar_work_mode_keys
           ) mode
           WHERE mode IN ('remote', 'fully_remote', 'hybrid', 'onsite')
-          UNION ALL
-          SELECT 'classifications', entry.key, entry.value, job_node_id,
-            published_timestamp
-          FROM active
-          CROSS JOIN LATERAL jsonb_each_text(
-            COALESCE(filter_labels -> 'classifications', '{}'::jsonb)
-          ) entry
           UNION ALL
           SELECT 'seniority', CASE seniority
               WHEN '1' THEN 'intern' WHEN '2' THEN 'junior'
@@ -946,34 +903,6 @@ export class SearchRepository {
               WHEN '5' THEN 'head' ELSE seniority END,
             job_node_id, published_timestamp
           FROM active WHERE seniority IS NOT NULL
-          UNION ALL
-          SELECT 'organizations', entry.key, entry.value, job_node_id,
-            published_timestamp
-          FROM active
-          CROSS JOIN LATERAL jsonb_each_text(
-            COALESCE(filter_labels -> 'organizations', '{}'::jsonb)
-          ) entry
-          UNION ALL
-          SELECT 'investors', entry.key, entry.value, job_node_id,
-            published_timestamp
-          FROM active
-          CROSS JOIN LATERAL jsonb_each_text(
-            COALESCE(filter_labels -> 'investors', '{}'::jsonb)
-          ) entry
-          UNION ALL
-          SELECT 'fundingRounds', entry.key, entry.value, job_node_id,
-            published_timestamp
-          FROM active
-          CROSS JOIN LATERAL jsonb_each_text(
-            COALESCE(filter_labels -> 'fundingRounds', '{}'::jsonb)
-          ) entry
-          UNION ALL
-          SELECT 'fundingStages', entry.key, entry.value, job_node_id,
-            published_timestamp
-          FROM active
-          CROSS JOIN LATERAL jsonb_each_text(
-            COALESCE(filter_labels -> 'fundingStages', '{}'::jsonb)
-          ) entry
           UNION ALL
           SELECT 'booleans', 'expertJobs', 'expertJobs', job_node_id,
             published_timestamp FROM active WHERE access = 'protected'
@@ -1008,11 +937,11 @@ export class SearchRepository {
     const facetUnions = suggestionFacetKeys
       .map(
         group => `
-          SELECT '${group}'::text AS group_id, entry.value AS label
+          SELECT '${group}'::text AS group_id, entry.label AS label
           FROM recent
-          CROSS JOIN LATERAL jsonb_each_text(
-            COALESCE(recent.filter_labels -> '${group}', '{}'::jsonb)
-          ) entry
+          JOIN job_search_filter_labels entry
+            ON entry.job_node_id = recent.job_node_id
+           AND entry.category = '${group}'
         `,
       )
       .join("\nUNION ALL\n");
@@ -1033,7 +962,7 @@ export class SearchRepository {
           SELECT 'workModes', mode AS label
           FROM recent
           CROSS JOIN LATERAL unnest(
-            structured_job_work_location_modes(recent.job_node_id)
+            recent.pillar_work_mode_keys
           ) mode
           UNION ALL
           SELECT 'locations', label
@@ -1118,7 +1047,7 @@ export class SearchRepository {
               END AS label
             FROM recent
             CROSS JOIN LATERAL unnest(
-              structured_job_work_location_modes(recent.job_node_id)
+              recent.pillar_work_mode_keys
             ) mode
             WHERE mode IN ('remote', 'hybrid', 'onsite')
           ), values AS (
@@ -1229,16 +1158,16 @@ export class SearchRepository {
           WHERE online AND NOT blocked
             AND published_timestamp BETWEEN $2 AND $3
         ), values AS (
-          SELECT entry.key AS id, entry.value AS label,
-            count(DISTINCT recent.job_node_id) AS popularity
+          SELECT entry.filter_key AS id, entry.label AS label,
+            count(*) AS popularity
           FROM recent
-          CROSS JOIN LATERAL jsonb_each_text(
-            COALESCE(recent.filter_labels -> '${group}', '{}'::jsonb)
-          ) entry
+          JOIN job_search_filter_labels entry
+            ON entry.job_node_id = recent.job_node_id
+           AND entry.category = '${group}'
           WHERE $1::text IS NULL
-            OR lower(entry.value) LIKE '%' || lower($1) || '%'
-            OR lower(entry.value) % lower($1)
-          GROUP BY entry.key, entry.value
+            OR lower(entry.label) LIKE '%' || lower($1) || '%'
+            OR lower(entry.label) % lower($1)
+          GROUP BY entry.filter_key, entry.label
         )
         SELECT id, label
         FROM values

@@ -151,6 +151,16 @@ export class JobsController {
     );
   }
 
+  @Get("count")
+  @UseGuards(PBACGuard)
+  @UseInterceptors(new CacheHeaderInterceptor({ mode: "revalidate-always" }))
+  @ApiOkResponse({
+    description: "Exact global eligible job count, without feed cards.",
+  })
+  getJobCount(): Promise<{ totalJobs: number }> {
+    return this.jobsService.getJobCount();
+  }
+
   @Get("feed")
   @UseGuards(PBACGuard)
   @UseInterceptors(new CacheHeaderInterceptor({ mode: "revalidate-always" }))

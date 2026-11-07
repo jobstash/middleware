@@ -111,9 +111,7 @@ describe("JobMarketRepository", () => {
     const [sql, parameters] = query.mock.calls[0];
     expect(sql).toContain("observation.salary_monthly_usd");
     expect(sql).toContain("percentile_cont(0.9)");
-    expect(sql).toContain(
-      "work_arrangement ->> 'classification' = 'verified_remote'",
-    );
+    expect(sql).toContain("document.strict_fully_remote");
     expect(sql).toContain("$2 = 'remote' AND COALESCE");
     expect(sql).toContain("$2 = 'local' AND NOT COALESCE");
     expect(sql).toContain("observation.segment IN ('local', 'remote')");

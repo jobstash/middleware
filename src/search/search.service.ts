@@ -256,62 +256,68 @@ export class SearchService {
     range = "365",
   ): Promise<ResponseWithOptionalData<PillarMarketData>> {
     try {
-      let canonicalSlug = this.marketApiSlug(slug);
-      if (canonicalSlug.startsWith("o-") && canonicalSlug.includes("~")) {
-        canonicalSlug = await this.searchRepository.getOrganizationMarketSlug(
-          canonicalSlug.slice(canonicalSlug.lastIndexOf("~") + 1),
+      return await this.jobMarketRepository.withSnapshot<
+        ResponseWithOptionalData<PillarMarketData>
+      >(async () => {
+        let canonicalSlug = this.marketApiSlug(slug);
+        if (canonicalSlug.startsWith("o-") && canonicalSlug.includes("~")) {
+          canonicalSlug = await this.searchRepository.getOrganizationMarketSlug(
+            canonicalSlug.slice(canonicalSlug.lastIndexOf("~") + 1),
+          );
+          if (!canonicalSlug)
+            return {
+              success: true,
+              message: "Organization market history is unavailable",
+              data: null,
+            };
+        }
+        const days = this.marketRangeDays(range);
+        const rows = await this.jobMarketRepository.getPillarHistory(
+          canonicalSlug,
+          days,
         );
-        if (!canonicalSlug)
-          return {
-            success: true,
-            message: "Organization market history is unavailable",
-            data: null,
-          };
-      }
-      const days = this.marketRangeDays(range);
-      const [rows, compensationRows, signalRows] = await Promise.all([
-        this.jobMarketRepository.getPillarHistory(canonicalSlug, days),
-        this.jobMarketRepository.getGeography(
+        const compensationRows = await this.jobMarketRepository.getGeography(
           canonicalSlug,
           this.marketRangeKey(range),
-        ),
-        canonicalSlug.startsWith("t-")
-          ? this.jobMarketRepository.getLatestSkillSignals(canonicalSlug)
-          : Promise.resolve([]),
-      ]);
-      if (rows.length === 0) {
+        );
+        const signalRows = canonicalSlug.startsWith("t-")
+          ? await this.jobMarketRepository.getLatestSkillSignals(canonicalSlug)
+          : [];
+        if (rows.length === 0) {
+          return {
+            success: true,
+            message: "Pillar market not found",
+            data: null,
+          };
+        }
+        const history = rows.map(row => this.marketPoint(row));
+        const current = history.at(-1);
+        const pillarFilter = await this.marketPillarFilter(
+          rows[0].kind,
+          canonicalSlug,
+        );
         return {
           success: true,
-          message: "Pillar market not found",
-          data: null,
-        };
-      }
-      const history = rows.map(row => this.marketPoint(row));
-      const current = history.at(-1);
-      const pillarFilter = await this.marketPillarFilter(
-        rows[0].kind,
-        canonicalSlug,
-      );
-      return {
-        success: true,
-        message: "Retrieved pillar market data",
-        data: {
-          asOf: current.date,
-          pillar: {
-            kind: rows[0].kind,
-            slug: rows[0].slug,
-            label: this.marketLabel(rows[0].kind, rows[0].label),
-            filter: pillarFilter,
+          message: "Retrieved pillar market data",
+          data: {
+            publication: await this.jobMarketRepository.getPublication(),
+            asOf: current.date,
+            pillar: {
+              kind: rows[0].kind,
+              slug: rows[0].slug,
+              label: this.marketLabel(rows[0].kind, rows[0].label),
+              filter: pillarFilter,
+            },
+            current,
+            momentum: this.marketMomentum(history),
+            history,
+            compensation: compensationRows.map(row =>
+              this.marketCompensation(row),
+            ),
+            skillSignals: signalRows.map(row => this.marketSkillSignal(row)),
           },
-          current,
-          momentum: this.marketMomentum(history),
-          history,
-          compensation: compensationRows.map(row =>
-            this.marketCompensation(row),
-          ),
-          skillSignals: signalRows.map(row => this.marketSkillSignal(row)),
-        },
-      };
+        };
+      });
     } catch (error) {
       this.captureDatabaseError("getPillarMarket", error);
       return { success: false, message: "Error retrieving pillar market" };
@@ -322,49 +328,52 @@ export class SearchService {
     ResponseWithOptionalData<JobMarketOverviewData>
   > {
     try {
-      const [rows, historyRows] = await Promise.all([
-        this.jobMarketRepository.getOverview(),
-        this.jobMarketRepository.getOverviewHistory(),
-      ]);
-      const historyBySlug = new Map<string, JobMarketPoint[]>();
-      for (const row of historyRows) {
-        const history = historyBySlug.get(row.slug) ?? [];
-        history.push(this.marketPoint(row));
-        historyBySlug.set(row.slug, history);
-      }
-      const marketRow = rows.find(row => row.slug === "market");
-      const tickers = rows.map(row =>
-        this.marketTicker(row, marketRow, historyBySlug.get(row.slug) ?? []),
-      );
-      const market = tickers.find(ticker => ticker.slug === "market");
-      if (!market) {
-        return { success: true, message: "Job market not ready", data: null };
-      }
-      const classifications = tickers.filter(
-        ticker => ticker.kind === "classifications",
-      );
-      const movers = classifications.filter(ticker => ticker.eligibleMover);
-      const moveScore = (ticker: JobMarketTicker): number =>
-        ticker.activity.marketComparison.openInventoryPercentagePoints ?? 0;
-      return {
-        success: true,
-        message: "Retrieved job market overview",
-        data: {
-          asOf: market.current.date,
-          market,
-          classifications,
-          movers: {
-            bullish: [...movers]
-              .filter(ticker => moveScore(ticker) > 0)
-              .sort((a, b) => moveScore(b) - moveScore(a))
-              .slice(0, 5),
-            cooling: [...movers]
-              .filter(ticker => moveScore(ticker) < 0)
-              .sort((a, b) => moveScore(a) - moveScore(b))
-              .slice(0, 5),
+      return await this.jobMarketRepository.withSnapshot<
+        ResponseWithOptionalData<JobMarketOverviewData>
+      >(async () => {
+        const rows = await this.jobMarketRepository.getOverview();
+        const historyRows = await this.jobMarketRepository.getOverviewHistory();
+        const historyBySlug = new Map<string, JobMarketPoint[]>();
+        for (const row of historyRows) {
+          const history = historyBySlug.get(row.slug) ?? [];
+          history.push(this.marketPoint(row));
+          historyBySlug.set(row.slug, history);
+        }
+        const marketRow = rows.find(row => row.slug === "market");
+        const tickers = rows.map(row =>
+          this.marketTicker(row, marketRow, historyBySlug.get(row.slug) ?? []),
+        );
+        const market = tickers.find(ticker => ticker.slug === "market");
+        if (!market) {
+          return { success: true, message: "Job market not ready", data: null };
+        }
+        const classifications = tickers.filter(
+          ticker => ticker.kind === "classifications",
+        );
+        const movers = classifications.filter(ticker => ticker.eligibleMover);
+        const moveScore = (ticker: JobMarketTicker): number =>
+          ticker.activity.marketComparison.openInventoryPercentagePoints ?? 0;
+        return {
+          success: true,
+          message: "Retrieved job market overview",
+          data: {
+            publication: await this.jobMarketRepository.getPublication(),
+            asOf: market.current.date,
+            market,
+            classifications,
+            movers: {
+              bullish: [...movers]
+                .filter(ticker => moveScore(ticker) > 0)
+                .sort((a, b) => moveScore(b) - moveScore(a))
+                .slice(0, 5),
+              cooling: [...movers]
+                .filter(ticker => moveScore(ticker) < 0)
+                .sort((a, b) => moveScore(a) - moveScore(b))
+                .slice(0, 5),
+            },
           },
-        },
-      };
+        };
+      });
     } catch (error) {
       this.captureDatabaseError("getMarketOverview", error);
       return { success: false, message: "Error retrieving job market" };
@@ -376,53 +385,59 @@ export class SearchService {
     classification = "market",
   ): Promise<ResponseWithOptionalData<JobMarketStateData>> {
     try {
-      const rangeKey = this.marketRangeKey(range);
-      const canonicalClassification =
-        this.marketClassificationSlug(classification);
-      const overview = await this.getMarketOverview();
-      if (!overview.success || !("data" in overview) || !overview.data) {
-        return { success: true, message: "Job market not ready", data: null };
-      }
-      const overviewData = overview.data;
-      const validClassifications = new Set([
-        "market",
-        ...overviewData.classifications.map(ticker => ticker.slug),
-      ]);
-      const selectedClassification = validClassifications.has(
-        canonicalClassification,
-      )
-        ? canonicalClassification
-        : "market";
-      const [geographyRows, compensationBandRows] = await Promise.all([
-        this.jobMarketRepository.getGeography(selectedClassification, rangeKey),
-        this.jobMarketRepository.getClassificationCompensationBands(
+      return await this.jobMarketRepository.withSnapshot<
+        ResponseWithOptionalData<JobMarketStateData>
+      >(async () => {
+        const rangeKey = this.marketRangeKey(range);
+        const canonicalClassification =
+          this.marketClassificationSlug(classification);
+        const overview = await this.getMarketOverview();
+        if (!overview.success || !("data" in overview) || !overview.data) {
+          return { success: true, message: "Job market not ready", data: null };
+        }
+        const overviewData = overview.data;
+        const validClassifications = new Set([
+          "market",
+          ...overviewData.classifications.map(ticker => ticker.slug),
+        ]);
+        const selectedClassification = validClassifications.has(
+          canonicalClassification,
+        )
+          ? canonicalClassification
+          : "market";
+        const geographyRows = await this.jobMarketRepository.getGeography(
           selectedClassification,
           rangeKey,
-        ),
-      ]);
-      const selectedTicker =
-        selectedClassification === "market"
-          ? overviewData.market
-          : overviewData.classifications.find(
-              ticker => ticker.slug === selectedClassification,
-            );
-      return {
-        success: true,
-        message: "Retrieved job market state",
-        data: {
-          ...overviewData,
-          completeThrough: overviewData.asOf,
-          methodologyVersion: "market-state-v3",
-          selectedClassification,
-          selectedClassificationLabel:
-            selectedTicker?.label ?? overviewData.market.label,
-          range: rangeKey,
-          geography: geographyRows.map(row => this.marketCompensation(row)),
-          compensationBands: compensationBandRows.map(row =>
-            this.marketCompensationBand(row),
-          ),
-        },
-      };
+        );
+        const compensationBandRows =
+          await this.jobMarketRepository.getClassificationCompensationBands(
+            selectedClassification,
+            rangeKey,
+          );
+        const selectedTicker =
+          selectedClassification === "market"
+            ? overviewData.market
+            : overviewData.classifications.find(
+                ticker => ticker.slug === selectedClassification,
+              );
+        return {
+          success: true,
+          message: "Retrieved job market state",
+          data: {
+            ...overviewData,
+            completeThrough: overviewData.asOf,
+            methodologyVersion: "market-state-v3",
+            selectedClassification,
+            selectedClassificationLabel:
+              selectedTicker?.label ?? overviewData.market.label,
+            range: rangeKey,
+            geography: geographyRows.map(row => this.marketCompensation(row)),
+            compensationBands: compensationBandRows.map(row =>
+              this.marketCompensationBand(row),
+            ),
+          },
+        };
+      });
     } catch (error) {
       this.captureDatabaseError("getMarketState", error);
       return { success: false, message: "Error retrieving market state" };
@@ -436,263 +451,269 @@ export class SearchService {
     regionInput = "",
   ): Promise<ResponseWithOptionalData<JobMarketTopPayingData>> {
     try {
-      const segment = segmentInput === "local" ? "local" : "remote";
-      const canonicalClassification =
-        this.marketClassificationSlug(classificationInput);
-      const overviewRows = await this.jobMarketRepository.getOverview();
-      const marketRow = overviewRows.find(row => row.slug === "market");
-      const classificationRow = overviewRows.find(
-        row => row.slug === canonicalClassification,
-      );
-      const classification =
-        canonicalClassification === "market" || classificationRow
-          ? canonicalClassification
-          : "market";
-      const geographyRows = await this.jobMarketRepository.getGeography(
-        classification,
-        "max",
-      );
-      const allowedRegionTypes = new Set([
-        "aggregate",
-        "continent",
-        "country",
-        "region",
-        "city",
-      ]);
-      const requestedRegionType = allowedRegionTypes.has(regionTypeInput)
-        ? regionTypeInput
-        : "aggregate";
-      const selectedGeography =
-        segment === "remote"
-          ? geographyRows.find(
-              row => row.segment === "remote" && row.regionSlug === "remote",
+      return await this.jobMarketRepository.withSnapshot<
+        ResponseWithOptionalData<JobMarketTopPayingData>
+      >(async () => {
+        const segment = segmentInput === "local" ? "local" : "remote";
+        const canonicalClassification =
+          this.marketClassificationSlug(classificationInput);
+        const overviewRows = await this.jobMarketRepository.getOverview();
+        const marketRow = overviewRows.find(row => row.slug === "market");
+        const classificationRow = overviewRows.find(
+          row => row.slug === canonicalClassification,
+        );
+        const classification =
+          canonicalClassification === "market" || classificationRow
+            ? canonicalClassification
+            : "market";
+        const geographyRows = await this.jobMarketRepository.getGeography(
+          classification,
+          "max",
+        );
+        const allowedRegionTypes = new Set([
+          "aggregate",
+          "continent",
+          "country",
+          "region",
+          "city",
+        ]);
+        const requestedRegionType = allowedRegionTypes.has(regionTypeInput)
+          ? regionTypeInput
+          : "aggregate";
+        const selectedGeography =
+          segment === "remote"
+            ? geographyRows.find(
+                row => row.segment === "remote" && row.regionSlug === "remote",
+              )
+            : (geographyRows.find(
+                row =>
+                  row.segment === "local" &&
+                  row.regionType === requestedRegionType &&
+                  row.regionSlug === regionInput,
+              ) ??
+              geographyRows.find(
+                row =>
+                  row.segment === "local" && row.regionType === "aggregate",
+              ));
+        if (!selectedGeography || !marketRow) {
+          return {
+            success: true,
+            message: "Top-paying market not ready",
+            data: null,
+          };
+        }
+        const rows = await this.jobMarketRepository.getTopPayingJobs(
+          classification,
+          segment,
+          selectedGeography.filterKey ? selectedGeography.regionKey : null,
+          selectedGeography.filterKey,
+          selectedGeography.filterValue,
+        );
+        const salaries = rows
+          .map(row => this.asNumber(row.salaryMonthlyUsd))
+          .filter((salary): salary is number => salary !== null);
+        const median = (values: number[]): number | null => {
+          if (values.length === 0) return null;
+          const sorted = [...values].sort((left, right) => left - right);
+          const middle = Math.floor(sorted.length / 2);
+          const value =
+            sorted.length % 2 === 0
+              ? (sorted[middle - 1] + sorted[middle]) / 2
+              : sorted[middle];
+          return Math.round(value * 100) / 100;
+        };
+        const seniority = (
+          value: string | null,
+        ): { slug: string; label: string } | null => {
+          if (!value) return null;
+          const established: Record<string, string> = {
+            "1": "Intern",
+            "2": "Junior",
+            "3": "Senior",
+            "4": "Lead",
+            "5": "Head",
+          };
+          const label =
+            established[value] ?? this.marketLabel("seniority", value);
+          return { slug: `s-${slugify(label)}`, label };
+        };
+        const createBreakdown = (
+          entries: Array<{ slug: string; label: string; salary: number }>,
+          limit: number,
+        ): JobMarketTopPayingBreakdown[] => {
+          const groups = new Map<
+            string,
+            { slug: string; label: string; salaries: number[] }
+          >();
+          for (const entry of entries) {
+            const current = groups.get(entry.slug) ?? {
+              slug: entry.slug,
+              label: entry.label,
+              salaries: [],
+            };
+            current.salaries.push(entry.salary);
+            groups.set(entry.slug, current);
+          }
+          return [...groups.values()]
+            .map(group => ({
+              slug: group.slug,
+              label: group.label,
+              jobCount: group.salaries.length,
+              sharePercent:
+                rows.length === 0
+                  ? 0
+                  : Math.round((group.salaries.length / rows.length) * 1_000) /
+                    10,
+              medianMonthlyUsd: median(group.salaries) ?? 0,
+            }))
+            .sort(
+              (left, right) =>
+                right.jobCount - left.jobCount ||
+                right.medianMonthlyUsd - left.medianMonthlyUsd ||
+                left.label.localeCompare(right.label),
             )
-          : (geographyRows.find(
-              row =>
-                row.segment === "local" &&
-                row.regionType === requestedRegionType &&
-                row.regionSlug === regionInput,
-            ) ??
-            geographyRows.find(
-              row => row.segment === "local" && row.regionType === "aggregate",
-            ));
-      if (!selectedGeography || !marketRow) {
+            .slice(0, limit);
+        };
+        const classificationEntries = rows.flatMap(row => {
+          const salary = this.asNumber(row.salaryMonthlyUsd);
+          return salary === null
+            ? []
+            : [
+                {
+                  slug: row.classificationSlug,
+                  label: this.marketLabel(
+                    "classifications",
+                    row.classificationLabel,
+                  ),
+                  salary,
+                },
+              ];
+        });
+        const seniorityEntries = rows.flatMap(row => {
+          const salary = this.asNumber(row.salaryMonthlyUsd);
+          const level = seniority(row.seniority);
+          return salary === null || !level ? [] : [{ ...level, salary }];
+        });
+        const tagEntries = rows.flatMap(row => {
+          const salary = this.asNumber(row.salaryMonthlyUsd);
+          if (salary === null || !Array.isArray(row.tags)) return [];
+          return row.tags.map(tag => ({
+            slug: tag.slug,
+            label: tag.label,
+            salary,
+          }));
+        });
+        const openJobsInScope = Number(
+          rows[0]?.openJobsInScope ?? selectedGeography.regionalActiveJobs ?? 0,
+        );
+        const salaryJobCount = Number(rows[0]?.salaryJobCount ?? 0);
+        const classificationLabel =
+          classification === "market"
+            ? this.marketLabel(marketRow.kind, marketRow.label)
+            : this.marketLabel(
+                classificationRow?.kind ?? "classifications",
+                classificationRow?.label ?? classification,
+              );
         return {
           success: true,
-          message: "Top-paying market not ready",
-          data: null,
-        };
-      }
-      const rows = await this.jobMarketRepository.getTopPayingJobs(
-        classification,
-        segment,
-        selectedGeography.filterKey ? selectedGeography.regionKey : null,
-        selectedGeography.filterKey,
-        selectedGeography.filterValue,
-      );
-      const salaries = rows
-        .map(row => this.asNumber(row.salaryMonthlyUsd))
-        .filter((salary): salary is number => salary !== null);
-      const median = (values: number[]): number | null => {
-        if (values.length === 0) return null;
-        const sorted = [...values].sort((left, right) => left - right);
-        const middle = Math.floor(sorted.length / 2);
-        const value =
-          sorted.length % 2 === 0
-            ? (sorted[middle - 1] + sorted[middle]) / 2
-            : sorted[middle];
-        return Math.round(value * 100) / 100;
-      };
-      const seniority = (
-        value: string | null,
-      ): { slug: string; label: string } | null => {
-        if (!value) return null;
-        const established: Record<string, string> = {
-          "1": "Intern",
-          "2": "Junior",
-          "3": "Senior",
-          "4": "Lead",
-          "5": "Head",
-        };
-        const label =
-          established[value] ?? this.marketLabel("seniority", value);
-        return { slug: `s-${slugify(label)}`, label };
-      };
-      const createBreakdown = (
-        entries: Array<{ slug: string; label: string; salary: number }>,
-        limit: number,
-      ): JobMarketTopPayingBreakdown[] => {
-        const groups = new Map<
-          string,
-          { slug: string; label: string; salaries: number[] }
-        >();
-        for (const entry of entries) {
-          const current = groups.get(entry.slug) ?? {
-            slug: entry.slug,
-            label: entry.label,
-            salaries: [],
-          };
-          current.salaries.push(entry.salary);
-          groups.set(entry.slug, current);
-        }
-        return [...groups.values()]
-          .map(group => ({
-            slug: group.slug,
-            label: group.label,
-            jobCount: group.salaries.length,
-            sharePercent:
-              rows.length === 0
-                ? 0
-                : Math.round((group.salaries.length / rows.length) * 1_000) /
-                  10,
-            medianMonthlyUsd: median(group.salaries) ?? 0,
-          }))
-          .sort(
-            (left, right) =>
-              right.jobCount - left.jobCount ||
-              right.medianMonthlyUsd - left.medianMonthlyUsd ||
-              left.label.localeCompare(right.label),
-          )
-          .slice(0, limit);
-      };
-      const classificationEntries = rows.flatMap(row => {
-        const salary = this.asNumber(row.salaryMonthlyUsd);
-        return salary === null
-          ? []
-          : [
-              {
-                slug: row.classificationSlug,
-                label: this.marketLabel(
-                  "classifications",
-                  row.classificationLabel,
+          message: "Retrieved top-paying opportunities",
+          data: {
+            publication: await this.jobMarketRepository.getPublication(),
+            asOf: rows[0]?.asOfDate ?? selectedGeography.asOfDate,
+            methodologyVersion: "market-top-pay-v2",
+            scope: {
+              classification,
+              classificationLabel,
+              segment,
+              regionSlug: selectedGeography.regionSlug,
+              regionLabel: selectedGeography.regionLabel,
+              regionType: selectedGeography.regionType,
+              filter:
+                selectedGeography.filterKey && selectedGeography.filterValue
+                  ? {
+                      paramKey: selectedGeography.filterKey,
+                      value: selectedGeography.filterValue,
+                    }
+                  : null,
+            },
+            availableRegions: geographyRows
+              .filter(
+                row =>
+                  row.segment === "local" &&
+                  row.regionType !== "remote" &&
+                  Number(row.regionalActiveJobs ?? 0) > 0 &&
+                  Number(row.salarySampleCount ?? 0) > 0,
+              )
+              .map(row => ({
+                regionSlug: row.regionSlug,
+                regionLabel: row.regionLabel,
+                regionType: row.regionType as Exclude<
+                  JobMarketCompensation["regionType"],
+                  "remote"
+                >,
+                activeJobs: Number(row.regionalActiveJobs ?? 0),
+                salarySampleCount: Number(row.salarySampleCount ?? 0),
+              })),
+            openJobsInScope,
+            salaryJobCount,
+            salaryCoveragePercent:
+              openJobsInScope > 0
+                ? Math.min(
+                    100,
+                    Math.round((salaryJobCount / openJobsInScope) * 1_000) / 10,
+                  )
+                : 0,
+            topDecileThresholdMonthlyUsd: this.roundMarketNumber(
+              rows[0]?.topDecileThresholdMonthlyUsd ?? null,
+            ),
+            topDecileJobCount: Number(rows[0]?.topDecileJobCount ?? 0),
+            medianTopDecileMonthlyUsd: median(salaries),
+            breakdowns: {
+              classifications: createBreakdown(classificationEntries, 10),
+              seniorities: createBreakdown(seniorityEntries, 10),
+              tags: createBreakdown(tagEntries, 12),
+            },
+            jobs: rows.slice(0, 12).flatMap(row => {
+              const salary = this.roundMarketNumber(row.salaryMonthlyUsd);
+              if (salary === null) return [];
+              const level = seniority(row.seniority);
+              const workModes = new Set(
+                this.asStringArray(row.locationTypes).map(mode =>
+                  mode.toLowerCase(),
                 ),
-                salary,
-              },
-            ];
-      });
-      const seniorityEntries = rows.flatMap(row => {
-        const salary = this.asNumber(row.salaryMonthlyUsd);
-        const level = seniority(row.seniority);
-        return salary === null || !level ? [] : [{ ...level, salary }];
-      });
-      const tagEntries = rows.flatMap(row => {
-        const salary = this.asNumber(row.salaryMonthlyUsd);
-        if (salary === null || !Array.isArray(row.tags)) return [];
-        return row.tags.map(tag => ({
-          slug: tag.slug,
-          label: tag.label,
-          salary,
-        }));
-      });
-      const openJobsInScope = Number(
-        rows[0]?.openJobsInScope ?? selectedGeography.regionalActiveJobs ?? 0,
-      );
-      const salaryJobCount = Number(rows[0]?.salaryJobCount ?? 0);
-      const classificationLabel =
-        classification === "market"
-          ? this.marketLabel(marketRow.kind, marketRow.label)
-          : this.marketLabel(
-              classificationRow?.kind ?? "classifications",
-              classificationRow?.label ?? classification,
-            );
-      return {
-        success: true,
-        message: "Retrieved top-paying opportunities",
-        data: {
-          asOf: rows[0]?.asOfDate ?? selectedGeography.asOfDate,
-          methodologyVersion: "market-top-pay-v2",
-          scope: {
-            classification,
-            classificationLabel,
-            segment,
-            regionSlug: selectedGeography.regionSlug,
-            regionLabel: selectedGeography.regionLabel,
-            regionType: selectedGeography.regionType,
-            filter:
-              selectedGeography.filterKey && selectedGeography.filterValue
-                ? {
-                    paramKey: selectedGeography.filterKey,
-                    value: selectedGeography.filterValue,
-                  }
-                : null,
+              );
+              if (row.onsite) workModes.add("onsite");
+              if (row.hybrid) workModes.add("hybrid");
+              if (row.remote) workModes.add("remote");
+              const organizationSuffix = row.organizationName
+                ? `-${row.organizationName}`
+                : "";
+              return [
+                {
+                  id: row.jobNodeId,
+                  shortUuid: row.shortUuid,
+                  title: row.title,
+                  href: `/${slugify(row.title + organizationSuffix)}/${row.shortUuid}`,
+                  organizationName: row.organizationName,
+                  organizationLogoUrl: row.organizationLogoUrl,
+                  classificationSlug: row.classificationSlug,
+                  classificationLabel: this.marketLabel(
+                    "classifications",
+                    row.classificationLabel,
+                  ),
+                  senioritySlug: level?.slug ?? null,
+                  seniorityLabel: level?.label ?? null,
+                  location: row.location,
+                  workModes: [...workModes],
+                  publishedAt: row.publishedAt,
+                  salaryMonthlyUsd: salary,
+                  tags: Array.isArray(row.tags) ? row.tags.slice(0, 8) : [],
+                },
+              ];
+            }),
           },
-          availableRegions: geographyRows
-            .filter(
-              row =>
-                row.segment === "local" &&
-                row.regionType !== "remote" &&
-                Number(row.regionalActiveJobs ?? 0) > 0 &&
-                Number(row.salarySampleCount ?? 0) > 0,
-            )
-            .map(row => ({
-              regionSlug: row.regionSlug,
-              regionLabel: row.regionLabel,
-              regionType: row.regionType as Exclude<
-                JobMarketCompensation["regionType"],
-                "remote"
-              >,
-              activeJobs: Number(row.regionalActiveJobs ?? 0),
-              salarySampleCount: Number(row.salarySampleCount ?? 0),
-            })),
-          openJobsInScope,
-          salaryJobCount,
-          salaryCoveragePercent:
-            openJobsInScope > 0
-              ? Math.min(
-                  100,
-                  Math.round((salaryJobCount / openJobsInScope) * 1_000) / 10,
-                )
-              : 0,
-          topDecileThresholdMonthlyUsd: this.roundMarketNumber(
-            rows[0]?.topDecileThresholdMonthlyUsd ?? null,
-          ),
-          topDecileJobCount: Number(rows[0]?.topDecileJobCount ?? 0),
-          medianTopDecileMonthlyUsd: median(salaries),
-          breakdowns: {
-            classifications: createBreakdown(classificationEntries, 10),
-            seniorities: createBreakdown(seniorityEntries, 10),
-            tags: createBreakdown(tagEntries, 12),
-          },
-          jobs: rows.slice(0, 12).flatMap(row => {
-            const salary = this.roundMarketNumber(row.salaryMonthlyUsd);
-            if (salary === null) return [];
-            const level = seniority(row.seniority);
-            const workModes = new Set(
-              this.asStringArray(row.locationTypes).map(mode =>
-                mode.toLowerCase(),
-              ),
-            );
-            if (row.onsite) workModes.add("onsite");
-            if (row.hybrid) workModes.add("hybrid");
-            if (row.remote) workModes.add("remote");
-            const organizationSuffix = row.organizationName
-              ? `-${row.organizationName}`
-              : "";
-            return [
-              {
-                id: row.jobNodeId,
-                shortUuid: row.shortUuid,
-                title: row.title,
-                href: `/${slugify(row.title + organizationSuffix)}/${row.shortUuid}`,
-                organizationName: row.organizationName,
-                organizationLogoUrl: row.organizationLogoUrl,
-                classificationSlug: row.classificationSlug,
-                classificationLabel: this.marketLabel(
-                  "classifications",
-                  row.classificationLabel,
-                ),
-                senioritySlug: level?.slug ?? null,
-                seniorityLabel: level?.label ?? null,
-                location: row.location,
-                workModes: [...workModes],
-                publishedAt: row.publishedAt,
-                salaryMonthlyUsd: salary,
-                tags: Array.isArray(row.tags) ? row.tags.slice(0, 8) : [],
-              },
-            ];
-          }),
-        },
-      };
+        };
+      });
     } catch (error) {
       this.captureDatabaseError("getMarketTopPaying", error);
       return {
@@ -709,93 +730,102 @@ export class SearchService {
     classificationInput = "market",
   ): Promise<ResponseWithOptionalData<JobMarketSkillListData>> {
     try {
-      const segment = segmentInput === "local" ? "local" : "remote";
-      const allowedSorts = new Set([
-        "breakout",
-        "repricing",
-        "salary",
-        "demand",
-        "cooling",
-      ]);
-      const sort = allowedSorts.has(sortInput) ? sortInput : "breakout";
-      const canonicalClassification =
-        this.marketClassificationSlug(classificationInput);
-      const overviewRows = await this.jobMarketRepository.getOverview();
-      const marketRow = overviewRows.find(row => row.slug === "market");
-      const classificationRow = overviewRows.find(
-        row => row.slug === canonicalClassification,
-      );
-      const classification =
-        canonicalClassification === "market" || classificationRow
-          ? canonicalClassification
-          : "market";
-      const rows =
-        classification === "market"
-          ? await this.jobMarketRepository.getSkillSummaries(
-              segment,
-              query.trim(),
-            )
-          : await this.jobMarketRepository.getClassificationSkillSummaries(
-              classification,
-              segment,
-              query.trim(),
-            );
-      const skills = rows.map(row =>
-        this.marketSkillSummary(
-          row,
-          marketRow,
-          Number(classificationRow?.activeJobs ?? marketRow?.activeJobs ?? 0),
-        ),
-      );
-      const score = (skill: JobMarketSkillSummary): number => {
-        const repricing = skill.signal?.adjustedChangePercent ?? -Infinity;
-        const demand = skill.momentum.marketRelativeScore ?? -Infinity;
-        const salary = skill.current.medianMonthlyUsd ?? -Infinity;
-        if (sort === "salary") return salary;
-        if (sort === "repricing") return repricing;
-        if (sort === "demand") return demand;
-        if (sort === "cooling") return -demand;
-        if (Number.isFinite(repricing) || Number.isFinite(demand)) {
-          const breakoutBonus = skill.strongBreakout ? 1_000_000 : 0;
-          return breakoutBonus + repricing * 100 + demand;
-        }
-        return skill.activeJobs * 10 + skill.hiringCompanies;
-      };
-      const sorted = skills
-        .filter(skill => {
-          if (sort === "cooling") {
-            return (skill.momentum.marketRelativeScore ?? 0) < -5;
+      return await this.jobMarketRepository.withSnapshot<
+        ResponseWithOptionalData<JobMarketSkillListData>
+      >(async () => {
+        const segment = segmentInput === "local" ? "local" : "remote";
+        const allowedSorts = new Set([
+          "breakout",
+          "repricing",
+          "salary",
+          "demand",
+          "cooling",
+        ]);
+        const sort = allowedSorts.has(sortInput) ? sortInput : "breakout";
+        const canonicalClassification =
+          this.marketClassificationSlug(classificationInput);
+        const overviewRows = await this.jobMarketRepository.getOverview();
+        const marketRow = overviewRows.find(row => row.slug === "market");
+        const classificationRow = overviewRows.find(
+          row => row.slug === canonicalClassification,
+        );
+        const classification =
+          canonicalClassification === "market" || classificationRow
+            ? canonicalClassification
+            : "market";
+        const rows =
+          classification === "market"
+            ? await this.jobMarketRepository.getSkillSummaries(
+                segment,
+                query.trim(),
+              )
+            : await this.jobMarketRepository.getClassificationSkillSummaries(
+                classification,
+                segment,
+                query.trim(),
+              );
+        const skills = rows.map(row =>
+          this.marketSkillSummary(
+            row,
+            marketRow,
+            Number(classificationRow?.activeJobs ?? marketRow?.activeJobs ?? 0),
+          ),
+        );
+        const score = (skill: JobMarketSkillSummary): number => {
+          const repricing = skill.signal?.adjustedChangePercent ?? -Infinity;
+          const demand = skill.momentum.marketRelativeScore ?? -Infinity;
+          const salary = skill.current.medianMonthlyUsd ?? -Infinity;
+          if (sort === "salary") return salary;
+          if (sort === "repricing") return repricing;
+          if (sort === "demand") return demand;
+          if (sort === "cooling") return -demand;
+          if (Number.isFinite(repricing) || Number.isFinite(demand)) {
+            const breakoutBonus = skill.strongBreakout ? 1_000_000 : 0;
+            return breakoutBonus + repricing * 100 + demand;
           }
-          if (sort === "repricing") return skill.signal?.status === "rising";
-          return true;
-        })
-        .sort((left, right) => score(right) - score(left))
-        .slice(0, 250);
-      const asOf = rows[0]?.asOfDate ?? marketRow?.sampleDate;
-      if (!asOf) {
-        return { success: true, message: "Skill market not ready", data: null };
-      }
-      return {
-        success: true,
-        message: "Retrieved skill market",
-        data: {
-          asOf,
-          completeThrough: asOf,
-          methodologyVersion: "market-state-v3",
-          classification,
-          classificationLabel:
-            classification === "market"
-              ? "All roles"
-              : this.marketLabel(
-                  classificationRow?.kind ?? "classifications",
-                  classificationRow?.label ?? classification,
-                ),
-          segment,
-          sort: sort as JobMarketSkillListData["sort"],
-          query: query.trim(),
-          skills: sorted,
-        },
-      };
+          return skill.activeJobs * 10 + skill.hiringCompanies;
+        };
+        const sorted = skills
+          .filter(skill => {
+            if (sort === "cooling") {
+              return (skill.momentum.marketRelativeScore ?? 0) < -5;
+            }
+            if (sort === "repricing") return skill.signal?.status === "rising";
+            return true;
+          })
+          .sort((left, right) => score(right) - score(left))
+          .slice(0, 250);
+        const asOf = rows[0]?.asOfDate ?? marketRow?.sampleDate;
+        if (!asOf) {
+          return {
+            success: true,
+            message: "Skill market not ready",
+            data: null,
+          };
+        }
+        return {
+          success: true,
+          message: "Retrieved skill market",
+          data: {
+            publication: await this.jobMarketRepository.getPublication(),
+            asOf,
+            completeThrough: asOf,
+            methodologyVersion: "market-state-v3",
+            classification,
+            classificationLabel:
+              classification === "market"
+                ? "All roles"
+                : this.marketLabel(
+                    classificationRow?.kind ?? "classifications",
+                    classificationRow?.label ?? classification,
+                  ),
+            segment,
+            sort: sort as JobMarketSkillListData["sort"],
+            query: query.trim(),
+            skills: sorted,
+          },
+        };
+      });
     } catch (error) {
       this.captureDatabaseError("getMarketSkills", error);
       return { success: false, message: "Error retrieving skill market" };
@@ -807,35 +837,51 @@ export class SearchService {
     range = "max",
   ): Promise<ResponseWithOptionalData<JobMarketSkillDetailData>> {
     try {
-      const canonicalSlug = slug.startsWith("t-") ? slug : `t-${slugify(slug)}`;
-      const days = this.marketRangeDays(range);
-      const [historyRows, geographyRows, signalRows] = await Promise.all([
-        this.jobMarketRepository.getSkillWeeklyHistory(canonicalSlug, days),
-        this.jobMarketRepository.getGeography(
+      return await this.jobMarketRepository.withSnapshot<
+        ResponseWithOptionalData<JobMarketSkillDetailData>
+      >(async () => {
+        const canonicalSlug = slug.startsWith("t-")
+          ? slug
+          : `t-${slugify(slug)}`;
+        const days = this.marketRangeDays(range);
+        const historyRows =
+          await this.jobMarketRepository.getSkillWeeklyHistory(
+            canonicalSlug,
+            days,
+          );
+        const geographyRows = await this.jobMarketRepository.getGeography(
           canonicalSlug,
           this.marketRangeKey(range),
-        ),
-        this.jobMarketRepository.getLatestSkillSignals(canonicalSlug),
-      ]);
-      const first = historyRows[0];
-      const asOf =
-        geographyRows[0]?.asOfDate ?? signalRows[0]?.signalAsOf ?? null;
-      if (!first || !asOf) {
-        return { success: true, message: "Skill market not found", data: null };
-      }
-      return {
-        success: true,
-        message: "Retrieved skill market detail",
-        data: {
-          asOf,
-          completeThrough: asOf,
-          methodologyVersion: "market-state-v2",
-          skill: { slug: first.slug, label: first.label },
-          signals: signalRows.map(row => this.marketSkillSignal(row)),
-          compensation: geographyRows.map(row => this.marketCompensation(row)),
-          history: historyRows.map(row => this.marketSkillWeeklyPoint(row)),
-        },
-      };
+        );
+        const signalRows =
+          await this.jobMarketRepository.getLatestSkillSignals(canonicalSlug);
+        const first = historyRows[0];
+        const asOf =
+          geographyRows[0]?.asOfDate ?? signalRows[0]?.signalAsOf ?? null;
+        if (!first || !asOf) {
+          return {
+            success: true,
+            message: "Skill market not found",
+            data: null,
+          };
+        }
+        return {
+          success: true,
+          message: "Retrieved skill market detail",
+          data: {
+            publication: await this.jobMarketRepository.getPublication(),
+            asOf,
+            completeThrough: asOf,
+            methodologyVersion: "market-state-v2",
+            skill: { slug: first.slug, label: first.label },
+            signals: signalRows.map(row => this.marketSkillSignal(row)),
+            compensation: geographyRows.map(row =>
+              this.marketCompensation(row),
+            ),
+            history: historyRows.map(row => this.marketSkillWeeklyPoint(row)),
+          },
+        };
+      });
     } catch (error) {
       this.captureDatabaseError("getMarketSkillDetail", error);
       return { success: false, message: "Error retrieving skill detail" };

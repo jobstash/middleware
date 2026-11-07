@@ -1,6 +1,9 @@
 import { Injectable } from "@nestjs/common";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { EntityManager } from "typeorm";
 import { PostgresService } from "./postgres.service";
 import { strictFullyRemotePredicate } from "./search-document.repository";
+import type { JobMarketPublication } from "../search/dto/job-market.output";
 
 const MAX_ANNUAL_SALARY_RANGE_USD = 200_000;
 
@@ -154,8 +157,48 @@ export interface JobMarketTopPayingRow extends Record<string, unknown> {
 export class JobMarketRepository {
   constructor(private readonly postgres: PostgresService) {}
 
+  private readonly snapshot = new AsyncLocalStorage<EntityManager>();
+
+  withSnapshot<T>(work: () => Promise<T>): Promise<T> {
+    if (this.snapshot.getStore()) return work();
+    return this.postgres
+      .getDataSource()
+      .transaction("REPEATABLE READ", manager =>
+        this.snapshot.run(manager, work),
+      );
+  }
+
+  private query<T extends Record<string, unknown>>(
+    sql: string,
+    parameters: unknown[] = [],
+  ): Promise<T[]> {
+    const manager = this.snapshot.getStore();
+    return manager
+      ? manager.query<T[]>(sql, parameters)
+      : this.postgres.query<T>(sql, parameters);
+  }
+
+  async getPublication(): Promise<JobMarketPublication | null> {
+    const [row] = await this.query<
+      JobMarketPublication & Record<string, unknown>
+    >(`
+      SELECT publication.run_id::text AS "runId",
+        coalesce((SELECT max(captured.revision)::text
+          FROM jsonb_to_recordset(run.source_generations) captured(revision bigint)), '0') AS "sourceRevision",
+        publication.as_of_date::text AS "asOfDate",
+        publication.published_at::text AS "publishedAt",
+        (EXISTS(SELECT 1 FROM job_market_source_requests)
+          OR EXISTS(SELECT 1 FROM job_market_date_requests)
+          OR EXISTS(SELECT 1 FROM job_market_refresh_state WHERE rebuild_requested_at IS NOT NULL)
+          OR EXISTS(SELECT 1 FROM search_projection_transactions)) AS pending
+      FROM job_market_publication publication JOIN job_market_runs run ON run.id=publication.run_id
+      WHERE publication.singleton
+    `);
+    return row ?? null;
+  }
+
   getOverviewHistory(days = 35): Promise<JobMarketMetricRow[]> {
-    return this.postgres.query<JobMarketMetricRow>(
+    return this.query<JobMarketMetricRow>(
       `
         WITH market_pillar AS (
           SELECT id FROM job_market_pillars WHERE slug = 'market'
@@ -206,7 +249,7 @@ export class JobMarketRepository {
     slug: string,
     days: number | null,
   ): Promise<JobMarketMetricRow[]> {
-    return this.postgres.query<JobMarketMetricRow>(
+    return this.query<JobMarketMetricRow>(
       `
         WITH market_pillar AS (
           SELECT id FROM job_market_pillars WHERE slug = 'market'
@@ -214,6 +257,13 @@ export class JobMarketRepository {
           SELECT id, kind, slug, label
           FROM job_market_pillars
           WHERE slug = $1
+            AND (kind <> 'organizations' OR EXISTS (
+              SELECT 1 FROM organization_search_documents organization
+              JOIN job_search_documents document
+                ON document.organization_id = organization.organization_id
+              WHERE 'o-' || organization.normalized_name = $1
+                AND NOT document.blocked AND document.legacy_list_eligible
+            ))
         ), latest AS (
           SELECT max(metric.sample_date) AS sample_date
           FROM job_market_daily_metrics metric
@@ -255,7 +305,7 @@ export class JobMarketRepository {
   }
 
   getOverview(): Promise<JobMarketMetricRow[]> {
-    return this.postgres.query<JobMarketMetricRow>(`
+    return this.query<JobMarketMetricRow>(`
       WITH market_pillar AS (
         SELECT id FROM job_market_pillars WHERE slug = 'market'
       ), target_pillars AS MATERIALIZED (
@@ -349,7 +399,7 @@ export class JobMarketRepository {
     dimensionSlug: string,
     range: JobMarketRangeKey,
   ): Promise<JobMarketGeographyRow[]> {
-    return this.postgres.query<JobMarketGeographyRow>(
+    return this.query<JobMarketGeographyRow>(
       `
         WITH latest AS (
           SELECT max(as_of_date) AS as_of_date
@@ -405,7 +455,7 @@ export class JobMarketRepository {
     classificationSlug: string,
     range: JobMarketRangeKey,
   ): Promise<JobMarketCompensationBandRow[]> {
-    return this.postgres.query<JobMarketCompensationBandRow>(
+    return this.query<JobMarketCompensationBandRow>(
       `
         WITH latest AS (
           SELECT max(observed_date) AS observed_date
@@ -441,6 +491,7 @@ export class JobMarketRepository {
             ON document.job_node_id = observation.job_node_id
           CROSS JOIN latest
           WHERE observation.continent_slug = 'all'
+            AND NOT document.blocked AND document.legacy_list_eligible
             AND observation.seniority IS NOT NULL
             AND observation.seniority <> ''
             AND num_nonnulls(
@@ -550,7 +601,7 @@ export class JobMarketRepository {
         )
       )
     )`;
-    return this.postgres.query<JobMarketTopPayingRow>(
+    return this.query<JobMarketTopPayingRow>(
       `
         WITH latest AS (
           SELECT max(sample_date) AS as_of_date
@@ -729,7 +780,7 @@ export class JobMarketRepository {
     query: string,
   ): Promise<JobMarketSkillRow[]> {
     const remote = segment === "remote";
-    return this.postgres.query<JobMarketSkillRow>(
+    return this.query<JobMarketSkillRow>(
       `
         WITH latest AS (
           SELECT max(sample_date) AS as_of_date
@@ -842,6 +893,7 @@ export class JobMarketRepository {
           INNER JOIN job_market_pillars pillar
             ON pillar.id = mapping.pillar_id AND pillar.kind = 'tags'
           WHERE observation.classification_slug = $1
+            AND NOT document.blocked AND document.legacy_list_eligible
             AND observation.segment = $3
             AND observation.continent_slug = 'all'
             AND num_nonnulls(
@@ -955,7 +1007,7 @@ export class JobMarketRepository {
     query: string,
   ): Promise<JobMarketSkillRow[]> {
     const region = segment === "remote" ? "remote" : "local";
-    return this.postgres.query<JobMarketSkillRow>(
+    return this.query<JobMarketSkillRow>(
       `
         WITH latest_geo AS (
           SELECT max(as_of_date) AS as_of_date
@@ -1102,7 +1154,7 @@ export class JobMarketRepository {
     slug: string,
     days: number | null,
   ): Promise<JobMarketSkillWeeklyRow[]> {
-    return this.postgres.query<JobMarketSkillWeeklyRow>(
+    return this.query<JobMarketSkillWeeklyRow>(
       `
         WITH target AS (
           SELECT id, slug, label FROM job_market_pillars
@@ -1139,7 +1191,7 @@ export class JobMarketRepository {
   }
 
   getLatestSkillSignals(slug: string): Promise<JobMarketSkillRow[]> {
-    return this.postgres.query<JobMarketSkillRow>(
+    return this.query<JobMarketSkillRow>(
       `
         WITH target AS (
           SELECT id, slug, label FROM job_market_pillars

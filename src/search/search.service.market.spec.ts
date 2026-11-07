@@ -127,6 +127,8 @@ describe("SearchService job-market intelligence", () => {
       {} as SearchRepository,
       {} as never,
       {
+        withSnapshot: work => work(),
+        getPublication: jest.fn().mockResolvedValue(null),
         getGeography: jest.fn().mockResolvedValue([]),
         getClassificationCompensationBands: jest.fn().mockResolvedValue([]),
         getLatestSkillSignals: jest.fn().mockResolvedValue([]),

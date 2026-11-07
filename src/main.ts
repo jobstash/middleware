@@ -13,6 +13,7 @@ import basicAuth = require("express-basic-auth");
 import compression = require("compression");
 import { PublicModule } from "./public/public.module";
 import { generatePublicApiSpec } from "./shared/helpers";
+import { parseHttpQuery } from "./shared/helpers/http-query-parser";
 import {
   BROWSER_CORS_HEADERS,
   BROWSER_CORS_METHODS,
@@ -34,8 +35,8 @@ async function bootstrap(): Promise<void> {
     rawBody: true,
     bodyParser: true,
   });
-  // Express 5 defaults to the simple parser; retain nested filter/array queries.
-  app.getHttpAdapter().getInstance().set("query parser", "extended");
+  // Keep extended filter syntax while rejecting parser overflow, never truncating it.
+  app.getHttpAdapter().getInstance().set("query parser", parseHttpQuery);
   app.useGlobalPipes(
     new ValidationPipe({
       enableDebugMessages: process.env.NODE_ENV !== "production",
