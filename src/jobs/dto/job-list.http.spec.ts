@@ -213,15 +213,25 @@ describe("job filter HTTP input bounds", () => {
       .get(`/jobs/feed?${Array(4097).fill("a").join("&")}`)
       .expect(400);
     expect(getJobFeed).not.toHaveBeenCalled();
-    await request(app.getHttpServer())
-      .get("/jobs/feed?__proto__[polluted]=true&query=123")
-      .expect(200);
-    expect(getJobFeed.mock.calls.at(-1)[0].query).toBe("123");
-    expect(Object.prototype).not.toHaveProperty("polluted");
-    for (const query of ["tags[constructor]=x", "tags[__proto__]=x"]) {
-      await request(app.getHttpServer()).get(`/jobs/feed?${query}`).expect(200);
-      expect(getJobFeed.mock.calls.at(-1)[0].tags).toBeNull();
+    for (const query of [
+      "__proto__[polluted]=true&query=123",
+      "tags[constructor]=x",
+      "tags[__proto__]=x",
+      "tags%5Bconstr%75ctor%5D=x",
+      "tags[prototype]=x",
+      "tags[toString]=x",
+    ]) {
+      await request(app.getHttpServer()).get(`/jobs/feed?${query}`).expect(400);
+      expect(getJobFeed).not.toHaveBeenCalled();
     }
+    expect(Object.prototype).not.toHaveProperty("polluted");
+    await request(app.getHttpServer())
+      .get("/jobs/feed?tags=constructor&query=__proto__")
+      .expect(200);
+    expect(getJobFeed.mock.calls.at(-1)[0]).toMatchObject({
+      tags: ["constructor"],
+      query: "__proto__",
+    });
     getJobFeed.mockClear();
     await request(app.getHttpServer())
       .get("/jobs/feed?tags[a][b][c][d][e][f]=x")

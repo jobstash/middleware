@@ -101,6 +101,9 @@ each list allows at most 100 entries. Oversized values receive HTTP 400 before
 the search service runs. Values are never truncated or silently deduplicated;
 accepted array order, duplicate values, optional null/empty inputs, and existing
 pagination semantics remain unchanged. Canonical enum validation still applies.
+The shared extended parser rejects more than 4,096 query parameters and decoded
+prototype-shaped structural keys with HTTP 400 rather than dropping filters.
+Ordinary values such as `constructor` are not structural keys and remain valid.
 
 Filtering reads the typed `job_search_documents.employer_vertical` projection
 of the actual Organization or Project employer. It does not inherit another
