@@ -819,13 +819,13 @@ function interleaveSemiRandom<A, B>(
 
 export function sprinkleProtectedJobs<
   T extends { access: "public" | "protected" },
->(jobs: T[]): T[] {
+>(jobs: T[], totalJobs = jobs.length): T[] {
   const protectedJobs = jobs.filter(job => job.access === "protected");
   const publicJobs = jobs.filter(job => job.access === "public");
 
   return interleaveSemiRandom(publicJobs, protectedJobs, {
     // Expand the priority window to ensure enough room for protected jobs
-    N: Math.min(200, Math.max(100, Math.floor(jobs.length * 0.5))),
+    N: Math.min(200, Math.max(100, Math.floor(totalJobs * 0.5))),
     // Aim to place all (or nearly all) protected jobs within the first N
     targetBInFirstN: Math.min(protectedJobs.length, 200),
     // Reduce jitter to avoid drifting too many protected jobs past N under heavy A density

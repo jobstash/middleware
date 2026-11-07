@@ -1,3 +1,10 @@
+## 2026-11-07
+
+- Move job-feed, list, facet, pillar, and suggestion filtering onto typed/indexed projection facts and normalized facet relations. Resolve employer classifications without per-candidate graph lookups and read current import membership without scanning retained import history.
+- Add exact `GET /jobs/count` for the global header, reusing feed eligibility without constructing groups/cards. Bound non-fuzzy individual candidate transfer to the randomized priority window and requested tail, preserving totals, legacy page slices, featured sorts, and complete fuzzy matching.
+- Gate middleware startup on completed canonical projection migrations/backfill and add real PostgreSQL filter, count, ordering, and pagination parity regressions. Preserve Node 24/Alpine 3.24 runtime upgrades; no production migration or rollout is implied.
+- Assemble each job-market API response inside one PostgreSQL repeatable-read snapshot, matching ETL's atomic daily/intelligence publication. Job-market series are PostgreSQL-only; indirect ClickHouse collaboration changes enter through published job documents, not invented market tables or a distributed-transaction claim.
+
 ## 2026-11-06
 
 - Share the recommendation page-one fallback policy between uncached ranking and cached response slicing, preserving safe-positive-integer validation for NaN, infinities, zero, negative, fractional, null, and omitted pages. Extend cache/paging regressions without changing ranking, eligibility, or query timing.

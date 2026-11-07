@@ -118,12 +118,12 @@ describe("SearchRepository", () => {
     await repository.getPillarConfigs("jobs");
 
     const [sql] = query.mock.calls[0];
-    expect(sql).toContain("entry.key LIKE 'place:%'");
-    expect(sql).toContain("entry.key LIKE 'raw:%'");
+    expect(sql).toContain("entry.filter_key LIKE 'place:%'");
+    expect(sql).toContain("entry.filter_key LIKE 'raw:%'");
     expect(sql).toContain("'timezones'");
-    expect(sql).toContain("filter_labels -> 'timezones'");
+    expect(sql).toContain("category = 'timezones'");
     expect(sql).toContain("'collaborationHours'");
-    expect(sql).toContain("job_team_collaboration_hour_keys(");
+    expect(sql).toContain("source.collaboration_hour_keys");
   });
 
   it("searches real geographic facets for location suggestions", async () => {
@@ -154,11 +154,16 @@ describe("SearchRepository", () => {
     ]);
 
     const [sql, parameters] = query.mock.calls[0];
-    expect(sql).toContain("filter_labels -> 'cities'");
-    expect(sql).toContain("filter_labels -> 'regions'");
-    expect(sql).toContain("filter_labels -> 'countries'");
-    expect(sql).toContain("filter_labels -> 'continents'");
-    expect(sql).toContain("filter_labels -> 'timezones'");
+    for (const category of [
+      "cities",
+      "regions",
+      "countries",
+      "continents",
+      "timezones",
+    ]) {
+      expect(sql).toContain(`entry.category = '${category}'`);
+    }
+    expect(sql).not.toContain("jsonb_each_text");
     expect(sql).toContain("prefix || '-' || slugify_text(label)");
     expect(parameters).toEqual(["berlin", 1, 2, 0, 10]);
   });
@@ -183,9 +188,7 @@ describe("SearchRepository", () => {
     ).resolves.toEqual([{ id: "remote", label: "Remote", href: "/lt-remote" }]);
 
     const [sql, parameters] = query.mock.calls[0];
-    expect(sql).toContain(
-      "structured_job_work_location_modes(recent.job_node_id)",
-    );
+    expect(sql).toContain("recent.pillar_work_mode_keys");
     expect(parameters).toEqual(["remote", 1, 2, 0, 10]);
   });
 
@@ -205,7 +208,7 @@ describe("SearchRepository", () => {
     const [sql, parameters] = query.mock.calls[0];
     expect(sql).toContain("SELECT 'workModes', mode AS label");
     expect(sql).toContain("SELECT 'locations', label");
-    expect(sql).toContain("filter_labels -> 'cities'");
+    expect(sql).toContain("entry.category = 'cities'");
     expect(parameters).toEqual(["ber", 1, 2]);
   });
 
@@ -223,11 +226,13 @@ describe("SearchRepository", () => {
     });
 
     const [sql, parameters] = query.mock.calls[0];
-    expect(sql).toContain("job_has_work_location_mode(job.job_node_id");
+    expect(sql).toContain(
+      "job.pillar_work_mode_keys && ARRAY['remote', 'remote_or_office', 'fully_remote']",
+    );
     expect(sql).toContain("job.legacy_list_eligible");
     expect(sql).toContain("cardinality(job.tags) > 0");
     expect(sql).toContain("organization_has_expert_jobs");
-    expect(parameters).toEqual([1, 2, "remote", 60]);
+    expect(parameters).toEqual([1, 2, 60]);
   });
 
   it("applies the strict global predicate to the fully-remote pillar", async () => {
@@ -244,19 +249,10 @@ describe("SearchRepository", () => {
     });
 
     const [sql, parameters] = query.mock.calls[0];
-    expect(sql).toContain("job.work_arrangement ->> 'fullyRemote' = 'true'");
-    expect(sql).toContain("remote_option.scope = 'global'");
-    expect(sql).toContain("cardinality(remote_option.countries) = 0");
-    expect(sql).toContain("cardinality(remote_option.regions) = 0");
-    expect(sql).toContain(
-      "remote_option.required_minimum_utc_offset_minutes IS NULL",
-    );
-    expect(sql).toContain(
-      "cardinality(remote_option.residency_requirements) = 0",
-    );
-    expect(sql).toContain("job.payload -> 'availability'");
-    expect(sql).toContain("jsonb_typeof(job.payload -> 'availability')");
-    expect(sql).toContain("required_remote_availability.item ->> 'workMode'");
+    expect(sql).toContain("job.strict_fully_remote");
+    expect(sql).not.toContain("job_availability_extractions");
+    expect(sql).not.toContain("job_work_location_options");
+    expect(sql).not.toContain("jsonb_array_elements");
     expect(sql).not.toContain("job_has_work_location_mode(job.job_node_id");
     expect(parameters).toEqual([1, 2, 60]);
   });
@@ -275,7 +271,7 @@ describe("SearchRepository", () => {
     });
 
     const [sql, parameters] = query.mock.calls[0];
-    expect(sql).toContain("job_has_team_collaboration_hour(");
+    expect(sql).toContain("$3 = ANY(job.collaboration_hour_keys)");
     expect(sql).toContain("'collaborationHours'");
     expect(sql).toContain("LEFT JOIN project_search_documents project");
     expect(sql).toContain("'project', CASE");

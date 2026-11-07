@@ -238,6 +238,10 @@ export class JobsService {
     };
   }
 
+  getJobCount(): Promise<{ totalJobs: number }> {
+    return this.searchDocuments.getJobCount();
+  }
+
   async getJobFeed(
     input: JobFeedParams & { ecosystemHeader?: string },
   ): Promise<JobFeedResult> {

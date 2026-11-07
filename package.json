@@ -26,6 +26,7 @@
     "test:postgres": "RUN_POSTGRES_INTEGRATION=1 yarn test --runInBand src/postgres",
     "db:validate:postgres": "node -r ts-node/register -r tsconfig-paths/register scripts/validate-postgres-projections.ts",
     "db:benchmark:postgres": "node -r ts-node/register -r tsconfig-paths/register scripts/benchmark-postgres-search.ts",
+    "db:benchmark:filters": "node -r ts-node/register -r tsconfig-paths/register scripts/benchmark-job-filter-projections.ts",
     "db:parity:postgres": "node -r ts-node/register -r tsconfig-paths/register scripts/compare-production-parity.ts",
     "db:parity:filters": "node -r ts-node/register -r tsconfig-paths/register scripts/compare-production-filter-parity.ts"
   },

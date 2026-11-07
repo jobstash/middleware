@@ -3,6 +3,14 @@ export type JobMarketDirection =
 
 export type JobMarketEvidenceLevel = "insufficient" | "limited" | "strong";
 
+export interface JobMarketPublication {
+  runId: string;
+  sourceRevision: string;
+  asOfDate: string;
+  publishedAt: string;
+  pending: boolean;
+}
+
 export interface JobMarketFilter {
   paramKey:
     | "tags"
@@ -134,6 +142,7 @@ export interface JobMarketSkillSignal {
 }
 
 export interface PillarMarketData {
+  publication?: JobMarketPublication | null;
   asOf: string;
   pillar: {
     kind: string;
@@ -160,6 +169,7 @@ export interface JobMarketTicker {
 }
 
 export interface JobMarketOverviewData {
+  publication?: JobMarketPublication | null;
   asOf: string;
   market: JobMarketTicker;
   classifications: JobMarketTicker[];
@@ -218,6 +228,7 @@ export interface JobMarketTopPayingJob {
 }
 
 export interface JobMarketTopPayingData {
+  publication?: JobMarketPublication | null;
   asOf: string;
   methodologyVersion: "market-top-pay-v2";
   scope: {
@@ -264,6 +275,7 @@ export interface JobMarketSkillSummary {
 }
 
 export interface JobMarketSkillListData {
+  publication?: JobMarketPublication | null;
   asOf: string;
   completeThrough: string;
   methodologyVersion: "market-state-v3";
@@ -293,6 +305,7 @@ export interface JobMarketSkillWeeklyPoint {
 }
 
 export interface JobMarketSkillDetailData {
+  publication?: JobMarketPublication | null;
   asOf: string;
   completeThrough: string;
   methodologyVersion: "market-state-v2";
