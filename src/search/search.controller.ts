@@ -24,6 +24,7 @@ import { SearchPillarItemParams } from "./dto/search-pillar-items.input";
 import { PBACGuard } from "src/auth/pbac.guard";
 import {
   CACHE_DURATION_15_MINUTES,
+  CACHE_DURATION_1_HOUR,
   ECOSYSTEM_HEADER,
 } from "src/shared/constants";
 import { Session } from "src/shared/decorators";
@@ -32,7 +33,7 @@ import { ProfileService } from "src/auth/profile/profile.service";
 import { FetchPillarItemLabelsInput } from "./dto/fetch-pillar-item-labels.input";
 import { SearchParams } from "./dto/search.input";
 import { SearchPillarFiltersParams } from "./dto/search-pillar-filters-params.input";
-import { PillarPageData } from "./dto/pillar-page.output";
+import { PillarPageData, SitemapJob } from "./dto/pillar-page.output";
 import { JobSuggestionsInput } from "./dto/job-suggestions.input";
 import { SuggestionsResponse } from "./dto/job-suggestions.output";
 import { SkillSuggestionsInput } from "./dto/skill-suggestions.input";
@@ -164,30 +165,16 @@ export class SearchController {
   }
 
   @Get("pillar/slugs")
-  @ApiHeader({
-    name: ECOSYSTEM_HEADER,
-    required: false,
+  @ApiOperation({
+    summary: "List every job pillar slug",
     description:
-      "Optional header to tailor the response for a specific ecosystem",
+      "Returns the slugs of all job pillars with activity in the pillar date range plus the fixed boolean pillars. Used for static-route generation.",
   })
   @UseGuards(PBACGuard)
-  @UseInterceptors(new CacheHeaderInterceptor({ mode: "revalidate-always" }))
-  async searchPillarSlugs(
-    @Session() { address }: SessionObject,
-    @Query("nav") nav: SearchNav,
-    @Headers(ECOSYSTEM_HEADER)
-    ecosystem: string | undefined,
-  ): Promise<string[]> {
-    const query = JSON.stringify({
-      nav,
-      ecosystem: ecosystem ?? null,
-    });
-    this.logger.log(`/search/pillar/items ${query}`);
-    if (address) {
-      await this.profileService.logSearchInteraction(address, query);
-    }
-    const result = await this.searchService.searchPillarSlugs(nav, ecosystem);
-    return result;
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_15_MINUTES))
+  async searchPillarSlugs(): Promise<string[]> {
+    this.logger.log("/search/pillar/slugs");
+    return this.searchService.searchJobPillarSlugs();
   }
 
   @Get("pillar/details")
@@ -307,5 +294,34 @@ export class SearchController {
     @Query("value") value: string,
   ): Promise<ResolvedPlacePillar | undefined> {
     return this.searchService.resolveLocationPillar(value);
+  }
+
+  @Get("sitemap/pillars")
+  @ApiOperation({
+    summary: "Get all job pillars for sitemap generation",
+    description:
+      "Returns slug, lastModified and jobCount for every job pillar with activity in the pillar date range.",
+  })
+  @UseGuards(PBACGuard)
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  async searchSitemapPillars(): Promise<{
+    data: { slug: string; lastModified: string; jobCount: number }[];
+  }> {
+    this.logger.log("/search/sitemap/pillars");
+    const data = await this.searchService.searchPillarSitemapSlugs();
+    return { data };
+  }
+
+  @Get("sitemap/jobs")
+  @ApiOperation({
+    summary: "Get all active jobs for sitemap generation",
+    description:
+      "Returns minimal job data (shortUUID, title, organizationName, timestamp) for all active/published jobs. Optimized for sitemap XML generation.",
+  })
+  @UseGuards(PBACGuard)
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  async getSitemapJobs(): Promise<ResponseWithOptionalData<SitemapJob[]>> {
+    this.logger.log("/search/sitemap/jobs");
+    return this.searchService.getSitemapJobs();
   }
 }

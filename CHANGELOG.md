@@ -1,3 +1,7 @@
+## 2026-11-08
+
+- Serve job-market intelligence, job/pillar sitemap feeds, and the job pillar slug list on canonical unversioned paths: `GET /search/market/{overview,state,top-paying,skills,skills/:slug,pillars/:slug}`, `GET /search/sitemap/{jobs,pillars}`, and `GET /search/pillar/slugs`. The consumer-less nav-scoped `GET /search/pillar/slugs?nav=` variant is replaced by the job pillar slug list; the `/v2/search/*` namespace is retired once consumers move to the canonical paths.
+
 ## 2026-11-07
 
 - Move job-feed, list, facet, pillar, and suggestion filtering onto typed/indexed projection facts and normalized facet relations. Resolve employer classifications without per-candidate graph lookups and read current import membership without scanning retained import history.
