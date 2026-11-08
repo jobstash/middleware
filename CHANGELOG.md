@@ -1,6 +1,7 @@
 ## 2026-11-08
 
-- Serve job-market intelligence, job/pillar sitemap feeds, and the job pillar slug list on canonical unversioned paths: `GET /search/market/{overview,state,top-paying,skills,skills/:slug,pillars/:slug}`, `GET /search/sitemap/{jobs,pillars}`, and `GET /search/pillar/slugs`. The consumer-less nav-scoped `GET /search/pillar/slugs?nav=` variant is replaced by the job pillar slug list; the `/v2/search/*` namespace is retired once consumers move to the canonical paths.
+- Serve job-market intelligence, job/pillar sitemap feeds, and the job pillar slug list on canonical unversioned paths: `GET /search/market/{overview,state,top-paying,skills,skills/:slug,pillars/:slug}`, `GET /search/sitemap/{jobs,pillars}`, and `GET /search/pillar/slugs`. The consumer-less nav-scoped `GET /search/pillar/slugs?nav=` variant is replaced by the job pillar slug list.
+- Remove the `/v2/search/*` namespace entirely now that every consumer reads the canonical paths; `/v2/*` requests answer 404 with no alias or redirect.
 
 ## 2026-11-07
 
