@@ -566,11 +566,6 @@ describePostgres("SearchRepository PostgreSQL integration", () => {
   });
 
   it("produces pillar slugs, labels, and stored copy", async () => {
-    await expect(
-      service.searchPillarSlugs("projects", undefined),
-    ).resolves.toEqual(
-      expect.arrayContaining(["c-defi", "p-acme-protocol", "t-typescript"]),
-    );
     await expect(service.searchJobPillarSlugs()).resolves.toEqual(
       expect.arrayContaining([
         "t-typescript",

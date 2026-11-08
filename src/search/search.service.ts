@@ -1053,20 +1053,6 @@ export class SearchService {
     }
   }
 
-  async searchPillarSlugs(
-    nav: SearchNav,
-    ecosystem: string | undefined,
-  ): Promise<string[]> {
-    const configs = await this.loadPillarConfigs(nav, ecosystem);
-    return (NAV_PILLAR_ORDERING[nav] ?? []).flatMap(pillar => {
-      const prefix = NAV_PILLAR_SLUG_PREFIX_MAPPINGS[nav]?.[pillar];
-      const data = this.getUnfilteredPillar(configs, nav, pillar, ecosystem);
-      return prefix
-        ? (data?.items ?? []).map(item => `${prefix}-${slugify(item)}`)
-        : [];
-    });
-  }
-
   async searchJobPillarSlugs(): Promise<string[]> {
     const entries = await this.searchRepository.getJobPillarSitemap(
       this.getPillarDateRange(),
